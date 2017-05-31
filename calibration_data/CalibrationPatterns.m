@@ -22,12 +22,12 @@
 %% Input data and parameters
 
 % Image pixel dimensions (height, width)
-image_size = [1050 1680];
+image_size = [1080 1920];
 
 % Image resolution (pixels per inch)
 resolution_ppi = [];
 % or pixel pitch (mm per pixel)
-resolution_pitch = 0.282;
+resolution_pitch = 0.311;
 
 % Disk radius in millimetres
 disk_radius = 4;
