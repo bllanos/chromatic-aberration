@@ -22,7 +22,9 @@
 %% Input data and parameters
 
 % Image pixel dimensions (height, width)
-image_size = [1080 1920];
+% - [1080 1920] for the LG 27MP37HQ monitor
+% - [1050 1680] for the Acer AL2216W monitor
+image_size = [1050 1680];
 
 % Image resolution (pixels per inch)
 resolution_ppi = [];
