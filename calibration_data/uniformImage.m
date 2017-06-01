@@ -1,12 +1,15 @@
-function [ I ] = uniformImage( sz, c )
+function [ I, I_rgb ] = uniformImage( sz, c )
 % UNIFORMIMAGE  Generate a uniformly-coloured image
 %
 % ## Syntax
 % [ I ] = uniformImage( sz, c )
+% [ I, I_rgb ] = uniformImage( sz, c )
 %
 % ## Description
 % [ I ] = uniformImage( sz, c )
 %   Returns an image with the given size and colour.
+% [ I, I_rgb ] = uniformImage( sz, c )
+%   Additionally returns individual colour channels as full images.
 %
 % ## Input Arguments
 %
@@ -23,8 +26,13 @@ function [ I ] = uniformImage( sz, c )
 %
 % ## Output Arguments
 %
-% I -- Output Image
+% I -- Output image
 %   An image of dimensions `sz` with colour `c`.
+%
+% I_rgb -- Output image channels
+%   A 3-element cell vector where the elements are versions of `I` with the
+%   same Red, Green, and Blue channels as `I`, respectively, but with the
+%   two other colour channels set to zero.
 %
 % ## References
 % - Mosleh, A., Green, P., Onzon, E., Begin, I., & Langlois, J. M. P. (2015).
@@ -38,7 +46,7 @@ function [ I ] = uniformImage( sz, c )
 % University of Alberta, Department of Computing Science
 % File created May 31, 2017
 
-nargoutchk(1, 1);
+nargoutchk(1, 2);
 narginchk(2, 2);
 
 if length(c) == 1
@@ -47,5 +55,12 @@ end
 
 I = ones(sz);
 I = cat(3, I * c(1), I * c(2), I * c(3));
+
+if nargout > 1
+    I_rgb = {I, I, I};
+    I_rgb{1}(:, :, 2:3) = 0;
+    I_rgb{2}(:, :, [1 3]) = 0;
+    I_rgb{3}(:, :, 1:2) = 0;
+end
 
 end

@@ -27,7 +27,9 @@ image_size = [1080 1920];
 % Image resolution (pixels per inch)
 resolution_ppi = [];
 % or pixel pitch (mm per pixel)
-resolution_pitch = 0.311;
+% - 0.311 mm for the LG 27MP37HQ monitor
+% - 0.282 mm for the Acer AL2216W monitor
+resolution_pitch = 0.282;
 
 % Disk radius in millimetres
 disk_radius = 4;
@@ -36,7 +38,10 @@ disk_radius = 4;
 disk_separation = 11;
 
 % Output Directory
-output_directory = 'C:\Users\llanos\Google Drive\ThesisResearch\Data and Results\20170531_CalibrationPatterns';
+output_directory = 'C:\Users\llanos\Google Drive\ThesisResearch\Data and Results\20170531_CalibrationPatterns\Acer';
+
+% Filename Suffix
+filename_suffix = '_Acer';
 
 %% Unit conversions
 inchPerMM = unitsratio('inch', 'mm');
@@ -55,23 +60,23 @@ end
 
 %% Uniform calibration patterns
 
-I_black = uniformImage( image_size, 0 );
-I_white = uniformImage( image_size, 1 );
+[I_black, I_black_rgb] = uniformImage( image_size, 0 );
+[I_white, I_white_rgb] = uniformImage( image_size, 1 );
 
 %% Disk calibration patterns
 
-I_disks_black = diskImage(...
+[I_disks_black, I_disks_black_rgb] = diskImage(...
     image_size, resolution_mm, disk_radius, disk_separation,...
     1, 0 ...
 );
-I_disks_white = diskImage(...
+[I_disks_white, I_disks_white_rgb] = diskImage(...
     image_size, resolution_mm, disk_radius, disk_separation,...
     0, 1 ...
 );
 
 %% Save images
 
-tiff_extension = '.tiff';
+tiff_extension = [filename_suffix '.tiff'];
 
 param_str = [
     '_', num2str(image_size(1)), 'x', num2str(image_size(2))
@@ -100,6 +105,9 @@ general_tiff_options = {
     'Resolution', resolution_ppi
 };
 
+n_channels = 3;
+channel_labels = {'R', 'G', 'B'};
+
 % Uniform black
 tiff_options = [general_tiff_options {
     'Description', 'Uniform black'
@@ -122,6 +130,14 @@ imwrite(...
     tiff_options{:}...
     );
 
+for i = 1:n_channels
+    imwrite(...
+        I_white_rgb{i},...
+        fullfile(output_directory, ['white', channel_labels{i}, filename_base]),...
+        tiff_options{:}...
+    );
+end
+
 % Black disks
 tiff_options = [general_tiff_options {
     'Description', 'Black disks'
@@ -133,6 +149,14 @@ imwrite(...
     tiff_options{:}...
     );
 
+for i = 1:n_channels
+    imwrite(...
+        I_disks_black_rgb{i},...
+        fullfile(output_directory, ['disksBlack', channel_labels{i}, filename_base]),...
+        tiff_options{:}...
+    );
+end
+
 % White disks
 tiff_options = [general_tiff_options {
     'Description', 'White disks'
@@ -143,3 +167,11 @@ imwrite(...
     fullfile(output_directory, ['disksWhite' disks_filename_base]),...
     tiff_options{:}...
     );
+
+for i = 1:n_channels
+    imwrite(...
+        I_disks_white_rgb{i},...
+        fullfile(output_directory, ['disksWhite', channel_labels{i}, filename_base]),...
+        tiff_options{:}...
+    );
+end

@@ -1,12 +1,15 @@
-function [ I ] = diskImage( sz, res, r, sep, c_bg, c_fg )
+function [ I, I_rgb ] = diskImage( sz, res, r, sep, c_bg, c_fg )
 % DISKIMAGE  Generate a image of a grid of disks
 %
 % ## Syntax
 % [ I ] = diskImage( sz, res, r, sep, c_bg, c_fg )
+% [ I, I_rgb ] = diskImage( sz, res, r, sep, c_bg, c_fg )
 %
 % ## Description
 % [ I ] = diskImage( sz, res, r, sep, c_bg, c_fg )
 %   Returns an image containing a grid of sharp-edged disks
+% [ I, I_rgb ] = diskImage( sz, res, r, sep, c_bg, c_fg )
+%   Additionally returns individual colour channels as full images.
 %
 % ## Input Arguments
 %
@@ -45,6 +48,11 @@ function [ I ] = diskImage( sz, res, r, sep, c_bg, c_fg )
 %   An image of dimensions `sz` with a centered grid of disks meeting the
 %   requirements of the input arguments.
 %
+% I_rgb -- Output image channels
+%   A 3-element cell vector where the elements are versions of `I` with the
+%   same Red, Green, and Blue channels as `I`, respectively, but with the
+%   two other colour channels set to zero.
+%
 % ## References
 % - Mannan, F. & Langer, M. S. (2016a). "Blur calibration for depth from
 %   defocus." In J. Guerrero (Ed.), 13th Conference on Computer and Robot
@@ -60,7 +68,7 @@ function [ I ] = diskImage( sz, res, r, sep, c_bg, c_fg )
 % University of Alberta, Department of Computing Science
 % File created May 31, 2017
 
-nargoutchk(1, 1);
+nargoutchk(1, 2);
 narginchk(6, 6);
 
 if length(c_bg) == 1
@@ -96,5 +104,12 @@ I = insertShape(...
     [disk_centers_x(:) disk_centers_y(:) repmat(r, prod(n), 1)],...
     'Color', c_fg, 'Opacity', 1, 'SmoothEdges', false...
 );
+
+if nargout > 1
+    I_rgb = {I, I, I};
+    I_rgb{1}(:, :, 2:3) = 0;
+    I_rgb{2}(:, :, [1 3]) = 0;
+    I_rgb{3}(:, :, 1:2) = 0;
+end
 
 end
