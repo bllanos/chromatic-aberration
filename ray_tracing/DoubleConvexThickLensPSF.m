@@ -31,6 +31,8 @@
 % - 'theta' is the angle between a direction and the positive z-axis.
 % - 'phi' is the angle between a direction and the positive x-axis
 
+% ## Raytracing parameters
+
 % Location of light source
 s_position = [0, 0, 10];
 
@@ -41,7 +43,7 @@ radius_front = 1.0;
 theta_aperture_front = pi / 4;
 
 % Radius of the back of the lens
-radius_back = 1.0;
+radius_back = 2.0;
 
 % Exposed angular range of the back of the lens (i.e. aperture)
 theta_aperture_back = pi / 4;
@@ -66,6 +68,14 @@ film_z = -10;
 % Point of incidence on the front of the lens, in spherical polar
 % coordinates (theta, phi)
 incident_position = [0, 0];
+
+% ## Visualization parameters
+
+% Sampling resolution for lens surface theta values
+n_theta_vis = 10;
+
+% Sampling resolution for lens surface phi values
+n_phi_vis = 20;
 
 %% Trace rays through the lens
 
@@ -129,19 +139,39 @@ emitted_normal = emitted_normal ./ repmat(...
     sqrt(dot(emitted_normal, emitted_normal, 2)),...
     1, 3 ...
     );
-emitted_theta = acos(-emitted_normal(:, 3));
-back_aperture_filter = repmat(emitted_theta <= theta_aperture_back, 1, 3);
-emitted_position_cartesian(back_aperture_filter) = NaN;
-emitted_normal(back_aperture_filter) = NaN;
+emitted_cos_theta = -emitted_normal(:, 3);
+back_aperture_filter = repmat(emitted_cos_theta >= cos(theta_aperture_back), 1, 3);
+
+emitted_position_cartesian_culled = emitted_position_cartesian;
+emitted_position_cartesian_culled(back_aperture_filter) = NaN;
+emitted_normal_culled = emitted_normal;
+emitted_normal_culled(back_aperture_filter) = NaN;
 
 % Refraction at the back of the lens
 emitted_direction = refract(...
-    ior_lens, ior_environment, emitted_normal, internal_direction...
+    ior_lens, ior_environment, emitted_normal_culled, internal_direction...
     );
 
 % Intersection with the film
-distance_to_film = film_z - emitted_position_cartesian;
+distance_to_film = film_z - emitted_position_cartesian_culled(:, 3);
 steps_to_film = distance_to_film ./ emitted_direction(:, 3);
 steps_to_film(steps_to_film < 0) = NaN;
-image_position = emitted_position_cartesian +...
+image_position = emitted_position_cartesian_culled +...
     repmat(steps_to_film, 1, 3) .* emitted_direction;
+
+%% 3D visualization
+
+figure
+hold on
+
+% Lens
+[x, y, z] = sphereSection( n_phi_vis, n_theta_vis, theta_aperture_front, radius_front );
+lens_front = surf(x, y, z);
+set(lens_front, 'EdgeColor', 'none', 'FaceAlpha', 0.4, 'FaceColor', 'g');
+[x, y, z] = sphereSection( n_phi_vis, n_theta_vis, theta_aperture_back, radius_back );
+z = -d_lens - z;
+lens_back = surf(x, y, z);
+set(lens_back, 'EdgeColor', 'none', 'FaceAlpha', 0.4, 'FaceColor', 'r');
+axis equal
+
+hold off
