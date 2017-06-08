@@ -36,19 +36,19 @@
 % ## Raytracing parameters
 
 % Location of light source
-s_position = [1, 3, 10];
+s_position = [3, 3, 10];
 
 % Radius of the front of the lens
 radius_front = 1.0;
 
 % Exposed angular range of the front of the lens (i.e. aperture)
-theta_aperture_front = pi / 6;
+theta_aperture_front = pi / 4;
 
 % Radius of the back of the lens
 radius_back = 2.0;
 
 % Exposed angular range of the back of the lens (i.e. aperture)
-theta_aperture_back = pi / 4;
+theta_aperture_back = pi / 6;
 
 % Separation between the centres of the spheres corresponding to the front
 % and back of the lens. (A shift in the positive direction moves the back
@@ -56,7 +56,7 @@ theta_aperture_back = pi / 4;
 d_lens = -1;
 
 % Number of samples over the front of the lens
-n_incident_rays = 50;
+n_incident_rays = 100;
 
 % Environment index of refraction
 ior_environment = 1.0;
@@ -111,6 +111,13 @@ incident_direction = incident_direction ./ repmat(...
 
 % Cosine of angle with surface normal at the point of incidence
 incident_cosine = - dot(incident_normal, incident_direction, 2);
+
+% Cull rays which are occluded by the lens surface before the point of
+% incidence
+front_occlusion_filter = (incident_cosine <= 0);
+front_occlusion_filter = repmat(front_occlusion_filter, 1, 3);
+incident_direction(front_occlusion_filter) = NaN;
+incident_position_cartesian(front_occlusion_filter) = NaN;
 
 % Power transmitted by the ray
 ray_power = ray_area * incident_cosine;
@@ -175,14 +182,27 @@ hold on
 % Lens
 [x, y, z] = sphereSection( n_phi_vis, n_theta_vis, theta_aperture_front, radius_front );
 lens_front = surf(x, y, z);
-set(lens_front, 'EdgeColor', 'none', 'FaceAlpha', 0.4, 'FaceColor', 'g');
+set(lens_front, 'EdgeColor', 'g', 'FaceAlpha', 0.4, 'FaceColor', 'g');
 [x, y, z] = sphereSection( n_phi_vis, n_theta_vis, theta_aperture_back, radius_back );
 z = -d_lens - z;
 lens_back = surf(x, y, z);
-set(lens_back, 'EdgeColor', 'none', 'FaceAlpha', 0.4, 'FaceColor', 'r');
+set(lens_back, 'EdgeColor', 'r', 'FaceAlpha', 0.4, 'FaceColor', 'r');
 
 % Light Source
 scatter3(s_position(:, 1), s_position(:, 2), s_position(:, 3), 'c', 'filled');
+
+% Film
+min_x = min(image_position(:, 1));
+max_x = max(image_position(:, 1));
+min_y = min(image_position(:, 2));
+max_y = max(image_position(:, 2));
+
+surf(...
+    [min_x, max_x; min_x, max_x],...
+    [max_y, max_y; min_y, min_y],...
+    [film_z, film_z; film_z, film_z],...
+    'EdgeColor', 'k', 'FaceAlpha', 0.4, 'FaceColor', 'y' ...
+);
 
 % Colour rays according to their power
 ray_power_max = max(ray_power);
@@ -230,3 +250,4 @@ set(gca, 'Color', 'none');
 xlabel('X');
 ylabel('Y');
 zlabel('Z');
+title('Raytracing from a point source through a double spherical lens')
