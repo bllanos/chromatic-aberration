@@ -15,6 +15,8 @@
 %   - http://www.ccs.neu.edu/home/fell/CSU540/programs/RayTracingFormulas.htm
 %   - https://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter1.htm
 %   - https://en.wikipedia.org/wiki/Line%E2%80%93sphere_intersection
+% - Uniform sampling of the surface of a sphere:
+%   http://mathworld.wolfram.com/SpherePointPicking.html
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -34,13 +36,13 @@
 % ## Raytracing parameters
 
 % Location of light source
-s_position = [0, 0, 10];
+s_position = [1, 3, 10];
 
 % Radius of the front of the lens
 radius_front = 1.0;
 
 % Exposed angular range of the front of the lens (i.e. aperture)
-theta_aperture_front = pi / 4;
+theta_aperture_front = pi / 6;
 
 % Radius of the back of the lens
 radius_back = 2.0;
@@ -51,10 +53,10 @@ theta_aperture_back = pi / 4;
 % Separation between the centres of the spheres corresponding to the front
 % and back of the lens. (A shift in the positive direction moves the back
 % of the lens in the negative z-direction.)
-d_lens = 0;
+d_lens = -1;
 
 % Number of samples over the front of the lens
-n_incident_rays = 1;
+n_incident_rays = 50;
 
 % Environment index of refraction
 ior_environment = 1.0;
@@ -64,10 +66,6 @@ ior_lens = 1.52;
 
 % z-position of photographic film parallel to the xy-plane
 film_z = -10;
-
-% Point of incidence on the front of the lens, in spherical polar
-% coordinates (theta, phi)
-incident_position = [0, 0];
 
 % ## Visualization parameters
 
@@ -80,23 +78,33 @@ n_phi_vis = 20;
 %% Trace rays through the lens
 
 % Total surface area defined by the aperture
-aperture_area = 2 * pi * (1 - cos(theta_aperture_front));
+cos_theta_aperture_front = cos(theta_aperture_front);
+aperture_area = 2 * pi * (1 - cos_theta_aperture_front);
 
 % Average area for one sample
 ray_area = aperture_area / n_incident_rays;
 
+% Point of incidence on the front of the lens, in spherical polar
+% coordinates (theta, phi)
+% Uniform sampling: See http://mathworld.wolfram.com/SpherePointPicking.html
+incident_position = [
+    acos(cos_theta_aperture_front + rand(n_incident_rays, 1)*(1 - cos_theta_aperture_front)),...
+    2 * pi * rand(n_incident_rays, 1)
+    ];
+
 % Surface normal at the point of incidence on the front of the lens
 incident_normal = [
-    sin(incident_position(1)) .* cos(incident_position(2)),...
-    sin(incident_position(1)) .* sin(incident_position(2)),...
-    cos(incident_position(1))
+    sin(incident_position(:, 1)) .* cos(incident_position(:, 2)),...
+    sin(incident_position(:, 1)) .* sin(incident_position(:, 2)),...
+    cos(incident_position(:, 1))
     ];
 
 % Point of incidence on the front of the lens
 incident_position_cartesian = radius_front * incident_normal;
 
 % Incident ray direction
-incident_direction = incident_position_cartesian - repmat(s_position, n_incident_rays, 1);
+s_position = repmat(s_position, n_incident_rays, 1);
+incident_direction = incident_position_cartesian - s_position;
 incident_direction = incident_direction ./ repmat(...
     sqrt(dot(incident_direction, incident_direction, 2)), 1, 3 ...
 );
@@ -172,33 +180,53 @@ set(lens_front, 'EdgeColor', 'none', 'FaceAlpha', 0.4, 'FaceColor', 'g');
 z = -d_lens - z;
 lens_back = surf(x, y, z);
 set(lens_back, 'EdgeColor', 'none', 'FaceAlpha', 0.4, 'FaceColor', 'r');
-axis equal
 
 % Light Source
 scatter3(s_position(:, 1), s_position(:, 2), s_position(:, 3), 'c', 'filled');
 
-% Incident Rays
-line(...
-    [s_position(:, 1) incident_position_cartesian(:, 1)],...
-    [s_position(:, 2) incident_position_cartesian(:, 2)],...
-    [s_position(:, 3) incident_position_cartesian(:, 3)],...
-    'Color', 'b'...
-    );
+% Colour rays according to their power
+ray_power_max = max(ray_power);
+ray_power_min = min(ray_power);
+ray_power_scaled = (ray_power - ray_power_min) / (ray_power_max - ray_power_min);
+colors = [
+    ray_power_scaled,...
+    zeros(n_incident_rays, 1),...
+    1 - ray_power_scaled
+];
 
-% Internal Rays
-line(...
-    [incident_position_cartesian(:, 1) emitted_position_cartesian(:, 1)],...
-    [incident_position_cartesian(:, 2) emitted_position_cartesian(:, 2)],...
-    [incident_position_cartesian(:, 3) emitted_position_cartesian(:, 3)],...
-    'Color', 'b'...
-    );
+for i = 1:n_incident_rays
 
-% Emitted Rays
-line(...
-    [emitted_position_cartesian(:, 1) image_position(:, 1)],...
-    [emitted_position_cartesian(:, 2) image_position(:, 2)],...
-    [emitted_position_cartesian(:, 3) image_position(:, 3)],...
-    'Color', 'b'...
-    );
+    % Incident Rays
+    line(...
+        [s_position(i, 1) incident_position_cartesian(i, 1)].',...
+        [s_position(i, 2) incident_position_cartesian(i, 2)].',...
+        [s_position(i, 3) incident_position_cartesian(i, 3)].',...
+        'Color', colors(i, :)...
+        );
+
+    % Internal Rays
+    line(...
+        [incident_position_cartesian(i, 1) emitted_position_cartesian(i, 1)].',...
+        [incident_position_cartesian(i, 2) emitted_position_cartesian(i, 2)].',...
+        [incident_position_cartesian(i, 3) emitted_position_cartesian(i, 3)].',...
+        'Color', colors(i, :)...
+        );
+
+    % Emitted Rays
+    line(...
+        [emitted_position_cartesian_culled(i, 1) image_position(i, 1)].',...
+        [emitted_position_cartesian_culled(i, 2) image_position(i, 2)].',...
+        [emitted_position_cartesian_culled(i, 3) image_position(i, 3)].',...
+        'Color', colors(i, :)...
+        );
+
+end
 
 hold off
+
+% General axis properties
+axis equal
+set(gca, 'Color', 'none');
+xlabel('X');
+ylabel('Y');
+zlabel('Z');
