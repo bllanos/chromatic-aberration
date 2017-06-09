@@ -106,6 +106,7 @@ radius_back = params.radius_back;
 theta_aperture_back = params.theta_aperture_back;
 d_lens = params.d_lens;
 n_incident_rays = params.n_incident_rays;
+sample_random = params.sample_random;
 ior_environment = params.ior_environment;
 ior_lens = params.ior_lens;
 film_z = -params.d_film;
@@ -126,27 +127,52 @@ n_phi_vis = 20;
 
 % Trace rays through the lens
 
-% Total surface area defined by the aperture
 cos_theta_aperture_front = cos(theta_aperture_front);
+
+% Point of incidence on the front of the lens, in spherical polar
+% coordinates (theta, phi)
+if sample_random
+    % Uniform random sampling:
+    % See http://mathworld.wolfram.com/SpherePointPicking.html
+    incident_position = [
+        acos(cos_theta_aperture_front + rand(n_incident_rays, 1)*(1 - cos_theta_aperture_front)),...
+        2 * pi * rand(n_incident_rays, 1)
+        ];
+    
+    % Surface normal at the point of incidence on the front of the lens
+    incident_normal = [
+        sin(incident_position(:, 1)) .* cos(incident_position(:, 2)),...
+        sin(incident_position(:, 1)) .* sin(incident_position(:, 2)),...
+        cos(incident_position(:, 1))
+    ];
+
+else
+    % Deterministic sampling
+    sampling_ratio = theta_aperture_front / (2 * pi);
+    n_phi = ceil(sqrt(n_incident_rays / sampling_ratio));
+    n_theta = ceil(sqrt(n_incident_rays * sampling_ratio));
+    [
+        incident_normal_x, incident_normal_y, incident_normal_z ...
+    ] = sphereSection( n_phi, n_theta, theta_aperture_front, 1 );
+
+    incident_normal_x = incident_normal_x(2:end, 1:(end - 1));
+    incident_normal_y = incident_normal_y(2:end, 1:(end - 1));
+    incident_normal_z = incident_normal_z(2:end, 1:(end - 1));
+
+    % Surface normal at the point of incidence on the front of the lens
+    incident_normal = [
+        0, 0, 1;
+        incident_normal_x(:), incident_normal_y(:), incident_normal_z(:)
+    ];
+
+    n_incident_rays = size(incident_normal, 1);
+end
+
+% Total surface area defined by the aperture
 aperture_area = 2 * pi * (1 - cos_theta_aperture_front);
 
 % Average area for one sample
 ray_area = aperture_area / n_incident_rays;
-
-% Point of incidence on the front of the lens, in spherical polar
-% coordinates (theta, phi)
-% Uniform sampling: See http://mathworld.wolfram.com/SpherePointPicking.html
-incident_position = [
-    acos(cos_theta_aperture_front + rand(n_incident_rays, 1)*(1 - cos_theta_aperture_front)),...
-    2 * pi * rand(n_incident_rays, 1)
-    ];
-
-% Surface normal at the point of incidence on the front of the lens
-incident_normal = [
-    sin(incident_position(:, 1)) .* cos(incident_position(:, 2)),...
-    sin(incident_position(:, 1)) .* sin(incident_position(:, 2)),...
-    cos(incident_position(:, 1))
-    ];
 
 % Point of incidence on the front of the lens
 incident_position_cartesian = radius_front * incident_normal;
@@ -170,6 +196,24 @@ incident_position_cartesian(front_occlusion_filter) = NaN;
 
 % Power transmitted by the ray
 ray_power = ray_area * incident_cosine;
+
+% Display the input data
+if verbose
+    figure
+    scatter3(...
+        incident_position_cartesian(:, 1),...
+        incident_position_cartesian(:, 2),...
+        ray_power, [], ray_power, 'filled'...
+    )
+    colorbar
+    % axis equal
+    xlabel('X');
+    ylabel('Y');
+    zlabel('Z');
+    c = colorbar;
+    c.Label.String = 'Ray power';
+    title('Rays incident on the front surface of the lens')
+end
 
 % First refracted ray direction
 internal_direction = refract(...
