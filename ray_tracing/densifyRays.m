@@ -1,4 +1,4 @@
-function [ I ] = densifyRays( image_position, ray_power, varargin )
+function [ I ] = densifyRays( incident_position, incident_position_cartesian, image_position, ray_power, varargin )
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 %
@@ -13,7 +13,7 @@ image_sampling = [100, 200]; % Y, X sample counts
 % See also scatteredInterpolant
 
 nargoutchk(1, 1);
-narginchk(2, 3);
+narginchk(4, 5);
 
 if ~isempty(varargin)
     verbose = varargin{1};

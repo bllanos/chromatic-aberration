@@ -1,4 +1,7 @@
-function [image_position, ray_power] = doubleSphericalLens( params, varargin )
+function [ ...
+    image_position, ray_power, ...
+    incident_position, incident_position_cartesian ...
+] = doubleSphericalLens( params, varargin )
 % DOUBLESPHERICALLENS  Trace rays through a lens with two spherical surfaces
 %
 % ## Syntax
@@ -7,6 +10,20 @@ function [image_position, ray_power] = doubleSphericalLens( params, varargin )
 % ## Description
 % [image_position, ray_power] = doubleSphericalLens( params [, verbose] )
 %   Sample image positions and intensities by raytracing.
+%
+% [ ...
+%     image_position, ray_power, ...
+%     incident_position ...
+% ] = doubleSphericalLens( params, varargin )
+%   Additionally returns the incidence locations of the rays, in angular
+%   coordinates.
+%
+% [ ...
+%     image_position, ray_power, ...
+%     incident_position, incident_position_cartesian ...
+% ] = doubleSphericalLens( params, varargin )
+%   Additionally returns the incidence locations of the rays, in
+%   cartesian coordinates.
 %
 % ## Input Arguments
 %
@@ -67,6 +84,17 @@ function [image_position, ray_power] = doubleSphericalLens( params, varargin )
 %   generate a lower total power over all samples, because occluded samples
 %   are culled.
 %
+% incident_position -- Sampling positions on the front aperture
+%   The positions, expressed in terms of the two angular coordinates
+%   (theta, phi), of the incident rays on the front aperture of the lens.
+%   Each row of `incident_position` corresponds to a row of
+%   `image_position`.
+%
+% incident_position_cartesian -- Cartesian sampling positions on the front aperture
+%   The positions, expressed in cartesian coordinates (x, y, z), of the
+%   incident rays on the front aperture of the lens. Each row of
+%   `incident_position_cartesian` corresponds to a row of `image_position`.
+%
 % ## Notes
 % - For now, both lens surfaces are assumed to be convex (pointing outwards
 %   from the centre of the lens).
@@ -94,7 +122,7 @@ function [image_position, ray_power] = doubleSphericalLens( params, varargin )
 % University of Alberta, Department of Computing Science
 % File created June 8, 2017
 
-nargoutchk(2, 2);
+nargoutchk(2, 4);
 narginchk(1, 2);
 
 % Parse input arguments
@@ -152,12 +180,20 @@ else
     n_phi = ceil(sqrt(n_incident_rays / sampling_ratio));
     n_theta = ceil(sqrt(n_incident_rays * sampling_ratio));
     [
-        incident_normal_x, incident_normal_y, incident_normal_z ...
+        incident_normal_x, incident_normal_y, incident_normal_z, ...
+        incident_position_theta, incident_position_phi ...
     ] = sphereSection( n_phi, n_theta, theta_aperture_front, 1 );
 
     incident_normal_x = incident_normal_x(2:end, 1:(end - 1));
     incident_normal_y = incident_normal_y(2:end, 1:(end - 1));
     incident_normal_z = incident_normal_z(2:end, 1:(end - 1));
+    incident_position_theta = incident_position_theta(2:end, 1:(end - 1));
+    incident_position_phi = incident_position_phi(2:end, 1:(end - 1));
+    
+    incident_position = [
+        0, 0;
+        incident_position_theta(:), incident_position_phi(:)
+    ];
 
     % Surface normal at the point of incidence on the front of the lens
     incident_normal = [
@@ -353,5 +389,7 @@ end
 output_filter = all(isfinite(image_position), 2);
 image_position = image_position(output_filter, 1:2);
 ray_power = ray_power(output_filter);
+incident_position = incident_position(output_filter, :);
+incident_position_cartesian = incident_position_cartesian(output_filter, :);
 
 end
