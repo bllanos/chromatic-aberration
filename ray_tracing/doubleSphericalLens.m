@@ -216,9 +216,10 @@ if verbose
 end
 
 % First refracted ray direction
-internal_direction = refract(...
+[ internal_direction, T ] = refract(...
     ior_environment, ior_lens, incident_normal, incident_direction...
     );
+ray_power = ray_power .* T;
 
 % Centre of the sphere representing the back of the lens
 back_center = [0, 0, -d_lens];
@@ -256,9 +257,10 @@ emitted_normal_culled = emitted_normal;
 emitted_normal_culled(back_aperture_filter) = NaN;
 
 % Refraction at the back of the lens
-emitted_direction = refract(...
+[ emitted_direction, T ] = refract(...
     ior_lens, ior_environment, -emitted_normal_culled, internal_direction...
     );
+ray_power = ray_power .* T;
 
 % Intersection with the film
 distance_to_film = film_z - emitted_position_cartesian_culled(:, 3);
@@ -306,6 +308,7 @@ if verbose
         zeros(n_incident_rays, 1),...
         1 - ray_power_scaled
     ];
+    colors(~isfinite(colors)) = 0.5;
 
     for i = 1:n_incident_rays
 
