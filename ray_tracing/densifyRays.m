@@ -142,18 +142,31 @@ if verbose
     hold off
 end
 
-% Interpolate image irradiance values and resample on a grid
+% Interpolate image irradiance values
+thin_plate_spline = tpaps(image_position.',image_irradiance.');
+if verbose
+    figure
+    fnplt(thin_plate_spline)
+    colorbar
+    xlabel('X');
+    ylabel('Y');
+    zlabel('Irradiance');
+    c = colorbar;
+    c.Label.String = 'Irradiance';
+    title('Interpolation of image irradiance values')
+end
+
+% Sample on a grid to produce an image
 min_x = min(image_position(:, 1));
 max_x = max(image_position(:, 1));
 min_y = min(image_position(:, 2));
 max_y = max(image_position(:, 2));
-
 x = linspace(min_x, max_x, image_sampling(2));
 y = linspace(min_y, max_y, image_sampling(1));
 [X,Y] = meshgrid(x,y);
-
-image_interpolant = scatteredInterpolant(image_position, image_irradiance, 'natural');
-I = image_interpolant(X,Y);
+xy = [X(:).'; Y(:).'];
+I = fnval(thin_plate_spline,xy);
+I = reshape(I, image_sampling);
 if verbose
     figure
     surf(X, Y, I, 'EdgeColor', 'none');
@@ -163,7 +176,7 @@ if verbose
     zlabel('Irradiance');
     c = colorbar;
     c.Label.String = 'Irradiance';
-    title('Interpolation of image irradiance values')
+    title('Estimated output image') 
 end
 
 end

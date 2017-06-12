@@ -71,10 +71,10 @@ function [ ...
 % ray_irradiance -- Ray irradiance
 %   The incident irradiance at the points of intersection of the light
 %   paths with the image plane. Irradiance is determined by:
-%   - The foreshortening of the point light source from the perspective of
-%     the front surface of the lens. (This is necessary to account for the
-%     uniform sampling of the front aperture's surface area, which induces
-%     a non-uniform sampling of solid angles from the perspective of the
+%   - The foreshortening of the front aperture from the perspective of
+%     the light source. (This is necessary to account for the uniform
+%     sampling of the front aperture's surface area, which induces a
+%     non-uniform sampling of solid angles from the perspective of the
 %     light source.)
 %   - The Fresnel equations, during refraction (in calls to `refract()`).
 %   - The foreshortening of the ray emitted from the lens onto the image
@@ -228,6 +228,10 @@ incident_direction(front_occlusion_filter) = NaN;
 incident_position_cartesian(front_occlusion_filter) = NaN;
 
 % Irradiance transmitted by the ray
+% Energy is proportional to the solid angle of the patch of area on
+% the aperture, from the perspective of the source. The solid angle is
+% proportional to the cosine of the foreshortening angle, assuming the
+% patch is approximately flat.
 ray_irradiance = incident_cosine;
 
 % Display the input data

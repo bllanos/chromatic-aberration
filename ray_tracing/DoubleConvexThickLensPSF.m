@@ -33,14 +33,14 @@ ray_params.theta_aperture_front = pi / 2;
 ray_params.radius_back = 2.0;
 ray_params.theta_aperture_back = pi / 6;
 ray_params.d_lens = 3;
-ray_params.n_incident_rays = 50;
+ray_params.n_incident_rays = 1000;
 ray_params.sample_random = false;
 ray_params.ior_environment = 1.0;
 ray_params.ior_lens = 1.52;
 ray_params.d_film = 10;
 
 % Debugging Flags
-verbose_ray_tracing = true;
+verbose_ray_tracing = false;
 verbose_image_formation = true;
 
 %% Trace rays through the lens
