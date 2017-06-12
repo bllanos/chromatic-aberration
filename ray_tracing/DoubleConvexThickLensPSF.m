@@ -25,8 +25,8 @@
 
 %% Input data and parameters
 
-% ## Raytracing parameters
-% Refer to the documentation of `doubleSpherical
+% Raytracing parameters
+% Refer to the documentation of `doubleSphericalLens` for details
 ray_params.source_position = [0, 0, 10];
 ray_params.radius_front = 2.0;
 ray_params.theta_aperture_front = pi / 2;
@@ -39,9 +39,14 @@ ray_params.ior_environment = 1.0;
 ray_params.ior_lens = 1.52;
 ray_params.d_film = 10;
 
+% Ray interpolation parameters
+% Refer to the documentation of `densifyRays` for details
+image_bounds = [-10 -10 20 20];
+image_sampling = [400, 400];
+
 % Debugging Flags
 verbose_ray_tracing = false;
-verbose_image_formation = true;
+verbose_ray_interpolation = true;
 
 %% Trace rays through the lens
 
@@ -51,8 +56,11 @@ verbose_image_formation = true;
 
 %% Form rays into an image
 
-I = densifyRays(...
+[ max_position, max_irradiance, I ] = densifyRays(...
     incident_position_cartesian,...
-    ray_params.radius_front, image_position,...
-    ray_irradiance, verbose_image_formation ...
+    ray_params.radius_front,...
+    image_position,...
+    ray_irradiance,...
+    image_bounds, image_sampling,...
+    verbose_ray_interpolation ...
 );

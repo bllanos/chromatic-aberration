@@ -1,27 +1,42 @@
-function [ I ] = densifyRays( incident_position_cartesian, r_front, image_position, ray_irradiance, varargin )
+function [ max_position, max_irradiance, I ] = densifyRays(...
+    incident_position_cartesian, r_front, image_position, ray_irradiance,...
+    varargin...
+)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 %
 % Parameters: 
-image_sampling = [100, 200]; % Y, X sample counts
-% Image crop area (rectangle of world coordinates)
+% Varargin = image_bounds crop area (rectangle of world coordinates), image_sampling, verbose
 % Assume `incident_position_cartesian` is on a sphere with radius `r_front`, centered at the
 % origin
-%
-% ## References:
-% - Area of a triangle using cross products:
-%   - http://mathworld.wolfram.com/TriangleArea.html
-%   - http://mathworld.wolfram.com/CrossProduct.html
 
-% See also scatteredInterpolant
+% See also doubleSphericalLens, tpaps, fmincon
 
-nargoutchk(1, 1);
-narginchk(4, 5);
+nargoutchk(1, 3);
+narginchk(4, 7);
+
+verbose = false;
+
+output_image = false;
 
 if ~isempty(varargin)
-    verbose = varargin{1};
-else
-    verbose = false;
+    n_varargs = length(varargin);
+    if n_varargs == 1
+        verbose = varargin{1};
+    elseif n_varargs == 2
+        image_bounds = varargin{1};
+        image_sampling = varargin{2};
+    elseif n_varargs == 3
+        image_bounds = varargin{1};
+        image_sampling = varargin{2};
+        verbose = varargin{3};
+    end
+    
+    if nargout == 3 && n_varargs < 2
+        error('The output image, `I`, cannot be calculated without the input arguments `image_bounds`, and `image_sampling`.');
+    elseif nargout == 3
+        output_image = true;
+    end
 end
 
 dt_in = delaunayTriangulation(incident_position_cartesian(:, 1:2));
@@ -156,27 +171,75 @@ if verbose
     title('Interpolation of image irradiance values')
 end
 
-% Sample on a grid to produce an image
+% Find the peak intensity
+thin_plate_spline_dx = fnder(thin_plate_spline,[1, 0]);
+thin_plate_spline_dy = fnder(thin_plate_spline,[0, 1]);
+% if verbose
+%     figure
+%     fnplt(thin_plate_spline_dx)
+%     colorbar
+%     xlabel('X');
+%     ylabel('Y');
+%     zlabel('Irradiance X-gradient');
+%     title('Image irradiance interpolant X-gradient')
+%     
+%     figure
+%     fnplt(thin_plate_spline_dy)
+%     colorbar
+%     xlabel('X');
+%     ylabel('Y');
+%     zlabel('Irradiance Y-gradient');
+%     title('Image irradiance interpolant Y-gradient')
+% end
 min_x = min(image_position(:, 1));
 max_x = max(image_position(:, 1));
 min_y = min(image_position(:, 2));
 max_y = max(image_position(:, 2));
-x = linspace(min_x, max_x, image_sampling(2));
-y = linspace(min_y, max_y, image_sampling(1));
-[X,Y] = meshgrid(x,y);
-xy = [X(:).'; Y(:).'];
-I = fnval(thin_plate_spline,xy);
-I = reshape(I, image_sampling);
-if verbose
-    figure
-    surf(X, Y, I, 'EdgeColor', 'none');
-    colorbar
-    xlabel('X');
-    ylabel('Y');
-    zlabel('Irradiance');
-    c = colorbar;
-    c.Label.String = 'Irradiance';
-    title('Estimated output image') 
+    function [f, g] = splineValueAndGradient(x)
+        f = -fnval(thin_plate_spline,[x(1);x(2)]);
+        if nargout > 1 % gradient required
+            g = [
+                fnval(thin_plate_spline_dx,[x(1);x(2)]);
+                fnval(thin_plate_spline_dy,[x(1);x(2)])
+                ];
+        end
+    end
+lb = [min_x, min_y];
+ub = [max_x, max_y];
+A = [];
+b = [];
+Aeq = [];
+beq = [];
+% Initial guess for maximum is the maximum of `ray_irradiance`, not
+% `image_irradiance`, as `image_irradiance` is noisy.
+[~, max_ind] = max(ray_irradiance);
+x0 = image_position(max_ind, :);
+nonlcon = [];
+options = optimoptions('fmincon','SpecifyObjectiveGradient',true);
+[max_position, max_irradiance] = fmincon(...
+    @splineValueAndGradient,x0,A,b,Aeq,beq,lb,ub, nonlcon, options...
+);
+max_irradiance = -max_irradiance;
+
+% Sample on a grid to produce an image
+if output_image
+    x = linspace(image_bounds(1), image_bounds(1) + image_bounds(3), image_sampling(2));
+    y = linspace(image_bounds(2), image_bounds(2) + image_bounds(4), image_sampling(1));
+    [X,Y] = meshgrid(x,y);
+    xy = [X(:).'; Y(:).'];
+    I = fnval(thin_plate_spline,xy);
+    I = reshape(I, image_sampling);
+    if verbose
+        figure
+        surf(X, Y, I, 'EdgeColor', 'none');
+        colorbar
+        xlabel('X');
+        ylabel('Y');
+        zlabel('Irradiance');
+        c = colorbar;
+        c.Label.String = 'Irradiance';
+        title('Estimated output image pixels') 
+    end
 end
 
 end
