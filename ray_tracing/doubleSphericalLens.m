@@ -1,25 +1,25 @@
 function [ ...
-    image_position, ray_power, ...
+    image_position, ray_irradiance, ...
     incident_position, incident_position_cartesian ...
 ] = doubleSphericalLens( params, varargin )
 % DOUBLESPHERICALLENS  Trace rays through a lens with two spherical surfaces
 %
 % ## Syntax
-% [image_position, ray_power] = doubleSphericalLens( params [, verbose] )
+% [image_position, ray_irradiance] = doubleSphericalLens( params [, verbose] )
 %
 % ## Description
-% [image_position, ray_power] = doubleSphericalLens( params [, verbose] )
+% [image_position, ray_irradiance] = doubleSphericalLens( params [, verbose] )
 %   Sample image positions and intensities by raytracing.
 %
 % [ ...
-%     image_position, ray_power, ...
+%     image_position, ray_irradiance, ...
 %     incident_position ...
 % ] = doubleSphericalLens( params, varargin )
 %   Additionally returns the incidence locations of the rays, in angular
 %   coordinates.
 %
 % [ ...
-%     image_position, ray_power, ...
+%     image_position, ray_irradiance, ...
 %     incident_position, incident_position_cartesian ...
 % ] = doubleSphericalLens( params, varargin )
 %   Additionally returns the incidence locations of the rays, in
@@ -68,21 +68,24 @@ function [ ...
 %   two-column array, with the columns containing x, and y coordinates,
 %   respectively.
 %
-% ray_power -- Image intensities
-%   The incident power at the points of intersection of the light paths
-%   with the image plane. Power is determined by the foreshortening of the
-%   point light source from the perspective of the front surface of the
-%   lens.
+% ray_irradiance -- Ray irradiance
+%   The incident irradiance at the points of intersection of the light
+%   paths with the image plane. Irradiance is determined by:
+%   - The foreshortening of the point light source from the perspective of
+%     the front surface of the lens. (This is necessary to account for the
+%     uniform sampling of the front aperture's surface area, which induces
+%     a non-uniform sampling of solid angles from the perspective of the
+%     light source.)
+%   - The Fresnel equations, during refraction (in calls to `refract()`).
+%   - The foreshortening of the ray emitted from the lens onto the image
+%     plane.
 %
-%   A ray representing the entire front aperture surface would have a power
-%   value of one if the entire front aperture surface was assumed to be
-%   perpendicular to the light path. Power is inversely proportional to the
-%   number of samples, and proportional to the cosine of the angle between
-%   the front surface normal and the incident light. Note that sample
-%   culling does not affect power calculations. For instance, a light
-%   source which is not visible from all of the front aperture will
-%   generate a lower total power over all samples, because occluded samples
-%   are culled.
+%   Ray irradiances are not equal to image intensities, because the change
+%   in ray density, between the front aperture and the image plane, is not
+%   taken into account.
+%
+%   A ray which has no forshortening, nor attenuation during refraction,
+%   has an irradiance value of unity.
 %
 % incident_position -- Sampling positions on the front aperture
 %   The positions, expressed in terms of the two angular coordinates
@@ -204,12 +207,6 @@ else
     n_incident_rays = size(incident_normal, 1);
 end
 
-% Total surface area defined by the aperture
-aperture_area = 2 * pi * (1 - cos_theta_aperture_front);
-
-% Average area for one sample
-ray_area = aperture_area / n_incident_rays;
-
 % Point of incidence on the front of the lens
 incident_position_cartesian = radius_front * incident_normal;
 
@@ -230,8 +227,8 @@ front_occlusion_filter = repmat(front_occlusion_filter, 1, 3);
 incident_direction(front_occlusion_filter) = NaN;
 incident_position_cartesian(front_occlusion_filter) = NaN;
 
-% Power transmitted by the ray
-ray_power = ray_area * incident_cosine;
+% Irradiance transmitted by the ray
+ray_irradiance = incident_cosine;
 
 % Display the input data
 if verbose
@@ -239,7 +236,7 @@ if verbose
     scatter3(...
         incident_position_cartesian(:, 1),...
         incident_position_cartesian(:, 2),...
-        ray_power, [], ray_power, 'filled'...
+        ray_irradiance, [], ray_irradiance, 'filled'...
     )
     colorbar
     % axis equal
@@ -247,7 +244,7 @@ if verbose
     ylabel('Y');
     zlabel('Z');
     c = colorbar;
-    c.Label.String = 'Ray power';
+    c.Label.String = 'Ray irradiance';
     title('Rays incident on the front surface of the lens')
 end
 
@@ -255,7 +252,7 @@ end
 [ internal_direction, T ] = refract(...
     ior_environment, ior_lens, incident_normal, incident_direction...
     );
-ray_power = ray_power .* T;
+ray_irradiance = ray_irradiance .* T;
 
 % Centre of the sphere representing the back of the lens
 back_center = [0, 0, -d_lens];
@@ -296,7 +293,7 @@ emitted_normal_culled(back_aperture_filter) = NaN;
 [ emitted_direction, T ] = refract(...
     ior_lens, ior_environment, -emitted_normal_culled, internal_direction...
     );
-ray_power = ray_power .* T;
+ray_irradiance = ray_irradiance .* T;
 
 % Intersection with the film
 distance_to_film = film_z - emitted_position_cartesian_culled(:, 3);
@@ -304,6 +301,9 @@ steps_to_film = distance_to_film ./ emitted_direction(:, 3);
 steps_to_film(steps_to_film < 0) = NaN;
 image_position = emitted_position_cartesian_culled +...
     repmat(steps_to_film, 1, 3) .* emitted_direction;
+
+% Foreshortening at the image
+ray_irradiance = ray_irradiance .* -emitted_direction(:, 3);
 
 % 3D visualization
 if verbose
@@ -335,14 +335,14 @@ if verbose
         'EdgeColor', 'k', 'FaceAlpha', 0.4, 'FaceColor', 'y' ...
     );
 
-    % Colour rays according to their power
-    ray_power_max = max(ray_power);
-    ray_power_min = min(ray_power);
-    ray_power_scaled = (ray_power - ray_power_min) / (ray_power_max - ray_power_min);
+    % Colour rays according to their irradiance
+    ray_irradiance_max = max(ray_irradiance);
+    ray_irradiance_min = min(ray_irradiance);
+    ray_irradiance_scaled = (ray_irradiance - ray_irradiance_min) / (ray_irradiance_max - ray_irradiance_min);
     colors = [
-        ray_power_scaled,...
+        ray_irradiance_scaled,...
         zeros(n_incident_rays, 1),...
-        1 - ray_power_scaled
+        1 - ray_irradiance_scaled
     ];
     colors(~isfinite(colors)) = 0.5;
 
@@ -388,7 +388,7 @@ end
 % Finalize output arguments
 output_filter = all(isfinite(image_position), 2);
 image_position = image_position(output_filter, 1:2);
-ray_power = ray_power(output_filter);
+ray_irradiance = ray_irradiance(output_filter);
 incident_position = incident_position(output_filter, :);
 incident_position_cartesian = incident_position_cartesian(output_filter, :);
 
