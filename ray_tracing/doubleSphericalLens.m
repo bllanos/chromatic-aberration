@@ -110,7 +110,7 @@ function [ ...
 %   - The front of the lens is spherical, with the centre of the sphere at
 %     the origin.
 %   - The positive z-axis points towards the front of the lens, along
-%     the optical axis.
+%     the optical axis, assuming the front of the lens is convex.
 %   - In the code, 'theta' is the angle between a direction and the
 %     positive z-axis. 'phi' is the angle between a direction and the
 %     positive x-axis.
