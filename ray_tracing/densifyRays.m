@@ -2,15 +2,116 @@ function [ max_position, max_irradiance, I ] = densifyRays(...
     incident_position_cartesian, r_front, image_position, ray_irradiance,...
     varargin...
 )
-%UNTITLED Summary of this function goes here
-%   Detailed explanation goes here
+% DENSIFYRAYS  Find image intensities from discrete samples of ray irradiance
 %
-% Parameters: 
-% Varargin = image_bounds crop area (rectangle of world coordinates), image_sampling, verbose
-% Assume `incident_position_cartesian` is on a sphere with radius `r_front`, centered at the
-% origin
+% ## Syntax
+% [ max_position ] = densifyRays(...
+%    incident_position_cartesian, r_front, image_position,...
+%    ray_irradiance [, verbose]...
+% )
+% [ max_position, max_irradiance ] = densifyRays(...
+%    incident_position_cartesian, r_front, image_position,...
+%    ray_irradiance [, verbose]...
+% )
+% [ max_position, max_irradiance, I ] = densifyRays(...
+%    incident_position_cartesian, r_front, image_position,...
+%    ray_irradiance, image_bounds, image_sampling [, verbose]...
+% )
+%
+% ## Description
+% [ max_position ] = densifyRays(...
+%    incident_position_cartesian, r_front, image_position,...
+%    ray_irradiance [, verbose]...
+% )
+%   Find the position of maximum image irradiance produced by the incident
+%   rays.
+%
+% [ max_position, max_irradiance ] = densifyRays(...
+%    incident_position_cartesian, r_front, image_position,...
+%    ray_irradiance [, verbose]...
+% )
+%   Additionally returns the value of the maximum image irradiance.
+%
+% [ max_position, max_irradiance, I ] = densifyRays(...
+%    incident_position_cartesian, r_front, image_position,...
+%    ray_irradiance, image_bounds, image_sampling [, verbose]...
+% )
+%   Additionally returns the estimated image formed by the incident rays.
+%
+% ## Input Arguments
+%
+% incident_position_cartesian -- Cartesian sampling positions on the front aperture
+%   The positions, expressed in cartesian coordinates (x, y, z), of the
+%   incident rays on the front aperture of the lens system. Each row of
+%   `incident_position_cartesian` corresponds to a row of `image_position`.
+%
+%   The front aperture is assumed to be a section of a spherical surface or
+%   radius `r_front`, where the centre of the sphere is located at the
+%   origin.
+%
+%   For example, `incident_position_cartesian` is an output argument of
+%   'doubleSphericalLens.m'
+%
+% r_front -- Front lens radius
+%   The radius of curvature of the front surface (aperture) of the lens
+%   system.
+%
+% image_position -- Image coordinates of rays
+%   The points of intersection of the light paths traced through the lens
+%   system with the image plane. `image_position` is a two-column array,
+%   with the columns containing image x, and y coordinates, respectively.
+%
+% ray_irradiance -- Ray irradiance
+%   The incident irradiance produced by individual rays, at the points of
+%   intersection of the light paths with the image plane.
+%
+%   `ray_irradiance` is a vector, where the i-th element corresponds to the
+%   i-th row of `image_position`.
+%
+%   Refer to the documentation of 'doubleSphericalLens.m' for more details.
+%
+% image_bounds -- Image domain
+%   The rectangular domain of the image to be produced. `image_bounds` is a
+%   vector containing the following elements:
+%   1 - The x-coordinate of the bottom left corner of the image
+%   2 - The y-coordinate of the bottom left corner of the image
+%   3 - The width of the image (size in the x-dimension)
+%   4 - The height of the image (size in the y-dimension)
+%
+% image_sampling -- Image resolution
+%   The number of pixels at which to sample in the domain specified by
+%   `image_bounds`. `image_sampling` is a two-element vector containing the
+%   image height, and width, respectively, measured in pixels.
+%
+% verbose -- Debugging flag
+%   If true, graphical output will be generated for debugging purposes.
+%
+%   Defaults to false if not passed.
+%
+% ## Output Arguments
+%
+% max_position -- Location of peak image irradiance
+%   A two-element row vector containing the x and y-coordinates of the peak
+%   irradiance produced by the pattern of rays on the image plane. Note
+%   that `max_position` contains world coordinates, not pixel indices.
+%
+% max_irradiance -- Peak image irradiance
+%   A scalar containing the peak irradiance produced by the pattern of rays
+%   on the image plane. `max_irradiance` is the image irradiance at the
+%   location `max_position`.
+%
+% I -- Image
+%   The irradiance pattern produced on the image plane by the rays traced
+%   through the lens system. The image boundaries, and pixel resolution
+%   are defined by the `image_bounds`, and `image_sampling` input
+%   arguments, respectively.
+%
+% See also doubleSphericalLens, sphereSection, refract, tpaps, fmincon
 
-% See also doubleSphericalLens, tpaps, fmincon
+% Bernard Llanos
+% Supervised by Dr. Y.H. Yang
+% University of Alberta, Department of Computing Science
+% File created June 8, 2017
 
 nargoutchk(1, 3);
 narginchk(4, 7);
@@ -34,9 +135,11 @@ if ~isempty(varargin)
     
     if nargout == 3 && n_varargs < 2
         error('The output image, `I`, cannot be calculated without the input arguments `image_bounds`, and `image_sampling`.');
+    elseif nargout < 3 && n_varargs > 1
+        error('More input arguments were passed than are required to produce the first two output arguments.')
     elseif nargout == 3
         output_image = true;
-    end
+    end    
 end
 
 dt_in = delaunayTriangulation(incident_position_cartesian(:, 1:2));

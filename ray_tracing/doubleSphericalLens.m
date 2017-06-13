@@ -82,10 +82,15 @@ function [ ...
 %
 %   Ray irradiances are not equal to image intensities, because the change
 %   in ray density, between the front aperture and the image plane, is not
-%   taken into account.
+%   taken into account. Rather, the image intensity (irradiance) is the sum
+%   of the ray irradiances at each image location. (Computation of image
+%   irradiance is the purpose of 'densifyRays.m'.)
 %
 %   A ray which has no forshortening, nor attenuation during refraction,
 %   has an irradiance value of unity.
+%
+%   `ray_irradiance` is a vector, where the i-th element corresponds to the
+%   i-th row of `image_position`.
 %
 % incident_position -- Sampling positions on the front aperture
 %   The positions, expressed in terms of the two angular coordinates
@@ -118,7 +123,7 @@ function [ ...
 % - Wikipedia page on Snell's Law:
 %   https://en.wikipedia.org/wiki/Snell%27s_law#Vector_form
 %
-% See also sphereSection, refract
+% See also sphereSection, refract, densifyRays
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
