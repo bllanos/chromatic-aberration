@@ -264,7 +264,8 @@ end
 thin_plate_spline = tpaps(image_position.',image_irradiance.');
 if verbose
     figure
-    fnplt(thin_plate_spline)
+    pts = fnplt(thin_plate_spline); % I don't like the look of the plot, so I will plot manually below
+    surf(pts{1}, pts{2}, pts{3}, 'EdgeColor', 'none');
     colorbar
     xlabel('X');
     ylabel('Y');
@@ -301,7 +302,7 @@ max_y = max(image_position(:, 2));
     function [f, g] = splineValueAndGradient(x)
         f = -fnval(thin_plate_spline,[x(1);x(2)]);
         if nargout > 1 % gradient required
-            g = [
+            g = -[
                 fnval(thin_plate_spline_dx,[x(1);x(2)]);
                 fnval(thin_plate_spline_dy,[x(1);x(2)])
                 ];
@@ -323,6 +324,15 @@ options = optimoptions('fmincon','SpecifyObjectiveGradient',true);
     @splineValueAndGradient,x0,A,b,Aeq,beq,lb,ub, nonlcon, options...
 );
 max_irradiance = -max_irradiance;
+if verbose
+    hold on
+    plot3(...
+        max_position(1), max_position(2), max_irradiance,...
+        'wo','markerfacecolor','k'...
+    )
+    title('Interpolation of image irradiance values, with peak marked')
+    hold off
+end
 
 % Sample on a grid to produce an image
 if output_image
