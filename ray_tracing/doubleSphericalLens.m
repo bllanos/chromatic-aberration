@@ -109,6 +109,8 @@ function [ ...
 % - Coordinate system:
 %   - The front of the lens is spherical, with the centre of the sphere at
 %     the origin.
+%   - The radii of both faces of the lens are positive when the lens is
+%     biconvex.
 %   - The positive z-axis points towards the front of the lens, along
 %     the optical axis, assuming the front of the lens is convex.
 %   - In the code, 'theta' is the angle between a direction and the

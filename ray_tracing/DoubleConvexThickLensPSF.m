@@ -30,9 +30,9 @@
 ray_params.source_position = [0, 0, 10];
 ray_params.radius_front = 2.0;
 ray_params.theta_aperture_front = pi / 2;
-ray_params.radius_back = 2.0;
+ray_params.radius_back = 3.0;
 ray_params.theta_aperture_back = pi / 6;
-ray_params.d_lens = 3;
+ray_params.d_lens = -4;
 ray_params.n_incident_rays = 1000;
 ray_params.sample_random = false;
 ray_params.ior_environment = 1.0;
@@ -47,6 +47,16 @@ image_sampling = [400, 400];
 % Debugging Flags
 verbose_ray_tracing = false;
 verbose_ray_interpolation = true;
+
+%% Calculate lens imaging properties
+
+[ imageFn, f, f_prime ] = opticsFromLens(...
+    ray_params.ior_environment,...
+    ray_params.ior_lens,...
+    ray_params.ior_environment,...
+    ray_params.radius_front, ray_params.radius_back,...
+    ray_params.d_lens...
+);
 
 %% Trace rays through the lens
 
