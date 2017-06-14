@@ -342,6 +342,8 @@ if output_image
     xy = [X(:).'; Y(:).'];
     I = fnval(thin_plate_spline,xy);
     I = reshape(I, image_sampling);
+    % Clip to zero, to eliminate spurious spline extrapolation
+    I(I < 0) = 0;
     if verbose
         figure
         surf(X, Y, I, 'EdgeColor', 'none');

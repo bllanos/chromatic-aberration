@@ -53,7 +53,9 @@ function [ ...
 %   - ior_environment: The refractive index of the surrounding medium
 %   - ior_lens: The refractive index of the lens
 %   - d_film: The distance of the image plane from the centre of the sphere
-%     corresponding to the front surface of the lens.
+%     corresponding to the front surface of the lens. (A positive value if
+%     the image plane is in the negative z-direction relative to the centre
+%     of the sphere.)
 %
 % verbose -- Debugging flag
 %   If true, graphical output will be generated for debugging purposes.
