@@ -336,14 +336,9 @@ end
 
 % Sample on a grid to produce an image
 if output_image
-    x = linspace(image_bounds(1), image_bounds(1) + image_bounds(3), image_sampling(2));
-    y = linspace(image_bounds(2), image_bounds(2) + image_bounds(4), image_sampling(1));
-    [X,Y] = meshgrid(x,y);
-    xy = [X(:).'; Y(:).'];
-    I = fnval(thin_plate_spline,xy);
-    I = reshape(I, image_sampling);
-    
-    % Clip to zero, to eliminate spurious spline extrapolation
+    I = zeros(image_sampling);
+    % Avoid extrapolation by only estimating values within the convex hull
+    % of the rays on the image plane
     convex_hull_indices = convhull(image_position);
     image_position_convhull = image_position(convex_hull_indices, :);
     % Convert world coordinates to pixel indices
@@ -356,27 +351,12 @@ if output_image
     mask = roipoly(...
         I, image_position_convhull_px(:, 1), image_position_convhull_px(:, 2)...
     );
-    I(~mask) = 0;
-    if verbose
-        figure
-        ax = gca;
-        image(...
-            [image_bounds(1), image_bounds(1) + image_bounds(3)],...
-            [image_bounds(2), image_bounds(2) + image_bounds(4)],...
-            mask...
-            );
-        ax.YDir = 'normal';
-        hold on
-        scatter(...
-            image_position_convhull(:, 1),...
-            image_position_convhull(:, 2),...
-            [], image_irradiance(convex_hull_indices), 'filled'...
-            )
-        xlabel('X');
-        ylabel('Y');
-        title('Convex hull of image points')
-        hold off
-    end
+    x = linspace(image_bounds(1), image_bounds(1) + image_bounds(3), image_sampling(2));
+    y = linspace(image_bounds(2), image_bounds(2) + image_bounds(4), image_sampling(1));
+    [X,Y] = meshgrid(x,y);
+    xy = [X(mask).'; Y(mask).'];
+    I(mask) = fnval(thin_plate_spline,xy);
+    
     if verbose
         figure
         surf(X, Y, I, 'EdgeColor', 'none');
