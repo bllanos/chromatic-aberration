@@ -63,7 +63,8 @@ normalize_before_combining = false;
 
 % ## Scene setup
 
-% Field of view over which point light sources are distributed
+% Field of view over which point light sources are distributed (at the
+% reference depth, `light_distance_factor_focused`)
 % (Actually, the field of view is larger than this, as this is the angle
 % subtended by the midlines of the rectangular grid of lights, not the
 % diagonals.)
@@ -80,13 +81,32 @@ else
     n_lights_y = 10;
 end
 
-% Multiples of the focal length at which the light source plane will be
-% positioned
-light_distance_factor = 2;
+% Multiple of the focal length distance corresponding to the reference
+% position for the plane of light sources. The image plane will be
+% positioned such that a light source at this distance, and centered in the
+% field of view, is in focus.
+light_distance_factor_focused = 2;
+
+% Additional distances at which light sources
+% will be placed, in units of focal lengths. Distances will be spaced
+% uniformly in inverse depth space (with depth measured from the first
+% principal plane of the lens).
+% [ Largest distance, number of larger distances ]
+light_distance_factor_larger = [5, 3];
+% [ Smallest distance, number of smaller distances ]
+light_distance_factor_smaller = [1.2, 3];
+
+% Place light sources along the same rays through the center of the lens
+% (true), or along the same rays parallel to the optical axis (false) when
+% changing their depths.
+preserve_angle_over_depths = false;
+
+single_depth = (light_distance_factor_larger(2) == 0 & light_distance_factor_smaller(2) == 0);
 
 % ## Debugging Flags
-verbose_ray_tracing = (single_source | false);
-verbose_ray_interpolation = (single_source | false);
+plot_light_positions = true;
+verbose_ray_tracing = ((single_source & single_depth) | false);
+verbose_ray_interpolation = ((single_source & single_depth) | false);
 display_each_psf = false;
 
 %% Calculate lens imaging properties
@@ -101,15 +121,15 @@ display_each_psf = false;
 
 %% Create light sources and the image plane
 
-% Light source positions
-z_light = (light_distance_factor * abs(f)) + U;
+% Light source positions on the reference plane
+z_light = (light_distance_factor_focused * abs(f)) + U;
 lens_center_z = lens_radius - (axial_thickness / 2);
-lens_center_to_light = z_light - lens_center_z;
+lens_center_to_light_ref = z_light - lens_center_z;
 if single_source
-    x_light = tan(single_source_angle) * lens_center_to_light;
+    x_light = tan(single_source_angle) * lens_center_to_light_ref;
     y_light = 0;
 else
-    scene_half_width = tan(scene_angle) * lens_center_to_light;
+    scene_half_width = tan(scene_angle) * lens_center_to_light_ref;
     x_light = linspace(-scene_half_width, scene_half_width, n_lights_x);
     y_light = linspace(-scene_half_width, scene_half_width, n_lights_y);
     [x_light,y_light] = meshgrid(x_light,y_light);
@@ -121,35 +141,120 @@ X_lights = [
     repmat(z_light, n_lights, 1)
 ];
 
+% Light source positions at other depths
+if single_depth
+    depth_ref_index = 1;
+    n_depths = 1;
+    depth_factors = light_distance_factor_focused;
+else
+    depth_ref_inv = 1 / light_distance_factor_focused;
+    depth_factors = [
+        linspace(1 / light_distance_factor_larger(1), depth_ref_inv, light_distance_factor_larger(2) + 1),...
+        linspace(depth_ref_inv, 1 / light_distance_factor_smaller(1), light_distance_factor_smaller(2) + 1)
+    ];
+    depth_factors = fliplr(1 ./ depth_factors);
+    % Remove duplicated reference depth
+    depth_ref_index = light_distance_factor_smaller(2) + 1;
+    if light_distance_factor_smaller(2) == 0
+        depth_factors = depth_factors(2:end);
+    else
+        depth_factors = [depth_factors(1:depth_ref_index), depth_factors((depth_ref_index + 2):end)];
+    end
+    depth_factors = depth_factors.';
+    n_depths = length(depth_factors);
+    
+    z_light = reshape((depth_factors * abs(f)) + U, 1, 1, []);
+    if preserve_angle_over_depths
+        lens_center_to_light_relative = (z_light - lens_center_z) ./ lens_center_to_light_ref;
+        lens_center_to_light_relative = repmat(lens_center_to_light_relative, n_lights, 3, 1);
+        lens_center = repmat([0, 0, lens_center_z], n_lights, 1);
+        lens_center_to_light =  repmat(X_lights - lens_center, 1, 1, n_depths);
+        lens_center = repmat(lens_center, 1, 1, n_depths);
+        X_lights = lens_center + (lens_center_to_light .* lens_center_to_light_relative);
+    else
+        X_lights = [repmat(X_lights(:, 1:2), 1, 1, n_depths), repmat(z_light, n_lights, 1, 1)];
+    end
+    
+    X_lights_matrix = reshape(permute(X_lights, [1, 3, 2]), [], 3, 1);
+end
+
+n_lights_and_depths = n_lights * n_depths;
+
+if plot_light_positions
+    figure
+    scatter3(...
+        X_lights_matrix(:, 1), X_lights_matrix(:, 2), X_lights_matrix(:, 3),...
+        [], X_lights_matrix(:, 3), 'filled'...
+    );
+    xlabel('X');
+    ylabel('Y');
+    zlabel('Z');
+    title('Light source positions');
+    hold on
+    
+    % First principal plane
+    min_x = min(X_lights_matrix(:, 1));
+    max_x = max(X_lights_matrix(:, 1));
+    min_y = min(X_lights_matrix(:, 2));
+    max_y = max(X_lights_matrix(:, 2));
+
+    surf(...
+        [min_x, max_x; min_x, max_x],...
+        [max_y, max_y; min_y, min_y],...
+        [U, U; U, U],...
+        'EdgeColor', 'k', 'FaceAlpha', 0.4, 'FaceColor', 'g' ...
+    );
+
+    % Focal length
+    surf(...
+        [min_x, max_x; min_x, max_x],...
+        [max_y, max_y; min_y, min_y],...
+        [U - f, U - f; U - f, U - f],...
+        'EdgeColor', 'k', 'FaceAlpha', 0.4, 'FaceColor', 'y' ...
+    );
+
+    % Lens centre
+    scatter3(...
+        lens_center(1, 1, 1), lens_center(1, 2, 1), lens_center(1, 3, 1),...
+        [], 'k', 'filled'...
+    );
+    legend('Lights', 'First principal plane', 'First focal length', 'Lens centre');
+    set(gca, 'Color', 'none');
+    hold off
+end
+
 % Image plane position
-X_image_ideal = imageFn([0, 0, z_light]);
-ideal_image_position = X_image_ideal(3);
+X_image_ideal_matrix = imageFn([0, 0, z_light(1, 1, depth_ref_index)]);
+ideal_image_position = X_image_ideal_matrix(3);
 ray_params.d_film = -ideal_image_position;
 
 % "Theoretical" image positions, on the in-focus plane
-X_image_ideal = imageFn(X_lights);
+X_image_ideal_matrix = imageFn(X_lights_matrix);
 % Adjust magnification to approximately account for the actual image plane
 % location
 magnification_correction_ideal = ...
-    (repmat(U_prime, n_lights, 1) - X_image_ideal(:, 3)) ./ ...
-    repmat(U_prime + ray_params.d_film, n_lights, 1);
-principal_point = repmat([0, 0, U_prime], n_lights, 1);
-X_image_rays = X_image_ideal - principal_point;
-X_image_ideal = principal_point + (X_image_rays .* magnification_correction_ideal);
+    (repmat(U_prime, n_lights_and_depths, 1) - X_image_ideal_matrix(:, 3)) ./ ...
+    repmat(U_prime + ray_params.d_film, n_lights_and_depths, 1);
+principal_point = repmat([0, 0, U_prime], n_lights_and_depths, 1);
+X_image_rays = X_image_ideal_matrix - principal_point;
+X_image_ideal_matrix = principal_point + (X_image_rays .* magnification_correction_ideal);
+
+X_image_ideal = permute(reshape(X_image_ideal_matrix, n_lights, n_depths, 3), [1, 3, 2]);
 
 % Find image boundaries
 if ~single_source
-    X_image_grid_x = reshape(X_image_ideal(:, 1), n_lights_y, n_lights_x);
-    X_image_grid_y = reshape(X_image_ideal(:, 2), n_lights_y, n_lights_x);
+    [~, depth_index_largest_image] = max(abs(X_image_ideal(1, 1, :)));
+    X_image_grid_x = reshape(X_image_ideal(:, 1, depth_index_largest_image), n_lights_y, n_lights_x);
+    X_image_grid_y = reshape(X_image_ideal(:, 2, depth_index_largest_image), n_lights_y, n_lights_x);
     left_buffer = max(abs(X_image_grid_x(:, 2) - X_image_grid_x(:, 1)));
     right_buffer = max(abs(X_image_grid_x(:, end) - X_image_grid_x(:, end - 1)));
     bottom_buffer = max(abs(X_image_grid_y(2, :) - X_image_grid_y(1, :)));
     top_buffer = max(abs(X_image_grid_y(end, :) - X_image_grid_y(end - 1, :)));
     image_bounds = [
-        min(X_image_ideal(:, 1)) - left_buffer, min(X_image_ideal(:, 2)) - bottom_buffer
+        min(X_image_ideal_matrix(:, 1)) - left_buffer, min(X_image_ideal_matrix(:, 2)) - bottom_buffer
     ];
-    image_width = max(X_image_ideal(:, 1)) - image_bounds(1) + right_buffer;
-    image_height = max(X_image_ideal(:, 2)) - image_bounds(2) + top_buffer;
+    image_width = max(X_image_ideal_matrix(:, 1)) - image_bounds(1) + right_buffer;
+    image_height = max(X_image_ideal_matrix(:, 2)) - image_bounds(2) + top_buffer;
     image_bounds = [
         image_bounds,...
         image_width image_height...
@@ -157,90 +262,110 @@ if ~single_source
 end
 
 %% Trace rays through the lens and form rays into an image
-I = zeros(image_sampling);
-X_image_real = zeros(n_lights, 2);
-max_irradiance = zeros(n_lights, 1);
-for i = 1:n_lights
-    ray_params.source_position = X_lights(i, :);
-    [ ...
-        image_position, ray_irradiance, ~, incident_position_cartesian ...
-    ] = doubleSphericalLens( ray_params, verbose_ray_tracing );
+I = zeros([image_sampling, n_depths]);
+X_image_real = zeros(n_lights, 2, n_depths);
+max_irradiance = zeros(n_lights, 1, n_depths);
+for j = 1:n_depths
+    for i = 1:n_lights
+        ray_params.source_position = X_lights(i, :, j);
+        [ ...
+            image_position, ray_irradiance, ~, incident_position_cartesian ...
+        ] = doubleSphericalLens( ray_params, verbose_ray_tracing );
 
-    if single_source
-        [ X_image_real(i, :), max_irradiance(i) ] = densifyRays(...
-            incident_position_cartesian,...
-            ray_params.radius_front,...
-            image_position,...
-            ray_irradiance,...
-            verbose_ray_interpolation ...
-        );
-    else
-        [ X_image_real(i, :), max_irradiance(i), I_i ] = densifyRays(...
-            incident_position_cartesian,...
-            ray_params.radius_front,...
-            image_position,...
-            ray_irradiance,...
-            image_bounds, image_sampling,...
-            verbose_ray_interpolation ...
-        );
-    
-        if normalize_before_combining
-            I = I + (I_i ./ max(max(I_i)));
+        if single_source
+            [ X_image_real(i, :, j), max_irradiance(i, 1, j) ] = densifyRays(...
+                incident_position_cartesian,...
+                ray_params.radius_front,...
+                image_position,...
+                ray_irradiance,...
+                verbose_ray_interpolation ...
+            );
         else
-            I = I + I_i;
+            [ X_image_real(i, :, j), max_irradiance(i, 1, j), I_ij ] = densifyRays(...
+                incident_position_cartesian,...
+                ray_params.radius_front,...
+                image_position,...
+                ray_irradiance,...
+                image_bounds, image_sampling,...
+                verbose_ray_interpolation ...
+            );
+
+            if normalize_before_combining
+                I(:, :, j) = I(:, :, j) + (I_ij ./ max(max(I_ij)));
+            else
+                I(:, :, j) = I(:, :, j) + I_ij;
+            end
+
+            if display_each_psf
+                figure
+                ax = gca;
+                imagesc(ax,...
+                    [image_bounds(1), image_bounds(1) + image_bounds(3)],...
+                    [image_bounds(2), image_bounds(2) + image_bounds(4)],...
+                    I_ij...
+                    );
+                ax.YDir = 'normal';
+                xlabel('X');
+                ylabel('Y');
+                c = colorbar;
+                c.Label.String = 'Irradiance';
+                title(...
+                    sprintf('Estimated PSF for a point source at position [%g, %g, %g]',...
+                    X_lights(i, 1, j), X_lights(i, 2, j), X_lights(i, 3, j))...
+                    );
+            end
         end
-        
-        if display_each_psf
-            figure
-            ax = gca;
-            imagesc(ax,...
-                [image_bounds(1), image_bounds(1) + image_bounds(3)],...
-                [image_bounds(2), image_bounds(2) + image_bounds(4)],...
-                I_i...
-                );
-            ax.YDir = 'normal';
-            xlabel('X');
-            ylabel('Y');
-            c = colorbar;
-            c.Label.String = 'Irradiance';
-            title(...
-                sprintf('Estimated PSF for a point source at position [%g, %g, %g]',...
-                X_lights(i, 1), X_lights(i, 2), X_lights(i, 3))...
-                );
-        end
+    end
+    
+    % Visualize the results, for this depth
+    if ~single_source
+        figure
+        ax = gca;
+        imagesc(...
+            [image_bounds(1), image_bounds(1) + image_bounds(3)],...
+            [image_bounds(2), image_bounds(2) + image_bounds(4)],...
+            I(:, :, j)...
+        );
+        ax.YDir = 'normal';
+        xlabel('X');
+        ylabel('Y');
+        c = colorbar;
+        c.Label.String = 'Irradiance';
+        hold on
+        scatter(X_image_ideal(:, 1, j), X_image_ideal(:, 2, j), [], 'g', 'o');
+        scatter(X_image_real(:, 1, j), X_image_real(:, 2, j), [], 'r', '.');
+        legend('Thick lens formula', 'Raytracing peaks');
+        title(sprintf(...
+            'Images of point sources at %g focal lengths, seen through a thick lens',...
+            depth_factors(j)));
+        hold off
     end
 end
 
-%% Visualize the results
+%% Visualize the results, for all depths
+X_image_real_matrix = reshape(permute(X_image_real, [1, 3, 2]), [], 2, 1);
 
 if single_source
     disp('Point source angle from optical axis:')
     disp(single_source_angle)
-    disp('Distance from first principal plane, in focal lengths:')
-    disp(light_distance_factor)
+    disp('Distances from first principal plane, in focal lengths:')
+    disp(depth_factors)
     disp('Light source position:')
-    disp(ray_params.source_position)
+    disp(X_lights_matrix)
     disp('Image position calculated from thick lens equation:')
-    disp(X_image_ideal(:, 1:2))
+    disp(X_image_ideal_matrix(:, 1:2))
     disp('Image position simulated by raytracing:')
-    disp(X_image_real)
+    disp(X_image_real_matrix)
 else
     figure
-    ax = gca;
-    imagesc(...
-        [image_bounds(1), image_bounds(1) + image_bounds(3)],...
-        [image_bounds(2), image_bounds(2) + image_bounds(4)],...
-        I...
-    );
-    ax.YDir = 'normal';
-    xlabel('X');
-    ylabel('Y');
-    c = colorbar;
-    c.Label.String = 'Irradiance';
     hold on
-    scatter(X_image_ideal(:, 1), X_image_ideal(:, 2), [], 'g', 'o');
-    scatter(X_image_real(:, 1), X_image_real(:, 2), [], 'r', '.');
+    depth_factors_rep = repelem(depth_factors, n_lights);
+    scatter3(X_image_ideal_matrix(:, 1), X_image_ideal_matrix(:, 2), depth_factors_rep, [], 'g', 'o');
+    scatter3(X_image_real_matrix(:, 1), X_image_real_matrix(:, 2), depth_factors_rep, [], 'r', '.');
     legend('Thick lens formula', 'Raytracing peaks');
     title('Images of point sources seen through a thick lens')
+    xlabel('X');
+    ylabel('Y');
+    zlabel('Multiple of focal length')
     hold off
 end
