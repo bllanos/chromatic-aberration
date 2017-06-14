@@ -69,16 +69,16 @@ normalize_before_combining = false;
 % subtended by the midlines of the rectangular grid of lights, not the
 % diagonals.)
 % Set it to zero to use a single point light source instead.
-scene_angle = pi / 6;
+scene_angle = 0;
 single_source = (scene_angle == 0);
 if single_source
     % Angle of a single light source from the optical axis
-    single_source_angle = pi / 6;
+    single_source_angle = 0;
 else
     % Number of lights in a grid of lights, along the x-dimension
-    n_lights_x = 10;
+    n_lights_x = 4;
     % Number of lights in a grid of lights, along the y-dimension
-    n_lights_y = 10;
+    n_lights_y = 4;
 end
 
 % Multiple of the focal length distance corresponding to the reference
@@ -92,22 +92,23 @@ light_distance_factor_focused = 2;
 % uniformly in inverse depth space (with depth measured from the first
 % principal plane of the lens).
 % [ Largest distance, number of larger distances ]
-light_distance_factor_larger = [5, 3];
+light_distance_factor_larger = [5, 2];
 % [ Smallest distance, number of smaller distances ]
-light_distance_factor_smaller = [1.2, 3];
+light_distance_factor_smaller = [1.5, 2];
 
 % Place light sources along the same rays through the center of the lens
 % (true), or along the same rays parallel to the optical axis (false) when
 % changing their depths.
-preserve_angle_over_depths = false;
+preserve_angle_over_depths = true;
 
 single_depth = (light_distance_factor_larger(2) == 0 & light_distance_factor_smaller(2) == 0);
 
 % ## Debugging Flags
 plot_light_positions = true;
 verbose_ray_tracing = ((single_source & single_depth) | false);
-verbose_ray_interpolation = ((single_source & single_depth) | false);
-display_each_psf = false;
+verbose_ray_interpolation = ((single_source & single_depth) | true);
+display_each_psf = true;
+display_all_psf_each_depth = true;
 
 %% Calculate lens imaging properties
 
@@ -124,6 +125,7 @@ display_each_psf = false;
 % Light source positions on the reference plane
 z_light = (light_distance_factor_focused * abs(f)) + U;
 lens_center_z = lens_radius - (axial_thickness / 2);
+lens_center = [0, 0, lens_center_z];
 lens_center_to_light_ref = z_light - lens_center_z;
 if single_source
     x_light = tan(single_source_angle) * lens_center_to_light_ref;
@@ -146,6 +148,7 @@ if single_depth
     depth_ref_index = 1;
     n_depths = 1;
     depth_factors = light_distance_factor_focused;
+    X_lights_matrix = X_lights;
 else
     depth_ref_inv = 1 / light_distance_factor_focused;
     depth_factors = [
@@ -167,10 +170,10 @@ else
     if preserve_angle_over_depths
         lens_center_to_light_relative = (z_light - lens_center_z) ./ lens_center_to_light_ref;
         lens_center_to_light_relative = repmat(lens_center_to_light_relative, n_lights, 3, 1);
-        lens_center = repmat([0, 0, lens_center_z], n_lights, 1);
-        lens_center_to_light =  repmat(X_lights - lens_center, 1, 1, n_depths);
-        lens_center = repmat(lens_center, 1, 1, n_depths);
-        X_lights = lens_center + (lens_center_to_light .* lens_center_to_light_relative);
+        lens_center_rep = repmat(lens_center, n_lights, 1);
+        lens_center_to_light =  repmat(X_lights - lens_center_rep, 1, 1, n_depths);
+        lens_center_rep = repmat(lens_center_rep, 1, 1, n_depths);
+        X_lights = lens_center_rep + (lens_center_to_light .* lens_center_to_light_relative);
     else
         X_lights = [repmat(X_lights(:, 1:2), 1, 1, n_depths), repmat(z_light, n_lights, 1, 1)];
     end
@@ -215,7 +218,7 @@ if plot_light_positions
 
     % Lens centre
     scatter3(...
-        lens_center(1, 1, 1), lens_center(1, 2, 1), lens_center(1, 3, 1),...
+        lens_center(1), lens_center(2), lens_center(3),...
         [], 'k', 'filled'...
     );
     legend('Lights', 'First principal plane', 'First focal length', 'Lens centre');
@@ -310,15 +313,15 @@ for j = 1:n_depths
                 c = colorbar;
                 c.Label.String = 'Irradiance';
                 title(...
-                    sprintf('Estimated PSF for a point source at position [%g, %g, %g]',...
-                    X_lights(i, 1, j), X_lights(i, 2, j), X_lights(i, 3, j))...
+                    sprintf('Estimated PSF for a point source at position [%g, %g, %g] (%g focal lengths)',...
+                    X_lights(i, 1, j), X_lights(i, 2, j), X_lights(i, 3, j)), depth_factors(j)...
                     );
             end
         end
     end
     
     % Visualize the results, for this depth
-    if ~single_source
+    if ~single_source && display_all_psf_each_depth
         figure
         ax = gca;
         imagesc(...
