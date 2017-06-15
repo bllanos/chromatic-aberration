@@ -76,9 +76,9 @@ if single_source
     single_source_angle = 0;
 else
     % Number of lights in a grid of lights, along the x-dimension
-    n_lights_x = 4;
+    n_lights_x = 3;
     % Number of lights in a grid of lights, along the y-dimension
-    n_lights_y = 4;
+    n_lights_y = 3;
 end
 
 % Multiple of the focal length distance corresponding to the reference
@@ -105,8 +105,8 @@ single_depth = (light_distance_factor_larger(2) == 0 & light_distance_factor_sma
 
 % ## Debugging Flags
 plot_light_positions = true;
-verbose_ray_tracing = ((single_source & single_depth) | false);
-verbose_ray_interpolation = ((single_source & single_depth) | true);
+verbose_ray_tracing = ((single_source & single_depth) | true);
+verbose_ray_interpolation = ((single_source & single_depth) | false);
 display_each_psf = true;
 display_all_psf_each_depth = true;
 
@@ -314,8 +314,8 @@ for j = 1:n_depths
                 c.Label.String = 'Irradiance';
                 title(...
                     sprintf('Estimated PSF for a point source at position [%g, %g, %g] (%g focal lengths)',...
-                    X_lights(i, 1, j), X_lights(i, 2, j), X_lights(i, 3, j)), depth_factors(j)...
-                    );
+                    X_lights(i, 1, j), X_lights(i, 2, j), X_lights(i, 3, j), depth_factors(j)...
+                    ));
             end
         end
     end

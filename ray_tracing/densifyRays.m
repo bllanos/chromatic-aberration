@@ -95,6 +95,15 @@ function [ max_position, max_irradiance, I ] = densifyRays(...
 %   irradiance produced by the pattern of rays on the image plane. Note
 %   that `max_position` contains world coordinates, not pixel indices.
 %
+%   If there are multiple local maxima in the image irradiance, and their
+%   average location has an irradiance value which is lower than all of
+%   them, then this average location is returned. The average is computed
+%   by weighting each local maxima by its irradiance value. Such a
+%   situation can occur under high defocus, where raytracing produces a
+%   ring, rather than a cluster. The intention is to find the expected
+%   value of the peak location (which, in these problematic cases, is far
+%   from a local maxima).
+%
 % max_irradiance -- Peak image irradiance
 %   A scalar containing the peak irradiance produced by the pattern of rays
 %   on the image plane. `max_irradiance` is the image irradiance at the
@@ -112,6 +121,16 @@ function [ max_position, max_irradiance, I ] = densifyRays(...
 % Supervised by Dr. Y.H. Yang
 % University of Alberta, Department of Computing Science
 % File created June 8, 2017
+
+    function [f, g] = splineValueAndGradient(x)
+        f = -fnval(thin_plate_spline,[x(1);x(2)]);
+        if nargout > 1 % gradient required
+            g = -[
+                fnval(thin_plate_spline_dx,[x(1);x(2)]);
+                fnval(thin_plate_spline_dy,[x(1);x(2)])
+                ];
+        end
+    end
 
 nargoutchk(1, 3);
 narginchk(4, 7);
@@ -270,67 +289,94 @@ if verbose
     xlabel('X');
     ylabel('Y');
     zlabel('Irradiance');
+    colormap summer
     c = colorbar;
     c.Label.String = 'Irradiance';
     title('Interpolation of image irradiance values')
 end
 
-% Find the peak intensity
-thin_plate_spline_dx = fnder(thin_plate_spline,[1, 0]);
-thin_plate_spline_dy = fnder(thin_plate_spline,[0, 1]);
-% if verbose
-%     figure
-%     fnplt(thin_plate_spline_dx)
-%     colorbar
-%     xlabel('X');
-%     ylabel('Y');
-%     zlabel('Irradiance X-gradient');
-%     title('Image irradiance interpolant X-gradient')
-%     
-%     figure
-%     fnplt(thin_plate_spline_dy)
-%     colorbar
-%     xlabel('X');
-%     ylabel('Y');
-%     zlabel('Irradiance Y-gradient');
-%     title('Image irradiance interpolant Y-gradient')
-% end
-min_x = min(image_position(:, 1));
-max_x = max(image_position(:, 1));
-min_y = min(image_position(:, 2));
-max_y = max(image_position(:, 2));
-    function [f, g] = splineValueAndGradient(x)
-        f = -fnval(thin_plate_spline,[x(1);x(2)]);
-        if nargout > 1 % gradient required
-            g = -[
-                fnval(thin_plate_spline_dx,[x(1);x(2)]);
-                fnval(thin_plate_spline_dy,[x(1);x(2)])
-                ];
-        end
+% Quickly search for local maxima
+% `fmincon` would be more accurate, but I think it is overkill
+image_irradiance_spline = fnval(thin_plate_spline,image_position.');
+image_irradiance_spline = image_irradiance_spline.';
+local_maxima_filter = false(n_rays, 1);
+for i = 1:n_rays
+    v_adj_i = v_adj_out{i};
+    differences = image_irradiance_spline(i) - image_irradiance_spline(v_adj_i);
+    local_maxima_filter(i) = all(differences >= 0);
+end
+local_maxima_irradiance = image_irradiance_spline(local_maxima_filter);
+local_maxima_position = image_position(local_maxima_filter, :);
+
+% Estimate whether there is a true peak irradiance
+has_peak = true;
+if sum(local_maxima_filter) > 1
+    local_maxima_position_mean = mean(...
+            repmat(local_maxima_irradiance, 1, 2) .* local_maxima_position, 1 ...
+        ) ./ sum(local_maxima_irradiance);
+    image_irradiance_mean_spline = fnval(thin_plate_spline,local_maxima_position_mean.');
+    if all(local_maxima_irradiance >= image_irradiance_mean_spline)
+        % Probably no peak irradiance
+        has_peak = false;
+        max_position = local_maxima_position_mean;
+        max_irradiance = fnval(thin_plate_spline,max_position.');
     end
-lb = [min_x, min_y];
-ub = [max_x, max_y];
-A = [];
-b = [];
-Aeq = [];
-beq = [];
-% Initial guess for maximum is the maximum of `ray_irradiance`, not
-% `image_irradiance`, as `image_irradiance` is noisy.
-[~, max_ind] = max(ray_irradiance);
-x0 = image_position(max_ind, :);
-nonlcon = [];
-options = optimoptions('fmincon','SpecifyObjectiveGradient',true);
-[max_position, max_irradiance] = fmincon(...
-    @splineValueAndGradient,x0,A,b,Aeq,beq,lb,ub, nonlcon, options...
-);
-max_irradiance = -max_irradiance;
+end
+
+if has_peak
+    % Find the peak irradiance
+    thin_plate_spline_dx = fnder(thin_plate_spline,[1, 0]);
+    thin_plate_spline_dy = fnder(thin_plate_spline,[0, 1]);
+    % if verbose
+    %     figure
+    %     fnplt(thin_plate_spline_dx)
+    %     colorbar
+    %     xlabel('X');
+    %     ylabel('Y');
+    %     zlabel('Irradiance X-gradient');
+    %     title('Image irradiance interpolant X-gradient')
+    %
+    %     figure
+    %     fnplt(thin_plate_spline_dy)
+    %     colorbar
+    %     xlabel('X');
+    %     ylabel('Y');
+    %     zlabel('Irradiance Y-gradient');
+    %     title('Image irradiance interpolant Y-gradient')
+    % end
+    min_x = min(image_position(:, 1));
+    max_x = max(image_position(:, 1));
+    min_y = min(image_position(:, 2));
+    max_y = max(image_position(:, 2));
+    lb = [min_x, min_y];
+    ub = [max_x, max_y];
+    A = [];
+    b = [];
+    Aeq = [];
+    beq = [];
+    [~, max_ind] = max(image_irradiance_spline);
+    x0 = image_position(max_ind, :);
+    nonlcon = [];
+    options = optimoptions('fmincon','SpecifyObjectiveGradient',true);
+    [max_position, max_irradiance] = fmincon(...
+        @splineValueAndGradient,x0,A,b,Aeq,beq,lb,ub, nonlcon, options...
+        );
+    max_irradiance = -max_irradiance;
+end
+
 if verbose
     hold on
     plot3(...
-        max_position(1), max_position(2), max_irradiance,...
-        'wo','markerfacecolor','k'...
+        local_maxima_position(:, 1), local_maxima_position(:, 2),...
+        local_maxima_irradiance,...
+        'ko','markerfacecolor','c'...
     )
-    title('Interpolation of image irradiance values, with peak marked')
+    plot3(...
+        max_position(1), max_position(2), max_irradiance,...
+        'ko','markerfacecolor','r'...
+    )
+    legend('Thin plate spline', 'Local maxima', 'Chosen peak')
+    title('Interpolation of image irradiance values')
     hold off
 end
 
