@@ -69,7 +69,7 @@ normalize_before_combining = false;
 % subtended by the midlines of the rectangular grid of lights, not the
 % diagonals.)
 % Set it to zero to use a single point light source instead.
-scene_angle = 0;
+scene_angle = pi / 6;
 single_source = (scene_angle == 0);
 if single_source
     % Angle of a single light source from the optical axis
@@ -87,10 +87,9 @@ end
 % field of view, is in focus.
 light_distance_factor_focused = 2;
 
-% Additional distances at which light sources
-% will be placed, in units of focal lengths. Distances will be spaced
-% uniformly in inverse depth space (with depth measured from the first
-% principal plane of the lens).
+% Additional distances at which light sources will be placed, in units of
+% focal lengths. Distances will be spaced uniformly in inverse depth space
+% (with depth measured from the first principal plane of the lens).
 % [ Largest distance, number of larger distances ]
 light_distance_factor_larger = [5, 2];
 % [ Smallest distance, number of smaller distances ]
@@ -105,9 +104,9 @@ single_depth = (light_distance_factor_larger(2) == 0 & light_distance_factor_sma
 
 % ## Debugging Flags
 plot_light_positions = true;
-verbose_ray_tracing = ((single_source & single_depth) | true);
+verbose_ray_tracing = ((single_source & single_depth) | false);
 verbose_ray_interpolation = ((single_source & single_depth) | false);
-display_each_psf = true;
+display_each_psf = false;
 display_all_psf_each_depth = true;
 
 %% Calculate lens imaging properties
@@ -236,8 +235,8 @@ X_image_ideal_matrix = imageFn(X_lights_matrix);
 % Adjust magnification to approximately account for the actual image plane
 % location
 magnification_correction_ideal = ...
-    (repmat(U_prime, n_lights_and_depths, 1) - X_image_ideal_matrix(:, 3)) ./ ...
-    repmat(U_prime + ray_params.d_film, n_lights_and_depths, 1);
+    repmat(U_prime + ray_params.d_film, n_lights_and_depths, 1) ./ ...
+    (repmat(U_prime, n_lights_and_depths, 1) - X_image_ideal_matrix(:, 3));
 principal_point = repmat([0, 0, U_prime], n_lights_and_depths, 1);
 X_image_rays = X_image_ideal_matrix - principal_point;
 X_image_ideal_matrix = principal_point + (X_image_rays .* magnification_correction_ideal);
