@@ -296,14 +296,13 @@ n_ior_lens = length(ior_lens);
 
 % Light source positions on the reference plane
 z_light = (light_distance_factor_focused * abs(f_reference)) + U_reference;
-lens_center_z = lens_params.lens_radius - (lens_params.axial_thickness / 2);
-lens_center = [0, 0, lens_center_z];
-lens_center_to_light_ref = z_light - lens_center_z;
+principal_point = [0, 0, U_reference];
+U_to_light_ref = z_light - U_reference;
 if single_source
-    x_light = tan(single_source_theta) * lens_center_to_light_ref;
+    x_light = tan(single_source_theta) * U_to_light_ref;
     y_light = 0;
 else
-    scene_half_width = tan(scene_theta_max) * lens_center_to_light_ref;
+    scene_half_width = tan(scene_theta_max) * U_to_light_ref;
     x_light = linspace(-scene_half_width, scene_half_width, n_lights_x);
     y_light = linspace(-scene_half_width, scene_half_width, n_lights_y);
     [x_light,y_light] = meshgrid(x_light,y_light);
@@ -340,12 +339,12 @@ else
     
     z_light = reshape((depth_factors * abs(f_reference)) + U_reference, 1, 1, []);
     if preserve_angle_over_depths
-        lens_center_to_light_relative = (z_light - lens_center_z) ./ lens_center_to_light_ref;
-        lens_center_to_light_relative = repmat(lens_center_to_light_relative, n_lights, 3, 1);
-        lens_center_rep = repmat(lens_center, n_lights, 1);
-        lens_center_to_light =  repmat(X_lights - lens_center_rep, 1, 1, n_depths);
-        lens_center_rep = repmat(lens_center_rep, 1, 1, n_depths);
-        X_lights = lens_center_rep + (lens_center_to_light .* lens_center_to_light_relative);
+        U_to_light_relative = (z_light - U_reference) ./ U_to_light_ref;
+        U_to_light_relative = repmat(U_to_light_relative, n_lights, 3, 1);
+        principal_point_rep = repmat(principal_point, n_lights, 1);
+        U_to_light =  repmat(X_lights - principal_point_rep, 1, 1, n_depths);
+        principal_point_rep = repmat(principal_point_rep, 1, 1, n_depths);
+        X_lights = principal_point_rep + (U_to_light .* U_to_light_relative);
     else
         X_lights = [repmat(X_lights(:, 1:2), 1, 1, n_depths), repmat(z_light, n_lights, 1, 1)];
     end
@@ -388,12 +387,21 @@ if plot_light_positions
         'EdgeColor', 'k', 'FaceAlpha', 0.4, 'FaceColor', 'y' ...
     );
 
+    % Principal Point
+    scatter3(...
+        principal_point(1), principal_point(2), principal_point(3),...
+        [], 'r', 'filled'...
+    );
+
     % Lens centre
     scatter3(...
-        lens_center(1), lens_center(2), lens_center(3),...
+        0, 0, lens_params.lens_radius - (lens_params.axial_thickness / 2),...
         [], 'k', 'filled'...
     );
-    legend('Lights', 'First principal plane', 'First focal length', 'Lens centre');
+    legend(...
+        'Lights', 'First principal plane', 'First focal length',...
+        'First principal point', 'Lens centre'...
+    );
     set(gca, 'Color', 'none');
     hold off
 end
@@ -420,9 +428,9 @@ for k = 1:n_ior_lens
     magnification_correction_ideal = ...
         repmat(U_prime + ray_params.d_film, n_lights_and_depths, 1) ./ ...
         (repmat(U_prime, n_lights_and_depths, 1) - X_image_ideal_matrix(:, 3, k));
-    principal_point = repmat([0, 0, U_prime], n_lights_and_depths, 1);
-    X_image_rays = X_image_ideal_matrix(:, :, k) - principal_point;
-    X_image_ideal_matrix(:, :, k) = principal_point + (X_image_rays .* magnification_correction_ideal);
+    principal_point_prime = repmat([0, 0, U_prime], n_lights_and_depths, 1);
+    X_image_rays = X_image_ideal_matrix(:, :, k) - principal_point_prime;
+    X_image_ideal_matrix(:, :, k) = principal_point_prime + (X_image_rays .* magnification_correction_ideal);
 end
 
 X_image_ideal = permute(reshape(X_image_ideal_matrix, n_lights, n_depths, 3, n_ior_lens), [1, 3, 4, 2]);
