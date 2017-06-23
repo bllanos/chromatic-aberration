@@ -124,8 +124,10 @@ function [ ...
 %   are occluded by the front surface of the lens.
 %
 % ## References
-% - Wikipedia page on Snell's Law:
-%   https://en.wikipedia.org/wiki/Snell%27s_law#Vector_form
+% - Ray-sphere intersection testing:
+%   - http://www.ccs.neu.edu/home/fell/CSU540/programs/RayTracingFormulas.htm
+%   - https://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter1.htm
+%   - https://en.wikipedia.org/wiki/Line%E2%80%93sphere_intersection
 %
 % See also sphereSection, refract, densifyRays
 
