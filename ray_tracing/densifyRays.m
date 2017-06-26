@@ -96,13 +96,18 @@ function [ max_position, max_irradiance, I ] = densifyRays(...
 %   that `max_position` contains world coordinates, not pixel indices.
 %
 %   If there are multiple local maxima in the image irradiance, and their
-%   average location has an irradiance value which is lower than all of
-%   them, then this average location is returned. The average is computed
-%   by weighting each local maxima by its irradiance value. Such a
-%   situation can occur under high defocus, where raytracing produces a
-%   ring, rather than a cluster. The intention is to find the expected
-%   value of the peak location (which, in these problematic cases, is far
-%   from a local maxima).
+%   average location has an irradiance value which is lower than more than
+%   one of them, then the centroid of the irradiances is returned. The
+%   centroid is computed by weighting each ray's image coordinates by its
+%   irradiance value. Such a situation can occur under high defocus, where
+%   raytracing produces a ring, rather than a cluster. The intention is to
+%   find the expected value of the peak location (which, in these
+%   problematic cases, is far from a local maxima).
+%
+%   Following calculation of the peak irradiance position by `fmincon`, the
+%   solution is checked to see if it is further from the centroid than the
+%   average distance of local maxima from the centroid. If so, the centroid
+%   is returned instead.
 %
 % max_irradiance -- Peak image irradiance
 %   A scalar containing the peak irradiance produced by the pattern of rays
@@ -308,6 +313,11 @@ end
 local_maxima_irradiance = image_irradiance_spline(local_maxima_filter);
 local_maxima_position = image_position(local_maxima_filter, :);
 
+% Fallback peak location
+max_position = sum(...
+    repmat(image_irradiance_spline, 1, 2) .* image_position, 1 ...
+) ./ sum(image_irradiance_spline);
+
 % Estimate whether there is a true peak irradiance
 has_peak = true;
 if sum(local_maxima_filter) > 1
@@ -315,11 +325,9 @@ if sum(local_maxima_filter) > 1
             repmat(local_maxima_irradiance, 1, 2) .* local_maxima_position, 1 ...
         ) ./ sum(local_maxima_irradiance);
     image_irradiance_mean_spline = fnval(thin_plate_spline,local_maxima_position_mean.');
-    if all(local_maxima_irradiance >= image_irradiance_mean_spline)
+    if sum(local_maxima_irradiance >= image_irradiance_mean_spline) > 1
         % Probably no peak irradiance
         has_peak = false;
-        max_position = local_maxima_position_mean;
-        max_irradiance = fnval(thin_plate_spline,max_position.');
     end
 end
 
@@ -358,10 +366,28 @@ if has_peak
     x0 = image_position(max_ind, :);
     nonlcon = [];
     options = optimoptions('fmincon','SpecifyObjectiveGradient',true);
-    [max_position, max_irradiance] = fmincon(...
+    [max_position_fmincon, max_irradiance] = fmincon(...
         @splineValueAndGradient,x0,A,b,Aeq,beq,lb,ub, nonlcon, options...
         );
     max_irradiance = -max_irradiance;
+    % Validate the solution
+    % If the estimated peak is further from the centroid than the average
+    % distance from the centroid, the solution is probably spurious
+    d_mean = image_position - max_position;
+    d_mean = sqrt(dot(d_mean, d_mean, 2));
+    d_mean = sum(...
+        image_irradiance_spline .* d_mean ...
+    ) / sum(image_irradiance_spline);
+    d_peak = norm(max_position_fmincon - max_position);
+    if d_peak > d_mean
+        has_peak = false;
+    else
+        max_position = max_position_fmincon;
+    end
+end
+
+if ~has_peak
+    max_irradiance = fnval(thin_plate_spline,max_position.');
 end
 
 if verbose
