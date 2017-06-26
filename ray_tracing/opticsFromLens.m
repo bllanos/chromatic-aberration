@@ -150,14 +150,15 @@ U_prime = -d_lens + r2 - d_prime;
 %         z_image = U_prime + z2;
 %     end
 
-% Equation 16 in section 4.3.1
     function X_image = imagePoint(X_object)
         n_points = size(X_object, 1);
         z_object = X_object(:, 3);
         z0 = repmat(U, n_points, 1) - z_object;
+        % Equation 16 in section 4.3.1
         z1 = -f_prime ./ (1 + (f ./ z0));
         z_image = repmat(U_prime, n_points, 1) - z1;
-        magnification = z1 ./ z0;
+        % Equation 10 in section 4.3.1, taking into account equation 15
+        magnification = f ./ (z0 + f);
         X1 = X_object(:, 1) .* magnification;
         Y1 = X_object(:, 2) .* magnification;
         X_image = [X1, Y1, z_image];

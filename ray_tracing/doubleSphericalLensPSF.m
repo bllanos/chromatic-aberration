@@ -116,12 +116,11 @@ function [...
 %     `light_distance_factor_larger`, but for depths smaller than the
 %     reference depth.
 %   - preserve_angle_over_depths: If `true`, lights at depths other than
-%     the reference depth will be positioned such that lights lie along
-%     rays passing through the intersection of the optical axis with the
-%     first principal plane of the lens. If `false`, the grids of lights at
-%     different depths will be aligned so that the lights have the same
-%     xy-coordinates regardless of depth. In other words, the lights will
-%     lie along rays parallel to the optical axis.
+%     the reference depth will be positioned such that their images are
+%     aligned, according to the thick lens formulas. If `false`, the grids
+%     of lights at different depths will be aligned so that the lights have
+%     the same xy-coordinates regardless of depth. In other words, the
+%     lights will lie along rays parallel to the optical axis.
 %
 % verbose -- Debugging flags
 %   If recognized fields of `verbose` are true, corresponding graphical
@@ -282,7 +281,7 @@ end
 n_ior_lens = length(ior_lens);
 [...
     imageFn_reference,...
-    f_reference,...
+    f_reference, ~, ...
     U_reference...
 ] = opticsFromLens(...
     ray_params.ior_environment,...
@@ -339,12 +338,19 @@ else
     
     z_light = reshape((depth_factors * abs(f_reference)) + U_reference, 1, 1, []);
     if preserve_angle_over_depths
-        U_to_light_relative = (z_light - U_reference) ./ U_to_light_ref;
-        U_to_light_relative = repmat(U_to_light_relative, n_lights, 3, 1);
-        principal_point_rep = repmat(principal_point, n_lights, 1);
-        U_to_light =  repmat(X_lights - principal_point_rep, 1, 1, n_depths);
-        principal_point_rep = repmat(principal_point_rep, 1, 1, n_depths);
-        X_lights = principal_point_rep + (U_to_light .* U_to_light_relative);
+        U_to_light_z = z_light - U_reference;
+        adjustment_factors = (...
+            (U_to_light_z + f_reference) ./ ...
+            (U_to_light_ref + f_reference) ...
+        ) .* ( ...
+            (1 + f_reference ./ U_to_light_ref) ./ ...
+            (1 + f_reference ./ U_to_light_z) ...
+        );
+        adjustment_factors = repmat(adjustment_factors, n_lights, 2, 1);
+        X_lights = [
+            adjustment_factors .* repmat(X_lights(:, 1:2), 1, 1, n_depths),...
+            repmat(z_light, n_lights, 1, 1)
+        ];
     else
         X_lights = [repmat(X_lights(:, 1:2), 1, 1, n_depths), repmat(z_light, n_lights, 1, 1)];
     end
