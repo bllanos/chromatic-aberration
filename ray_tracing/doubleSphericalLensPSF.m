@@ -85,8 +85,8 @@ function [...
 %     out-of-focus depths may be quite dim.
 %
 % scene_params -- Light source parameters
-%   A structure with the following fields, describing the grids of light
-%   sources illuminating the lens:
+%   A structure with the following fields, describing the grid or line of
+%   light sources illuminating the lens:
 %   - theta_max: For the grid of light sources at the reference depth, this
 %     is the maximum angle with the optical axis subtended by the grid. The
 %     angle is measured between the optical axis, and the rays from the
@@ -95,8 +95,25 @@ function [...
 %     the grid at right angles when viewed along the optical axis. In other
 %     words, this is half of the angle subtended by the perpendicular
 %     bisectors of the square grid of lights.
-%   - n_lights_x: The number of columns of lights in the grid.
-%   - n_lights_y: The number of rows of lights in the grid.
+%
+%     For a line of light sources at the reference depth, this is the angle
+%     between the optical axis and the ray from the first principal plane's
+%     intersection with the optical axis to the outermost light source on
+%     the line.
+%   - n_lights: The number of lights in the scene.
+%
+%     If `n_lights` is a scalar, it is the number of lights on a line of
+%     light sources. The line extends perpendicular to the optical axis,
+%     along the positive x-direction.
+%
+%     If `n_lights` is a two-element vector, it contains the number of
+%     lights in the x and y-directions, respectively, in a grid of lights.
+%     The grid is centered on the optical axis.
+%
+%     If `n_lights` is `1`, or `[1 1]`, a single light source is created,
+%     and placed on the y = 0 plane, with a positive x-coordinate, such
+%     that it corresponds to the angle `theta_max`.
+%
 %   - light_distance_factor_focused: The reference depth, measured in
 %     multiples of the focal length of the lens. The "reference depth" is
 %     the depth of the scene which produces a focused image, according to
@@ -242,13 +259,18 @@ normalize_psfs_before_combining = image_params.normalize_psfs_before_combining;
 normalize_color_images_globally = image_params.normalize_color_images_globally;
 
 scene_theta_max = scene_params.theta_max;
-single_source = (scene_params.n_lights_x == 1 & scene_params.n_lights_x == 1);
-if single_source
-    single_source_theta = scene_theta_max;
+if length(scene_params.n_lights) == 1
+    n_lights_x = scene_params.n_lights;
+    n_lights_y = 1;
+    radial_lights = true;
+elseif length(scene_params.n_lights) == 2
+    n_lights_x = scene_params.n_lights(1);
+    n_lights_y = scene_params.n_lights(2);
+    radial_lights = false;
 else
-    n_lights_x = scene_params.n_lights_x;
-    n_lights_y = scene_params.n_lights_y;
+    error('`scene_params.n_lights` must be either a scalar, or a two element vector.');
 end
+single_source = (n_lights_x == 1 & n_lights_y == 1);
 
 light_distance_factor_focused = scene_params.light_distance_factor_focused;
 light_distance_factor_larger = scene_params.light_distance_factor_larger;
@@ -298,12 +320,17 @@ z_light = (light_distance_factor_focused * abs(f_reference)) + U_reference;
 principal_point = [0, 0, U_reference];
 U_to_light_ref = z_light - U_reference;
 if single_source
-    x_light = tan(single_source_theta) * U_to_light_ref;
+    x_light = tan(scene_theta_max) * U_to_light_ref;
     y_light = 0;
 else
     scene_half_width = tan(scene_theta_max) * U_to_light_ref;
-    x_light = linspace(-scene_half_width, scene_half_width, n_lights_x);
-    y_light = linspace(-scene_half_width, scene_half_width, n_lights_y);
+    if radial_lights
+        x_light = linspace(0, scene_half_width, n_lights_x);
+        y_light = 0;
+    else
+        x_light = linspace(-scene_half_width, scene_half_width, n_lights_x);
+        y_light = linspace(-scene_half_width, scene_half_width, n_lights_y);
+    end
     [x_light,y_light] = meshgrid(x_light,y_light);
 end
 n_lights = numel(x_light);
@@ -450,10 +477,22 @@ if ~single_source
     largest_image = sum(sum(largest_image, 3), 4);
     X_image_grid_x = reshape(largest_image(:, 1), n_lights_y, n_lights_x);
     X_image_grid_y = reshape(largest_image(:, 2), n_lights_y, n_lights_x);
-    left_buffer = max(abs(X_image_grid_x(:, 2) - X_image_grid_x(:, 1)));
-    right_buffer = max(abs(X_image_grid_x(:, end) - X_image_grid_x(:, end - 1)));
-    bottom_buffer = max(abs(X_image_grid_y(2, :) - X_image_grid_y(1, :)));
-    top_buffer = max(abs(X_image_grid_y(end, :) - X_image_grid_y(end - 1, :)));
+    if n_lights_x > 1
+        left_buffer = max(abs(X_image_grid_x(:, 2) - X_image_grid_x(:, 1)));
+        right_buffer = max(abs(X_image_grid_x(:, end) - X_image_grid_x(:, end - 1)));
+    end
+    if n_lights_y > 1
+        bottom_buffer = max(abs(X_image_grid_y(2, :) - X_image_grid_y(1, :)));
+        top_buffer = max(abs(X_image_grid_y(end, :) - X_image_grid_y(end - 1, :)));
+    end
+    if n_lights_x == 1
+        left_buffer = mean([bottom_buffer, top_buffer]);
+        right_buffer = left_buffer;
+    end
+    if n_lights_y == 1
+        bottom_buffer = mean([left_buffer, right_buffer]);
+        top_buffer = bottom_buffer;
+    end
     image_bounds = [
         min(largest_image(:, 1)) - left_buffer,...
         min(largest_image(:, 2)) - bottom_buffer
@@ -607,7 +646,7 @@ X_image_real_matrix = reshape(permute(X_image_real, [1, 4, 2, 3]), [], 2, n_ior_
 if display_summary
     if single_source
         disp('Point source angle from optical axis:')
-        disp(single_source_theta)
+        disp(scene_theta_max)
         disp('Distances from first principal plane, in focal lengths:')
         disp(depth_factors)
         disp('Light source position [x, y, z]:')
@@ -627,8 +666,8 @@ if display_summary
         for k = 1:n_ior_lens
             scatter3(X_image_ideal_matrix(:, 1, k, :), X_image_ideal_matrix(:, 2, k, :), depth_factors_rep, [], wavelengths_to_rgb(k, :), 'o');
             scatter3(X_image_real_matrix(:, 1, k, :), X_image_real_matrix(:, 2, k, :), depth_factors_rep, [], wavelengths_to_rgb(k, :), '.');
-            legend_strings{k} = sprintf('Thick lens formula, \\lambda = %g nm', wavelengths(k));
-            legend_strings{n_ior_lens + k} = sprintf('Raytracing peaks, \\lambda = %g nm', wavelengths(k));
+            legend_strings{2 * k - 1} = sprintf('Thick lens formula, \\lambda = %g nm', wavelengths(k));
+            legend_strings{2 * k} = sprintf('Raytracing peaks, \\lambda = %g nm', wavelengths(k));
         end
         legend(legend_strings);        
         title('Images of point sources seen through a thick lens')
