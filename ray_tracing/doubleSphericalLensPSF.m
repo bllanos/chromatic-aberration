@@ -1,6 +1,5 @@
 function [...
-    X_image_real, X_image_ideal, max_irradiance,...
-    X_lights, depth_factors, I, I_color...
+    X_image_real, X_image_ideal, X_lights, depth_factors, I, I_color...
 ] = doubleSphericalLensPSF(...
     lens_params, ray_params, image_params, scene_params, varargin...
 )
@@ -8,15 +7,14 @@ function [...
 %
 % ## Syntax
 % [...
-%     X_image_real, X_image_ideal, max_irradiance,...
-%     X_lights, depth_factors, I, I_color...
+%     X_image_real, X_image_ideal, X_lights, depth_factors, I, I_color...
 % ] = doubleSphericalLensPSF(...
 %     lens_params, ray_params, image_params, scene_params [, verbose]...
 % )
 %
 % ## Description
 % [...
-%     X_image_real, X_image_ideal, max_irradiance, X_lights, I, I_color...
+%     X_image_real, X_image_ideal, X_lights, depth_factors, I, I_color...
 % ] = doubleSphericalLensPSF(...
 %     lens_params, ray_params, image_params, scene_params [, verbose]...
 % )
@@ -150,24 +148,17 @@ function [...
 %
 % ## Output Arguments
 %
-% X_image_real -- Simulated peaks of point spread functions
-%   The locations of the peak intensities of the images produced by each
-%   light source, for each wavelength, and for each depth. `X_image_real(i,
-%   :, k, j)` is the `max_position` output argument of 'densifyRays.m' for
-%   the i-th light, emitting the k-th wavelength, and positioned at the
-%   j-th depth.
+% X_image_real -- Simulated centroids of point spread functions
+%   The intensity-weighted average locations computed for the images
+%   produced by each light source, for each wavelength, and for each depth.
+%   `X_image_real(i, :, k, j)` is the `stats.mean_position` output argument
+%   of 'analyzePSF.m' for the i-th light, emitting the k-th wavelength,
+%   and positioned at the j-th depth.
 %
 % X_image_ideal -- Theoretical image locations
 %   The locations of peak intensities in the images produced by each light
 %   source, as predicted by the thick lens equation. `X_image_ideal` has
 %   the same format as `X_image_real`.
-%
-% max_irradiance -- Ray irradiance
-%   The `max_irradiance` output argument of 'densifyRays.m', for each light
-%   source, for each wavelength, and for each depth. `max_irradiance(i, 1,
-%   k, j)` corresponds to the image intensity at the location
-%   `X_image_real(i, :, k, j)`. Note that the second dimension is a
-%   singleton dimension.
 %
 % X_lights -- Light positions
 %   The positions, expressed in cartesian coordinates (x, y, z), of the
@@ -228,7 +219,7 @@ function [...
 % arbitrary number of wavelengths, and obtain as many estimates of
 % chromatic aberration (not only three).
 %
-% See also opticsFromLens, doubleSphericalLens, densifyRays
+% See also opticsFromLens, doubleSphericalLens, densifyRays, analyzePSF
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -237,7 +228,7 @@ function [...
 
 %% Parse parameters
 
-nargoutchk(1,7);
+nargoutchk(1,6);
 narginchk(4,5);
 
 ray_params.radius_front = lens_params.radius_front;
@@ -286,6 +277,7 @@ if ~isempty(varargin)
     plot_light_positions = verbose.plot_light_positions;
     verbose_ray_tracing = verbose.verbose_ray_tracing;
     verbose_ray_interpolation = verbose.verbose_ray_interpolation;
+    verbose_psf_analysis = verbose.verbose_psf_analysis;
     display_each_psf = verbose.display_each_psf;
     display_all_psf_each_ior = verbose.display_all_psf_each_ior;
     display_all_psf_each_depth = verbose.display_all_psf_each_depth;
@@ -294,6 +286,7 @@ else
     plot_light_positions = false;
     verbose_ray_tracing = false;
     verbose_ray_interpolation = false;
+    verbose_psf_analysis = false;
     display_each_psf = false;
     display_all_psf_each_ior = false;
     display_all_psf_each_depth = false;
@@ -518,7 +511,6 @@ else
     I_color = zeros([image_sampling, n_channels, n_depths]);
 end
 X_image_real = zeros(n_lights, 2, n_ior_lens, n_depths);
-max_irradiance = zeros(n_lights, 1, n_ior_lens, n_depths);
 for j = 1:n_depths
     for k = 1:n_ior_lens
         ray_params.ior_lens = ior_lens(k);
@@ -529,7 +521,7 @@ for j = 1:n_depths
                 ] = doubleSphericalLens( ray_params, verbose_ray_tracing );
             
             if single_source
-                [ X_image_real(i, :, k, j), max_irradiance(i, :, k, j) ] = densifyRays(...
+                [ image_spline, v_adj ] = densifyRays(...
                     incident_position_cartesian,...
                     ray_params.radius_front,...
                     image_position,...
@@ -537,7 +529,7 @@ for j = 1:n_depths
                     verbose_ray_interpolation ...
                     );
             else
-                [ X_image_real(i, :, k, j), max_irradiance(i, :, k, j), I_ikj ] = densifyRays(...
+                [ image_spline, v_adj, I_ikj ] = densifyRays(...
                     incident_position_cartesian,...
                     ray_params.radius_front,...
                     image_position,...
@@ -579,6 +571,8 @@ for j = 1:n_depths
                     axis equal
                 end
             end
+            stats_real = analyzePSF( image_spline, image_position, v_adj, verbose_psf_analysis );
+            X_image_real(i, :, k, j) = stats_real.mean_position;
         end
         
         % Visualize the results, for this wavelength

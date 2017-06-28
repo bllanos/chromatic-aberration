@@ -91,6 +91,9 @@ function [ disparity_spline, disparity_raw ] = radialChromaticAberration(...
 %   depths in the row vector `z`. `aberration` is a row vector of distances
 %   measured in the radial direction.
 %
+%   If there are too few data points to estimate spline models, all
+%   elements of `disparity_spline` are empty cells.
+%
 % disparity_raw -- Input disparity values
 %   The disparity values calculated from the locations in `X_image` and
 %   `z`, used to construct `disparity_spline`. `disparity_raw` has the same
@@ -120,6 +123,11 @@ if ~isempty(varargin)
     end
 else
     verbose = false;
+end
+
+sufficient_data = (size(X_image, 1) > 1) & (size(X_image, 4) > 1);
+if ~sufficient_data
+    warning('Insufficient data points available to construct a spline model in radial position and depth.')
 end
 
 n_wavelengths = size(X_image, 3);
@@ -186,33 +194,43 @@ spline_responses = reshape(spline_responses, 1, [], n_wavelengths);
 
 disparity_spline = cell(n_wavelengths, 1);
 for k = 1:n_wavelengths
-    if k ~= reference_wavelength_index 
-        disparity_spline{k} = tpaps(...
-            spline_predictors,...
-            spline_responses(:, :, k)...
-        );
+    if k ~= reference_wavelength_index
+        if sufficient_data
+            disparity_spline{k} = tpaps(...
+                spline_predictors,...
+                spline_responses(:, :, k)...
+            );
+        end
     
         if verbose
             figure
-            pts = fnplt(disparity_spline{k}); % I don't like the look of the plot, so I will plot manually below
-            surf(pts{1}, pts{2}, pts{3}, 'EdgeColor', 'none', 'FaceAlpha', 0.5);
-            colorbar
+            if sufficient_data
+                pts = fnplt(disparity_spline{k});
+                surf(pts{1}, pts{2}, pts{3}, 'EdgeColor', 'none', 'FaceAlpha', 0.7);
+                colorbar
+                colormap summer
+                c = colorbar;
+                c.Label.String = 'Disparity';
+                title(sprintf(...
+                    'Aberration for \\lambda = %g nm', wavelengths(k)...
+                ))
+                legend_str = {'Thin plate spline'};
+            else
+                title(sprintf(...
+                    'Aberration for \\lambda = %g nm (Insufficient data for spline model)', wavelengths(k)...
+                ))
+                legend_str = {};
+            end
             xlabel('R');
             ylabel('Depth');
             zlabel('Disparity');
-            colormap summer
-            c = colorbar;
-            c.Label.String = 'Disparity';
-            title(sprintf(...
-                'Aberration for \\lambda = %g nm', wavelengths(k)...
-                ))
             hold on
             plot3(...
                 spline_predictors(1, :), spline_predictors(2, :),...
                 spline_responses(:, :, k),...
                 'ko','markerfacecolor','r'...
                 )
-            legend('Thin plate spline', 'Original data points')
+            legend([legend_str, 'Original data points'])
             hold off
         end
     end

@@ -1,38 +1,39 @@
-function [ max_position, max_irradiance, I ] = densifyRays(...
+function [ image_spline, v_adj, I ] = densifyRays(...
     incident_position_cartesian, r_front, image_position, ray_irradiance,...
     varargin...
 )
-% DENSIFYRAYS  Find image intensities from discrete samples of ray irradiance
+% DENSIFYRAYS  Model image intensities from discrete samples of ray irradiance
 %
 % ## Syntax
-% [ max_position ] = densifyRays(...
+% image_spline = densifyRays(...
 %    incident_position_cartesian, r_front, image_position,...
 %    ray_irradiance [, verbose]...
 % )
-% [ max_position, max_irradiance ] = densifyRays(...
+% [ image_spline, v_adj ] = densifyRays(...
 %    incident_position_cartesian, r_front, image_position,...
 %    ray_irradiance [, verbose]...
 % )
-% [ max_position, max_irradiance, I ] = densifyRays(...
+% [ image_spline, v_adj, I ] = densifyRays(...
 %    incident_position_cartesian, r_front, image_position,...
 %    ray_irradiance, image_bounds, image_sampling [, verbose]...
 % )
 %
 % ## Description
-% [ max_position ] = densifyRays(...
+% image_spline = densifyRays(...
 %    incident_position_cartesian, r_front, image_position,...
 %    ray_irradiance [, verbose]...
 % )
-%   Find the position of maximum image irradiance produced by the incident
+%   Produce a spline model of image intensities, approximating the discrete
 %   rays.
 %
-% [ max_position, max_irradiance ] = densifyRays(...
+% [ image_spline, v_adj ] = densifyRays(...
 %    incident_position_cartesian, r_front, image_position,...
 %    ray_irradiance [, verbose]...
 % )
-%   Additionally returns the value of the maximum image irradiance.
+%   Additionally returns adjacency information about the rays, for further
+%   analysis.
 %
-% [ max_position, max_irradiance, I ] = densifyRays(...
+% [ image_spline, v_adj, I ] = densifyRays(...
 %    incident_position_cartesian, r_front, image_position,...
 %    ray_irradiance, image_bounds, image_sampling [, verbose]...
 % )
@@ -90,29 +91,25 @@ function [ max_position, max_irradiance, I ] = densifyRays(...
 %
 % ## Output Arguments
 %
-% max_position -- Location of peak image irradiance
-%   A two-element row vector containing the x and y-coordinates of the peak
-%   irradiance produced by the pattern of rays on the image plane. Note
-%   that `max_position` contains world coordinates, not pixel indices.
+% image_spline -- Thin-plate spline model of image intensities
+%   A thin-plate smoothing splines modeling image intensity (irradiance) as
+%   a function of 2D position on the image plane.
 %
-%   If there are multiple local maxima in the image irradiance, and their
-%   average location has an irradiance value which is lower than more than
-%   one of them, then the centroid of the irradiances is returned. The
-%   centroid is computed by weighting each ray's image coordinates by its
-%   irradiance value. Such a situation can occur under high defocus, where
-%   raytracing produces a ring, rather than a cluster. The intention is to
-%   find the expected value of the peak location (which, in these
-%   problematic cases, is far from a local maxima).
+%   `irradiance = fnval(image_spline,[x; y])` evaluates the spline model at
+%   the given image x, and y positions in the row vectors `x`, and `y`,
+%   respectively.
 %
-%   Following calculation of the peak irradiance position by `fmincon`, the
-%   solution is checked to see if it is further from the centroid than the
-%   average distance of local maxima from the centroid. If so, the centroid
-%   is returned instead.
+% v_adj -- Ray sample adjacency lists
+%   The indices of the rows, in `image_position`, which are connected to
+%   the given row, in `image_position`, in the Delaunay triangulation of
+%   `image_position`. `v_adj` is a cell vector of length
+%   `size(image_position, 1)`. `v_adj{i}` is a column vector, containing
+%   the indices of the image points (rows in `image_position`) adjacent to
+%   the `image_position(i, :)`, in the triangulation.
 %
-% max_irradiance -- Peak image irradiance
-%   A scalar containing the peak irradiance produced by the pattern of rays
-%   on the image plane. `max_irradiance` is the image irradiance at the
-%   location `max_position`.
+%   The Delaunay triangulation of `image_position` is intermediate data
+%   used to create `image_spline`, but is useful for other applications,
+%   such as in 'analyzePSF()'.
 %
 % I -- Image
 %   The irradiance pattern produced on the image plane by the rays traced
@@ -120,22 +117,12 @@ function [ max_position, max_irradiance, I ] = densifyRays(...
 %   are defined by the `image_bounds`, and `image_sampling` input
 %   arguments, respectively.
 %
-% See also doubleSphericalLens, sphereSection, refract, tpaps, fmincon
+% See also doubleSphericalLens, sphereSection, refract, tpaps, delaunayTriangulation, neighborVertices, analyzePSF
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
 % University of Alberta, Department of Computing Science
 % File created June 8, 2017
-
-    function [f, g] = splineValueAndGradient(x)
-        f = -fnval(thin_plate_spline,[x(1);x(2)]);
-        if nargout > 1 % gradient required
-            g = -[
-                fnval(thin_plate_spline_dx,[x(1);x(2)]);
-                fnval(thin_plate_spline_dy,[x(1);x(2)])
-                ];
-        end
-    end
 
 nargoutchk(1, 3);
 narginchk(4, 7);
@@ -204,21 +191,10 @@ if verbose
 end
 
 % Find the neighbouring points of each vertex in each triangulation
-    function v_adj = neighborVertices(TR, vi)
-        ti = vertexAttachments(TR,vi);
-        n_vi = length(vi);
-        v_adj = cell(n_vi, 1);
-        tri = TR.ConnectivityList;
-        for k = 1:n_vi
-            v_adj_k = tri(ti{k}, :);
-            v_adj_k = unique(v_adj_k(:));
-            v_adj{k} = v_adj_k(v_adj_k ~= vi(k));
-        end
-    end
-
 vi = (1:n_rays).';
 v_adj_in = neighborVertices(dt_in, vi);
 v_adj_out = neighborVertices(dt_out, vi);
+v_adj = v_adj_out;
 
 % Find the average areas of circles with radii defined between neighbouring
 % sample points on the front aperture
@@ -285,10 +261,10 @@ if verbose
 end
 
 % Interpolate image irradiance values
-thin_plate_spline = tpaps(image_position.',image_irradiance.');
+image_spline = tpaps(image_position.',image_irradiance.');
 if verbose
     figure
-    pts = fnplt(thin_plate_spline); % I don't like the look of the plot, so I will plot manually below
+    pts = fnplt(image_spline); % I don't like the look of the plot, so I will plot manually below
     surf(pts{1}, pts{2}, pts{3}, 'EdgeColor', 'none');
     colorbar
     xlabel('X');
@@ -298,112 +274,6 @@ if verbose
     c = colorbar;
     c.Label.String = 'Irradiance';
     title('Interpolation of image irradiance values')
-end
-
-% Quickly search for local maxima
-% `fmincon` would be more accurate, but I think it is overkill
-image_irradiance_spline = fnval(thin_plate_spline,image_position.');
-image_irradiance_spline = image_irradiance_spline.';
-local_maxima_filter = false(n_rays, 1);
-for i = 1:n_rays
-    v_adj_i = v_adj_out{i};
-    differences = image_irradiance_spline(i) - image_irradiance_spline(v_adj_i);
-    local_maxima_filter(i) = all(differences >= 0);
-end
-local_maxima_irradiance = image_irradiance_spline(local_maxima_filter);
-local_maxima_position = image_position(local_maxima_filter, :);
-
-% Fallback peak location
-max_position = sum(...
-    repmat(image_irradiance_spline, 1, 2) .* image_position, 1 ...
-) ./ sum(image_irradiance_spline);
-
-% Estimate whether there is a true peak irradiance
-has_peak = true;
-if sum(local_maxima_filter) > 1
-    local_maxima_position_mean = sum(...
-            repmat(local_maxima_irradiance, 1, 2) .* local_maxima_position, 1 ...
-        ) ./ sum(local_maxima_irradiance);
-    image_irradiance_mean_spline = fnval(thin_plate_spline,local_maxima_position_mean.');
-    if sum(local_maxima_irradiance >= image_irradiance_mean_spline) > 1
-        % Probably no peak irradiance
-        has_peak = false;
-    end
-end
-
-if has_peak
-    % Find the peak irradiance
-    thin_plate_spline_dx = fnder(thin_plate_spline,[1, 0]);
-    thin_plate_spline_dy = fnder(thin_plate_spline,[0, 1]);
-    % if verbose
-    %     figure
-    %     fnplt(thin_plate_spline_dx)
-    %     colorbar
-    %     xlabel('X');
-    %     ylabel('Y');
-    %     zlabel('Irradiance X-gradient');
-    %     title('Image irradiance interpolant X-gradient')
-    %
-    %     figure
-    %     fnplt(thin_plate_spline_dy)
-    %     colorbar
-    %     xlabel('X');
-    %     ylabel('Y');
-    %     zlabel('Irradiance Y-gradient');
-    %     title('Image irradiance interpolant Y-gradient')
-    % end
-    min_x = min(image_position(:, 1));
-    max_x = max(image_position(:, 1));
-    min_y = min(image_position(:, 2));
-    max_y = max(image_position(:, 2));
-    lb = [min_x, min_y];
-    ub = [max_x, max_y];
-    A = [];
-    b = [];
-    Aeq = [];
-    beq = [];
-    [~, max_ind] = max(image_irradiance_spline);
-    x0 = image_position(max_ind, :);
-    nonlcon = [];
-    options = optimoptions('fmincon','SpecifyObjectiveGradient',true);
-    [max_position_fmincon, max_irradiance] = fmincon(...
-        @splineValueAndGradient,x0,A,b,Aeq,beq,lb,ub, nonlcon, options...
-        );
-    max_irradiance = -max_irradiance;
-    % Validate the solution
-    % If the estimated peak is further from the centroid than the average
-    % distance from the centroid, the solution is probably spurious
-    d_mean = image_position - max_position;
-    d_mean = sqrt(dot(d_mean, d_mean, 2));
-    d_mean = sum(...
-        image_irradiance_spline .* d_mean ...
-    ) / sum(image_irradiance_spline);
-    d_peak = norm(max_position_fmincon - max_position);
-    if d_peak > d_mean
-        has_peak = false;
-    else
-        max_position = max_position_fmincon;
-    end
-end
-
-if ~has_peak
-    max_irradiance = fnval(thin_plate_spline,max_position.');
-end
-
-if verbose
-    hold on
-    plot3(...
-        local_maxima_position(:, 1), local_maxima_position(:, 2),...
-        local_maxima_irradiance,...
-        'ko','markerfacecolor','c'...
-    )
-    plot3(...
-        max_position(1), max_position(2), max_irradiance,...
-        'ko','markerfacecolor','r'...
-    )
-    legend('Thin plate spline', 'Local maxima', 'Chosen peak')
-    title('Interpolation of image irradiance values')
-    hold off
 end
 
 % Sample on a grid to produce an image
@@ -427,7 +297,7 @@ if output_image
     y = linspace(image_bounds(2), image_bounds(2) + image_bounds(4), image_sampling(1));
     [X,Y] = meshgrid(x,y);
     xy = [X(mask).'; Y(mask).'];
-    I(mask) = fnval(thin_plate_spline,xy);
+    I(mask) = fnval(image_spline,xy);
     
     if verbose
         figure
