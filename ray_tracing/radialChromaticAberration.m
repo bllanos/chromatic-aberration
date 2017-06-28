@@ -135,16 +135,35 @@ end
 
 if verbose
     X_image_matrix = reshape(permute(X_image, [1, 4, 2, 3]), [], 2, n_wavelengths);
+    disparity_raw_matrix = reshape(permute(disparity_raw, [1, 4, 2, 3]), [], 2, n_wavelengths);
+    disparity_z_plot = zeros(size(X_image_matrix, 1), 1);
     
     figure
     hold on
-    legend_strings = cell(n_wavelengths, 1);
+    legend_strings = cell(n_wavelengths * 2 - 1, 1);
     for k = 1:n_wavelengths
         scatter3(X_image_matrix(:, 1, k), X_image_matrix(:, 2, k), z_adjusted, [], wavelengths_to_rgb(k, :), 'o');
         legend_strings{k} = sprintf('Image locations for \\lambda = %g nm', wavelengths(k));
     end
+    k_legend = 1;
+    for k = 1:n_wavelengths
+        if k ~= reference_wavelength_index
+            quiver3(...
+                X_image_matrix(:, 1, reference_wavelength_index),...
+                X_image_matrix(:, 2, reference_wavelength_index),...
+                z_adjusted.',...
+                disparity_raw_matrix(:, 1, k),...
+                disparity_raw_matrix(:, 2, k),...
+                disparity_z_plot,...
+                'Color', wavelengths_to_rgb(k, :), 'AutoScale', 'off');
+            legend_strings{n_wavelengths + k_legend} = sprintf(...
+                'Aberration for \\lambda = %g nm', wavelengths(k)...
+            );
+            k_legend = k_legend + 1;
+        end
+    end
     legend(legend_strings);
-    title('Input image locations')
+    title('Input image locations and disparities')
     xlabel('X');
     ylabel('Y');
     zlabel('Depth')
@@ -152,6 +171,8 @@ if verbose
 end
 
 disparity_raw_radial = sqrt(dot(disparity_raw, disparity_raw, 2));
+disparity_raw_radial_signs = sign(dot(X_image_reference, disparity_raw, 2));
+disparity_raw_radial = disparity_raw_radial .* disparity_raw_radial_signs;
 X_image_reference_radial = sqrt(dot(...
     X_image(:, :, reference_wavelength_index, :),...
     X_image(:, :, reference_wavelength_index, :),...
@@ -170,6 +191,30 @@ for k = 1:n_wavelengths
             spline_predictors,...
             spline_responses(:, :, k)...
         );
+    
+        if verbose
+            figure
+            pts = fnplt(disparity_spline{k}); % I don't like the look of the plot, so I will plot manually below
+            surf(pts{1}, pts{2}, pts{3}, 'EdgeColor', 'none', 'FaceAlpha', 0.5);
+            colorbar
+            xlabel('R');
+            ylabel('Depth');
+            zlabel('Disparity');
+            colormap summer
+            c = colorbar;
+            c.Label.String = 'Disparity';
+            title(sprintf(...
+                'Aberration for \\lambda = %g nm', wavelengths(k)...
+                ))
+            hold on
+            plot3(...
+                spline_predictors(1, :), spline_predictors(2, :),...
+                spline_responses(:, :, k),...
+                'ko','markerfacecolor','r'...
+                )
+            legend('Thin plate spline', 'Original data points')
+            hold off
+        end
     end
 end
 

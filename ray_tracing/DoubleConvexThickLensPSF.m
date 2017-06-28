@@ -71,10 +71,10 @@ image_params.normalize_color_images_globally = false;
 
 % ## Scene setup
 scene_params.theta_max = pi / 6;
-scene_params.n_lights = 4;
+scene_params.n_lights = 5;
 scene_params.light_distance_factor_focused = 3;
-scene_params.light_distance_factor_larger = [5, 2];
-scene_params.light_distance_factor_smaller = [1.5, 1];
+scene_params.light_distance_factor_larger = [5, 5];
+scene_params.light_distance_factor_smaller = [1.0001, 5];
 scene_params.preserve_angle_over_depths = true;
 
 % ## Debugging Flags
@@ -97,8 +97,14 @@ verbose.display_summary = true;
 
 %% Analyze the results
 
-[ disparity_spline, disparity ] = radialChromaticAberration(...
+[ disparity_spline_ideal, disparity_ideal ] = radialChromaticAberration(...
     X_image_ideal, lens_params.ior_lens_reference_index,...
+    depth_factors, 0,...
+    lens_params.wavelengths, lens_params.wavelengths_to_rgb...
+);
+
+[ disparity_spline_real, disparity_real ] = radialChromaticAberration(...
+    X_image_real, lens_params.ior_lens_reference_index,...
     depth_factors, 0,...
     lens_params.wavelengths, lens_params.wavelengths_to_rgb...
 );
