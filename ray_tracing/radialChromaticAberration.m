@@ -5,24 +5,28 @@ function [ disparity_spline, disparity_raw ] = radialChromaticAberration(...
 %
 % ## Syntax
 % disparity_spline = radialChromaticAberration(...
-%     X_image, reference_wavelength_index, z, reference_z [, verbose]...
+%     X_image, reference_wavelength_index,...
+%     z, reference_z [, wavelengths, wavelengths_to_rgb]...
 % )
 % [ disparity_spline, disparity ] = radialChromaticAberration(...
-%     X_image, reference_wavelength_index, z, reference_z [, verbose]...
+%     X_image, reference_wavelength_index,...
+%     z, reference_z [, wavelengths, wavelengths_to_rgb]...
 % )
 %
 % ## Description
 % disparity_spline = radialChromaticAberration(...
-%     X_image, reference_wavelength_index, z, reference_z [, verbose]...
+%     X_image, reference_wavelength_index,...
+%     z, reference_z [, wavelengths, wavelengths_to_rgb]...
 % )
 %   Returns a spline model of chromatic aberration as a function of
 %   distance from the image centre, and scene depth.
 %
 % [ disparity_spline, disparity ] = radialChromaticAberration(...
-%     X_image, reference_wavelength_index, z, reference_z [, verbose]...
+%     X_image, reference_wavelength_index,...
+%     z, reference_z [, wavelengths, wavelengths_to_rgb]...
 % )
-%   Additionally returns the evaluation of the spline model at the input
-%   image points.
+%   Additionally returns the disparity values used to build the spline
+%   model.
 %
 % ## Input Arguments
 %
@@ -51,10 +55,23 @@ function [ disparity_spline, disparity_raw ] = radialChromaticAberration(...
 %   The z-position corresponding to a depth value of zero; An offset which
 %   will be applied to the values in `z`.
 %
-% verbose -- Debugging flag
-%   If true, graphical output will be generated for debugging purposes.
+% wavelengths -- Wavelengths corresponding to image measurements
+%   The wavelengths of light corresponding to the elements of `X_image`. A
+%   row vector of length `size(X_image, 3)`, where `wavelengths(k)` is the wavelength
+%   used to generate the image locations in `X_image(:, :, k, :)`. This
+%   parameter is used for figure legends only, not for calculations.
 %
-%   Defaults to false if not passed.
+%   If both `wavelengths` and `wavelengths_to_rgb` are passed, graphical
+%   output will be generated.
+%
+% wavelengths_to_rgb -- Colour map for wavelengths
+%   RGB colours to be used when plotting points representing values for the
+%   different wavelengths. The k-th row of this `size(X_image, 3)` x 3
+%   matrix represents the RGB colour corresponding to the k-th wavelength,
+%   `wavelengths(k)`.
+%
+%   If both `wavelengths` and `wavelengths_to_rgb` are passed, graphical
+%   output will be generated.
 %
 % ## Output Arguments
 %
@@ -91,10 +108,16 @@ function [ disparity_spline, disparity_raw ] = radialChromaticAberration(...
 % File created June 27, 2017
 
 nargoutchk(1, 2);
-narginchk(4, 5);
+narginchk(4, 6);
 
 if ~isempty(varargin)
-    verbose = varargin{1};
+    if length(varargin) ~= 2
+        error('Unexpected number of input arguments. Note that both `wavelengths` and `wavelengths_to_rgb` should be passed, or neither should be passed.');
+    else
+        wavelengths = varargin{1};
+        wavelengths_to_rgb = varargin{2};
+        verbose = true;
+    end
 else
     verbose = false;
 end
@@ -102,6 +125,32 @@ end
 n_wavelengths = size(X_image, 3);
 X_image_reference = repmat(X_image(:, :, reference_wavelength_index, :), 1, 1, n_wavelengths, 1);
 disparity_raw = X_image - X_image_reference;
+
+z_adjusted = z - reference_z;
+n_points = size(X_image, 1);
+z_adjusted = repelem(z_adjusted, n_points);
+if size(z_adjusted, 1) > size(z_adjusted, 2)
+    z_adjusted = z_adjusted.';
+end
+
+if verbose
+    X_image_matrix = reshape(permute(X_image, [1, 4, 2, 3]), [], 2, n_wavelengths);
+    
+    figure
+    hold on
+    legend_strings = cell(n_wavelengths, 1);
+    for k = 1:n_wavelengths
+        scatter3(X_image_matrix(:, 1, k), X_image_matrix(:, 2, k), z_adjusted, [], wavelengths_to_rgb(k, :), 'o');
+        legend_strings{k} = sprintf('Image locations for \\lambda = %g nm', wavelengths(k));
+    end
+    legend(legend_strings);
+    title('Input image locations')
+    xlabel('X');
+    ylabel('Y');
+    zlabel('Depth')
+    hold off
+end
+
 disparity_raw_radial = sqrt(dot(disparity_raw, disparity_raw, 2));
 X_image_reference_radial = sqrt(dot(...
     X_image(:, :, reference_wavelength_index, :),...
@@ -109,11 +158,7 @@ X_image_reference_radial = sqrt(dot(...
     2 ...
 ));
 X_image_reference_radial = X_image_reference_radial(:).';
-z_adjusted = z - reference_z;
-z_adjusted = repelem(z_adjusted, size(X_image, 1));
-if size(z_adjusted, 1) > size(z_adjusted, 2)
-    z_adjusted = z_adjusted.';
-end
+
 spline_predictors = [ X_image_reference_radial; z_adjusted ];
 spline_responses = permute(squeeze(disparity_raw_radial), [1, 3, 2]);
 spline_responses = reshape(spline_responses, 1, [], n_wavelengths);

@@ -1,5 +1,6 @@
 function [...
-    X_image_real, X_image_ideal, max_irradiance, X_lights, I, I_color...
+    X_image_real, X_image_ideal, max_irradiance,...
+    X_lights, depth_factors, I, I_color...
 ] = doubleSphericalLensPSF(...
     lens_params, ray_params, image_params, scene_params, varargin...
 )
@@ -7,7 +8,8 @@ function [...
 %
 % ## Syntax
 % [...
-%     X_image_real, X_image_ideal, max_irradiance, X_lights, I, I_color...
+%     X_image_real, X_image_ideal, max_irradiance,...
+%     X_lights, depth_factors, I, I_color...
 % ] = doubleSphericalLensPSF(...
 %     lens_params, ray_params, image_params, scene_params [, verbose]...
 % )
@@ -115,10 +117,11 @@ function [...
 %     that it corresponds to the angle `theta_max`.
 %
 %   - light_distance_factor_focused: The reference depth, measured in
-%     multiples of the focal length of the lens. The "reference depth" is
-%     the depth of the scene which produces a focused image, according to
-%     the thick lens equation. The image plane is positioned so that the
-%     lights at the reference depth are in-focus.
+%     multiples of the first focal length of the lens. The "reference
+%     depth" is the depth of the scene which produces a focused image,
+%     according to the thick lens equation. The image plane is positioned
+%     so that the lights at the reference depth are in-focus. Depth is
+%     measured relative to the first principal plane of the lens.
 %   - light_distance_factor_larger: Additional depths at which light
 %     sources will be placed, that are greater than the reference depth.
 %     Distances will be spaced uniformly in inverse depth space (with depth
@@ -166,16 +169,15 @@ function [...
 %   `X_image_real(i, :, k, j)`. Note that the second dimension is a
 %   singleton dimension.
 %
-% incident_position -- Sampling positions on the front aperture
-%   The positions, expressed in terms of the two angular coordinates
-%   (theta, phi), of the incident rays on the front aperture of the lens.
-%   Each row of `incident_position` corresponds to a row of
-%   `image_position`.
-%
 % X_lights -- Light positions
 %   The positions, expressed in cartesian coordinates (x, y, z), of the
 %   lights in the scene. `X_lights(i, :, j)` is the 3D position of the i-th
 %   light in the grid of lights placed at the j-th depth.
+%
+% depth_factors -- Depths expressed in focal lengths
+%   The depths of the light sources, measured in multiples of the first
+%   focal length of the lens from the first principal plane.
+%   `depth_factors(j)` corresponds to the z-values in `X_lights(:, :, j)`.
 %
 % I -- Simulated greyscale images
 %   A 4D array containing the images formed by combining all point spread
@@ -235,7 +237,7 @@ function [...
 
 %% Parse parameters
 
-nargoutchk(1,6);
+nargoutchk(1,7);
 narginchk(4,5);
 
 ray_params.radius_front = lens_params.radius_front;
@@ -466,7 +468,8 @@ for k = 1:n_ior_lens
     X_image_ideal_matrix(:, :, k) = principal_point_prime + (X_image_rays .* magnification_correction_ideal);
 end
 
-X_image_ideal = permute(reshape(X_image_ideal_matrix, n_lights, n_depths, 3, n_ior_lens), [1, 3, 4, 2]);
+X_image_ideal_matrix = X_image_ideal_matrix(:, 1:2, :);
+X_image_ideal = permute(reshape(X_image_ideal_matrix, n_lights, n_depths, 2, n_ior_lens), [1, 3, 4, 2]);
 
 % Find image boundaries
 if ~single_source
@@ -573,6 +576,7 @@ for j = 1:n_depths
                         X_lights(i, 1, j), X_lights(i, 2, j), X_lights(i, 3, j),...
                         depth_factors(j), ior_lens(k)...
                         ));
+                    axis equal
                 end
             end
         end
@@ -599,6 +603,7 @@ for j = 1:n_depths
             title(sprintf(...
                 'Images of point sources at %g focal lengths, for \\lambda = %g nm',...
                 depth_factors(j), wavelengths(k)));
+            axis equal
             hold off
         end
     end
@@ -636,6 +641,7 @@ if ~single_source && display_all_psf_each_depth
         title(sprintf(...
             'Images of point sources at %g focal lengths',...
             depth_factors(j)));
+        axis equal
         hold off
     end
 end
@@ -654,7 +660,7 @@ if display_summary
         disp('Image positions:')
         for k = 1:n_ior_lens
             fprintf('Thick lens equation (lambda = %g nm):\n', wavelengths(k))
-            disp(X_image_ideal_matrix(:, 1:2, k))
+            disp(X_image_ideal_matrix(:, :, k))
             fprintf('Raytracing (lambda = %g nm):\n', wavelengths(k))
             disp(X_image_real_matrix(:, :, k))
         end
@@ -662,7 +668,7 @@ if display_summary
         figure
         hold on
         depth_factors_rep = repelem(depth_factors, n_lights);
-        legend_strings = cell(k * 2, 1);
+        legend_strings = cell(n_ior_lens * 2, 1);
         for k = 1:n_ior_lens
             scatter3(X_image_ideal_matrix(:, 1, k, :), X_image_ideal_matrix(:, 2, k, :), depth_factors_rep, [], wavelengths_to_rgb(k, :), 'o');
             scatter3(X_image_real_matrix(:, 1, k, :), X_image_real_matrix(:, 2, k, :), depth_factors_rep, [], wavelengths_to_rgb(k, :), '.');
