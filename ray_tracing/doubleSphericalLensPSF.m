@@ -100,6 +100,20 @@ function [...
 %     between the optical axis and the ray from the first principal plane's
 %     intersection with the optical axis to the outermost light source on
 %     the line.
+%
+%   - theta_min: Analogous to `theta_max`, but defines a minimum angle with
+%     the optical axis.
+%
+%     Instead of a grid of light sources, a nonzero value of `theta_min`
+%     will produce a rectangular frame of light sources, surrounding an
+%     empty rectangle with sides defined by `theta_min`. Consequently, the
+%     number of light sources will be less than `prod(n_lights)`. However,
+%     the output data will have the same dimensions - NaN values will be
+%     used for positions within the empty rectangle.
+%
+%     For a line of light sources, if `theta_min` is nonzero, the line will
+%     simply start at a position offset by `theta_min`.
+%
 %   - n_lights: The number of lights in the scene.
 %
 %     If `n_lights` is a scalar, it is the number of lights on a line of
@@ -252,6 +266,14 @@ normalize_psfs_before_combining = image_params.normalize_psfs_before_combining;
 normalize_color_images_globally = image_params.normalize_color_images_globally;
 
 scene_theta_max = scene_params.theta_max;
+scene_theta_min = scene_params.theta_min;
+if scene_theta_max <= 0
+    error('`scene_params.theta_max` must be greater than zero.')
+elseif scene_theta_min < 0
+    error('`scene_params.theta_min` must be greater than or equal to zero.')
+elseif scene_theta_max <= scene_theta_min
+    error('`scene_params.theta_max` must be greater than `scene_params.theta_min`.')
+end
 if length(scene_params.n_lights) == 1
     n_lights_x = scene_params.n_lights;
     n_lights_y = 1;
@@ -317,16 +339,24 @@ U_to_light_ref = z_light - U_reference;
 if single_source
     x_light = tan(scene_theta_max) * U_to_light_ref;
     y_light = 0;
+    scene_theta_min_filter = true;
 else
     scene_half_width = tan(scene_theta_max) * U_to_light_ref;
+    scene_inner_width = tan(scene_theta_min) * U_to_light_ref;
     if radial_lights
-        x_light = linspace(0, scene_half_width, n_lights_x);
-        y_light = 0;
+        x_light = linspace(scene_inner_width, scene_half_width, n_lights_x);
+        y_light = zeros(1, n_lights_x);
+        scene_theta_min_filter = true(n_lights_x, 1);
     else
         x_light = linspace(-scene_half_width, scene_half_width, n_lights_x);
         y_light = linspace(-scene_half_width, scene_half_width, n_lights_y);
+        [x_light,y_light] = meshgrid(x_light,y_light);
+        scene_theta_min_filter = reshape(...
+            (abs(x_light) >= scene_inner_width) |...
+            (abs(y_light) >= scene_inner_width),...
+            [], 1 ...
+        );
     end
-    [x_light,y_light] = meshgrid(x_light,y_light);
 end
 n_lights = numel(x_light);
 X_lights = [
@@ -381,58 +411,6 @@ else
 end
 
 n_lights_and_depths = n_lights * n_depths;
-
-if plot_light_positions
-    figure
-    scatter3(...
-        X_lights_matrix(:, 1), X_lights_matrix(:, 2), X_lights_matrix(:, 3),...
-        [], X_lights_matrix(:, 3), 'filled'...
-    );
-    xlabel('X');
-    ylabel('Y');
-    zlabel('Z');
-    title('Light source positions, and lens parameters at the reference wavelength');
-    hold on
-    
-    % First principal plane
-    min_x = min(X_lights_matrix(:, 1));
-    max_x = max(X_lights_matrix(:, 1));
-    min_y = min(X_lights_matrix(:, 2));
-    max_y = max(X_lights_matrix(:, 2));
-
-    surf(...
-        [min_x, max_x; min_x, max_x],...
-        [max_y, max_y; min_y, min_y],...
-        [U_reference, U_reference; U_reference, U_reference],...
-        'EdgeColor', 'k', 'FaceAlpha', 0.4, 'FaceColor', 'g' ...
-    );
-
-    % Focal length
-    surf(...
-        [min_x, max_x; min_x, max_x],...
-        [max_y, max_y; min_y, min_y],...
-        [U_reference - f_reference, U_reference - f_reference; U_reference - f_reference, U_reference - f_reference],...
-        'EdgeColor', 'k', 'FaceAlpha', 0.4, 'FaceColor', 'y' ...
-    );
-
-    % Principal Point
-    scatter3(...
-        principal_point(1), principal_point(2), principal_point(3),...
-        [], 'r', 'filled'...
-    );
-
-    % Lens centre
-    scatter3(...
-        0, 0, lens_params.lens_radius - (lens_params.axial_thickness / 2),...
-        [], 'k', 'filled'...
-    );
-    legend(...
-        'Lights', 'First principal plane', 'First focal length',...
-        'First principal point', 'Lens centre'...
-    );
-    set(gca, 'Color', 'none');
-    hold off
-end
 
 % Image plane position
 X_image_ideal_matrix = imageFn_reference([0, 0, z_light(1, 1, depth_ref_index)]);
@@ -501,6 +479,69 @@ if ~single_source
     ];
 end
 
+%% Remove filtered-out light positions
+scene_theta_min_filter_rep = repmat(scene_theta_min_filter, n_depths, 1);
+X_image_ideal = X_image_ideal(scene_theta_min_filter, :, :, :);
+X_image_ideal_matrix = X_image_ideal_matrix(scene_theta_min_filter_rep, :, :);
+X_lights = X_lights(scene_theta_min_filter, :, :);
+X_lights_matrix = X_lights_matrix(scene_theta_min_filter_rep, :);
+n_lights = size(X_lights, 1);
+
+%% Visualize scene setup
+if plot_light_positions
+    figure
+    scatter3(...
+        X_lights_matrix(:, 1),...
+        X_lights_matrix(:, 2),...
+        X_lights_matrix(:, 3),...
+        [], X_lights_matrix(:, 3), 'filled'...
+    );
+    xlabel('X');
+    ylabel('Y');
+    zlabel('Z');
+    title('Light source positions, and lens parameters at the reference wavelength');
+    hold on
+    
+    % First principal plane
+    min_x = min(X_lights_matrix(:, 1));
+    max_x = max(X_lights_matrix(:, 1));
+    min_y = min(X_lights_matrix(:, 2));
+    max_y = max(X_lights_matrix(:, 2));
+
+    surf(...
+        [min_x, max_x; min_x, max_x],...
+        [max_y, max_y; min_y, min_y],...
+        [U_reference, U_reference; U_reference, U_reference],...
+        'EdgeColor', 'k', 'FaceAlpha', 0.4, 'FaceColor', 'g' ...
+    );
+
+    % Focal length
+    surf(...
+        [min_x, max_x; min_x, max_x],...
+        [max_y, max_y; min_y, min_y],...
+        [U_reference - f_reference, U_reference - f_reference; U_reference - f_reference, U_reference - f_reference],...
+        'EdgeColor', 'k', 'FaceAlpha', 0.4, 'FaceColor', 'y' ...
+    );
+
+    % Principal Point
+    scatter3(...
+        principal_point(1), principal_point(2), principal_point(3),...
+        [], 'r', 'filled'...
+    );
+
+    % Lens centre
+    scatter3(...
+        0, 0, lens_params.lens_radius - (lens_params.axial_thickness / 2),...
+        [], 'k', 'filled'...
+    );
+    legend(...
+        'Lights', 'First principal plane', 'First focal length',...
+        'First principal point', 'Lens centre'...
+    );
+    set(gca, 'Color', 'none');
+    hold off
+end
+
 %% Trace rays through the lens and form rays into an image
 if single_source
     I = [];
@@ -528,6 +569,24 @@ for j = 1:n_depths
                     ray_irradiance,...
                     verbose_ray_interpolation ...
                     );
+                
+                if display_each_psf
+                    figure
+                    pts = fnplt(image_spline);
+                    surf(pts{1}, pts{2}, pts{3}, 'EdgeColor', 'none');
+                    colorbar
+                    xlabel('X');
+                    ylabel('Y');
+                    zlabel('Irradiance');
+                    colormap summer
+                    c = colorbar;
+                    c.Label.String = 'Irradiance';
+                    title(...
+                        sprintf('Estimated PSF for a point source at position\n[%g, %g, %g] (%g focal lengths, IOR %g)',...
+                        X_lights(i, 1, j), X_lights(i, 2, j), X_lights(i, 3, j),...
+                        depth_factors(j), ior_lens(k)...
+                    ));
+                end
             else
                 [ image_spline, v_adj, I_ikj ] = densifyRays(...
                     incident_position_cartesian,...

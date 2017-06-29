@@ -125,11 +125,6 @@ else
     verbose = false;
 end
 
-sufficient_data = (size(X_image, 1) > 1) & (size(X_image, 4) > 1);
-if ~sufficient_data
-    warning('Insufficient data points available to construct a spline model in radial position and depth.')
-end
-
 n_wavelengths = size(X_image, 3);
 X_image_reference = repmat(X_image(:, :, reference_wavelength_index, :), 1, 1, n_wavelengths, 1);
 disparity_raw = X_image - X_image_reference;
@@ -188,18 +183,36 @@ X_image_reference_radial = sqrt(dot(...
 ));
 X_image_reference_radial = X_image_reference_radial(:).';
 
+% Prepare data for spline fitting
 spline_predictors = [ X_image_reference_radial; z_adjusted ];
 spline_responses = permute(squeeze(disparity_raw_radial), [1, 3, 2]);
 spline_responses = reshape(spline_responses, 1, [], n_wavelengths);
 
+spline_predictors_filter = all(isfinite(spline_predictors), 1);
+spline_predictors = spline_predictors(:, spline_predictors_filter);
+spline_responses = spline_responses(:, spline_predictors_filter, :);
+
+% Spline fitting
 disparity_spline = cell(n_wavelengths, 1);
 for k = 1:n_wavelengths
     if k ~= reference_wavelength_index
+        
+        spline_responses_k = spline_responses(:, :, k);
+        spline_responses_filter = isfinite(spline_responses_k);
+        spline_responses_k = spline_responses_k(spline_responses_filter);
+        spline_predictors_k = spline_predictors(:, spline_responses_filter);
+        spline_predictors_unique = unique(spline_predictors_k(1, :));
+        sufficient_data = (length(spline_predictors_unique) > 1);
+        spline_predictors_unique = unique(spline_predictors_k(2, :));
+        sufficient_data = sufficient_data & (length(spline_predictors_unique) > 1);
+        
         if sufficient_data
             disparity_spline{k} = tpaps(...
-                spline_predictors,...
-                spline_responses(:, :, k)...
+                spline_predictors_k,...
+                spline_responses_k...
             );
+        else
+            warning('Insufficient data points available to construct a spline model in radial position and depth for \\lambda = %g nm.', wavelengths(k))
         end
     
         if verbose
@@ -226,8 +239,8 @@ for k = 1:n_wavelengths
             zlabel('Disparity');
             hold on
             plot3(...
-                spline_predictors(1, :), spline_predictors(2, :),...
-                spline_responses(:, :, k),...
+                spline_predictors_k(1, :), spline_predictors_k(2, :),...
+                spline_responses_k,...
                 'ko','markerfacecolor','r'...
                 )
             legend([legend_str, 'Original data points'])
