@@ -418,7 +418,7 @@ z_film = z_film(3);
 ray_params.d_film = -z_film;
 
 % "Theoretical" image positions, from the thick lens equation
-stats_ideal_matrix = analyzePSF(n_lights_and_depths, n_ior_lens);
+stats_ideal_matrix = analyzePSF([n_lights_and_depths, n_ior_lens]);
 for k = 1:n_ior_lens
     [ imageFn, ~, ~, U, U_prime ] = opticsFromLens(...
         ray_params.ior_environment,...
@@ -427,7 +427,7 @@ for k = 1:n_ior_lens
         ray_params.radius_front, ray_params.radius_back,...
         ray_params.d_lens...
     );
-    psfFn = opticsToPSF( imageFn, U, U_prime, ray_params.lens_radius, z_film );
+    psfFn = opticsToPSF( imageFn, U, U_prime, lens_params.lens_radius, z_film );
 
     stats_ideal_matrix(:, k) = psfFn(X_lights_matrix);
     

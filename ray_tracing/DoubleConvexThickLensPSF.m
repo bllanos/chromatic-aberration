@@ -70,12 +70,12 @@ image_params.normalize_psfs_before_combining = false;
 image_params.normalize_color_images_globally = true;
 
 % ## Scene setup
-scene_params.theta_max = deg2rad(30.5);
-scene_params.theta_min = deg2rad(29.5);
-scene_params.n_lights = 10;
-scene_params.light_distance_factor_focused = 1.5;
-scene_params.light_distance_factor_larger = [5, 10];
-scene_params.light_distance_factor_smaller = [1.0001, 10];
+scene_params.theta_max = pi / 12;
+scene_params.theta_min = pi / 24;
+scene_params.n_lights = [4 4];
+scene_params.light_distance_factor_focused = 3;
+scene_params.light_distance_factor_larger = [5, 2];
+scene_params.light_distance_factor_smaller = [2, 1];
 scene_params.preserve_angle_over_depths = true;
 
 % ## Debugging Flags
