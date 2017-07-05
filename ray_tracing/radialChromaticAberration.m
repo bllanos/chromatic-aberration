@@ -182,13 +182,14 @@ if size(z_adjusted, 1) > size(z_adjusted, 2)
 end
 
 for i = 1:n_names
-    name_display_i = replace(names{i}, '_', '\_');
+    name_i = names{i};
+    name_display_i = replace(name_i, '_', '\_');
     
     % Find the other input variable
-    name_x = x_fields.(names{i});
+    name_x = x_fields.(name_i);
     name_display_x = replace(name_x, '_', '\_');
 
-    stats_mat_i = stats_mat.(names{i});
+    stats_mat_i = stats_mat.(name_i);
     stats_reference_i = repmat(...
         stats_mat_i(:, :, reference_wavelength_index, :),...
         1, 1, n_wavelengths, 1 ...
@@ -305,12 +306,24 @@ for i = 1:n_names
             sufficient_data = (length(spline_predictors_unique) > 1);
             spline_predictors_unique = unique(spline_predictors_k(2, :));
             sufficient_data = sufficient_data & (length(spline_predictors_unique) > 1);
+            sufficient_data = sufficient_data & (size(spline_predictors_k, 2) > 2);
 
             if sufficient_data
-                disparity_spline_i{k} = tpaps(...
-                    spline_predictors_k,...
-                    spline_responses_k...
-                );
+                try
+                    disparity_spline_i{k} = tpaps(...
+                        spline_predictors_k,...
+                        spline_responses_k...
+                    );
+                catch ME
+                    if (strcmp(ME.identifier,'SPLINES:TPAPS:collinearsites'))
+                        sufficient_data = false;
+                        warning('Spline fit failed. Most likely there are insufficient data points available to construct a spline model of ''%s'' as a function of ''%s'', and depth, for \\lambda = %g nm.',...
+                            name_i, name_x, wavelengths(k)...
+                        )
+                    else
+                        rethrow(ME)
+                    end
+                end
             else
                 warning(...
                     'Insufficient data points available to construct a spline model of ''%s'' as a function of ''%s'', and depth, for \\lambda = %g nm.',...
@@ -336,7 +349,7 @@ for i = 1:n_names
                         'Aberration in ''%s'' for \\lambda = %g nm (Insufficient data for spline model)',...
                         name_display_i, wavelengths(k)...
                     ))
-                    legend_str = {};
+                    legend_str = cell(1, 0);
                 end
                 xlabel(sprintf('Magnitude of ''%s''', name_display_x));
                 ylabel('Depth');
@@ -353,8 +366,8 @@ for i = 1:n_names
         end
     end
     
-    disparity_spline.(names{i}) = disparity_spline_i;
-    disparity_raw.(names{i}) = disparity_raw_i;
+    disparity_spline.(name_i) = disparity_spline_i;
+    disparity_raw.(name_i) = disparity_raw_i;
 end
 
 end
