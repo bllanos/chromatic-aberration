@@ -1,14 +1,21 @@
-function [ stats ] = analyzePSF( psf_spline, image_position, v_adj, varargin )
+function [ stats ] = analyzePSF( varargin )
 % DENSIFYRAYS  Find image intensities from discrete samples of ray irradiance
 %
 % ## Syntax
+% empty_stats = analyzePSF( sz )
 % stats = analyzePSF( psf_spline, image_position, v_adj [, verbose] )
 %
 % ## Description
+% empty_stats = analyzePSF( sz )
+%   Returns a structure array, for preallocation.
 % stats = analyzePSF( psf_spline, image_position, v_adj [, verbose] )
 %   Returns statistics describing the density function `psf_spline`.
 %
 % ## Input Arguments
+%
+% sz -- Structure array dimensions
+%   A vector containing the dimensions of the `empty_stats` output array,
+%   such that `all(size(empty_stats) == sz)` is true.
 %
 % psf_spline -- Thin-plate spline model of image intensities
 %   A thin-plate smoothing splines modeling image intensity (irradiance) as
@@ -43,6 +50,11 @@ function [ stats ] = analyzePSF( psf_spline, image_position, v_adj, varargin )
 %
 % ## Output Arguments
 %
+% empty_stats -- Empty statistics structure array
+%   A structure array with empty field values, but with the same fields as
+%   `stats`. `empty_stats` is useful for preallocating a structure array,
+%   to be filled with subsequent calls to 'analyzePSF()'.
+%
 % stats -- Distribution statistics
 %   A structure describing `psf_spline` more concisely, using the following
 %   fields:
@@ -57,14 +69,13 @@ function [ stats ] = analyzePSF( psf_spline, image_position, v_adj, varargin )
 %
 %     If there are multiple local maxima in `psf_spline`, and their average
 %     location has a value which is lower than more than one of them, then
-%     `max_position` is an empty 0 x 2 array. `max_position` is also empty
-%     if the location of the peak value is further than `radius` from
+%     `max_position` is an NaN 1 x 2 array. `max_position` is also NaN if
+%     the location of the peak value is further than `radius` from
 %     `mean_position`, as this is assumed to be a location in the
 %     extrapolation region of the spline.
 %   - max_value: A scalar containing the peak value corresponding to
 %     `max_position`. `max_value` is the evaluation of `psf_spline` at
-%     `max_position`, and is an empty array (`[]`) if `max_position` is
-%     empty.
+%     `max_position`, and is NaN if `max_position` is NaN.
 %   - radius: The weighted mean of the distances of the points in
 %     `image_position` from `mean_position`, where the weights are the
 %     evaluations of `psf_spline` at the points. `radius` is related to the
@@ -88,10 +99,26 @@ function [ stats ] = analyzePSF( psf_spline, image_position, v_adj, varargin )
     end
 
 nargoutchk(1, 1);
-narginchk(3, 4);
 
-if ~isempty(varargin)
-    verbose = varargin{1};
+if nargin == 1
+    sz = varargin{1};
+    stats = struct(...
+        'mean_position', cell(sz),...
+        'mean_value', cell(sz),...
+        'max_position', cell(sz),...
+        'max_value', cell(sz),...
+        'radius', cell(sz)...
+    );
+    return
+else
+    narginchk(3, 4);
+    psf_spline =  varargin{1};
+    image_position =  varargin{2};
+    v_adj =  varargin{3};
+end
+
+if nargin > 3
+    verbose = varargin{4};
 else
     verbose = false;
 end
@@ -176,8 +203,8 @@ if has_peak
 end
 
 if ~has_peak
-    stats.max_position = zeros(0, 2);
-    stats.max_value = [];
+    stats.max_position = nan(1, 2);
+    stats.max_value = nan;
 end
 
 if verbose

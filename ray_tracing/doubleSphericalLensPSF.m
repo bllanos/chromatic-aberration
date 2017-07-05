@@ -1,5 +1,5 @@
 function [...
-    X_image_real, X_image_ideal, X_lights, depth_factors, I, I_color...
+    stats_real, stats_ideal, X_lights, depth_factors, I, I_color...
 ] = doubleSphericalLensPSF(...
     lens_params, ray_params, image_params, scene_params, varargin...
 )
@@ -7,14 +7,14 @@ function [...
 %
 % ## Syntax
 % [...
-%     X_image_real, X_image_ideal, X_lights, depth_factors, I, I_color...
+%     stats_real, stats_ideal, X_lights, depth_factors, I, I_color...
 % ] = doubleSphericalLensPSF(...
 %     lens_params, ray_params, image_params, scene_params [, verbose]...
 % )
 %
 % ## Description
 % [...
-%     X_image_real, X_image_ideal, X_lights, depth_factors, I, I_color...
+%     stats_real, stats_ideal, X_lights, depth_factors, I, I_color...
 % ] = doubleSphericalLensPSF(...
 %     lens_params, ray_params, image_params, scene_params [, verbose]...
 % )
@@ -162,17 +162,17 @@ function [...
 %
 % ## Output Arguments
 %
-% X_image_real -- Simulated centroids of point spread functions
-%   The intensity-weighted average locations computed for the images
-%   produced by each light source, for each wavelength, and for each depth.
-%   `X_image_real(i, :, k, j)` is the `stats.mean_position` output argument
-%   of 'analyzePSF.m' for the i-th light, emitting the k-th wavelength,
-%   and positioned at the j-th depth.
+% stats_real -- Simulated point spread function statistics
+%   Point spread function statistics computed for the images produced by
+%   each light source, for each wavelength, and for each depth, output as a
+%   structure array. `stats_real(i, k, j)` is the `stats` output argument
+%   of 'analyzePSF.m' for the i-th light, emitting the k-th wavelength, and
+%   positioned at the j-th depth.
 %
-% X_image_ideal -- Theoretical image locations
-%   The locations of peak intensities in the images produced by each light
-%   source, as predicted by the thick lens equation. `X_image_ideal` has
-%   the same format as `X_image_real`.
+% stats_ideal -- Theoretical image statistics
+%   Point spread function statistics for the images produced by each light
+%   source, as predicted by the thick lens equation. `stats_ideal` has
+%   the same format as `stats_real`.
 %
 % X_lights -- Light positions
 %   The positions, expressed in cartesian coordinates (x, y, z), of the
@@ -413,37 +413,34 @@ end
 n_lights_and_depths = n_lights * n_depths;
 
 % Image plane position
-X_image_ideal_matrix = imageFn_reference([0, 0, z_light(1, 1, depth_ref_index)]);
-ideal_image_position = X_image_ideal_matrix(3);
-ray_params.d_film = -ideal_image_position;
+z_film = imageFn_reference([0, 0, z_light(1, 1, depth_ref_index)]);
+z_film = z_film(3);
+ray_params.d_film = -z_film;
 
 % "Theoretical" image positions, from the thick lens equation
-X_image_ideal_matrix = zeros(n_lights_and_depths, 3, n_ior_lens);
+stats_ideal_matrix = analyzePSF(n_lights_and_depths, n_ior_lens);
 for k = 1:n_ior_lens
-    [ imageFn, ~, ~, ~, U_prime ] = opticsFromLens(...
+    [ imageFn, ~, ~, U, U_prime ] = opticsFromLens(...
         ray_params.ior_environment,...
         ior_lens(k),...
         ray_params.ior_environment,...
         ray_params.radius_front, ray_params.radius_back,...
         ray_params.d_lens...
     );
+    psfFn = opticsToPSF( imageFn, U, U_prime, ray_params.lens_radius, z_film );
 
-    X_image_ideal_matrix(:, :, k) = imageFn(X_lights_matrix);
-    % Adjust magnification to approximately account for the actual image plane
-    % location
-    magnification_correction_ideal = ...
-        repmat(U_prime + ray_params.d_film, n_lights_and_depths, 1) ./ ...
-        (repmat(U_prime, n_lights_and_depths, 1) - X_image_ideal_matrix(:, 3, k));
-    principal_point_prime = repmat([0, 0, U_prime], n_lights_and_depths, 1);
-    X_image_rays = X_image_ideal_matrix(:, :, k) - principal_point_prime;
-    X_image_ideal_matrix(:, :, k) = principal_point_prime + (X_image_rays .* magnification_correction_ideal);
+    stats_ideal_matrix(:, k) = psfFn(X_lights_matrix);
+    
 end
 
-X_image_ideal_matrix = X_image_ideal_matrix(:, 1:2, :);
-X_image_ideal = permute(reshape(X_image_ideal_matrix, n_lights, n_depths, 2, n_ior_lens), [1, 3, 4, 2]);
+stats_ideal = permute(reshape(stats_ideal_matrix, n_lights, n_depths, n_ior_lens), [1, 3, 2]);
 
 % Find image boundaries
 if ~single_source
+    X_image_ideal = [stats_ideal.mean_position];
+    X_image_ideal = reshape(X_image_ideal, 2, []);
+    X_image_ideal = X_image_ideal.';
+    X_image_ideal = reshape(X_image_ideal, n_lights, 2, n_ior_lens, n_depths);
     largest_image_abs = max(max(abs(X_image_ideal), [], 4), [], 3);
     % Restore signs
     largest_image = X_image_ideal;
@@ -481,8 +478,8 @@ end
 
 %% Remove filtered-out light positions
 scene_theta_min_filter_rep = repmat(scene_theta_min_filter, n_depths, 1);
-X_image_ideal = X_image_ideal(scene_theta_min_filter, :, :, :);
-X_image_ideal_matrix = X_image_ideal_matrix(scene_theta_min_filter_rep, :, :);
+stats_ideal = stats_ideal(scene_theta_min_filter, :, :);
+stats_ideal_matrix = stats_ideal_matrix(scene_theta_min_filter_rep, :);
 X_lights = X_lights(scene_theta_min_filter, :, :);
 X_lights_matrix = X_lights_matrix(scene_theta_min_filter_rep, :);
 n_lights = size(X_lights, 1);
@@ -551,7 +548,7 @@ else
     I = zeros([image_sampling, n_ior_lens, n_depths]);
     I_color = zeros([image_sampling, n_channels, n_depths]);
 end
-X_image_real = zeros(n_lights, 2, n_ior_lens, n_depths);
+stats_real = analyzePSF([n_lights, n_ior_lens, n_depths]);
 for j = 1:n_depths
     for k = 1:n_ior_lens
         ray_params.ior_lens = ior_lens(k);
@@ -630,8 +627,7 @@ for j = 1:n_depths
                     axis equal
                 end
             end
-            stats_real = analyzePSF( image_spline, image_position, v_adj, verbose_psf_analysis );
-            X_image_real(i, :, k, j) = stats_real.mean_position;
+            stats_real(i, k, j) = analyzePSF( image_spline, image_position, v_adj, verbose_psf_analysis );
         end
         
         % Visualize the results, for this wavelength
@@ -650,9 +646,11 @@ for j = 1:n_depths
             c = colorbar;
             c.Label.String = 'Irradiance';
             hold on
-            scatter(X_image_ideal(:, 1, k, j), X_image_ideal(:, 2, k, j), [], wavelengths_to_rgb(k, :), 'o');
-            scatter(X_image_real(:, 1, k, j), X_image_real(:, 2, k, j), [], wavelengths_to_rgb(k, :), '.');
-            legend('Thick lens formula', 'Raytracing peaks');
+            mean_position_ideal = vertcat(stats_ideal(:, k, j).mean_position);
+            mean_position_real = vertcat(stats_real(:, k, j).mean_position);
+            scatter(mean_position_ideal(:, 1), mean_position_ideal(:, 2), [], wavelengths_to_rgb(k, :), 'o');
+            scatter(mean_position_real(:, 1), mean_position_real(:, 2), [], wavelengths_to_rgb(k, :), '.');
+            legend('Thick lens formula', 'Raytracing centroids');
             title(sprintf(...
                 'Images of point sources at %g focal lengths, for \\lambda = %g nm',...
                 depth_factors(j), wavelengths(k)));
@@ -685,10 +683,12 @@ if ~single_source && display_all_psf_each_depth
         hold on
         legend_strings = cell(k * 2, 1);
         for k = 1:n_ior_lens
-            scatter(X_image_ideal(:, 1, k, j), X_image_ideal(:, 2, k, j), [], wavelengths_to_rgb(k, :), 'o');
-            scatter(X_image_real(:, 1, k, j), X_image_real(:, 2, k, j), [], wavelengths_to_rgb(k, :), '.');
+            mean_position_real = vertcat(stats_real(:, k, j).mean_position);
+            mean_position_ideal = vertcat(stats_ideal(:, k, j).mean_position);
+            scatter(mean_position_ideal(:, 1), mean_position_ideal(:, 2), [], wavelengths_to_rgb(k, :), 'o');
+            scatter(mean_position_real(:, 1), mean_position_real(:, 2), [], wavelengths_to_rgb(k, :), '.');
             legend_strings{k} = sprintf('Thick lens formula, \\lambda = %g nm', wavelengths(k));
-            legend_strings{n_ior_lens + k} = sprintf('Raytracing peaks, \\lambda = %g nm', wavelengths(k));
+            legend_strings{n_ior_lens + k} = sprintf('Raytracing centroids, \\lambda = %g nm', wavelengths(k));
         end
         legend(legend_strings);
         title(sprintf(...
@@ -700,7 +700,7 @@ if ~single_source && display_all_psf_each_depth
 end
 
 %% Visualize the results, for all depths
-X_image_real_matrix = reshape(permute(X_image_real, [1, 4, 2, 3]), [], 2, n_ior_lens);
+stats_real_matrix = reshape(permute(stats_real, [1, 3, 2]), [], n_ior_lens);
 
 if display_summary
     if single_source
@@ -713,9 +713,9 @@ if display_summary
         disp('Image positions:')
         for k = 1:n_ior_lens
             fprintf('Thick lens equation (lambda = %g nm):\n', wavelengths(k))
-            disp(X_image_ideal_matrix(:, :, k))
-            fprintf('Raytracing (lambda = %g nm):\n', wavelengths(k))
-            disp(X_image_real_matrix(:, :, k))
+            disp(vertcat(stats_ideal_matrix(:, k).mean_position))
+            fprintf('Raytracing centroids (lambda = %g nm):\n', wavelengths(k))
+            disp(vertcat(stats_real_matrix(:, k).mean_position))
         end
     else
         figure
@@ -723,10 +723,12 @@ if display_summary
         depth_factors_rep = repelem(depth_factors, n_lights);
         legend_strings = cell(n_ior_lens * 2, 1);
         for k = 1:n_ior_lens
-            scatter3(X_image_ideal_matrix(:, 1, k, :), X_image_ideal_matrix(:, 2, k, :), depth_factors_rep, [], wavelengths_to_rgb(k, :), 'o');
-            scatter3(X_image_real_matrix(:, 1, k, :), X_image_real_matrix(:, 2, k, :), depth_factors_rep, [], wavelengths_to_rgb(k, :), '.');
+            mean_position_ideal = vertcat(stats_ideal_matrix(:, k).mean_position);
+            mean_position_real = vertcat(stats_real_matrix(:, k).mean_position);
+            scatter3(mean_position_ideal(:, 1), mean_position_ideal(:, 2), depth_factors_rep, [], wavelengths_to_rgb(k, :), 'o');
+            scatter3(mean_position_real(:, 1), mean_position_real(:, 2), depth_factors_rep, [], wavelengths_to_rgb(k, :), '.');
             legend_strings{2 * k - 1} = sprintf('Thick lens formula, \\lambda = %g nm', wavelengths(k));
-            legend_strings{2 * k} = sprintf('Raytracing peaks, \\lambda = %g nm', wavelengths(k));
+            legend_strings{2 * k} = sprintf('Raytracing centroids, \\lambda = %g nm', wavelengths(k));
         end
         legend(legend_strings);        
         title('Images of point sources seen through a thick lens')

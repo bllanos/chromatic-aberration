@@ -73,6 +73,7 @@ function [ ...
 % ray_irradiance -- Ray irradiance
 %   The incident irradiance at the points of intersection of the light
 %   paths with the image plane. Irradiance is determined by:
+%   - The distance of the front aperture from the light source.
 %   - The foreshortening of the front aperture from the perspective of
 %     the light source. (This is necessary to account for the uniform
 %     sampling of the front aperture's surface area, which induces a
@@ -224,8 +225,9 @@ incident_position_cartesian = radius_front * incident_normal;
 % Incident ray direction
 s_position = repmat(s_position, n_incident_rays, 1);
 incident_direction = incident_position_cartesian - s_position;
+incident_distance_sq = dot(incident_direction, incident_direction, 2);
 incident_direction = incident_direction ./ repmat(...
-    sqrt(dot(incident_direction, incident_direction, 2)), 1, 3 ...
+    sqrt(incident_distance_sq), 1, 3 ...
 );
 
 % Cosine of angle with surface normal at the point of incidence
@@ -242,8 +244,9 @@ incident_position_cartesian(front_occlusion_filter) = NaN;
 % Energy is proportional to the solid angle of the patch of area on
 % the aperture, from the perspective of the source. The solid angle is
 % proportional to the cosine of the foreshortening angle, assuming the
-% patch is approximately flat.
-ray_irradiance = incident_cosine;
+% patch is approximately flat. The solid angle is inversely proportional to
+% the square of the distance from the source.
+ray_irradiance = incident_cosine ./ incident_distance_sq;
 
 % Display the input data
 if verbose
