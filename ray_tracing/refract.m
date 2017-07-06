@@ -54,8 +54,8 @@ function [ v_r, T ] = refract( ior_1, ior_2, n, v_i )
 % ## References
 % - Wikipedia page on Snell's Law:
 %   https://en.wikipedia.org/wiki/Snell%27s_law#Vector_form
-% - M. Born and E. Wolf, Principles of Optics. Cambridge, U.K.;
-%   New York: Cambridge University Press, 1999.
+% - M. Born and E. Wolf, Principles of Optics. Cambridge, U.K.: Cambridge
+%   University Press, 1999.
 %   - Technically, I used section 1.5 in the 1970 edition of the book,
 %     which covers the Fresnel equations.
 

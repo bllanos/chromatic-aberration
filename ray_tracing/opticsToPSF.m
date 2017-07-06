@@ -43,6 +43,8 @@ function [ psfFn ] = opticsToPSF( imageFn, U, U_prime, lens_radius, z_film )
 %   object point.
 %
 % ## Notes
+% - Image irradiances returned by `psfFn` are relative, not absolute
+%   values.
 % - Coordinate system:
 %   - The front of the lens is spherical, with the centre of the sphere at
 %     the origin.
@@ -50,6 +52,10 @@ function [ psfFn ] = opticsToPSF( imageFn, U, U_prime, lens_radius, z_film )
 %     biconvex.
 %   - The positive z-axis points towards the front of the lens, along
 %     the optical axis, assuming the front of the lens is convex.
+%
+% ## References
+% - Section 10.3 of B.K.P Horn, Robot Vision. Cambridge, Massachusetts: MIT
+%   Press, 1986.
 %
 % See also opticsFromLens, analyzePSF
 
@@ -77,17 +83,17 @@ incident_position = [ 0, 0, U ];
         mean_position = principal_point_prime + (X_image_rays .* magnification_correction);
         mean_position = mean_position(:, 1:2);
         
-        % Calculate irradiance based on foreshortening and solid angle, as
-        % done in doubleSphericalLens.m
+        % Calculate irradiance based on Section 10.3 of "Robot Vision"
         incident_position_rep = repmat(incident_position, n_points, 1);
         incident_direction = incident_position_rep - X_object;
         incident_distance_sq = dot(incident_direction, incident_direction, 2);
         incident_direction = incident_direction ./ repmat(...
             sqrt(incident_distance_sq), 1, 3 ...
-            );
-        mean_value = -dot(...
+        );
+        incident_cosine = -dot(...
             repmat(incident_normal, n_points, 1), incident_direction, 2 ...
-        ) ./ incident_distance_sq;
+        );
+        mean_value = incident_cosine .^ 4;
         
         % Size of blur circle
         z_film_rep = repmat(z_film, n_points, 1);

@@ -61,9 +61,7 @@ function [ stats ] = analyzePSF( varargin )
 %   - mean_position: The centroid of `psf_spline`, computed by weighting
 %     each position in `image_position` by the evaluation of `psf_spline`
 %     at that position.
-%   - mean_value: The evaluation of `psf_spline` at `mean_position`; The
-%     expected value of `psf_spline` over the domain of samples in
-%     `image_position`.
+%   - mean_value: The evaluation of `psf_spline` at `mean_position`.
 %   - max_position: A two-element row vector containing the x and
 %     y-coordinates of the peak value in `psf_spline`.
 %

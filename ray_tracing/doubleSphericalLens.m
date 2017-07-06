@@ -90,7 +90,8 @@ function [ ...
 %   irradiance is the purpose of 'densifyRays.m'.)
 %
 %   A ray which has no forshortening, nor attenuation during refraction,
-%   has an irradiance value of unity.
+%   has an irradiance value of unity. (Ray irrandiances are relative, not
+%   absolute.)
 %
 %   `ray_irradiance` is a vector, where the i-th element corresponds to the
 %   i-th row of `image_position`.
@@ -246,6 +247,11 @@ incident_position_cartesian(front_occlusion_filter) = NaN;
 % proportional to the cosine of the foreshortening angle, assuming the
 % patch is approximately flat. The solid angle is inversely proportional to
 % the square of the distance from the source.
+%
+% If the rays were sampled uniformly from solid angles coming out of the
+% light source, `ray_irradiance` would be one. In this case,
+% `ray_irradiance` differs from one, because each ray represents a
+% range of solid angles of a different size.
 ray_irradiance = incident_cosine ./ incident_distance_sq;
 
 % Display the input data
@@ -321,7 +327,8 @@ image_position = emitted_position_cartesian_culled +...
     repmat(steps_to_film, 1, 3) .* emitted_direction;
 
 % Foreshortening at the image
-ray_irradiance = ray_irradiance .* -emitted_direction(:, 3);
+% Actually, this is implied by the density of the rays.
+% ray_irradiance = ray_irradiance .* -emitted_direction(:, 3);
 
 % 3D visualization
 if verbose
