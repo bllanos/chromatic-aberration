@@ -6,24 +6,24 @@ function [ disparity_spline, disparity_raw ] = radialChromaticAberration(...
 % ## Syntax
 % disparity_spline = radialChromaticAberration(...
 %     stats, x_fields, reference_wavelength_index,...
-%     z, reference_z [, wavelengths, wavelengths_to_rgb]...
+%     z, reference_z [, wavelengths, wavelengths_to_rgb, verbose]...
 % )
 % [ disparity_spline, disparity ] = radialChromaticAberration(...
 %     stats, x_fields, reference_wavelength_index,...
-%     z, reference_z [, wavelengths, wavelengths_to_rgb]...
+%     z, reference_z [, wavelengths, wavelengths_to_rgb, verbose]...
 % )
 %
 % ## Description
 % disparity_spline = radialChromaticAberration(...
 %     stats, x_fields, reference_wavelength_index,...
-%     z, reference_z [, wavelengths, wavelengths_to_rgb]...
+%     z, reference_z [, wavelengths, wavelengths_to_rgb, verbose]...
 % )
 %   Returns a spline model of chromatic aberration as a function of
 %   distance from the origin, and scene depth.
 %
 % [ disparity_spline, disparity ] = radialChromaticAberration(...
 %     stats, x_fields, reference_wavelength_index,...
-%     z, reference_z [, wavelengths, wavelengths_to_rgb]...
+%     z, reference_z [, wavelengths, wavelengths_to_rgb, verbose]...
 % )
 %   Additionally returns the disparity values used to build the spline
 %   model.
@@ -87,8 +87,8 @@ function [ disparity_spline, disparity_raw ] = radialChromaticAberration(...
 %   used to generate the values in `stats(:, k, :)`. This
 %   parameter is used for figure legends only, not for calculations.
 %
-%   If both `wavelengths` and `wavelengths_to_rgb` are passed, graphical
-%   output will be generated.
+%   Either all of `wavelengths`, `wavelengths_to_rgb`, and `verbose` must
+%   be passed, or none of them must be passed.
 %
 % wavelengths_to_rgb -- Colour map for wavelengths
 %   RGB colours to be used when plotting points representing values for the
@@ -96,8 +96,22 @@ function [ disparity_spline, disparity_raw ] = radialChromaticAberration(...
 %   matrix represents the RGB colour corresponding to the k-th wavelength,
 %   `wavelengths(k)`.
 %
-%   If both `wavelengths` and `wavelengths_to_rgb` are passed, graphical
-%   output will be generated.
+%   Either all of `wavelengths`, `wavelengths_to_rgb`, and `verbose` must
+%   be passed, or none of them must be passed.
+%
+% verbose -- Debugging and visualization controls
+%   If recognized fields of `verbose` are true, corresponding graphical
+%   output will be generated for debugging purposes.
+%
+%   In addition to fields which are simple Boolean values, there is a
+%   `filter` field, whose value is a structure. If `filter.(name)` is true,
+%   then visualization output will be generated for the corresponding data
+%   in `stats.(name)`. If `filter.(name)` is false, or if `name` is not a
+%   field of `filter`, then the data in `stats.(name)` will be excluded
+%   from all graphical output.
+%
+%   Either all of `wavelengths`, `wavelengths_to_rgb`, and `verbose` must
+%   be passed, or none of them must be passed.
 %
 % ## Output Arguments
 %
@@ -139,34 +153,38 @@ function [ disparity_spline, disparity_raw ] = radialChromaticAberration(...
 % File created June 27, 2017
 
 nargoutchk(1, 2);
-narginchk(5, 7);
-
-if ~isempty(varargin)
-    if length(varargin) ~= 2
-        error('Unexpected number of input arguments. Note that both `wavelengths` and `wavelengths_to_rgb` should be passed, or neither should be passed.');
-    else
-        wavelengths = varargin{1};
-        wavelengths_to_rgb = varargin{2};
-        verbose = true;
-    end
-else
-    verbose = false;
-end
-
-names = fieldnames(stats);
-n_names = length(names);
+narginchk(5, 8);
 
 sz = size(stats);
 n_points = sz(1);
 n_wavelengths = sz(2);
 n_depths = sz(3);
 
-% Preliminary processing
-if verbose
-    n_points_all_depths = n_points * n_depths;
-    zeros_plot = zeros(n_points_all_depths, 1);
+if ~isempty(varargin)
+    if length(varargin) ~= 3
+        error('Unexpected number of input arguments. All of `wavelengths`, `wavelengths_to_rgb`, and `verbose` should be passed, or none should be passed.');
+    else
+        wavelengths = varargin{1};
+        wavelengths_to_rgb = varargin{2};
+        n_points_all_depths = n_points * n_depths;
+        zeros_plot = zeros(n_points_all_depths, 1);
+        verbose = varargin{3};
+        verbose_filter = verbose.filter;
+        display_raw_values = verbose.display_raw_values;
+        display_raw_disparity = verbose.display_raw_disparity;
+        display_disparity_splines = verbose.display_disparity_splines;
+    end
+else
+    verbose_filter = struct();
+    display_raw_values = false;
+    display_raw_disparity = false;
+    display_disparity_splines = false;
 end
 
+names = fieldnames(stats);
+n_names = length(names);
+
+% Preliminary processing
 stats_cell = struct2cell(stats);
 for i = 1:n_names
     stats_cell_i = squeeze(stats_cell(i, :, :, :));
@@ -184,6 +202,7 @@ end
 for i = 1:n_names
     name_i = names{i};
     name_display_i = replace(name_i, '_', '\_');
+    verbose_filter_i = isfield(verbose_filter, name_i) && verbose_filter.(name_i);
     
     % Find the other input variable
     name_x = x_fields.(name_i);
@@ -201,75 +220,124 @@ for i = 1:n_names
     dimensionality_i = size(disparity_raw_i, 2);
     dimensionality_x = size(stats_mat_x, 2);
     
-    if verbose && dimensionality_i <= 2 && dimensionality_x <= 2
+    if verbose_filter_i && dimensionality_i <= 2 && dimensionality_x <= 2
         
+        stats_mat_i_3D = reshape(permute(stats_mat_i, [1, 4, 2, 3]), [], dimensionality_i, n_wavelengths);
         stats_mat_x_3D = reshape(permute(stats_mat_x, [1, 4, 2, 3]), [], dimensionality_x, n_wavelengths);
         disparity_raw_i_3D = reshape(permute(disparity_raw_i, [1, 4, 2, 3]), [], dimensionality_i, n_wavelengths);
         
-        figure
-        hold on
-        legend_strings = cell(n_wavelengths * 2 - 1, 1);
-        for k = 1:n_wavelengths
-            if dimensionality_x == 1
-                y_plot = zeros_plot;
-            else
-                y_plot = stats_mat_x_3D(:, 2, k);
-            end
-            
-            scatter3(...
-                stats_mat_x_3D(:, 1, k), y_plot,...
-                z_adjusted, [], wavelengths_to_rgb(k, :), 'o'...
-            );
-            legend_strings{k} = sprintf(...
-                '''%s'' for \\lambda = %g nm',...
-                name_display_x, wavelengths(k)...
-            );
-        end
-        k_legend = 1;
-        for k = 1:n_wavelengths
-            if k ~= reference_wavelength_index
+        if display_raw_values
+            figure
+            hold on
+            legend_strings = cell(n_wavelengths, 1);
+            for k = 1:n_wavelengths
                 if dimensionality_x == 1
                     y_plot = zeros_plot;
                 else
-                    y_plot = stats_mat_x_3D(:, 2, reference_wavelength_index);
+                    y_plot = stats_mat_x_3D(:, 2, k);
                 end
                 if dimensionality_i == 1
                     v_plot = zeros_plot;
                 else
-                    v_plot = disparity_raw_i_3D(:, 2, k);
+                    v_plot = stats_mat_i_3D(:, 2, k);
                 end
-            
+                
                 quiver3(...
                     stats_mat_x_3D(:, 1, reference_wavelength_index),...
                     y_plot,...
                     z_adjusted.',...
-                    disparity_raw_i_3D(:, 1, k),...
+                    stats_mat_i_3D(:, 1, k),...
                     v_plot,...
                     zeros_plot,...
-                    'Color', wavelengths_to_rgb(k, :), 'AutoScale', 'off'...
-                );
-                legend_strings{n_wavelengths + k_legend} = sprintf(...
-                    'Aberration of ''%s'' for \\lambda = %g nm',...
-                    name_display_i, wavelengths(k)...
-                );
-                k_legend = k_legend + 1;
+                    'Color', wavelengths_to_rgb(k, :), 'AutoScale', 'on'...
+                    );
+                legend_strings{k} = sprintf(...
+                    '\\lambda = %g nm',...
+                    wavelengths(k)...
+                    );
             end
+            legend(legend_strings);
+            title(sprintf(...
+                'Values of ''%s'' plotted as (autoscaled) arrows at values of ''%s''',...
+                name_display_i, name_display_x...
+            ))
+            if dimensionality_x == 2
+                xlabel(sprintf('%s_x', name_display_x));
+                ylabel(sprintf('%s_y', name_display_x));
+                zlabel('Depth')
+            elseif dimensionality_x == 1
+                xlabel(sprintf('%s', name_display_x));
+                zlabel('Depth')
+            end
+            hold off
         end
-        legend(legend_strings);
-        title(sprintf(...
-            'Aberrations of ''%s'' at values of ''%s''',...
-            name_display_i, name_display_x...
-        ))
-        if dimensionality_x == 2
-            xlabel(sprintf('%s_x', name_display_x));
-            ylabel(sprintf('%s_y', name_display_x));
-            zlabel('Depth')
-        elseif dimensionality_x == 1
-            xlabel(sprintf('%s', name_display_x));
-            zlabel('Depth')
+        
+        if display_raw_disparity
+            figure
+            hold on
+            legend_strings = cell(n_wavelengths * 2 - 1, 1);
+            for k = 1:n_wavelengths
+                if dimensionality_x == 1
+                    y_plot = zeros_plot;
+                else
+                    y_plot = stats_mat_x_3D(:, 2, k);
+                end
+
+                scatter3(...
+                    stats_mat_x_3D(:, 1, k), y_plot,...
+                    z_adjusted, [], wavelengths_to_rgb(k, :), 'o'...
+                );
+                legend_strings{k} = sprintf(...
+                    '''%s'' for \\lambda = %g nm',...
+                    name_display_x, wavelengths(k)...
+                );
+            end
+            k_legend = 1;
+            for k = 1:n_wavelengths
+                if k ~= reference_wavelength_index
+                    if dimensionality_x == 1
+                        y_plot = zeros_plot;
+                    else
+                        y_plot = stats_mat_x_3D(:, 2, reference_wavelength_index);
+                    end
+                    if dimensionality_i == 1
+                        v_plot = zeros_plot;
+                    else
+                        v_plot = disparity_raw_i_3D(:, 2, k);
+                    end
+
+                    quiver3(...
+                        stats_mat_x_3D(:, 1, reference_wavelength_index),...
+                        y_plot,...
+                        z_adjusted.',...
+                        disparity_raw_i_3D(:, 1, k),...
+                        v_plot,...
+                        zeros_plot,...
+                        'Color', wavelengths_to_rgb(k, :), 'AutoScale', 'off'...
+                    );
+                    legend_strings{n_wavelengths + k_legend} = sprintf(...
+                        'Aberration of ''%s'' for \\lambda = %g nm',...
+                        name_display_i, wavelengths(k)...
+                    );
+                    k_legend = k_legend + 1;
+                end
+            end
+            legend(legend_strings);
+            title(sprintf(...
+                'Aberrations of ''%s'' at values of ''%s''',...
+                name_display_i, name_display_x...
+            ))
+            if dimensionality_x == 2
+                xlabel(sprintf('%s_x', name_display_x));
+                ylabel(sprintf('%s_y', name_display_x));
+                zlabel('Depth')
+            elseif dimensionality_x == 1
+                xlabel(sprintf('%s', name_display_x));
+                zlabel('Depth')
+            end
+            hold off
         end
-        hold off
-    elseif verbose
+    elseif verbose_filter_i
         warning('`radialChromaticAberration` cannot produce a visualization of statistics with more than two dimensions.');
     end
 
@@ -331,7 +399,7 @@ for i = 1:n_names
                 )
             end
 
-            if verbose
+            if verbose_filter_i && display_disparity_splines
                 figure
                 if sufficient_data
                     pts = fnplt(disparity_spline_i{k});
