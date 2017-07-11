@@ -190,6 +190,9 @@ function [...
 %   greyscale image for the k-th wavelength produced by the grid of lights
 %   placed at the j-th depth.
 %
+%   This output argument is only available if there are multiple lights at
+%   each depth.
+%
 % I_color -- Simulated colour images
 %   A 4D array containing the images formed by combining all point spread
 %   functions for all lights at each depth. `I_color(:, :, :, j)` is the
@@ -198,6 +201,9 @@ function [...
 %   colour channels. `I_color` is produced by combining the images for
 %   individual wavelengths in `I` according to the RGB colour values for
 %   the different wavelengths in `lens_params.wavelengths_to_rgb`.
+%
+%   This output argument is only available if there are multiple lights at
+%   each depth.
 %
 % ## Notes
 %
@@ -232,6 +238,21 @@ function [...
 % camera sensor. Furthermore, it is possible to run this script on an
 % arbitrary number of wavelengths, and obtain as many estimates of
 % chromatic aberration (not only three).
+%
+% ### Efficiency
+% - The `I` or `I_color` output arguments are expensive to produce. They
+%   are generated if explicitly requested as output, or if any of the
+%   following flags are set:
+%   - `verbose.display_each_psf`
+%   - `verbose.display_all_psf_each_ior`
+%   - `verbose.display_all_psf_each_depth`
+%
+%   Of course, for a single light source, these output arguments are
+%   unavailable, as mentioned above. The image boundaries are calculated
+%   from the spacing between the image positions of multiple sources,
+%   predicted by the thick lens equation. For a single light source, point
+%   spread functions can be visualized using `verbose.display_each_psf`,
+%   but there is presently no convenient way to define image boundaries.
 %
 % See also opticsFromLens, doubleSphericalLens, densifyRays, analyzePSF
 
@@ -286,6 +307,10 @@ else
     error('`scene_params.n_lights` must be either a scalar, or a two element vector.');
 end
 single_source = (n_lights_x == 1 & n_lights_y == 1);
+
+if single_source && nargout > 4
+    error('Images (`I` and `I_color`) are not simulated for a single light source.')
+end
 
 light_distance_factor_focused = scene_params.light_distance_factor_focused;
 light_distance_factor_larger = scene_params.light_distance_factor_larger;
@@ -540,13 +565,17 @@ if plot_light_positions
 end
 
 %% Trace rays through the lens and form rays into an image
-if single_source
-    I = [];
-    I_color = [];
-else
+request_images = ~single_source && (...
+    display_each_psf || display_all_psf_each_ior ||...
+    display_all_psf_each_depth || nargout > 4 ...
+);
+if request_images
     n_channels = 3;
     I = zeros([image_sampling, n_ior_lens, n_depths]);
     I_color = zeros([image_sampling, n_channels, n_depths]);
+else
+    I = [];
+    I_color = [];
 end
 stats_real = analyzePSF([n_lights, n_ior_lens, n_depths]);
 for j = 1:n_depths
@@ -558,33 +587,7 @@ for j = 1:n_depths
                 image_position, ray_irradiance, ~, incident_position_cartesian ...
                 ] = doubleSphericalLens( ray_params, verbose_ray_tracing );
             
-            if single_source
-                [ image_spline, v_adj ] = densifyRays(...
-                    incident_position_cartesian,...
-                    ray_params.radius_front,...
-                    image_position,...
-                    ray_irradiance,...
-                    verbose_ray_interpolation ...
-                    );
-                
-                if display_each_psf
-                    figure
-                    pts = fnplt(image_spline);
-                    surf(pts{1}, pts{2}, pts{3}, 'EdgeColor', 'none');
-                    colorbar
-                    xlabel('X');
-                    ylabel('Y');
-                    zlabel('Irradiance');
-                    colormap summer
-                    c = colorbar;
-                    c.Label.String = 'Irradiance';
-                    title(...
-                        sprintf('Estimated PSF for a point source at position\n[%g, %g, %g] (%g focal lengths, IOR %g)',...
-                        X_lights(i, 1, j), X_lights(i, 2, j), X_lights(i, 3, j),...
-                        depth_factors(j), ior_lens(k)...
-                    ));
-                end
-            else
+            if request_images
                 [ image_spline, v_adj, I_ikj ] = densifyRays(...
                     incident_position_cartesian,...
                     ray_params.radius_front,...
@@ -626,12 +629,39 @@ for j = 1:n_depths
                         ));
                     axis equal
                 end
+            else
+                [ image_spline, v_adj ] = densifyRays(...
+                    incident_position_cartesian,...
+                    ray_params.radius_front,...
+                    image_position,...
+                    ray_irradiance,...
+                    verbose_ray_interpolation ...
+                );
             end
+            
+            if single_source && display_each_psf
+                figure
+                pts = fnplt(image_spline);
+                surf(pts{1}, pts{2}, pts{3}, 'EdgeColor', 'none');
+                colorbar
+                xlabel('X');
+                ylabel('Y');
+                zlabel('Irradiance');
+                colormap summer
+                c = colorbar;
+                c.Label.String = 'Irradiance';
+                title(...
+                    sprintf('Estimated PSF for a point source at position\n[%g, %g, %g] (%g focal lengths, IOR %g)',...
+                    X_lights(i, 1, j), X_lights(i, 2, j), X_lights(i, 3, j),...
+                    depth_factors(j), ior_lens(k)...
+                    ));
+            end
+                
             stats_real(i, k, j) = analyzePSF( image_spline, image_position, v_adj, verbose_psf_analysis );
         end
         
         % Visualize the results, for this wavelength
-        if ~single_source && display_all_psf_each_ior
+        if request_images && display_all_psf_each_ior
             figure
             ax = gca;
             imagesc(...
@@ -661,7 +691,7 @@ for j = 1:n_depths
 end
 
 % Visualize the results, for each depth
-if ~single_source && display_all_psf_each_depth
+if request_images
     if normalize_color_images_globally
         I_color = I_color ./ max(max(max(max(I_color))));
     else
@@ -669,33 +699,36 @@ if ~single_source && display_all_psf_each_depth
             I_color(:, :, :, j) = I_color(:, :, :, j) ./ max(max(max(I_color(:, :, :, j))));
         end
     end
-    for j = 1:n_depths
-        figure
-        ax = gca;
-        image(...
-            [image_bounds(1), image_bounds(1) + image_bounds(3)],...
-            [image_bounds(2), image_bounds(2) + image_bounds(4)],...
-            I_color(:, :, :, j)...
-            );
-        ax.YDir = 'normal';
-        xlabel('X');
-        ylabel('Y');
-        hold on
-        legend_strings = cell(k * 2, 1);
-        for k = 1:n_ior_lens
-            mean_position_real = vertcat(stats_real(:, k, j).mean_position);
-            mean_position_ideal = vertcat(stats_ideal(:, k, j).mean_position);
-            scatter(mean_position_ideal(:, 1), mean_position_ideal(:, 2), [], wavelengths_to_rgb(k, :), 'o');
-            scatter(mean_position_real(:, 1), mean_position_real(:, 2), [], wavelengths_to_rgb(k, :), '.');
-            legend_strings{k} = sprintf('Thick lens formula, \\lambda = %g nm', wavelengths(k));
-            legend_strings{n_ior_lens + k} = sprintf('Raytracing centroids, \\lambda = %g nm', wavelengths(k));
+    
+    if display_all_psf_each_depth
+        for j = 1:n_depths
+            figure
+            ax = gca;
+            image(...
+                [image_bounds(1), image_bounds(1) + image_bounds(3)],...
+                [image_bounds(2), image_bounds(2) + image_bounds(4)],...
+                I_color(:, :, :, j)...
+                );
+            ax.YDir = 'normal';
+            xlabel('X');
+            ylabel('Y');
+            hold on
+            legend_strings = cell(k * 2, 1);
+            for k = 1:n_ior_lens
+                mean_position_real = vertcat(stats_real(:, k, j).mean_position);
+                mean_position_ideal = vertcat(stats_ideal(:, k, j).mean_position);
+                scatter(mean_position_ideal(:, 1), mean_position_ideal(:, 2), [], wavelengths_to_rgb(k, :), 'o');
+                scatter(mean_position_real(:, 1), mean_position_real(:, 2), [], wavelengths_to_rgb(k, :), '.');
+                legend_strings{k} = sprintf('Thick lens formula, \\lambda = %g nm', wavelengths(k));
+                legend_strings{n_ior_lens + k} = sprintf('Raytracing centroids, \\lambda = %g nm', wavelengths(k));
+            end
+            legend(legend_strings);
+            title(sprintf(...
+                'Images of point sources at %g focal lengths',...
+                depth_factors(j)));
+            axis equal
+            hold off
         end
-        legend(legend_strings);
-        title(sprintf(...
-            'Images of point sources at %g focal lengths',...
-            depth_factors(j)));
-        axis equal
-        hold off
     end
 end
 
