@@ -32,7 +32,7 @@ lens_params.lens_radius = 25 / 2;
 lens_params.axial_thickness = 5.30;
 lens_params.radius_back = lens_params.radius_front;
 
-ray_params.n_incident_rays = 100;
+ray_params.n_incident_rays = 10000;
 ray_params.sample_random = false;
 ray_params.ior_environment = 1.0;
 
@@ -65,24 +65,27 @@ lens_params.wavelengths_to_rgb = lens_params.wavelengths_to_rgb ./...
     max(max(lens_params.wavelengths_to_rgb));
 
 % ### Ray interpolation parameters
-image_params.image_sampling = [20, 20];
+image_params.image_sampling = [400, 400];
 image_params.normalize_psfs_before_combining = false;
 image_params.normalize_color_images_globally = true;
+
+% ### Use spline interpolation to reduce noise
+request_spline_smoothing = false;
 
 % ## Scene setup
 scene_params.theta_max = pi / 12;
 scene_params.theta_min = pi / 24;
-scene_params.n_lights = [4 4];
+scene_params.n_lights = 1;
 scene_params.light_distance_factor_focused = 3;
-scene_params.light_distance_factor_larger = [5, 2];
-scene_params.light_distance_factor_smaller = [2, 2];
+scene_params.light_distance_factor_larger = [5, 1];
+scene_params.light_distance_factor_smaller = [2, 0];
 scene_params.preserve_angle_over_depths = true;
 
 % ## Debugging Flags
 doubleSphericalLensPSFVerbose.plot_light_positions = true;
 doubleSphericalLensPSFVerbose.verbose_ray_tracing = false;
 doubleSphericalLensPSFVerbose.verbose_ray_interpolation = false;
-doubleSphericalLensPSFVerbose.verbose_psf_analysis = false;
+doubleSphericalLensPSFVerbose.verbose_psf_analysis = true;
 doubleSphericalLensPSFVerbose.display_each_psf = false;
 doubleSphericalLensPSFVerbose.display_all_psf_each_ior = false;
 doubleSphericalLensPSFVerbose.display_all_psf_each_depth = false;
@@ -107,7 +110,8 @@ radialChromaticAberrationVerbose.filter = struct(...
     stats_real, stats_ideal,...
     X_lights, depth_factors...
 ] = doubleSphericalLensPSF(...
-    lens_params, ray_params, image_params, scene_params, doubleSphericalLensPSFVerbose...
+    lens_params, ray_params, image_params, scene_params,...
+    request_spline_smoothing, doubleSphericalLensPSFVerbose...
 );
 
 %% Analyze the results

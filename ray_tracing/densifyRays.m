@@ -1,39 +1,47 @@
-function [ image_spline, v_adj, I ] = densifyRays(...
+function [ image_irradiance, v_adj, image_spline, I ] = densifyRays(...
     incident_position_cartesian, r_front, image_position, ray_irradiance,...
     varargin...
 )
 % DENSIFYRAYS  Model image intensities from discrete samples of ray irradiance
 %
 % ## Syntax
-% image_spline = densifyRays(...
+% image_irradiance = densifyRays(...
 %    incident_position_cartesian, r_front, image_position,...
 %    ray_irradiance [, verbose]...
 % )
-% [ image_spline, v_adj ] = densifyRays(...
+% [ image_irradiance, v_adj ] = densifyRays(...
 %    incident_position_cartesian, r_front, image_position,...
 %    ray_irradiance [, verbose]...
 % )
-% [ image_spline, v_adj, I ] = densifyRays(...
+% [ image_irradiance, v_adj, image_spline ] = densifyRays(...
+%    incident_position_cartesian, r_front, image_position,...
+%    ray_irradiance [, verbose]...
+% )
+% [ image_irradiance, v_adj, image_spline, I ] = densifyRays(...
 %    incident_position_cartesian, r_front, image_position,...
 %    ray_irradiance, image_bounds, image_sampling [, verbose]...
 % )
 %
 % ## Description
-% image_spline = densifyRays(...
+% image_irradiance = densifyRays(...
 %    incident_position_cartesian, r_front, image_position,...
 %    ray_irradiance [, verbose]...
 % )
-%   Produce a spline model of image intensities, approximating the discrete
-%   rays.
-%
-% [ image_spline, v_adj ] = densifyRays(...
+%   Estimate the image intensities at the ray intersections with the image
+%   plane.
+% [ image_irradiance, v_adj ] = densifyRays(...
 %    incident_position_cartesian, r_front, image_position,...
 %    ray_irradiance [, verbose]...
 % )
 %   Additionally returns adjacency information about the rays, for further
 %   analysis.
-%
-% [ image_spline, v_adj, I ] = densifyRays(...
+% [ image_irradiance, v_adj, image_spline ] = densifyRays(...
+%    incident_position_cartesian, r_front, image_position,...
+%    ray_irradiance [, verbose]...
+% )
+%   Additionally returns a spline model of the image intensities,
+%   approximating
+% [ image_irradiance, v_adj, image_spline, I ] = densifyRays(...
 %    incident_position_cartesian, r_front, image_position,...
 %    ray_irradiance, image_bounds, image_sampling [, verbose]...
 % )
@@ -91,13 +99,14 @@ function [ image_spline, v_adj, I ] = densifyRays(...
 %
 % ## Output Arguments
 %
-% image_spline -- Thin-plate spline model of image intensities
-%   A thin-plate smoothing splines modeling image intensity (irradiance) as
-%   a function of 2D position on the image plane.
+% image_irradiance -- Discrete image intensities
+%   The incident irradiance at the points of intersection of the light
+%   paths with the image plane. `image_irradiance` is a transformation of
+%   `ray_irradiance` which takes into account changes in the density of
+%   rays between `incident_position_cartesian` and `image_position`.
 %
-%   `irradiance = fnval(image_spline,[x; y])` evaluates the spline model at
-%   the given image x, and y positions in the row vectors `x`, and `y`,
-%   respectively.
+%   `image_irradiance` is a vector, where the i-th element corresponds to
+%   the i-th row of `image_position`.
 %
 % v_adj -- Ray sample adjacency lists
 %   The indices of the rows, in `image_position`, which are connected to
@@ -111,11 +120,29 @@ function [ image_spline, v_adj, I ] = densifyRays(...
 %   used to create `image_spline`, but is useful for other applications,
 %   such as in 'analyzePSF()'.
 %
+% image_spline -- Thin-plate spline model of image intensities
+%   A thin-plate smoothing spline modeling image intensity (irradiance) as
+%   a function of 2D position on the image plane.
+%
+%   `irradiance = fnval(image_spline,[x; y])` evaluates the spline model at
+%   the given image x, and y positions in the row vectors `x`, and `y`,
+%   respectively.
+%
 % I -- Image
 %   The irradiance pattern produced on the image plane by the rays traced
 %   through the lens system. The image boundaries, and pixel resolution
 %   are defined by the `image_bounds`, and `image_sampling` input
 %   arguments, respectively.
+%
+% ## Notes
+% - `image_spline` is expensive to generate for large numbers of rays.
+% - `I` is generated from `image_spline`. In the future, it could also be
+%   generated (but with more noise) from scattered data interpolation of
+%   `image_irradiance` (see also 'scatteredInterpolant'). Note that
+%   'analyzePSF()' already uses `scatteredInterpolant()` to interpolate
+%   sparse image irradiances. Therefore, if `scatteredInterpolant()` was
+%   also used in this function, the interpolant should be passed to
+%   'analyzePSF()' to save computation time.
 %
 % See also doubleSphericalLens, sphereSection, refract, tpaps, delaunayTriangulation, neighborVertices, analyzePSF
 
@@ -124,7 +151,7 @@ function [ image_spline, v_adj, I ] = densifyRays(...
 % University of Alberta, Department of Computing Science
 % File created June 8, 2017
 
-nargoutchk(1, 3);
+nargoutchk(1, 4);
 narginchk(4, 7);
 
 verbose = false;
@@ -144,11 +171,12 @@ if ~isempty(varargin)
         verbose = varargin{3};
     end
     
-    if nargout == 3 && n_varargs < 2
+    image_output_requested = (nargout >= 4);
+    if image_output_requested && n_varargs < 2
         error('The output image, `I`, cannot be calculated without the input arguments `image_bounds`, and `image_sampling`.');
-    elseif nargout < 3 && n_varargs > 1
+    elseif ~image_output_requested && n_varargs > 1
         error('More input arguments were passed than are required to produce the first two output arguments.')
-    elseif nargout == 3
+    elseif image_output_requested
         output_image = true;
     end    
 end
@@ -261,54 +289,56 @@ if verbose
 end
 
 % Interpolate image irradiance values
-image_spline = tpaps(image_position.',image_irradiance.');
-if verbose
-    figure
-    pts = fnplt(image_spline); % I don't like the look of the plot, so I will plot manually below
-    surf(pts{1}, pts{2}, pts{3}, 'EdgeColor', 'none');
-    colorbar
-    xlabel('X');
-    ylabel('Y');
-    zlabel('Irradiance');
-    colormap summer
-    c = colorbar;
-    c.Label.String = 'Irradiance';
-    title('Interpolation of image irradiance values')
-end
-
-% Sample on a grid to produce an image
-if output_image
-    I = zeros(image_sampling);
-    % Avoid extrapolation by only estimating values within the convex hull
-    % of the rays on the image plane
-    convex_hull_indices = convhull(image_position);
-    image_position_convhull = image_position(convex_hull_indices, :);
-    % Convert world coordinates to pixel indices
-    image_position_convhull_px =[
-        image_sampling(2) * ...
-            (image_position_convhull(:, 1) - image_bounds(1)) / image_bounds(3),...
-        image_sampling(1) * ...
-            (image_position_convhull(:, 2) - image_bounds(2)) / image_bounds(4)
-    ];
-    mask = roipoly(...
-        I, image_position_convhull_px(:, 1), image_position_convhull_px(:, 2)...
-    );
-    x = linspace(image_bounds(1), image_bounds(1) + image_bounds(3), image_sampling(2));
-    y = linspace(image_bounds(2), image_bounds(2) + image_bounds(4), image_sampling(1));
-    [X,Y] = meshgrid(x,y);
-    xy = [X(mask).'; Y(mask).'];
-    I(mask) = fnval(image_spline,xy);
-    
+if nargout > 2
+    image_spline = tpaps(image_position.',image_irradiance.');
     if verbose
         figure
-        surf(X, Y, I, 'EdgeColor', 'none');
+        pts = fnplt(image_spline); % I don't like the look of the plot, so I will plot manually below
+        surf(pts{1}, pts{2}, pts{3}, 'EdgeColor', 'none');
         colorbar
         xlabel('X');
         ylabel('Y');
         zlabel('Irradiance');
+        colormap summer
         c = colorbar;
         c.Label.String = 'Irradiance';
-        title('Estimated output image pixels') 
+        title('Interpolation of image irradiance values')
+    end
+
+    % Sample on a grid to produce an image
+    if output_image
+        I = zeros(image_sampling);
+        % Avoid extrapolation by only estimating values within the convex hull
+        % of the rays on the image plane
+        convex_hull_indices = convhull(image_position);
+        image_position_convhull = image_position(convex_hull_indices, :);
+        % Convert world coordinates to pixel indices
+        image_position_convhull_px =[
+            image_sampling(2) * ...
+                (image_position_convhull(:, 1) - image_bounds(1)) / image_bounds(3),...
+            image_sampling(1) * ...
+                (image_position_convhull(:, 2) - image_bounds(2)) / image_bounds(4)
+        ];
+        mask = roipoly(...
+            I, image_position_convhull_px(:, 1), image_position_convhull_px(:, 2)...
+        );
+        x = linspace(image_bounds(1), image_bounds(1) + image_bounds(3), image_sampling(2));
+        y = linspace(image_bounds(2), image_bounds(2) + image_bounds(4), image_sampling(1));
+        [X,Y] = meshgrid(x,y);
+        xy = [X(mask).'; Y(mask).'];
+        I(mask) = fnval(image_spline,xy);
+
+        if verbose
+            figure
+            surf(X, Y, I, 'EdgeColor', 'none');
+            colorbar
+            xlabel('X');
+            ylabel('Y');
+            zlabel('Irradiance');
+            c = colorbar;
+            c.Label.String = 'Irradiance';
+            title('Estimated output image pixels') 
+        end
     end
 end
 

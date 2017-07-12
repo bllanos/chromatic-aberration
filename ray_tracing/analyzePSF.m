@@ -4,12 +4,16 @@ function [ stats ] = analyzePSF( varargin )
 % ## Syntax
 % empty_stats = analyzePSF( sz )
 % stats = analyzePSF( psf_spline, image_position, v_adj [, verbose] )
+% stats = analyzePSF( psf_values, image_position, v_adj [, verbose] )
 %
 % ## Description
 % empty_stats = analyzePSF( sz )
 %   Returns a structure array, for preallocation.
 % stats = analyzePSF( psf_spline, image_position, v_adj [, verbose] )
 %   Returns statistics describing the density function `psf_spline`.
+% stats = analyzePSF( psf_values, image_position, v_adj [, verbose] )
+%   Same as above, but returns approximate statistics based on a sampling
+%   representation of the density function.
 %
 % ## Input Arguments
 %
@@ -31,6 +35,10 @@ function [ stats ] = analyzePSF( varargin )
 %   The 2D coordinates on the image plane corresponding to the raw data
 %   used to create `psf_spline`. `image_position` is a two-column array,
 %   with the columns containing image x, and y coordinates, respectively.
+%
+% psf_values -- Image samples
+%   Image intensity values at the coordinates in `image_position`. A column
+%   vector with the same number of rows as `image_position`.
 %
 % v_adj -- Sample adjacency lists
 %   The indices of the rows, in `image_position`, which are connected to
@@ -56,8 +64,8 @@ function [ stats ] = analyzePSF( varargin )
 %   to be filled with subsequent calls to 'analyzePSF()'.
 %
 % stats -- Distribution statistics
-%   A structure describing `psf_spline` more concisely, using the following
-%   fields:
+%   A structure describing `psf_spline` (or `psf_values`), using the
+%   following fields:
 %   - mean_position: The centroid of `psf_spline`, computed by weighting
 %     each position in `image_position` by the evaluation of `psf_spline`
 %     at that position.
@@ -110,7 +118,12 @@ if nargin == 1
     return
 else
     narginchk(3, 4);
-    psf_spline =  varargin{1};
+    spline_passed = isstruct(varargin{1});
+    if spline_passed
+        psf_spline =  varargin{1};
+    else
+        psf_values = varargin{1};
+    end
     image_position =  varargin{2};
     v_adj =  varargin{3};
 end
@@ -124,12 +137,21 @@ end
 n_points = size(image_position, 1);
 
 % Irradiance-weighted centroid
-image_irradiance_spline = fnval(psf_spline,image_position.');
-image_irradiance_spline = image_irradiance_spline.';
+if spline_passed
+    image_irradiance_spline = fnval(psf_spline,image_position.');
+    image_irradiance_spline = image_irradiance_spline.';
+else
+    image_irradiance_spline = psf_values;
+end
 stats.mean_position = sum(...
     repmat(image_irradiance_spline, 1, 2) .* image_position, 1 ...
 ) ./ sum(image_irradiance_spline);
-stats.mean_value = fnval(psf_spline, stats.mean_position.');
+if spline_passed
+    stats.mean_value = fnval(psf_spline, stats.mean_position.');
+else
+    psf_interpolant = scatteredInterpolant(image_position,image_irradiance_spline);
+    stats.mean_value = psf_interpolant(stats.mean_position);
+end
 
 % Irradiance-weighted uncorrected standard deviation of the distance from
 % the centroid
@@ -158,35 +180,45 @@ if sum(local_maxima_filter) > 1
     local_maxima_position_mean = sum(...
             repmat(local_maxima_irradiance, 1, 2) .* local_maxima_position, 1 ...
         ) ./ sum(local_maxima_irradiance);
-    local_maxima_irradiance_mean = fnval(psf_spline, local_maxima_position_mean.');
+    if spline_passed
+        local_maxima_irradiance_mean = fnval(psf_spline, local_maxima_position_mean.');
+    else
+        local_maxima_irradiance_mean = psf_interpolant(local_maxima_position_mean);
+    end
     if sum(local_maxima_irradiance >= local_maxima_irradiance_mean) > 1
         % Probably no peak irradiance
         has_peak = false;
     end
 end
 
-if has_peak
-    % Find the peak irradiance
-    psf_spline_dx = fnder(psf_spline,[1, 0]);
-    psf_spline_dy = fnder(psf_spline,[0, 1]);
+if has_peak || (verbose && ~spline_passed)
     min_x = min(image_position(:, 1));
     max_x = max(image_position(:, 1));
     min_y = min(image_position(:, 2));
     max_y = max(image_position(:, 2));
-    lb = [min_x, min_y];
-    ub = [max_x, max_y];
-    A = [];
-    b = [];
-    Aeq = [];
-    beq = [];
-    [~, max_ind] = max(image_irradiance_spline);
-    x0 = image_position(max_ind, :);
-    nonlcon = [];
-    options = optimoptions('fmincon', 'SpecifyObjectiveGradient', true);
-    [max_position, max_value] = fmincon(...
-        @splineValueAndGradient, x0, A, b, Aeq, beq, lb, ub, nonlcon, options...
-        );
-    max_value = -max_value;
+end
+
+if has_peak
+    % Find the peak irradiance
+    [max_value, max_ind] = max(image_irradiance_spline);
+    max_position = image_position(max_ind, :);
+    if spline_passed
+        psf_spline_dx = fnder(psf_spline,[1, 0]);
+        psf_spline_dy = fnder(psf_spline,[0, 1]);
+        lb = [min_x, min_y];
+        ub = [max_x, max_y];
+        A = [];
+        b = [];
+        Aeq = [];
+        beq = [];        
+        nonlcon = [];
+        options = optimoptions('fmincon', 'SpecifyObjectiveGradient', true);
+        [max_position, max_value] = fmincon(...
+            @splineValueAndGradient, max_position, A, b, Aeq, beq, lb, ub,...
+            nonlcon, options...
+            );
+        max_value = -max_value;
+    end
     
     % Validate the solution:
     % If the estimated peak is further from the centroid than the average
@@ -207,7 +239,15 @@ end
 
 if verbose
     figure
-    pts = fnplt(psf_spline); % I don't like the look of the plot, so I will plot manually below
+    if spline_passed
+        pts = fnplt(psf_spline);
+    else
+        plot_resolution = [200 200];
+        x = linspace(min_x, max_x, plot_resolution(2));
+        y = linspace(min_y, max_y, plot_resolution(1));
+        [pts{1},pts{2}] = meshgrid(x,y);
+        pts{3} = psf_interpolant(pts{1},pts{2});
+    end
     surf(pts{1}, pts{2}, pts{3}, 'EdgeColor', 'none', 'FaceAlpha', 0.7);
     colorbar
     xlabel('X');
@@ -231,7 +271,11 @@ if verbose
     radius_points = linspace(0, 2 * pi * (1 - 1 / n_points), n_points);
     radius_points = stats.radius .* [cos(radius_points); sin(radius_points)];
     radius_points = radius_points + mean_position_rep.';
-    radius_points(3, :) = fnval(psf_spline, radius_points);
+    if spline_passed
+        radius_points(3, :) = fnval(psf_spline, radius_points);
+    else
+        radius_points(3, :) = psf_interpolant(radius_points.');
+    end
     plot3(...
         radius_points(1, :), radius_points(2, :),...
         radius_points(3, :),...
