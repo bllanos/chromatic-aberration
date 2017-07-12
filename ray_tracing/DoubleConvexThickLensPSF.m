@@ -32,7 +32,7 @@ lens_params.lens_radius = 25 / 2;
 lens_params.axial_thickness = 5.30;
 lens_params.radius_back = lens_params.radius_front;
 
-ray_params.n_incident_rays = 10000;
+ray_params.n_incident_rays = 100;
 ray_params.sample_random = false;
 ray_params.ior_environment = 1.0;
 
@@ -85,7 +85,7 @@ scene_params.preserve_angle_over_depths = true;
 doubleSphericalLensPSFVerbose.plot_light_positions = true;
 doubleSphericalLensPSFVerbose.verbose_ray_tracing = false;
 doubleSphericalLensPSFVerbose.verbose_ray_interpolation = false;
-doubleSphericalLensPSFVerbose.verbose_psf_analysis = true;
+doubleSphericalLensPSFVerbose.verbose_psf_analysis = false;
 doubleSphericalLensPSFVerbose.display_each_psf = false;
 doubleSphericalLensPSFVerbose.display_all_psf_each_ior = false;
 doubleSphericalLensPSFVerbose.display_all_psf_each_depth = false;

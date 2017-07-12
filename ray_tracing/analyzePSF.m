@@ -40,13 +40,12 @@ function [ stats ] = analyzePSF( varargin )
 %   Image intensity values at the coordinates in `image_position`. A column
 %   vector with the same number of rows as `image_position`.
 %
-% v_adj -- Sample adjacency lists
-%   The indices of the rows, in `image_position`, which are connected to
-%   the given row, in `image_position`, in the Delaunay triangulation of
-%   `image_position`. `v_adj` is a cell vector of length
-%   `size(image_position, 1)`. `v_adj{i}` is a column vector, containing
-%   the indices of the image points (rows in `image_position`) adjacent to
-%   the `image_position(i, :)`, in the triangulation.
+% v_adj -- Sample adjacency matrix
+%   The connectivity of the rows in `image_position`, in the Delaunay
+%   triangulation of `image_position`. `v_adj` is a square 2D logical array
+%   of side length `size(image_position, 1)`. `v_adj(i,j)` is true if
+%   `image_position(i, :)` is adjacent to `image_position(j, :)`, in the
+%   triangulation.
 %
 %   `v_adj` can be the `v_adj` output argument of 'densifyRays()', for
 %   example.
@@ -87,7 +86,7 @@ function [ stats ] = analyzePSF( varargin )
 %     evaluations of `psf_spline` at the points. `radius` is related to the
 %     second moments of `psf_spline`.
 %
-% See also densifyRays, neighborVertices, tpaps, fmincon
+% See also densifyRays, neighborVertices2, tpaps, fmincon
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -167,8 +166,7 @@ stats.radius = radius;
 % `fmincon` would be more accurate, but I think it is overkill
 local_maxima_filter = false(n_points, 1);
 for i = 1:n_points
-    v_adj_i = v_adj{i};
-    differences = image_irradiance_spline(i) - image_irradiance_spline(v_adj_i);
+    differences = image_irradiance_spline(i) - image_irradiance_spline(v_adj(:, i));
     local_maxima_filter(i) = all(differences >= 0);
 end
 local_maxima_irradiance = image_irradiance_spline(local_maxima_filter);

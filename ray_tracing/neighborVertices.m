@@ -14,19 +14,23 @@ function v_adj = neighborVertices(TR, vi)
 %   An instance of MATLAB's `triangulation` class.
 %
 % vi -- Vertex indices
-%   The indices of the vertices (indices into `TR.ConnectivityList`) whose
+%   The indices of the vertices (indices into `TR.Points`) whose
 %   neighbouring vertices are to be determined. A vector of length n.
 %
 % ## Output Arguments
 %
 % v_adj -- Adjacent vertex indices
-%   The indices of the vertices (indices into `TR.ConnectivityList`) of the
+%   The indices of the vertices (indices into `TR.Points`) of the
 %   vertices which are connected with the vertices specified by `vi`.
 %   `v_adj` is a cell vector of length n, where `v_adj{i}` is a column
 %   vector containing the indices of the vertices adjacent to the vertex
 %   with index `vi(i)`.
 %
-% See also triangulation
+% ## Notes
+% - `neighborVertices2()` is more efficient when adjacency information is
+%   needed for a large number of vertices.
+%
+% See also triangulation, neighborVertices2
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang

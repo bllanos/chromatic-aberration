@@ -108,13 +108,12 @@ function [ image_irradiance, v_adj, image_spline, I ] = densifyRays(...
 %   `image_irradiance` is a vector, where the i-th element corresponds to
 %   the i-th row of `image_position`.
 %
-% v_adj -- Ray sample adjacency lists
-%   The indices of the rows, in `image_position`, which are connected to
-%   the given row, in `image_position`, in the Delaunay triangulation of
-%   `image_position`. `v_adj` is a cell vector of length
-%   `size(image_position, 1)`. `v_adj{i}` is a column vector, containing
-%   the indices of the image points (rows in `image_position`) adjacent to
-%   the `image_position(i, :)`, in the triangulation.
+% v_adj -- Ray sample adjacency matrix
+%   The connectivity of the rows in `image_position`, in the Delaunay
+%   triangulation of `image_position`. `v_adj` is a square 2D logical array
+%   of side length `size(image_position, 1)`. `v_adj(i,j)` is true if
+%   `image_position(i, :)` is adjacent to `image_position(j, :)`, in the
+%   triangulation.
 %
 %   The Delaunay triangulation of `image_position` is intermediate data
 %   used to create `image_spline`, but is useful for other applications,
@@ -144,7 +143,7 @@ function [ image_irradiance, v_adj, image_spline, I ] = densifyRays(...
 %   also used in this function, the interpolant should be passed to
 %   'analyzePSF()' to save computation time.
 %
-% See also doubleSphericalLens, sphereSection, refract, tpaps, delaunayTriangulation, neighborVertices, analyzePSF
+% See also doubleSphericalLens, sphereSection, refract, tpaps, delaunayTriangulation, neighborVertices2, analyzePSF
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -219,9 +218,8 @@ if verbose
 end
 
 % Find the neighbouring points of each vertex in each triangulation
-vi = (1:n_rays).';
-v_adj_in = neighborVertices(dt_in, vi);
-v_adj_out = neighborVertices(dt_out, vi);
+v_adj_in = neighborVertices2(dt_in);
+v_adj_out = neighborVertices2(dt_out);
 v_adj = v_adj_out;
 
 % Find the average areas of circles with radii defined between neighbouring
@@ -229,11 +227,11 @@ v_adj = v_adj_out;
 mean_areas_in = zeros(n_rays, 1);
 r_front_sq = r_front ^ 2;
 for i = 1:n_rays
-    v_adj_i = v_adj_in{i};
-    n_adj = length(v_adj_i);
+    v_adj_i = v_adj_in(:, i);
+    n_adj = sum(v_adj_i);
     v_rep = repmat(incident_position_cartesian(i, :), n_adj, 1);
-    cosines = dot(v_rep, incident_position_cartesian(v_adj_i, :), 2) / r_front_sq;
-    areas = 2 * pi * r_front_sq * (1 - cosines);
+    cosines = dot(v_rep, incident_position_cartesian(v_adj_i, :), 2);
+    areas = 2 * pi * ( r_front_sq - cosines );
     mean_areas_in(i) = mean(areas);
 end
 
@@ -241,8 +239,8 @@ end
 % sample points on the image
 mean_areas_out = zeros(n_rays, 1);
 for i = 1:n_rays
-    v_adj_i = v_adj_out{i};
-    n_adj = length(v_adj_i);
+    v_adj_i = v_adj_out(:, i);
+    n_adj = sum(v_adj_i);
     v_rep = repmat(image_position(i, :), n_adj, 1);
     distances_sq = v_rep - image_position(v_adj_i, :);
     distances_sq = dot(distances_sq, distances_sq, 2);
