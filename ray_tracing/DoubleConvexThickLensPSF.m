@@ -32,7 +32,7 @@ lens_params.lens_radius = 25 / 2;
 lens_params.axial_thickness = 5.30;
 lens_params.radius_back = lens_params.radius_front;
 
-ray_params.n_incident_rays = 10000;
+ray_params.n_incident_rays = 20000;
 ray_params.sample_random = false;
 ray_params.ior_environment = 1.0;
 
@@ -73,12 +73,12 @@ image_params.normalize_color_images_globally = true;
 request_spline_smoothing = false;
 
 % ## Scene setup
-scene_params.theta_max = pi / 12;
-scene_params.theta_min = pi / 24;
-scene_params.n_lights = 1;
-scene_params.light_distance_factor_focused = 3;
-scene_params.light_distance_factor_larger = [5, 1];
-scene_params.light_distance_factor_smaller = [2, 0];
+scene_params.theta_min = deg2rad(15);
+scene_params.theta_max = deg2rad(25);
+scene_params.n_lights = 20;
+scene_params.light_distance_factor_focused = 2;
+scene_params.light_distance_factor_larger = [10, 10];
+scene_params.light_distance_factor_smaller = [1.1, 10];
 scene_params.preserve_angle_over_depths = true;
 
 % ## Debugging Flags
@@ -92,16 +92,16 @@ doubleSphericalLensPSFVerbose.display_all_psf_each_depth = false;
 doubleSphericalLensPSFVerbose.display_summary = true;
 
 verbose_aberration_ideal = true;
-verbose_aberration_real = false;
+verbose_aberration_real = true;
 radialChromaticAberrationVerbose.display_raw_values = true;
 radialChromaticAberrationVerbose.display_raw_disparity = true;
 radialChromaticAberrationVerbose.display_disparity_splines = true;
 radialChromaticAberrationVerbose.filter = struct(...
-    'mean_position', false,...
+    'mean_position', true,...
     'mean_value', false,...
     'max_position', false,...
     'max_value', false,...
-    'radius', false...
+    'radius', true...
 );
 
 %% Run the simulation
