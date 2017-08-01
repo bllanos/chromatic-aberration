@@ -1,32 +1,47 @@
-function [ disparity_spline, disparity_raw ] = radialChromaticAberration(...
+function [...
+    stats_spline, disparity_raw, disparity_raw_radial...
+] = radialChromaticAberration(...
     stats, x_fields, reference_wavelength_index, z, reference_z, varargin...
 )
 % RADIALCHROMATICABERRATION  Model chromatic aberration
 %
 % ## Syntax
-% disparity_spline = radialChromaticAberration(...
+% stats_spline = radialChromaticAberration(...
 %     stats, x_fields, reference_wavelength_index,...
 %     z, reference_z [, wavelengths, wavelengths_to_rgb, verbose]...
 % )
-% [ disparity_spline, disparity ] = radialChromaticAberration(...
+% [ stats_spline, disparity_raw ] = radialChromaticAberration(...
+%     stats, x_fields, reference_wavelength_index,...
+%     z, reference_z [, wavelengths, wavelengths_to_rgb, verbose]...
+% )
+% [...
+%   stats_spline, disparity_raw, disparity_raw_radial...
+% ] = radialChromaticAberration(...
 %     stats, x_fields, reference_wavelength_index,...
 %     z, reference_z [, wavelengths, wavelengths_to_rgb, verbose]...
 % )
 %
 % ## Description
-% disparity_spline = radialChromaticAberration(...
+% stats_spline = radialChromaticAberration(...
 %     stats, x_fields, reference_wavelength_index,...
 %     z, reference_z [, wavelengths, wavelengths_to_rgb, verbose]...
 % )
-%   Returns a spline model of chromatic aberration as a function of
-%   distance from the origin, and scene depth.
+%   Returns a spline model of point spread function statistics as a
+%   function of distance from the origin, and scene depth.
 %
-% [ disparity_spline, disparity ] = radialChromaticAberration(...
+% [ stats_spline, disparity_raw ] = radialChromaticAberration(...
 %     stats, x_fields, reference_wavelength_index,...
 %     z, reference_z [, wavelengths, wavelengths_to_rgb, verbose]...
 % )
-%   Additionally returns the disparity values used to build the spline
-%   model.
+%   Additionally returns disparity vectors calculated from the raw data.
+% [...
+%   stats_spline, disparity_raw, disparity_raw_radial...
+% ] = radialChromaticAberration(...
+%     stats, x_fields, reference_wavelength_index,...
+%     z, reference_z [, wavelengths, wavelengths_to_rgb, verbose]...
+% )
+%   Additionally returns signed magnitudes of disparity vectors calculated
+%   from the raw data.
 %
 % ## Input Arguments
 %
@@ -55,12 +70,11 @@ function [ disparity_spline, disparity_raw ] = radialChromaticAberration(...
 %   the fieldname in `stats` of the values to be used as one of the input
 %   variables for spline fitting for the values in `stats.(name)`.
 %
-%   The splines output in `disparity_spline.(name)` model disparities
-%   between the values in `stats.(name)` for different wavelengths. The
-%   splines are thin-plate splines in a 2D parameter space, where one
-%   parameter is depth, and the other parameter is the magnitudes
-%   (distances from the origin) of the values in
-%   `stats(:, reference_wavelength_index, :).(x_fields.(name))`.
+%   The splines output in `stats_spline.(name)` model the values in
+%   `stats.(name)` for different wavelengths. The splines are thin-plate
+%   splines in a 2D parameter space, where one parameter is depth, and the
+%   other parameter is the magnitudes (distances from the origin) of the
+%   values in `stats(:, reference_wavelength_index, :).(x_fields.(name))`.
 %
 % reference_wavelength_index -- Reference wavelength
 %   The index into the second dimension of `stats` representing the
@@ -83,8 +97,8 @@ function [ disparity_spline, disparity_raw ] = radialChromaticAberration(...
 %
 % wavelengths -- Wavelengths corresponding to image measurements
 %   The wavelengths of light corresponding to the elements of `stats`. A
-%   row vector of length `size(stats, 2)`, where `wavelengths(k)` is the wavelength
-%   used to generate the values in `stats(:, k, :)`. This
+%   row vector of length `size(stats, 2)`, where `wavelengths(k)` is the
+%   wavelength used to generate the values in `stats(:, k, :)`. This
 %   parameter is used for figure legends only, not for calculations.
 %
 %   Either all of `wavelengths`, `wavelengths_to_rgb`, and `verbose` must
@@ -115,35 +129,50 @@ function [ disparity_spline, disparity_raw ] = radialChromaticAberration(...
 %
 % ## Output Arguments
 %
-% disparity_spline -- Thin-plate spline models of chromatic aberration
-%   A set of thin-plate smoothing splines modeling chromatic aberration as
+% stats_spline -- Thin-plate spline models
+%   A set of thin-plate smoothing splines modeling the values in `stats` as
 %   a function of `z`, and `r`. `r` is the distance of a value in `stats(:,
-%   reference_wavelength_index, :).(x_fields.(name))` from the
-%   origin.
+%   reference_wavelength_index, :).(x_fields.(name))` from the origin.
 %
-%   `disparity_spline.(name)` is a cell vector of length `size(stats, 2)`,
+%   `stats_spline.(name)` is a cell vector of length `size(stats, 2)`,
 %   where the k-th cell contains a thin-plate smoothing spline describing
-%   the aberration between the k-th wavelength and the reference
-%   wavelength, for the statistic 'name'.
-%   `disparity_spline(reference_wavelength_index).(name)` is an empty cell.
+%   the magnitudes of the vectors `stats(:, k, :).(name)`.
 %
-%   `aberration = fnval(disparity_spline(k).(name),[r; z])` evaluates the
-%   spline model at the distances from the origin in the row vector `r`,
-%   and the associated depths in the row vector `z`. `aberration` is a row
-%   vector of distances between point spread function statistics of type
+%   `magnitude = fnval(stats_spline(k).(name),[r; z])` evaluates the spline
+%   model at the distances from the origin in the row vector `r`, and the
+%   associated depths in the row vector `z`. `magnitude` is a row vector of
+%   the magnitudes of point spread function statistic vectors of type
 %   'name'.
 %
 %   If there are too few data points to estimate spline models, the
-%   corresponding elements of `disparity_spline.(name)` are empty cells.
+%   corresponding elements of `stats_spline.(name)` are empty cells.
 %
-% disparity_raw -- Input disparity values
-%   The disparity values, calculated from the values in `stats` and `z`,
-%   used to construct `disparity_spline`. `disparity_raw` has the same
-%   dimensions as `stats`; `disparity_raw(i, k, j)` is the displacement
-%   vector from `stats(i, reference_wavelength_index, j).(name)` to
-%   `stats(i, k, j).(name)`. Therefore, this disparity vector is measured
-%   for the i-th scene feature, emitting light at the k-th wavelength, and
-%   positioned at the j-th depth.
+% disparity_raw -- Raw disparity vectors
+%   Chromatic aberration vectors, calculated from the values in `stats`.
+%   `disparity_raw` has the same dimensions as `stats`; `disparity_raw(i,
+%   k, j)` is the displacement vector from `stats(i,
+%   reference_wavelength_index, j).(name)` to `stats(i, k, j).(name)`.
+%   Therefore, this disparity vector is measured for the i-th scene
+%   feature, emitting light at the k-th wavelength, and positioned at the
+%   j-th depth.
+%
+%   In a previous version of this function, `disparity_raw` was used to
+%   produce thin-plate spline models of chromatic aberration, which were
+%   output instead of `stats_spline`. These spline models were unsuitable
+%   for modelling chromatic aberration phenomenon with singularities. An
+%   example of a singularity is the relative radius of the point spread
+%   function between two wavelengths, as the point spread function becomes
+%   arbitrarily small for the reference wavelength (the denominator).
+%   Therefore, `stats_spline` was created instead. The equivalent to a
+%   spline model of chromatic aberration can be obtained by subtracting the
+%   spline model for the reference wavelength from the other spline models
+%   in `stats_spline`.
+%
+% disparity_raw_radial -- Raw disparity vector signed magnitudes
+%   The magnitudes of the chromatic aberration vectors in `disparity_raw`,
+%   with signs indicating if they are aligned with the corresponding
+%   vectors in `stats(:, reference_wavelength_index, :).(name)` (positive),
+%   or in the opposite direction (negative).
 %
 % See also doubleSphericalLensPSF, analyzePSF, tpaps
 
@@ -152,7 +181,7 @@ function [ disparity_spline, disparity_raw ] = radialChromaticAberration(...
 % University of Alberta, Department of Computing Science
 % File created June 27, 2017
 
-nargoutchk(1, 2);
+nargoutchk(1, 3);
 narginchk(5, 8);
 
 sz = size(stats);
@@ -172,13 +201,15 @@ if ~isempty(varargin)
         verbose_filter = verbose.filter;
         display_raw_values = verbose.display_raw_values;
         display_raw_disparity = verbose.display_raw_disparity;
-        display_disparity_splines = verbose.display_disparity_splines;
+        display_stats_splines = verbose.display_stats_splines;
+        display_spline_differences = verbose.display_spline_differences;
     end
 else
     verbose_filter = struct();
     display_raw_values = false;
     display_raw_disparity = false;
-    display_disparity_splines = false;
+    display_stats_splines = false;
+    display_spline_differences = false;
 end
 
 names = fieldnames(stats);
@@ -214,6 +245,10 @@ for i = 1:n_names
         1, 1, n_wavelengths, 1 ...
     );
     disparity_raw_i = stats_mat_i - stats_reference_i;
+    disparity_raw_i_radial = sqrt(dot(disparity_raw_i, disparity_raw_i, 2));
+    disparity_raw_i_radial_signs = sign(dot(stats_reference_i, disparity_raw_i, 2));
+    disparity_raw_i_radial_signs(disparity_raw_i_radial_signs == 0) = 1;
+    disparity_raw_i_radial = disparity_raw_i_radial .* disparity_raw_i_radial_signs;
     
     stats_mat_x = stats_mat.(name_x);
     
@@ -341,10 +376,7 @@ for i = 1:n_names
         warning('`radialChromaticAberration` cannot produce a visualization of statistics with more than two dimensions.');
     end
 
-    disparity_raw_i_radial = sqrt(dot(disparity_raw_i, disparity_raw_i, 2));
-    disparity_raw_i_radial_signs = sign(dot(stats_reference_i, disparity_raw_i, 2));
-    disparity_raw_i_radial_signs(disparity_raw_i_radial_signs == 0) = 1;
-    disparity_raw_i_radial = disparity_raw_i_radial .* disparity_raw_i_radial_signs;
+    stats_mat_i_radial = sqrt(dot(stats_mat_i, stats_mat_i, 2));
     stats_reference_x_radial = sqrt(dot(...
         stats_mat_x(:, :, reference_wavelength_index, :),...
         stats_mat_x(:, :, reference_wavelength_index, :),...
@@ -354,7 +386,7 @@ for i = 1:n_names
 
     % Prepare data for spline fitting
     spline_predictors = [ stats_reference_x_radial; z_adjusted ];
-    spline_responses = permute(squeeze(disparity_raw_i_radial), [1, 3, 2]);
+    spline_responses = permute(squeeze(stats_mat_i_radial), [1, 3, 2]);
     spline_responses = reshape(spline_responses, 1, [], n_wavelengths);
 
     spline_predictors_filter = all(isfinite(spline_predictors), 1);
@@ -362,80 +394,158 @@ for i = 1:n_names
     spline_responses = spline_responses(:, spline_predictors_filter, :);
 
     % Spline fitting
-    disparity_spline_i = cell(n_wavelengths, 1);
+    stats_spline_i = cell(n_wavelengths, 1);
+    sufficient_data = false(n_wavelengths, 1);
     for k = 1:n_wavelengths
-        if k ~= reference_wavelength_index
+        spline_responses_k = spline_responses(:, :, k);
+        spline_responses_filter = isfinite(spline_responses_k);
+        spline_responses_k = spline_responses_k(spline_responses_filter);
+        spline_predictors_k = spline_predictors(:, spline_responses_filter);
+        spline_predictors_unique = unique(spline_predictors_k(1, :));
+        sufficient_data(k) = (length(spline_predictors_unique) > 1);
+        spline_predictors_unique = unique(spline_predictors_k(2, :));
+        sufficient_data(k) = sufficient_data(k) & (length(spline_predictors_unique) > 1);
+        sufficient_data(k) = sufficient_data(k) & (size(spline_predictors_k, 2) > 2);
 
-            spline_responses_k = spline_responses(:, :, k);
-            spline_responses_filter = isfinite(spline_responses_k);
-            spline_responses_k = spline_responses_k(spline_responses_filter);
-            spline_predictors_k = spline_predictors(:, spline_responses_filter);
-            spline_predictors_unique = unique(spline_predictors_k(1, :));
-            sufficient_data = (length(spline_predictors_unique) > 1);
-            spline_predictors_unique = unique(spline_predictors_k(2, :));
-            sufficient_data = sufficient_data & (length(spline_predictors_unique) > 1);
-            sufficient_data = sufficient_data & (size(spline_predictors_k, 2) > 2);
-
-            if sufficient_data
-                try
-                    disparity_spline_i{k} = tpaps(...
-                        spline_predictors_k,...
-                        spline_responses_k...
-                    );
-                catch ME
-                    if (strcmp(ME.identifier,'SPLINES:TPAPS:collinearsites'))
-                        sufficient_data = false;
-                        warning('Spline fit failed. Most likely there are insufficient data points available to construct a spline model of ''%s'' as a function of ''%s'', and depth, for \\lambda at index %d.',...
-                            name_i, name_x, k...
-                        )
-                    else
-                        rethrow(ME)
-                    end
-                end
-            else
-                warning(...
-                    'Insufficient data points available to construct a spline model of ''%s'' as a function of ''%s'', and depth, for \\lambda at index %d.',...
-                    name_i, name_x, k...
-                )
-            end
-
-            if verbose_filter_i && display_disparity_splines
-                figure
-                if sufficient_data
-                    pts = fnplt(disparity_spline_i{k});
-                    surf(pts{1}, pts{2}, pts{3}, 'EdgeColor', 'none', 'FaceAlpha', 0.7);
-                    colorbar
-                    colormap summer
-                    colorbar;
-                    title(sprintf(...
-                        'Aberration in ''%s'' for \\lambda = %g nm',...
-                        name_display_i, wavelengths(k)...
-                    ))
-                    legend_str = {'Thin plate spline'};
-                else
-                    title(sprintf(...
-                        'Aberration in ''%s'' for \\lambda = %g nm (Insufficient data for spline model)',...
-                        name_display_i, wavelengths(k)...
-                    ))
-                    legend_str = cell(1, 0);
-                end
-                xlabel(sprintf('Magnitude of ''%s''', name_display_x));
-                ylabel('Depth');
-                zlabel(sprintf('Aberration in ''%s''', name_display_i));
-                hold on
-                plot3(...
-                    spline_predictors_k(1, :), spline_predictors_k(2, :),...
-                    spline_responses_k,...
-                    'ko','markerfacecolor','r'...
+        if sufficient_data(k)
+            try
+                stats_spline_i{k} = tpaps(...
+                    spline_predictors_k,...
+                    spline_responses_k...
+                );
+            catch ME
+                if (strcmp(ME.identifier,'SPLINES:TPAPS:collinearsites'))
+                    sufficient_data(k) = false;
+                    warning('Spline fit failed. Most likely there are insufficient data points available to construct a spline model of ''%s'' as a function of ''%s'', and depth, for \\lambda at index %d.',...
+                        name_i, name_x, k...
                     )
-                legend([legend_str, 'Original data points'])
-                hold off
+                else
+                    rethrow(ME)
+                end
             end
+        else
+            warning(...
+                'Insufficient data points available to construct a spline model of ''%s'' as a function of ''%s'', and depth, for \\lambda at index %d.',...
+                name_i, name_x, k...
+            )
         end
     end
     
-    disparity_spline.(name_i) = disparity_spline_i;
+    if verbose_filter_i && (display_stats_splines || display_spline_differences)
+        
+        pts = cell(n_wavelengths, 1);
+        for k = 1:n_wavelengths
+            if sufficient_data(k)
+                pts{k} = fnplt(stats_spline_i{k});
+            end
+        end
+        
+        if display_stats_splines
+            figure
+            hold on
+            legend_str = cell(n_wavelengths + sum(sufficient_data), 1);
+            legend_index = 1;
+            for k = 1:n_wavelengths
+                if sufficient_data(k)
+                    surf(...
+                        pts{k}{1}, pts{k}{2}, pts{k}{3},...
+                        'EdgeColor', 0.5 * wavelengths_to_rgb(k, :),...
+                        'FaceColor', wavelengths_to_rgb(k, :),...
+                        'FaceAlpha', 0.7 ...
+                    );
+
+                    legend_str{legend_index} = sprintf(...
+                        'Spline for \\lambda = %g nm', wavelengths(k)...
+                    );
+                    legend_index = legend_index + 1;
+                    legend_str{legend_index} = sprintf(...
+                        'Data points for \\lambda = %g nm', wavelengths(k)...
+                    );
+                else
+                    legend_str{legend_index} = sprintf(...
+                        'Data points for \\lambda = %g nm (Insufficient data for spline model)', wavelengths(k)...
+                    );
+                end
+                legend_index = legend_index + 1;
+                plot3(...
+                    spline_predictors(1, :), spline_predictors(2, :),...
+                    spline_responses(:, :, k),...
+                    'ko', 'markerfacecolor', wavelengths_to_rgb(k, :)...
+                    )
+            end
+            hold off
+            xlabel(sprintf('Magnitude of ''%s''', name_display_x));
+            ylabel('Depth');
+            zlabel(sprintf('Magnitude of ''%s''', name_display_i));
+            title(sprintf(...
+                'Values of ''%s'' by wavelength',...
+                name_display_i...
+            ));
+            legend(legend_str);
+        end
+        
+        if display_spline_differences
+            disparity_k_raw = permute(squeeze(disparity_raw_i_radial), [1, 3, 2]);
+            disparity_k_raw = reshape(disparity_k_raw, 1, [], n_wavelengths);
+            disparity_k_raw = disparity_k_raw(:, spline_predictors_filter, :);
+    
+            figure
+            hold on
+            legend_str = cell(n_wavelengths - 1 + sum(sufficient_data([
+                1:(reference_wavelength_index - 1),...
+                (reference_wavelength_index + 1):end...
+                ])), 1);
+            legend_index = 1;
+            for k = 1:n_wavelengths
+                if k ~= reference_wavelength_index
+                    if sufficient_data(reference_wavelength_index) && sufficient_data(k)
+                        disparity_k = pts{k}{3} - pts{reference_wavelength_index}{3};
+                        surf(...
+                            pts{k}{1}, pts{k}{2}, disparity_k,...
+                            'EdgeColor', 0.5 * wavelengths_to_rgb(k, :),...
+                            'FaceColor', wavelengths_to_rgb(k, :),...
+                            'FaceAlpha', 0.7 ...
+                            );
+                        
+                        legend_str{legend_index} = sprintf(...
+                            'Splines for \\lambda = %g nm', wavelengths(k)...
+                            );
+                        legend_index = legend_index + 1;
+                        legend_str{legend_index} = sprintf(...
+                            'Data points for \\lambda = %g nm', wavelengths(k)...
+                            );
+                    else
+                        legend_str{legend_index} = sprintf(...
+                            'Data points for \\lambda = %g nm (Insufficient data for spline model)', wavelengths(k)...
+                            );
+                    end
+                    legend_index = legend_index + 1;
+                    plot3(...
+                        spline_predictors(1, :), spline_predictors(2, :),...
+                        disparity_k_raw(:, :, k),...
+                        'ko', 'markerfacecolor', wavelengths_to_rgb(k, :)...
+                        )
+                end
+            end
+            hold off
+            xlabel(sprintf('Magnitude of ''%s''', name_display_i));
+            ylabel('Depth');
+            zlabel(sprintf(...
+                'Aberration of ''%s'' relative to \\lambda = %g nm',...
+                name_display_x, wavelengths(reference_wavelength_index)...
+                ));
+            title(sprintf(...
+                'Aberration of ''%s'' by wavelength',...
+                name_display_i...
+                ));
+            legend(legend_str);
+            camlight
+        end
+    end
+    
+    stats_spline.(name_i) = stats_spline_i;
     disparity_raw.(name_i) = disparity_raw_i;
+    disparity_raw_radial.(name_i) = disparity_raw_i_radial;
 end
 
 end
