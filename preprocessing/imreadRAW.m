@@ -65,7 +65,7 @@ function [ I_bayer, I_color ] = imreadRAW( filename, ops, varargin )
 %   as directed by `ops`.
 %
 % I_color -- Full-colour image
-%   An image_height x image_width array x 3, containing the demosaicked
+%   An image_height x image_width x 3 array, containing the demosaicked
 %   image, subject to the operations indicated in `ops`.
 %
 % ## Notes
