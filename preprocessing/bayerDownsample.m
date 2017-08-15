@@ -35,7 +35,9 @@ function [...
 %
 % align -- Bayer pattern format
 %   A four-character character vector, specifying the Bayer tile pattern
-%   corresponding to `I_raw`. For example, 'gbrg'.
+%   corresponding to `I_raw`. For example, 'gbrg'. The function assumes
+%   that there are two Green pixels per tile, and that they do not share
+%   the same column.
 %
 %   This argument has the same form as the `sensorAlignment` input argument
 %   of `demosaic()`.
@@ -43,7 +45,7 @@ function [...
 % ## Output Arguments
 %
 % I_channels -- Full-colour downsampled image
-%   An image_height / 2 x image_width / 2 x 3 array, containing a
+%   An (image_height / 2) x (image_width / 2) x 3 array, containing a
 %   downsampled version of `I_raw`, separated into colour channels. Each
 %   pixel in `I_channels` corresponds to a Bayer tile in `I_raw`.
 %   `I_channels(i,j,1)` is the Red value from the (i,j)-th Bayer tile, and
@@ -53,16 +55,19 @@ function [...
 %
 % downsample_map -- Downsampling pixel coordinate conversion
 %   An image_height x image_width array. `downsample_map(i,j)` is the
-%   linear index of a pixel in `I_channels` corresponding to the pixel
-%   `I_raw(i,j)`. For example, if `I_raw(i,j)` represents a Red pixel, then
-%   this pixel maps to `I_channels(downsample_map(i,j))`, where
-%   `downsample_map(i,j)` will be the index of a value in `I_channels(:, :, 1)`.
+%   linear index of a colour channel value in `I_channels`, corresponding
+%   to the pixel `I_raw(i,j)`. For example, if `I_raw(i,j)` represents a
+%   Red pixel, then this pixel maps to `I_channels(downsample_map(i,j))`,
+%   where `downsample_map(i,j)` will correspond to an index into
+%   `I_channels(:,:,1)`.
 %
 % upsample_map -- Upsampling pixel coordinate conversion
-%   An image_height x image_width x 4 array. `upsample_map(i,j, :)`
+%   An image_height x image_width x 4 array. `upsample_map(i,j,:)`
 %   contains the linear indices of the pixels in `I_raw` corresponding to
 %   the pixel `I_channels(i,j)`. Each pixel in `I_channels` maps to a Bayer
-%   tile (4 pixels) in `I_raw`.
+%   tile (4 pixels) in `I_raw`. `upsample_map(i,j,k)` maps to a Red, Green,
+%   Green, or Blue pixel in `I_raw`, for `k` from one to four,
+%   respectively.
 %
 % upsample_map_centers -- Coordinate frame conversion
 %   An image_height x image_width array x 2 array, where
@@ -93,36 +98,58 @@ image_width2 = image_width / 2;
 n_px = image_height * image_width;
 n_px2 = image_height2 * image_width2;
 n_channels = size(mask, 3);
-downsample_map = reshape(1:n_px2, image_height2, image_width2);
-downsample_map = repelem(downsample_map, 2, 2);
-for i = 2:n_channels
-    downsample_map(mask(:, :, i)) = downsample_map(mask(:, :, i)) + (i - 1) * n_px2;
+
+if nargout > 1
+    downsample_map = reshape(1:n_px2, image_height2, image_width2);
+    downsample_map = repelem(downsample_map, 2, 2);
+    for i = 2:n_channels
+        downsample_map(mask(:, :, i)) = downsample_map(mask(:, :, i)) + (i - 1) * n_px2;
+    end
 end
 
-upsample_map = reshape(1:n_px, image_height, image_width);
-upsample_map = cat(3,...
-    upsample_map(1:2:end, 1:2:end),...
-    upsample_map(2:2:end, 1:2:end),...
-    upsample_map(2:2:end, 1:2:end),...
-    upsample_map(2:2:end, 2:2:end)...
-);
-
-[upsample_map_centersY, upsample_map_centersX] = ind2sub(...
-    [image_height, image_width], upsample_map(:, :, 1)...
-    );
-upsample_map_centers = cat(3, upsample_map_centersX, upsample_map_centersY);
-upsample_map_centers = upsample_map_centers + 0.5;
-
-I_channels = zeros(image_height, image_width, n_channels);
-for i = 1:n_channels
-    if i ~= 2
-        I_channels(:, :, i) = I_raw(mask(:, :, i));
+upsample_indices = reshape(1:n_px, image_height, image_width);
+n_px_in_bayer_tile = 4;
+upsample_map = zeros(image_height2, image_width2, n_px_in_bayer_tile);
+for i = 1:n_px_in_bayer_tile
+    if i < 3
+        k = i;
     else
-        % Green channel contains 2/4 pixels
-        I_raw_green = I_raw .* mask(:, :, i) / 2;
-        for j = 1:size(upsample_map, 3)
-            I_channels(:, :, i) = I_channels(:, :, i) +...
-                reshape(I_raw_green(upsample_map(:, :, i)), image_height2, image_width2);
-        end
+        k = i - 1;
     end
+    upsample_indices_k = upsample_indices(mask(:, :, k));
+    if i == 2 || i == 3
+        % Assuming the Bayer pattern will never have two Green pixels in
+        % the same column
+        upsample_indices_k_filter = repmat(...
+            [true(image_height2, 1); false(image_height2, 1)], image_width2, 1 ...
+            );
+    end
+    if i == 2
+        upsample_indices_k = upsample_indices_k(upsample_indices_k_filter);
+    elseif i == 3
+        upsample_indices_k = upsample_indices_k(~upsample_indices_k_filter);
+    end
+    upsample_map(:, :, i) = reshape(upsample_indices_k, image_height2, image_width2);
+end
+
+if nargout > 3
+    [upsample_map_centersX, upsample_map_centersY] = meshgrid(...
+        1:2:image_width, 1:2:image_height...
+    );
+    upsample_map_centers = cat(3, upsample_map_centersX, upsample_map_centersY);
+    upsample_map_centers = upsample_map_centers + 0.5;
+end
+
+I_channels = zeros(image_height2, image_width2, n_channels);
+I_channels(:, :, 1) = reshape(...
+    I_raw(upsample_map(:, :, 1)), image_height2, image_width2...
+    );
+I_channels(:, :, 2) = reshape(...
+    0.5 * (I_raw(upsample_map(:, :, 2)) + I_raw(upsample_map(:, :, 3))),...
+    image_height2, image_width2...
+    );
+I_channels(:, :, 3) = reshape(...
+    I_raw(upsample_map(:, :, 4)), image_height2, image_width2...
+    );
+
 end
