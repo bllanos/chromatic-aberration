@@ -74,6 +74,17 @@ function [...
 %   `upsample_map_centers(i, j, :)` is the `(x, y)` position in `I_raw`
 %   corresponding to the centre of the pixel `I_channels(i,j,:)`.
 %
+% ## Notes
+% - `upsample_map_centers` is technically valid only for the Green channel
+%   of the output image. In the raw image, Red and Blue channels are
+%   sampled at locations offset by a pixel in both the horizontal and
+%   vertical directions (the signs of the displacements being opposite for
+%   Red vs. Blue) from the average locations of the two Green pixels in the
+%   Bayer tiles. This is a design decision: A uniform bias in chromatic
+%   aberration was thought to be preferable to interpolation artifacts
+%   introduced by resampling the Red and Blue channels at the averaged
+%   positions of the pixels in the Green channel.
+%
 % See also bayerMask, demosaic
 
 % Bernard Llanos
