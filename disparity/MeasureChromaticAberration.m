@@ -24,7 +24,7 @@
 in_directory = 'C:\Users\llanos\Google Drive\ThesisResearch\Data and Results\20170808_OpticalTableMatrix\averaged';
 
 % Wildcard for image filenames
-wildcard = 'd13_a22_near_disksWhiteB.tif';
+wildcard = 'd44_a1.4_far_disksWhite.tif';
 
 % Colour-filter pattern used to interpret raw images
 align = 'gbrg';
@@ -37,7 +37,7 @@ f_div_names = {'Census transform'};
 
 % Window definition for chromatic aberration measurement
 % Refer to the documentation of `divergenceMap()` for details
-p = 0;
+p = 0.01;
 if p == 0
     half_width = 5;
     half_height = 5;
@@ -68,7 +68,7 @@ n_pairs = size(color_channel_pairs, 1);
 if p == 0
     window_name = sprintf('(%d x %d window)', std_weights(1), std_weights(2));
 else
-    window_name = sprintf('(%g Gaussian window, p = %g)', std_weights, p);
+    window_name = sprintf('(\\sigma = %g Gaussian window, p = %g)', std_weights, p);
 end
 
 for i = 1:n_img

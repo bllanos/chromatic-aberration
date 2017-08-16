@@ -42,8 +42,8 @@ function [ div ] = censusDivergence( I_1, I_2, weights )
 % University of Alberta, Department of Computing Science
 % File created August 15, 2017
 
-x = (size(I_1, 2) - 1) / 2;
-y = (size(I_1, 1) - 1) / 2;
+x = (size(I_1, 2) + 1) / 2;
+y = (size(I_1, 1) + 1) / 2;
 center_1 = I_1(y, x);
 center_2 = I_2(y, x);
 

@@ -41,10 +41,10 @@ end
 verbose = false;
 
 % Directory containing the input images
-in_directory = 'C:\Users\llanos\Downloads';
+in_directory = 'C:\Users\llanos\Google Drive\ThesisResearch\Data and Results\20170808_OpticalTableMatrix\original';
 
 % Directory in which to save the output images
-out_directory = 'C:\Users\llanos\Downloads\processed';
+out_directory = 'C:\Users\llanos\Downloads\averaged';
 
 % Output filename extension (no dot)
 ext = 'tif';
