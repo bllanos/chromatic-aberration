@@ -187,7 +187,11 @@ narginchk(5, 8);
 sz = size(stats);
 n_points = sz(1);
 n_wavelengths = sz(2);
-n_depths = sz(3);
+if length(sz) < 3
+    n_depths = 1;
+else
+    n_depths = sz(3);
+end
 
 if ~isempty(varargin)
     if length(varargin) ~= 3

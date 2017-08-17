@@ -1,14 +1,11 @@
-function [ stats ] = analyzePSF( varargin )
-% DENSIFYRAYS  Find image intensities from discrete samples of ray irradiance
+function [ stats ] = analyzePSF( psf_spline, image_position, v_adj, varargin )
+% ANALYZEPSF  Describe a point spread function represented by an interpolant, or by samples
 %
 % ## Syntax
-% empty_stats = analyzePSF( sz )
 % stats = analyzePSF( psf_spline, image_position, v_adj [, verbose] )
 % stats = analyzePSF( psf_values, image_position, v_adj [, verbose] )
 %
 % ## Description
-% empty_stats = analyzePSF( sz )
-%   Returns a structure array, for preallocation.
 % stats = analyzePSF( psf_spline, image_position, v_adj [, verbose] )
 %   Returns statistics describing the density function `psf_spline`.
 % stats = analyzePSF( psf_values, image_position, v_adj [, verbose] )
@@ -16,10 +13,6 @@ function [ stats ] = analyzePSF( varargin )
 %   representation of the density function.
 %
 % ## Input Arguments
-%
-% sz -- Structure array dimensions
-%   A vector containing the dimensions of the `empty_stats` output array,
-%   such that `all(size(empty_stats) == sz)` is true.
 %
 % psf_spline -- Thin-plate spline model of image intensities
 %   A thin-plate smoothing splines modeling image intensity (irradiance) as
@@ -58,11 +51,6 @@ function [ stats ] = analyzePSF( varargin )
 %
 % ## Output Arguments
 %
-% empty_stats -- Empty statistics structure array
-%   A structure array with empty field values, but with the same fields as
-%   `stats`. `empty_stats` is useful for preallocating a structure array,
-%   to be filled with subsequent calls to 'analyzePSF()'.
-%
 % stats -- Distribution statistics
 %   A structure describing `psf_spline` (or `psf_values`), using the
 %   following fields:
@@ -87,7 +75,11 @@ function [ stats ] = analyzePSF( varargin )
 %     evaluations of `psf_spline` at the points. `radius` is related to the
 %     second moments of `psf_spline`.
 %
-% See also densifyRays, neighborVertices2, tpaps, fmincon
+% ## Notes
+% - To preallocate a structure array, to be filled with subsequent calls to
+%   'analyzePSF()', use 'preallocateStats()'.
+%
+% See also preallocateStats, analyzePSFImage, densifyRays, neighborVertices2, tpaps, fmincon
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -105,31 +97,16 @@ function [ stats ] = analyzePSF( varargin )
     end
 
 nargoutchk(1, 1);
+narginchk(3, 4);
 
-if nargin == 1
-    sz = varargin{1};
-    stats = struct(...
-        'mean_position', cell(sz),...
-        'mean_value', cell(sz),...
-        'max_position', cell(sz),...
-        'max_value', cell(sz),...
-        'radius', cell(sz)...
-    );
-    return
-else
-    narginchk(3, 4);
-    spline_passed = isstruct(varargin{1});
-    if spline_passed
-        psf_spline =  varargin{1};
-    else
-        psf_values = varargin{1};
-    end
-    image_position =  varargin{2};
-    v_adj =  varargin{3};
+spline_passed = isstruct(psf_spline);
+if ~spline_passed
+    psf_values = psf_spline;
+    psf_spline = [];
 end
 
-if nargin > 3
-    verbose = varargin{4};
+if ~isempty(varargin)
+    verbose = varargin{1};
 else
     verbose = false;
 end
