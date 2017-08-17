@@ -10,7 +10,7 @@
 %
 % ## Output
 %
-% Presently, the output arguments of 'doubleSphericalLensPSF.m'.
+% Presently, the output arguments of 'radialChromaticAberration.m'.
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -73,12 +73,12 @@ image_params.normalize_color_images_globally = true;
 request_spline_smoothing = false;
 
 % ## Scene setup
-scene_params.theta_min = deg2rad(15);
-scene_params.theta_max = deg2rad(25);
-scene_params.n_lights = 20;
-scene_params.light_distance_factor_focused = 2;
-scene_params.light_distance_factor_larger = [10, 10];
-scene_params.light_distance_factor_smaller = [1.1, 10];
+scene_params.theta_min = deg2rad(0);
+scene_params.theta_max = deg2rad(30);
+scene_params.n_lights = 60;
+scene_params.light_distance_factor_focused = 100;
+scene_params.light_distance_factor_larger = [200, 0];
+scene_params.light_distance_factor_smaller = [0, 100];
 scene_params.preserve_angle_over_depths = true;
 
 % ## Debugging Flags
