@@ -32,7 +32,7 @@ lens_params.lens_radius = 25 / 2;
 lens_params.axial_thickness = 5.30;
 lens_params.radius_back = lens_params.radius_front;
 
-ray_params.n_incident_rays = 20000;
+ray_params.n_incident_rays = 500;
 ray_params.sample_random = false;
 ray_params.ior_environment = 1.0;
 
@@ -65,7 +65,7 @@ lens_params.wavelengths_to_rgb = lens_params.wavelengths_to_rgb ./...
     max(max(lens_params.wavelengths_to_rgb));
 
 % ### Ray interpolation parameters
-image_params.image_sampling = [400, 400];
+image_params.image_sampling = [600, 400];
 image_params.normalize_psfs_before_combining = false;
 image_params.normalize_color_images_globally = true;
 
@@ -73,22 +73,23 @@ image_params.normalize_color_images_globally = true;
 request_spline_smoothing = false;
 
 % ## Scene setup
-scene_params.theta_min = deg2rad(0);
+scene_params.theta_min = deg2rad(15);
 scene_params.theta_max = deg2rad(30);
-scene_params.n_lights = 60;
-scene_params.light_distance_factor_focused = 100;
-scene_params.light_distance_factor_larger = [200, 0];
-scene_params.light_distance_factor_smaller = [0, 100];
+scene_params.n_lights = [3 2];
+scene_params.light_distance_factor_focused = 2;
+scene_params.light_distance_factor_larger = [4, 2];
+scene_params.light_distance_factor_smaller = [1.5, 2];
 scene_params.preserve_angle_over_depths = true;
 
 % ## Debugging Flags
-doubleSphericalLensPSFVerbose.plot_light_positions = true;
+plot_light_positions = true;
+
 doubleSphericalLensPSFVerbose.verbose_ray_tracing = false;
 doubleSphericalLensPSFVerbose.verbose_ray_interpolation = false;
 doubleSphericalLensPSFVerbose.verbose_psf_analysis = false;
 doubleSphericalLensPSFVerbose.display_each_psf = false;
 doubleSphericalLensPSFVerbose.display_all_psf_each_ior = false;
-doubleSphericalLensPSFVerbose.display_all_psf_each_depth = false;
+doubleSphericalLensPSFVerbose.display_all_psf_each_depth = true;
 doubleSphericalLensPSFVerbose.display_summary = true;
 
 verbose_aberration_ideal = true;
@@ -99,20 +100,29 @@ radialChromaticAberrationVerbose.display_stats_splines = true;
 radialChromaticAberrationVerbose.display_spline_differences = true;
 radialChromaticAberrationVerbose.filter = struct(...
     'mean_position', true,...
-    'mean_value', true,...
+    'mean_value', false,...
     'max_position', false,...
     'max_value', false,...
     'radius', true...
+);
+
+%% Create light sources
+
+lens_params_scene = lens_params;
+lens_params_scene.ior_lens = lens_params.ior_lens(lens_params.ior_lens_reference_index);
+[...
+    X_lights, z_film, lights_filter, depth_factors...
+] = imagingScenario(...
+    lens_params_scene, ray_params.ior_environment, scene_params, plot_light_positions...
 );
 
 %% Run the simulation
 
 [...
     stats_real, stats_ideal,...
-    X_lights, depth_factors...
 ] = doubleSphericalLensPSF(...
-    lens_params, ray_params, image_params, scene_params,...
-    request_spline_smoothing, doubleSphericalLensPSFVerbose...
+    lens_params, ray_params, image_params, X_lights, z_film, lights_filter,...
+    request_spline_smoothing, depth_factors, doubleSphericalLensPSFVerbose...
 );
 
 %% Analyze the results

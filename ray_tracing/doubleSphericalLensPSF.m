@@ -1,28 +1,28 @@
 function [...
-    stats_real, stats_ideal, X_lights, depth_factors, I, I_color...
+    stats_real, stats_ideal, I, I_color...
 ] = doubleSphericalLensPSF(...
-    lens_params, ray_params, image_params, scene_params,...
-    request_spline_smoothing, varargin...
+    lens_params, ray_params, image_params, X_lights, z_film,...
+    lights_filter, request_spline_smoothing, varargin...
 )
 % DOUBLESPHERICALLENSPSF  Generate images of point light sources by raytracing
 %
 % ## Syntax
 % [...
-%     stats_real, stats_ideal, X_lights, depth_factors, I, I_color...
+%     stats_real, stats_ideal, I, I_color...
 % ] = doubleSphericalLensPSF(...
-%     lens_params, ray_params, image_params, scene_params,...
-%     request_spline_smoothing [, verbose]...
+%     lens_params, ray_params, image_params, X_lights, z_film,...
+%     lights_filter, request_spline_smoothing [, depth_factors, verbose]...
 % )
 %
 % ## Description
 % [...
-%     stats_real, stats_ideal, X_lights, depth_factors, I, I_color...
+%     stats_real, stats_ideal, I, I_color...
 % ] = doubleSphericalLensPSF(...
-%     lens_params, ray_params, image_params, scene_params,...
-%     request_spline_smoothing [, verbose]...
+%     lens_params, ray_params, image_params, X_lights, z_film,...
+%     lights_filter, request_spline_smoothing [, depth_factors, verbose]...
 % )
 %   Simulate the image of grids of point light sources by raytracing. (One
-%   to six output arguments can be requested.)
+%   to four output arguments can be requested.)
 %
 % ## Input Arguments
 %
@@ -38,10 +38,6 @@ function [...
 %     lens
 %   - ior_lens: The refractive indices of the lens, one for each wavelength
 %     of the light to be simulated. A row vector of length 'k'.
-%   - ior_lens_reference_index: The index into `ior_lens` of the reference
-%     index of refraction. The reference index of refraction is the index
-%     of refraction used to set the image plane position for the desired
-%     focal distance.
 %   - wavelengths: The wavelengths of light corresponding to the elements
 %     of `ior_lens`. A row vector of length 'k'. This parameter is used for
 %     figure legends only, not for calculations.
@@ -87,75 +83,20 @@ function [...
 %     for different depths are directly comparable, but images for
 %     out-of-focus depths may be quite dim.
 %
-% scene_params -- Light source parameters
-%   A structure with the following fields, describing the grid or line of
-%   light sources illuminating the lens:
-%   - theta_max: For the grid of light sources at the reference depth, this
-%     is the maximum angle with the optical axis subtended by the grid. The
-%     angle is measured between the optical axis, and the rays from the
-%     point where the optical axis intersects the first principal plane of
-%     the lens to the four sides of the grid. These rays meet the sides of
-%     the grid at right angles when viewed along the optical axis. In other
-%     words, this is half of the angle subtended by the perpendicular
-%     bisectors of the square grid of lights.
+% X_lights -- Light positions
+%   The positions, expressed in cartesian coordinates (x, y, z), of the
+%   lights in the scene. `X_lights(i, :, j)` is the 3D position of the i-th
+%   light in the grid of lights placed at the j-th depth.
 %
-%     For a line of light sources at the reference depth, this is the angle
-%     between the optical axis and the ray from the first principal plane's
-%     intersection with the optical axis to the outermost light source on
-%     the line.
+% z_film -- Image plane location
+%   The z-coordinate of the image plane.
 %
-%   - theta_min: Analogous to `theta_max`, but defines a minimum angle with
-%     the optical axis.
-%
-%     Instead of a grid of light sources, a nonzero value of `theta_min`
-%     will produce a rectangular frame of light sources, surrounding an
-%     empty rectangle with sides defined by `theta_min`. Consequently, the
-%     number of light sources will be less than `prod(n_lights)`. However,
-%     the output data will have the same dimensions - NaN values will be
-%     used for positions within the empty rectangle.
-%
-%     For a line of light sources, if `theta_min` is nonzero, the line will
-%     simply start at a position offset by `theta_min`.
-%
-%   - n_lights: The number of lights in the scene.
-%
-%     If `n_lights` is a scalar, it is the number of lights on a line of
-%     light sources. The line extends perpendicular to the optical axis,
-%     along the positive x-direction.
-%
-%     If `n_lights` is a two-element vector, it contains the number of
-%     lights in the x and y-directions, respectively, in a grid of lights.
-%     The grid is centered on the optical axis.
-%
-%     If `n_lights` is `1`, or `[1 1]`, a single light source is created,
-%     and placed on the y = 0 plane, with a positive x-coordinate, such
-%     that it corresponds to the angle `theta_max`.
-%
-%   - light_distance_factor_focused: The reference depth, measured in
-%     multiples of the first focal length of the lens. The "reference
-%     depth" is the depth of the scene which produces a focused image,
-%     according to the thick lens equation. The image plane is positioned
-%     so that the lights at the reference depth are in-focus. Depth is
-%     measured relative to the first principal plane of the lens.
-%   - light_distance_factor_larger: Additional depths at which light
-%     sources will be placed, that are greater than the reference depth.
-%     Distances will be spaced uniformly in inverse depth space (with depth
-%     measured from the first principal plane of the lens). This is a
-%     two-element vector, where the first element contains the multiple of
-%     lens focal lengths corresponding to the largest depth, and the second
-%     element contains the number of depths larger than the reference
-%     depth. If the second element is zero, no larger depths will be used
-%     in the simulation. In the output arguments of this function, depths
-%     are indexed such that higher indices represent larger depths.
-%   - light_distance_factor_smaller: Equivalent to
-%     `light_distance_factor_larger`, but for depths smaller than the
-%     reference depth.
-%   - preserve_angle_over_depths: If `true`, lights at depths other than
-%     the reference depth will be positioned such that their images are
-%     aligned, according to the thick lens formulas. If `false`, the grids
-%     of lights at different depths will be aligned so that the lights have
-%     the same xy-coordinates regardless of depth. In other words, the
-%     lights will lie along rays parallel to the optical axis.
+% lights_filter -- Light gaps filter
+%   For efficiency, a full grid of lights producing point spread functions
+%   over the image plane may not be desirable. `lights_filter` is a logical
+%   vector of length `size(X_lights, 1)` indicating which light positions
+%   are to be ignored. For instance, lights close to the optical axis may
+%   be ignored, as their images show little chromatic aberration.
 %
 % request_spline_smoothing -- Smooth image intensities
 %   A flag determining whether image intensities are subject to thin-plate
@@ -167,6 +108,15 @@ function [...
 %   arguments are generated (refer to the notes on Efficiency, below),
 %   spline smoothing will be triggered just for the purposes of producing
 %   images.
+%
+% depth_factors -- Depths expressed in focal lengths
+%   The depths of the light sources, measured in multiples of the first
+%   focal length of the lens from the first principal plane, for instance.
+%   `depth_factors(j)` corresponds to the z-values in `X_lights(:, :, j)`.
+%
+%   `depth_factors` is a vector of values to substitute for light source
+%   depths, for display purposes, and is not needed when
+%   debugging/visualization output is disabled.
 %
 % verbose -- Debugging flags
 %   If recognized fields of `verbose` are true, corresponding graphical
@@ -187,16 +137,6 @@ function [...
 %   Point spread function statistics for the images produced by each light
 %   source, as predicted by the thick lens equation. `stats_ideal` has
 %   the same format as `stats_real`.
-%
-% X_lights -- Light positions
-%   The positions, expressed in cartesian coordinates (x, y, z), of the
-%   lights in the scene. `X_lights(i, :, j)` is the 3D position of the i-th
-%   light in the grid of lights placed at the j-th depth.
-%
-% depth_factors -- Depths expressed in focal lengths
-%   The depths of the light sources, measured in multiples of the first
-%   focal length of the lens from the first principal plane.
-%   `depth_factors(j)` corresponds to the z-values in `X_lights(:, :, j)`.
 %
 % I -- Simulated greyscale images
 %   A 4D array containing the images formed by combining all point spread
@@ -224,6 +164,8 @@ function [...
 % ### Coordinate System
 % - The radii of both faces of the lens are positive when the lens is
 %   biconvex.
+% - The positive z-axis points towards the front of the lens, along
+%   the optical axis, assuming the front of the lens is convex.
 %
 % ### Polychromatic light sources
 %
@@ -274,7 +216,7 @@ function [...
 %   trigger a scattered data interpolation operation, if
 %   `request_spline_smoothing` is `false`.
 %
-% See also opticsFromLens, doubleSphericalLens, densifyRays, analyzePSF
+% See also opticsFromLens, doubleSphericalLens, densifyRays, analyzePSF, imagingScenario
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -283,8 +225,8 @@ function [...
 
 %% Parse parameters
 
-nargoutchk(1,6);
-narginchk(5,6);
+nargoutchk(1,4);
+narginchk(7,9);
 
 ray_params.radius_front = lens_params.radius_front;
 ray_params.theta_aperture_front = asin(...
@@ -296,9 +238,11 @@ ray_params.theta_aperture_back = asin(...
 );
 ray_params.d_lens = lens_params.axial_thickness -...
     lens_params.radius_front - lens_params.radius_back;
+ray_params.d_film = -z_film;
 
 ior_lens = lens_params.ior_lens;
-ior_lens_reference = ior_lens(lens_params.ior_lens_reference_index);
+n_ior_lens = length(ior_lens);
+
 wavelengths = lens_params.wavelengths;
 wavelengths_to_rgb = lens_params.wavelengths_to_rgb;
 
@@ -306,43 +250,23 @@ image_sampling = image_params.image_sampling;
 normalize_psfs_before_combining = image_params.normalize_psfs_before_combining;
 normalize_color_images_globally = image_params.normalize_color_images_globally;
 
-scene_theta_max = scene_params.theta_max;
-scene_theta_min = scene_params.theta_min;
-if scene_theta_max <= 0
-    error('`scene_params.theta_max` must be greater than zero.')
-elseif scene_theta_min < 0
-    error('`scene_params.theta_min` must be greater than or equal to zero.')
-elseif scene_theta_max <= scene_theta_min
-    error('`scene_params.theta_max` must be greater than `scene_params.theta_min`.')
-end
-if length(scene_params.n_lights) == 1
-    n_lights_x = scene_params.n_lights;
-    n_lights_y = 1;
-    radial_lights = true;
-elseif length(scene_params.n_lights) == 2
-    n_lights_x = scene_params.n_lights(1);
-    n_lights_y = scene_params.n_lights(2);
-    radial_lights = false;
-else
-    error('`scene_params.n_lights` must be either a scalar, or a two element vector.');
-end
-single_source = (n_lights_x == 1 & n_lights_y == 1);
+n_lights = size(X_lights, 1);
+n_lights_x = length(unique(X_lights(:, 1, 1)));
+n_lights_y = length(unique(X_lights(:, 2, 1)));
+single_source = (n_lights == 1);
 
 image_output_requested = nargout > 4;
 if single_source && image_output_requested
     error('Images (`I` and `I_color`) are not simulated for a single light source.')
 end
 
-light_distance_factor_focused = scene_params.light_distance_factor_focused;
-light_distance_factor_larger = scene_params.light_distance_factor_larger;
-light_distance_factor_smaller = scene_params.light_distance_factor_smaller;
-single_depth = (light_distance_factor_larger(2) == 0 &...
-    light_distance_factor_smaller(2) == 0);
-preserve_angle_over_depths = scene_params.preserve_angle_over_depths;
-
 if ~isempty(varargin)
-    verbose = varargin{1};
-    plot_light_positions = verbose.plot_light_positions;
+    if length(varargin) == 2
+        depth_factors = varargin{1};
+        verbose = varargin{2};
+    else
+        error('Both `depth_factors`, and `verbose` must be passed together.')
+    end
     verbose_ray_tracing = verbose.verbose_ray_tracing;
     verbose_ray_interpolation = verbose.verbose_ray_interpolation;
     verbose_psf_analysis = verbose.verbose_psf_analysis;
@@ -351,7 +275,6 @@ if ~isempty(varargin)
     display_all_psf_each_depth = verbose.display_all_psf_each_depth;
     display_summary = verbose.display_summary;
 else
-    plot_light_positions = false;
     verbose_ray_tracing = false;
     verbose_ray_interpolation = false;
     verbose_psf_analysis = false;
@@ -361,107 +284,17 @@ else
     display_summary = false;
 end
 
-%% Calculate lens imaging properties
 
-n_ior_lens = length(ior_lens);
-[...
-    imageFn_reference,...
-    f_reference, ~, ...
-    U_reference...
-] = opticsFromLens(...
-    ray_params.ior_environment,...
-    ior_lens_reference,...
-    ray_params.ior_environment,...
-    ray_params.radius_front, ray_params.radius_back,...
-    ray_params.d_lens...
-);
+%% Imaging setting configuration, and thick lens equation results
 
-%% Create light sources and the image plane
-
-% Light source positions on the reference plane
-z_light = (light_distance_factor_focused * abs(f_reference)) + U_reference;
-principal_point = [0, 0, U_reference];
-U_to_light_ref = z_light - U_reference;
-if single_source
-    x_light = tan(scene_theta_max) * U_to_light_ref;
-    y_light = 0;
-    scene_theta_min_filter = true;
-else
-    scene_half_width = tan(scene_theta_max) * U_to_light_ref;
-    scene_inner_width = tan(scene_theta_min) * U_to_light_ref;
-    if radial_lights
-        x_light = linspace(scene_inner_width, scene_half_width, n_lights_x);
-        y_light = zeros(1, n_lights_x);
-        scene_theta_min_filter = true(n_lights_x, 1);
-    else
-        x_light = linspace(-scene_half_width, scene_half_width, n_lights_x);
-        y_light = linspace(-scene_half_width, scene_half_width, n_lights_y);
-        [x_light,y_light] = meshgrid(x_light,y_light);
-        scene_theta_min_filter = reshape(...
-            (abs(x_light) >= scene_inner_width) |...
-            (abs(y_light) >= scene_inner_width),...
-            [], 1 ...
-        );
-    end
-end
-n_lights = numel(x_light);
-X_lights = [
-    x_light(:),...
-    y_light(:),...
-    repmat(z_light, n_lights, 1)
-];
-
-% Light source positions at other depths
-if single_depth
-    depth_ref_index = 1;
-    n_depths = 1;
-    depth_factors = light_distance_factor_focused;
+n_depths = size(X_lights, 3);
+if n_depths == 1
     X_lights_matrix = X_lights;
 else
-    depth_ref_inv = 1 / light_distance_factor_focused;
-    depth_factors = [
-        linspace(1 / light_distance_factor_larger(1), depth_ref_inv, light_distance_factor_larger(2) + 1),...
-        linspace(depth_ref_inv, 1 / light_distance_factor_smaller(1), light_distance_factor_smaller(2) + 1)
-    ];
-    depth_factors = fliplr(1 ./ depth_factors);
-    % Remove duplicated reference depth
-    depth_ref_index = light_distance_factor_smaller(2) + 1;
-    if light_distance_factor_smaller(2) == 0
-        depth_factors = depth_factors(2:end);
-    else
-        depth_factors = [depth_factors(1:depth_ref_index), depth_factors((depth_ref_index + 2):end)];
-    end
-    depth_factors = depth_factors.';
-    n_depths = length(depth_factors);
-    
-    z_light = reshape((depth_factors * abs(f_reference)) + U_reference, 1, 1, []);
-    if preserve_angle_over_depths
-        U_to_light_z = z_light - U_reference;
-        adjustment_factors = (...
-            (U_to_light_z + f_reference) ./ ...
-            (U_to_light_ref + f_reference) ...
-        ) .* ( ...
-            (1 + f_reference ./ U_to_light_ref) ./ ...
-            (1 + f_reference ./ U_to_light_z) ...
-        );
-        adjustment_factors = repmat(adjustment_factors, n_lights, 2, 1);
-        X_lights = [
-            adjustment_factors .* repmat(X_lights(:, 1:2), 1, 1, n_depths),...
-            repmat(z_light, n_lights, 1, 1)
-        ];
-    else
-        X_lights = [repmat(X_lights(:, 1:2), 1, 1, n_depths), repmat(z_light, n_lights, 1, 1)];
-    end
-    
     X_lights_matrix = reshape(permute(X_lights, [1, 3, 2]), [], 3);
 end
 
 n_lights_and_depths = n_lights * n_depths;
-
-% Image plane position
-z_film = imageFn_reference([0, 0, z_light(1, 1, depth_ref_index)]);
-z_film = z_film(3);
-ray_params.d_film = -z_film;
 
 % "Theoretical" image positions, from the thick lens equation
 stats_ideal_matrix = preallocateStats([n_lights_and_depths, n_ior_lens]);
@@ -474,9 +307,7 @@ for k = 1:n_ior_lens
         ray_params.d_lens...
     );
     psfFn = opticsToPSF( imageFn, U, U_prime, lens_params.lens_radius, z_film );
-
-    stats_ideal_matrix(:, k) = psfFn(X_lights_matrix);
-    
+    stats_ideal_matrix(:, k) = psfFn(X_lights_matrix);  
 end
 
 stats_ideal = permute(reshape(stats_ideal_matrix, n_lights, n_depths, n_ior_lens), [1, 3, 2]);
@@ -523,67 +354,12 @@ if ~single_source
 end
 
 %% Remove filtered-out light positions
-scene_theta_min_filter_rep = repmat(scene_theta_min_filter, n_depths, 1);
-stats_ideal = stats_ideal(scene_theta_min_filter, :, :);
-stats_ideal_matrix = stats_ideal_matrix(scene_theta_min_filter_rep, :);
-X_lights = X_lights(scene_theta_min_filter, :, :);
-X_lights_matrix = X_lights_matrix(scene_theta_min_filter_rep, :);
+lights_filter_rep = repmat(lights_filter, n_depths, 1);
+stats_ideal = stats_ideal(lights_filter, :, :);
+stats_ideal_matrix = stats_ideal_matrix(lights_filter_rep, :);
+X_lights = X_lights(lights_filter, :, :);
+X_lights_matrix = X_lights_matrix(lights_filter_rep, :);
 n_lights = size(X_lights, 1);
-
-%% Visualize scene setup
-if plot_light_positions
-    figure
-    scatter3(...
-        X_lights_matrix(:, 1),...
-        X_lights_matrix(:, 2),...
-        X_lights_matrix(:, 3),...
-        [], X_lights_matrix(:, 3), 'filled'...
-    );
-    xlabel('X');
-    ylabel('Y');
-    zlabel('Z');
-    title('Light source positions, and lens parameters at the reference wavelength');
-    hold on
-    
-    % First principal plane
-    min_x = min(X_lights_matrix(:, 1));
-    max_x = max(X_lights_matrix(:, 1));
-    min_y = min(X_lights_matrix(:, 2));
-    max_y = max(X_lights_matrix(:, 2));
-
-    surf(...
-        [min_x, max_x; min_x, max_x],...
-        [max_y, max_y; min_y, min_y],...
-        [U_reference, U_reference; U_reference, U_reference],...
-        'EdgeColor', 'k', 'FaceAlpha', 0.4, 'FaceColor', 'g' ...
-    );
-
-    % Focal length
-    surf(...
-        [min_x, max_x; min_x, max_x],...
-        [max_y, max_y; min_y, min_y],...
-        [U_reference - f_reference, U_reference - f_reference; U_reference - f_reference, U_reference - f_reference],...
-        'EdgeColor', 'k', 'FaceAlpha', 0.4, 'FaceColor', 'y' ...
-    );
-
-    % Principal Point
-    scatter3(...
-        principal_point(1), principal_point(2), principal_point(3),...
-        [], 'r', 'filled'...
-    );
-
-    % Lens centre
-    scatter3(...
-        0, 0, lens_params.lens_radius - (lens_params.axial_thickness / 2),...
-        [], 'k', 'filled'...
-    );
-    legend(...
-        'Lights', 'First principal plane', 'First focal length',...
-        'First principal point', 'Lens centre'...
-    );
-    set(gca, 'Color', 'none');
-    hold off
-end
 
 %% Trace rays through the lens and form rays into an image
 request_images = ~single_source && (...
@@ -809,8 +585,6 @@ stats_real_matrix = reshape(permute(stats_real, [1, 3, 2]), [], n_ior_lens);
 
 if display_summary
     if single_source
-        disp('Point source angle from optical axis:')
-        disp(scene_theta_max)
         disp('Distances from first principal plane, in focal lengths:')
         disp(depth_factors)
         disp('Light source position [x, y, z]:')
