@@ -251,14 +251,9 @@ normalize_psfs_before_combining = image_params.normalize_psfs_before_combining;
 normalize_color_images_globally = image_params.normalize_color_images_globally;
 
 n_lights = size(X_lights, 1);
-n_lights_x = length(unique(X_lights(:, 1, 1)));
-n_lights_y = length(unique(X_lights(:, 2, 1)));
 single_source = (n_lights == 1);
 
 image_output_requested = nargout > 4;
-if single_source && image_output_requested
-    error('Images (`I` and `I_color`) are not simulated for a single light source.')
-end
 
 if ~isempty(varargin)
     if length(varargin) == 2
@@ -313,45 +308,7 @@ end
 stats_ideal = permute(reshape(stats_ideal_matrix, n_lights, n_depths, n_ior_lens), [1, 3, 2]);
 
 % Find image boundaries
-if ~single_source
-    X_image_ideal = [stats_ideal.mean_position];
-    X_image_ideal = reshape(X_image_ideal, 2, []);
-    X_image_ideal = X_image_ideal.';
-    X_image_ideal = reshape(X_image_ideal, n_lights, 2, n_ior_lens, n_depths);
-    largest_image_abs = max(max(abs(X_image_ideal), [], 4), [], 3);
-    % Restore signs
-    largest_image = X_image_ideal;
-    largest_image(abs(X_image_ideal) ~= repmat(largest_image_abs, 1, 1, n_ior_lens, n_depths)) = 0;
-    largest_image = sum(sum(largest_image, 3), 4);
-    X_image_grid_x = reshape(largest_image(:, 1), n_lights_y, n_lights_x);
-    X_image_grid_y = reshape(largest_image(:, 2), n_lights_y, n_lights_x);
-    if n_lights_x > 1
-        left_buffer = max(abs(X_image_grid_x(:, 2) - X_image_grid_x(:, 1)));
-        right_buffer = max(abs(X_image_grid_x(:, end) - X_image_grid_x(:, end - 1)));
-    end
-    if n_lights_y > 1
-        bottom_buffer = max(abs(X_image_grid_y(2, :) - X_image_grid_y(1, :)));
-        top_buffer = max(abs(X_image_grid_y(end, :) - X_image_grid_y(end - 1, :)));
-    end
-    if n_lights_x == 1
-        left_buffer = mean([bottom_buffer, top_buffer]);
-        right_buffer = left_buffer;
-    end
-    if n_lights_y == 1
-        bottom_buffer = mean([left_buffer, right_buffer]);
-        top_buffer = bottom_buffer;
-    end
-    image_bounds = [
-        min(largest_image(:, 1)) - left_buffer,...
-        min(largest_image(:, 2)) - bottom_buffer
-    ];
-    image_width = max(largest_image(:, 1)) - image_bounds(1) + right_buffer;
-    image_height = max(largest_image(:, 2)) - image_bounds(2) + top_buffer;
-    image_bounds = [
-        image_bounds,...
-        image_width image_height...
-    ];
-end
+image_bounds = imageBoundaries( [], stats_ideal );
 
 %% Remove filtered-out light positions
 lights_filter_rep = repmat(lights_filter, n_depths, 1);
@@ -619,4 +576,3 @@ if display_summary
 end
 
 end
-
