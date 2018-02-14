@@ -19,15 +19,18 @@ function [ image_bounds ] = imageBoundaries( image_bounds, stats )
 %   3 - The width of the image (size in the x-dimension)
 %   4 - The height of the image (size in the y-dimension)
 %
+%   If `image_bounds` is empty, and `stats` describes more than one light
+%   source, this function will automatically estimate the image boundaries.
+%
 % stats -- Image point statistics
 %   Statistics computed for the images produced by a grid of light sources,
 %   where the first dimension of `stats` is assumed to index the light
 %   sources. Only `stats.mean_position` is used by this function. The
 %   'mean_position' field is assumed to contain a two element vector
 %   consisting of an image x and y-coordinate, respectively. The image
-%   positions are assumed to approximately form a grid - This function
-%   assumes the grid is relatively undistorted, allowing for automatic
-%   estimation of the numbers of positions along each axis of the grid.
+%   positions are assumed to approximately form an axis-aligned grid - This
+%   function assumes the grid is relatively undistorted, allowing for
+%   automatic estimation of the numbers of positions along each axis.
 %
 % ## Output Arguments
 %
@@ -55,7 +58,7 @@ nargoutchk(1,1);
 narginchk(2,2);
 
 n_lights = size(stats, 1);
-if isempty(image_bounds) && n_lights > 3
+if isempty(image_bounds) && n_lights > 1
     X_image_ideal = [stats.mean_position];
     X_image_ideal = reshape(X_image_ideal, 2, []);
     X_image_ideal = X_image_ideal.';
@@ -63,7 +66,10 @@ if isempty(image_bounds) && n_lights > 3
     min_y = min(X_image_ideal(:, 2));
     max_x = max(X_image_ideal(:, 1));
     max_y = max(X_image_ideal(:, 2));
-    
+    if (min_x == max_x) || (min_y == max_y)
+        error('Lights have zero spread in the x and/or y directions. A grid cannot be inferred.')
+    end
+
     % Find a best-fit grid spacing
     fit = Inf(n_lights, 2);
     n_points = size(X_image_ideal, 1);
@@ -82,10 +88,10 @@ if isempty(image_bounds) && n_lights > 3
     end
     [~, n_lights_x] = min(fit(:, 1));
     [~, n_lights_y] = min(fit(:, 2));
-    
+
     left_buffer = (max_x - min_x) / (n_lights_x - 1);
     right_buffer = left_buffer;
-    
+
     bottom_buffer = (max_y - min_y) / (n_lights_y - 1);
     top_buffer = bottom_buffer;
 
@@ -100,8 +106,7 @@ if isempty(image_bounds) && n_lights > 3
         image_width image_height...
     ];
 elseif isempty(image_bounds)
-    error('Image boundaries cannot be automatically estimated for fewer than four light sources.')
+    error('Image boundaries cannot be automatically estimated for single light sources.')
 end
 
 end
-

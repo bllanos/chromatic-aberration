@@ -151,15 +151,17 @@ function [...
 %   A 4D array containing the images formed by combining all point spread
 %   functions for all lights at each depth. `I_color(:, :, :, j)` is the
 %   colour image for the produced by the grid of lights placed at the j-th
-%   depth. The third dimension of `I_color` indexes Red, Green, and Blue
-%   colour channels. `I_color` is produced by combining the images for
-%   individual wavelengths in `I` according to the RGB colour values for
-%   the different wavelengths in `lens_params.wavelengths_to_rgb`.
+%   depth. The third dimension of `I_color` indexes colour channels.
+%   `I_color` is produced by combining the images for individual
+%   wavelengths in `I` according to the RGB colour values for the different
+%   wavelengths in `lens_params.wavelengths_to_rgb`.
 %
 %   This output argument is only available if there are multiple lights at
 %   each depth.
 %
 % ## Notes
+% - Automatic estimation of the image boundaries, for `I_color` and `I`,
+%   will yield poor results if all of the lights are on a single line.
 %
 % ### Coordinate System
 % - The radii of both faces of the lens are positive when the lens is
@@ -169,31 +171,18 @@ function [...
 %
 % ### Polychromatic light sources
 %
-% If I wanted to simulate real colour images, I would model point spread
-% functions for colour channels, not for individual wavelengths. I could do
-% so by adding together the point spread functions for individual
-% wavelengths, weighted by the quantum efficiencies of the camera sensor
-% for the individual wavelengths, and weighted by the spectral power
-% distribution of the light source. Such an approach relies on the
-% following assumptions:
+% I output colour images by mixing together point spread functions for
+% individual wavelengths, but this is purely for visualization. All
+% mathematical analysis of chromatic aberration is done under narrowband
+% sensor response assumptions. An advantage of this segregation is it is
+% possible to estimate the theoretical chromatic aberration between
+% individual wavelengths, ignoring the properties of the camera sensor.
+% Furthermore, it is possible to run this function on an arbitrary number
+% of wavelengths, and obtain as many estimates of chromatic aberration (not
+% only three).
 %
-% - The camera sensor does not perform any on-chip processing to adjust the
-%   relative responses of pixels based on assumptions of the light colour.
-% - The scene is emitting light with the given spectral power distribution.
-%
-% I think it is cleaner to assume narrowband sensor responses for now, so
-% that a point spread function for an individual wavelength corresponds
-% exactly to the image recorded in the nearest colour channel.
-%
-% Presently, I output colour images by mixing together point spread
-% functions for individual wavelengths, but this is purely for
-% visualization. All mathematical analysis of chromatic aberration is done
-% under narrowband sensor response assumptions. An advantage of this
-% segregation is it is possible to estimate the theoretical chromatic
-% aberration between individual wavelengths, ignoring the properties of the
-% camera sensor. Furthermore, it is possible to run this script on an
-% arbitrary number of wavelengths, and obtain as many estimates of
-% chromatic aberration (not only three).
+% See 'doubleSphericalLensPSF2()' for analysis of chromatic aberration in
+% colour images.
 %
 % ### Efficiency
 % - The `I` or `I_color` output arguments are expensive to produce. They
@@ -216,7 +205,7 @@ function [...
 %   trigger a scattered data interpolation operation, if
 %   `request_spline_smoothing` is `false`.
 %
-% See also opticsFromLens, doubleSphericalLens, densifyRays, analyzePSF, imagingScenario
+% See also opticsFromLens, doubleSphericalLens, densifyRays, analyzePSF, imagingScenario, doubleSphericalLensPSF2
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -253,7 +242,7 @@ normalize_color_images_globally = image_params.normalize_color_images_globally;
 n_lights = size(X_lights, 1);
 single_source = (n_lights == 1);
 
-image_output_requested = nargout > 4;
+image_output_requested = nargout > 2;
 
 if ~isempty(varargin)
     if length(varargin) == 2
@@ -302,7 +291,7 @@ for k = 1:n_ior_lens
         ray_params.d_lens...
     );
     psfFn = opticsToPSF( imageFn, U, U_prime, lens_params.lens_radius, z_film );
-    stats_ideal_matrix(:, k) = psfFn(X_lights_matrix);  
+    stats_ideal_matrix(:, k) = psfFn(X_lights_matrix);
 end
 
 stats_ideal = permute(reshape(stats_ideal_matrix, n_lights, n_depths, n_ior_lens), [1, 3, 2]);
@@ -324,7 +313,7 @@ request_images = ~single_source && (...
     display_all_psf_each_depth || image_output_requested ...
 );
 if request_images
-    n_channels = 3;
+    n_channels = size(wavelengths_to_rgb, 2);
     I = zeros([image_sampling, n_ior_lens, n_depths]);
     I_color = zeros([image_sampling, n_channels, n_depths]);
 else
@@ -340,7 +329,7 @@ for j = 1:n_depths
             [ ...
                 image_position, ray_irradiance, ~, incident_position_cartesian ...
                 ] = doubleSphericalLens( ray_params, verbose_ray_tracing );
-            
+
             if request_images
                 if request_spline_smoothing
                     [ ~, v_adj, image_spline, I_ikj ] = densifyRays(...
@@ -361,7 +350,7 @@ for j = 1:n_depths
                         verbose_ray_interpolation ...
                     );
                 end
-                
+
                 if normalize_psfs_before_combining
                     I_ikj_scaled = I_ikj ./ max(max(I_ikj));
                 else
@@ -372,7 +361,7 @@ for j = 1:n_depths
                     I_color(:, :, c, j) = I_color(:, :, c, j) +...
                         (I_ikj_scaled .* wavelengths_to_rgb(k, c));
                 end
-                
+
                 if display_each_psf
                     figure
                     ax = gca;
@@ -413,7 +402,7 @@ for j = 1:n_depths
                     );
                 end
             end
-            
+
             if single_source && display_each_psf
                 figure
                 if request_spline_smoothing
@@ -451,7 +440,7 @@ for j = 1:n_depths
                     depth_factors(j), ior_lens(k)...
                 ));
             end
-            
+
             if request_spline_smoothing
                 stats_real(i, k, j) = analyzePSF(...
                     image_spline, image_position, v_adj,...
@@ -464,7 +453,7 @@ for j = 1:n_depths
                 );
             end
         end
-        
+
         % Visualize the results, for this wavelength
         if request_images && display_all_psf_each_ior
             figure
@@ -504,7 +493,7 @@ if request_images
             I_color(:, :, :, j) = I_color(:, :, :, j) ./ max(max(max(I_color(:, :, :, j))));
         end
     end
-    
+
     if display_all_psf_each_depth
         for j = 1:n_depths
             figure
@@ -566,7 +555,7 @@ if display_summary
             legend_strings{2 * k - 1} = sprintf('Thick lens formula, \\lambda = %g nm', wavelengths(k));
             legend_strings{2 * k} = sprintf('Raytracing centroids, \\lambda = %g nm', wavelengths(k));
         end
-        legend(legend_strings);        
+        legend(legend_strings);
         title('Images of point sources seen through a thick lens')
         xlabel('X');
         ylabel('Y');

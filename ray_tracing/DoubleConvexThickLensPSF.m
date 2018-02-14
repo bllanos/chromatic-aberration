@@ -32,7 +32,7 @@ lens_params.lens_radius = 25 / 2;
 lens_params.axial_thickness = 5.30;
 lens_params.radius_back = lens_params.radius_front;
 
-ray_params.n_incident_rays = 500;
+ray_params.n_incident_rays = 250;
 ray_params.sample_random = false;
 ray_params.ior_environment = 1.0;
 
@@ -41,8 +41,9 @@ ray_params.ior_environment = 1.0;
 % At this wavelength, N-BK7 glass has a refractive index of 1.51680
 % (https://www.pgo-online.com/intl/katalog/BK7.html)
 % The refractive index at 480.0 nm is 1.52283
+% The refractive index at 546.1 nm is 1.51872
 % The refractive index at 643.8 nm is 1.51472
-lens_params.ior_lens = [1.51472, 1.51680, 1.52283]; % Red, Green, Blue
+lens_params.ior_lens = [1.51472, 1.51680, 1.51872, 1.52283]; % Red, Green, Green, Blue
 
 % Index of the wavelength/index of refraction to be used to position the
 % image plane
@@ -50,7 +51,7 @@ lens_params.ior_lens_reference_index = 2; % Use the green channel
 
 % Wavelength values corresponding to indices of refraction (for display
 % purposes only)
-lens_params.wavelengths = [643.8, 587.6, 480.0];
+lens_params.wavelengths = [643.8, 587.6, 546.1, 480.0];
 
 % Obtained using the quantum efficiencies presented in
 % 'C:\Users\llanos\Google Drive\ThesisResearch\Equipment\FLEA3\20170508_FL3_GE_EMVA_Imaging Performance Specification.pdf'
@@ -58,6 +59,7 @@ lens_params.wavelengths = [643.8, 587.6, 480.0];
 lens_params.wavelengths_to_rgb = [
     0.38, 0.04, 0;
     0.12, 0.35, 0;
+    0.03, 0.52, 0.04;
     0, 0.17, 0.44
     ];
 % Normalize, for improved colour saturation
@@ -119,7 +121,7 @@ lens_params_scene.ior_lens = lens_params.ior_lens(lens_params.ior_lens_reference
 %% Run the simulation
 
 [...
-    stats_real, stats_ideal,...
+    stats_real, stats_ideal...
 ] = doubleSphericalLensPSF(...
     lens_params, ray_params, image_params, X_lights, z_film, lights_filter,...
     request_spline_smoothing, depth_factors, doubleSphericalLensPSFVerbose...
