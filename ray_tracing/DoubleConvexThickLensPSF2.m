@@ -1,7 +1,7 @@
 %% Ray tracing simulation of chromatic aberration
 % Simulate the chromatic point spread function of a thick (biconvex) lens.
-% Use an image resolution-agnostic simulation method, for highly
-% accurate simulations of PSFs for individual wavelengths of light.
+% Use an image resolution-dependent simulation method, for realistic
+% generation of colour images with chromatic aberration.
 %
 % ## Usage
 % Modify the parameters, the first code section below, then run.
@@ -17,21 +17,21 @@
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
 % University of Alberta, Department of Computing Science
-% File created June 7, 2017
+% File created February 22, 2018
 
 %% Input data and parameters
-% Refer to the documentation of `doubleSphericalLensPSF` for details
+% Refer to the documentation of `doubleSphericalLensPSF2` for details
 
 % ## Raytracing parameters
 
 % ### Lens parameters
 % Based on
-% 'C:\Users\llanos\Google Drive\ThesisResearch\Data and Results\20170613_SimpleLenses_EdmundOptics\25mmDiameter40mmFLUncoatedDoubleConvexLens_prnt_45296.pdf'
+% '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20170613_SimpleLenses_EdmundOptics/25mmDiameter40mmFLUncoatedDoubleConvexLens_prnt_45296.pdf'
 % and
-% 'C:\Users\llanos\Google Drive\ThesisResearch\Data and Results\20170613_SimpleLenses_EdmundOptics\25mmDiameter40mmFLUncoatedDoubleConvexLens.pdf'
-lens_params.radius_front = 40.42;
+% '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20170613_SimpleLenses_EdmundOptics/25mmDiameter40mmFLUncoatedDoubleConvexLens.pdf'
 lens_params.lens_radius = 25 / 2;
 lens_params.axial_thickness = 5.30;
+lens_params.radius_front = 40.42;
 lens_params.radius_back = lens_params.radius_front;
 
 ray_params.n_incident_rays = 250;
@@ -49,14 +49,15 @@ lens_params.ior_lens = [1.51472, 1.51680, 1.51872, 1.52283]; % Red, Green, Green
 
 % Index of the wavelength/index of refraction to be used to position the
 % image plane
-lens_params.ior_lens_reference_index = 2; % Use the green channel
+ior_lens_reference_index = 2; % Corresponds roughly to the green channel
+reference_channel_index = 2;
 
 % Wavelength values corresponding to indices of refraction (for display
 % purposes only)
 lens_params.wavelengths = [643.8, 587.6, 546.1, 480.0];
 
 % Obtained using the quantum efficiencies presented in
-% 'C:\Users\llanos\Google Drive\ThesisResearch\Equipment\FLEA3\20170508_FL3_GE_EMVA_Imaging Performance Specification.pdf'
+% '/home/llanos/GoogleDrive/ThesisResearch/Equipment/FLEA3/20170508_FL3_GE_EMVA_Imaging Performance Specification.pdf'
 % Image sensor: Sony ICX655, 2/3", Color (page 19)
 lens_params.wavelengths_to_rgb = [
     0.38, 0.04, 0;
@@ -70,11 +71,15 @@ lens_params.wavelengths_to_rgb = lens_params.wavelengths_to_rgb ./...
 
 % ### Ray interpolation parameters
 image_params.image_sampling = [600, 400];
-image_params.normalize_psfs_before_combining = false;
+% From '/home/llanos/GoogleDrive/ThesisResearch/Equipment/FLEA3/20170508_FL3_GE_EMVA_Imaging Performance Specification.pdf'
+% Image sensor: Sony ICX655, 2/3", Color (page 19)
+image_min_x = -(2/3 * 25.4) / 2;
+image_min_y = image_min_x;
+image_width = 2/3 * 25.4;
+image_height = image_width;
+image_params.image_bounds = [image_min_x, image_min_y, image_width, image_height];
 image_params.normalize_color_images_globally = true;
-
-% ### Use spline interpolation to reduce noise
-request_spline_smoothing = false;
+image_params.intensity_threshold = 0.1;
 
 % ## Scene setup
 scene_params.theta_min = deg2rad(15);
@@ -88,13 +93,13 @@ scene_params.preserve_angle_over_depths = true;
 % ## Debugging Flags
 plot_light_positions = true;
 
-doubleSphericalLensPSFVerbose.verbose_ray_tracing = false;
-doubleSphericalLensPSFVerbose.verbose_ray_interpolation = false;
-doubleSphericalLensPSFVerbose.verbose_psf_analysis = false;
-doubleSphericalLensPSFVerbose.display_each_psf = false;
-doubleSphericalLensPSFVerbose.display_all_psf_each_ior = false;
-doubleSphericalLensPSFVerbose.display_all_psf_each_depth = true;
-doubleSphericalLensPSFVerbose.display_summary = true;
+doubleSphericalLensPSF2Verbose.verbose_ray_tracing = true;
+doubleSphericalLensPSF2Verbose.verbose_ray_interpolation = true;
+doubleSphericalLensPSF2Verbose.verbose_psf_analysis = true;
+doubleSphericalLensPSF2Verbose.display_each_psf = true;
+doubleSphericalLensPSF2Verbose.display_each_psf_rgb = true;
+doubleSphericalLensPSF2Verbose.display_all_psf_each_depth = true;
+doubleSphericalLensPSF2Verbose.display_summary = true;
 
 verbose_aberration_ideal = true;
 verbose_aberration_real = true;
@@ -104,7 +109,7 @@ radialChromaticAberrationVerbose.display_stats_splines = true;
 radialChromaticAberrationVerbose.display_spline_differences = true;
 radialChromaticAberrationVerbose.filter = struct(...
     'mean_position', true,...
-    'mean_value', false,...
+    'mean_value', true,...
     'max_position', false,...
     'max_value', false,...
     'radius', true...
@@ -113,7 +118,7 @@ radialChromaticAberrationVerbose.filter = struct(...
 %% Create light sources
 
 lens_params_scene = lens_params;
-lens_params_scene.ior_lens = lens_params.ior_lens(lens_params.ior_lens_reference_index);
+lens_params_scene.ior_lens = lens_params.ior_lens(ior_lens_reference_index);
 [...
     X_lights, z_film, lights_filter, depth_factors...
 ] = imagingScenario(...
@@ -123,10 +128,10 @@ lens_params_scene.ior_lens = lens_params.ior_lens(lens_params.ior_lens_reference
 %% Run the simulation
 
 [...
-    stats_real, stats_ideal...
-] = doubleSphericalLensPSF(...
+    stats_real, stats_ideal,  I_color, I...
+] = doubleSphericalLensPSF2(...
     lens_params, ray_params, image_params, X_lights, z_film, lights_filter,...
-    request_spline_smoothing, depth_factors, doubleSphericalLensPSFVerbose...
+    depth_factors, doubleSphericalLensPSF2Verbose...
 );
 
 %% Analyze the results
@@ -143,7 +148,7 @@ if verbose_aberration_ideal
     [...
         disparity_spline_ideal, disparity_ideal, disparity_ideal_radial...
     ] = radialChromaticAberration(...
-        stats_ideal, x_fields, lens_params.ior_lens_reference_index,...
+        stats_ideal, x_fields, reference_channel_index,...
         depth_factors, 0,...
         lens_params.wavelengths, lens_params.wavelengths_to_rgb,...
         radialChromaticAberrationVerbose...
@@ -152,7 +157,7 @@ else
     [...
         disparity_spline_ideal, disparity_ideal, disparity_ideal_radial...
     ] = radialChromaticAberration(...
-        stats_ideal, x_fields, lens_params.ior_lens_reference_index,...
+        stats_ideal, x_fields, reference_channel_index,...
         depth_factors, 0 ...
     );
 end
@@ -161,7 +166,7 @@ if verbose_aberration_real
     [...
         disparity_spline_real, disparity_real, disparity_real_radial...
     ] = radialChromaticAberration(...
-        stats_real, x_fields, lens_params.ior_lens_reference_index,...
+        stats_real, x_fields, reference_channel_index,...
         depth_factors, 0,...
         lens_params.wavelengths, lens_params.wavelengths_to_rgb,...
         radialChromaticAberrationVerbose...
@@ -170,7 +175,7 @@ else
     [...
         disparity_spline_real, disparity_real, disparity_real_radial...
     ] = radialChromaticAberration(...
-        stats_real, x_fields, lens_params.ior_lens_reference_index,...
+        stats_real, x_fields, reference_channel_index,...
         depth_factors, 0 ...
     );
 end
