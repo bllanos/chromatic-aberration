@@ -78,12 +78,12 @@ image_min_y = image_min_x;
 image_width = 2/3 * 25.4;
 image_height = image_width;
 image_params.image_bounds = [image_min_x, image_min_y, image_width, image_height];
-image_params.normalize_color_images_globally = true;
+image_params.normalize_color_images_globally = false;
 image_params.intensity_threshold = 0.1;
 
 % ## Scene setup
-scene_params.theta_min = deg2rad(15);
-scene_params.theta_max = deg2rad(30);
+scene_params.theta_min = deg2rad(1);
+scene_params.theta_max = deg2rad(5);
 scene_params.n_lights = [3 2];
 scene_params.light_distance_factor_focused = 2;
 scene_params.light_distance_factor_larger = [4, 2];
@@ -93,23 +93,23 @@ scene_params.preserve_angle_over_depths = true;
 % ## Debugging Flags
 plot_light_positions = true;
 
-doubleSphericalLensPSF2Verbose.verbose_ray_tracing = true;
-doubleSphericalLensPSF2Verbose.verbose_ray_interpolation = true;
-doubleSphericalLensPSF2Verbose.verbose_psf_analysis = true;
-doubleSphericalLensPSF2Verbose.display_each_psf = true;
-doubleSphericalLensPSF2Verbose.display_each_psf_rgb = true;
+doubleSphericalLensPSF2Verbose.verbose_ray_tracing = false;
+doubleSphericalLensPSF2Verbose.verbose_ray_interpolation = false;
+doubleSphericalLensPSF2Verbose.verbose_psf_analysis = false;
+doubleSphericalLensPSF2Verbose.display_each_psf = false;
+doubleSphericalLensPSF2Verbose.display_each_psf_rgb = false;
 doubleSphericalLensPSF2Verbose.display_all_psf_each_depth = true;
-doubleSphericalLensPSF2Verbose.display_summary = true;
+doubleSphericalLensPSF2Verbose.display_summary = false;
 
-verbose_aberration_ideal = true;
+verbose_aberration_ideal = false;
 verbose_aberration_real = true;
-radialChromaticAberrationVerbose.display_raw_values = false;
-radialChromaticAberrationVerbose.display_raw_disparity = false;
+radialChromaticAberrationVerbose.display_raw_values = true;
+radialChromaticAberrationVerbose.display_raw_disparity = true;
 radialChromaticAberrationVerbose.display_stats_splines = true;
 radialChromaticAberrationVerbose.display_spline_differences = true;
 radialChromaticAberrationVerbose.filter = struct(...
     'mean_position', true,...
-    'mean_value', true,...
+    'mean_value', false,...
     'max_position', false,...
     'max_value', false,...
     'radius', true...
@@ -144,13 +144,20 @@ x_fields = struct(...
     'radius', 'mean_position'...
 );
 
+color_names = {'Red', 'Green', 'Blue'};
+colors_to_rgb = [
+    1, 0, 0;
+    0, 1, 0;
+    0, 0, 1
+    ];
+
 if verbose_aberration_ideal
     [...
         disparity_spline_ideal, disparity_ideal, disparity_ideal_radial...
     ] = radialChromaticAberration(...
         stats_ideal, x_fields, reference_channel_index,...
         depth_factors, 0,...
-        lens_params.wavelengths, lens_params.wavelengths_to_rgb,...
+        color_names, colors_to_rgb,...
         radialChromaticAberrationVerbose...
     );
 else
@@ -168,7 +175,7 @@ if verbose_aberration_real
     ] = radialChromaticAberration(...
         stats_real, x_fields, reference_channel_index,...
         depth_factors, 0,...
-        lens_params.wavelengths, lens_params.wavelengths_to_rgb,...
+        color_names, colors_to_rgb,...
         radialChromaticAberrationVerbose...
     );
 else

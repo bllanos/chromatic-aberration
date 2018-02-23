@@ -99,7 +99,11 @@ mean_position_rgb = repmat(stats_mat.mean_position, 1, 1, 1, 1, n_channels);
 wavelengths_to_rgb_rep = repmat(wavelengths_to_rgb_reshape, n_points, size(mean_position_rgb, 2), 1, n_depths, 1);
 mean_position_rgb = mean_position_rgb .* wavelengths_to_rgb_rep;
 mean_position_rgb = sum(mean_position_rgb, 3);
-mean_position_rgb = squeeze(permute(mean_position_rgb, [1, 2, 5, 4, 3]));
+mean_position_rgb = reshape(...
+    permute(mean_position_rgb, [1, 2, 5, 4, 3]),...
+    size(mean_position_rgb, 1), size(mean_position_rgb, 2),...
+    size(mean_position_rgb, 5), size(mean_position_rgb, 4)...
+);
 stats_rgb_mat.mean_position = mean_position_rgb;
 
 % Mean value
@@ -119,7 +123,11 @@ for c = 1:n_channels
     distance_filter(:, :, :, :, c) = (distance_sq <= r_sq);
 end
 mean_value_rgb = sum(mean_value_rep .* distance_filter, 3);
-mean_value_rgb = squeeze(permute(mean_value_rgb, [1, 2, 5, 4, 3]));
+mean_value_rgb = reshape(...
+    permute(mean_value_rgb, [1, 2, 5, 4, 3]),...
+    size(mean_value_rgb, 1), size(mean_value_rgb, 2),...
+    size(mean_value_rgb, 5), size(mean_value_rgb, 4)...
+);
 stats_rgb_mat.mean_value = mean_value_rgb;
 
 % Max position
@@ -144,7 +152,7 @@ separation_filter = (mean_value_rep >= threshold * max_mean_value_rep);
 for w = 1:n_wavelengths
     position_w_rep = repmat(stats_mat.mean_position(:, :, w, :), 1, 1, n_wavelengths, 1);
     separation = position_w_rep - stats_mat.mean_position;
-    separation_distance = dot(separation, separation, 2);
+    separation_distance = sqrt(dot(separation, separation, 2));
     separation_distance = separation_distance +...
         repmat(stats_mat.radius(:, :, w, :), 1, 1, n_wavelengths, 1) +...
         stats_mat.radius;
@@ -153,19 +161,26 @@ for w = 1:n_wavelengths
     separation_distance = max(separation_distance, [], 3);
     radii_mat = max(radii_mat, separation_distance);
 end
-radius_rgb = squeeze(permute(radii_mat, [1, 2, 5, 4, 3]));
+radius_rgb = radii_mat / 2;
+radius_rgb = reshape(...
+    permute(radius_rgb, [1, 2, 5, 4, 3]),...
+    size(radius_rgb, 1), size(radius_rgb, 2),...
+    size(radius_rgb, 5), size(radius_rgb, 4)...
+);
 stats_rgb_mat.radius = radius_rgb;
 
 % Split back into a structure array
-stats_rgb_cell = cell(n_names, n_points, n_channels, n_depths);
-for i = 1:n_names
-    stats_mat_i = stats_rgb_mat.(names{i});
+names_rgb = fieldnames(stats_rgb_mat);
+n_names_rgb = length(names_rgb);
+stats_rgb_cell = cell(n_names_rgb, n_points, n_channels, n_depths);
+for i = 1:n_names_rgb
+    stats_mat_i = stats_rgb_mat.(names_rgb{i});
     stats_cell_i = mat2cell(...
         stats_mat_i, ones(n_points, 1), size(stats_mat_i, 2), ones(n_channels, 1), ones(n_depths, 1)...
     );
     stats_cell_i = reshape(stats_cell_i, 1, n_points, n_channels, n_depths);
     stats_rgb_cell(i, :, :, :) = stats_cell_i;
 end
-stats_rgb = cell2struct(stats_rgb_cell, names, 1);
+stats_rgb = cell2struct(stats_rgb_cell, names_rgb, 1);
 
 end

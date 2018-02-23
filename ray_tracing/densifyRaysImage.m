@@ -48,8 +48,9 @@ function [ I, mask ] = densifyRaysImage(...
 %
 % image_sampling -- Image resolution
 %   The number of pixels at which to sample in the domain specified by
-%   `image_bounds`. `image_sampling` is a two-element vector containing the
-%   image height, and width, respectively, measured in pixels.
+%   `image_bounds`. `image_sampling` is a two-element integer vector
+%   containing the image height, and width, respectively, measured in
+%   pixels.
 %
 % verbose -- Debugging flag
 %   If true, graphical output will be generated for debugging purposes.
@@ -87,44 +88,52 @@ else
     verbose = false;
 end
 
-n_rays = length(ray_irradiance);
-
 % Plot the input data
 if verbose
     figure
-    triplot(dt_out);
     hold on
+    % Camera sensor
+    surf(...
+        [image_bounds(2), image_bounds(2) + image_bounds(3); image_bounds(2), image_bounds(2) + image_bounds(3)],...
+        [image_bounds(1) + image_bounds(4), image_bounds(1) + image_bounds(4); image_bounds(1), image_bounds(1)],...
+        [0, 0; 0, 0],...
+        'EdgeColor', 'k', 'FaceAlpha', 0.4, 'FaceColor', 'g' ...
+    );
     scatter(...
         image_position(:, 1),...
         image_position(:, 2),...
         [], ray_irradiance, 'filled'...
     )
+    hold off
     xlabel('X');
     ylabel('Y');
     c = colorbar;
     c.Label.String = 'Exit ray irradiance';
     title('Intersection points with the image')
-    hold off
 end
 
 % Convert world coordinates to pixel indices
-image_position_px =[
+image_position_px = round([
     image_sampling(2) * ...
     (image_position(:, 1) - image_bounds(1)) / image_bounds(3),...
     image_sampling(1) * ...
     (image_bounds(2) + image_bounds(4) - image_position(:, 2)) / image_bounds(4)
-    ];
+    ]);
+image_position_px = image_position_px(...
+    image_position_px(:, 1) >= 1 & image_position_px(:, 1) <= image_sampling(2) &...
+    image_position_px(:, 2) >= 1 & image_position_px(:, 2) <= image_sampling(1), :...
+    );
 image_position_px = sub2ind(image_sampling, image_position_px(:, 2), image_position_px(:, 1));
 
 % Generate the image
 I = zeros(image_sampling);
-for i = 1:n_rays
+for i = 1:length(image_position_px)
     I(image_position_px(i)) = I(image_position_px(i)) + ray_irradiance(i);
 end
 
 if verbose
     figure
-    surf(X, Y, I, 'EdgeColor', 'none');
+    imagesc(I);
     colorbar
     xlabel('X');
     ylabel('Y');

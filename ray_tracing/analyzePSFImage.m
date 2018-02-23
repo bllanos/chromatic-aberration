@@ -80,48 +80,69 @@ function [ stats ] = analyzePSFImage( psf_image, image_bounds, mask, varargin )
 nargoutchk(1, 1);
 narginchk(3, 4);
 
-% Create the input required by 'analyzePSF()'
 image_width_px = size(psf_image, 2);
 image_height_px = size(psf_image, 1);
 
 image_position_ind = find(mask);
 n_points = length(image_position_ind);
-mask(image_position_ind) = 1:n_points;
 [image_position_row, image_position_col] = ind2sub(...
     [image_height_px, image_width_px], image_position_ind...
     );
 
+% Create an image used to determine adjacency between pixels
+index_image = nan(image_height_px, image_width_px);
+convex_hull_indices = convhull([image_position_row, image_position_col]);
+convhull_mask = roipoly(...
+    index_image, image_position_col(convex_hull_indices), image_position_row(convex_hull_indices)...
+);
+index_image(convhull_mask) = 0;
+index_image(image_position_ind) = 1:n_points;
+
 image_position = [...
-    image_bounds(1) +...
-        (image_position_col - 0.5) * image_bounds(3) / image_width_px,...
-    image_bounds(2) +...
-        ( - image_position_row + 0.5) * image_bounds(4) / image_height_px...
+    image_bounds(1) + ((image_position_col - 0.5) * image_bounds(3) / image_width_px),...
+    image_bounds(2) + ((image_height_px - image_position_row + 0.5) * image_bounds(4) / image_height_px)...
   ];
 
 psf_values = psf_image(image_position_ind);
 
 % Use an 8-neighbour adjacency configuration
-v_adj_matrix = [
-    image_position_row - 1, image_position_col;
-    image_position_row, image_position_col - 1;
-    image_position_row - 1, image_position_col -1;
+n_neighbors = 8;
+v_adj_ind = [
+    image_position_row - 1, image_position_col    ;
+    image_position_row    , image_position_col - 1;
+    image_position_row - 1, image_position_col - 1;
     image_position_row + 1, image_position_col - 1;
     image_position_row - 1, image_position_col + 1;
-    image_position_row + 1, image_position_col;
-    image_position_row, image_position_col + 1;
+    image_position_row + 1, image_position_col    ;
+    image_position_row    , image_position_col + 1;
     image_position_row + 1, image_position_col + 1
     ];
-v_adj_matrix(...
-    v_adj_matrix(:, 1) < 1 || v_adj_matrix(:, 1) > image_height_px ||...
-    v_adj_matrix(:, 2) < 1 || v_adj_matrix(:, 2) > image_width_px...
+v_adj_ind(...
+    v_adj_ind(:, 1) < 1 | v_adj_ind(:, 1) > image_height_px, 1 ...
     ) = nan;
-v_adj_matrix = sub2ind([image_height_px, image_width_px], v_adj_matrix(:, 1), v_adj_matrix(:, 2));
-v_adj_matrix = reshape(v_adj_matrix, [], 8);
+v_adj_ind(...
+    v_adj_ind(:, 2) < 1 | v_adj_ind(:, 2) > image_width_px, 2 ...
+    ) = nan;
+v_adj_ind = sub2ind([image_height_px, image_width_px], v_adj_ind(:, 1), v_adj_ind(:, 2));
+v_adj_ind = reshape(v_adj_ind, [], n_neighbors);
+
+v_adj_mapped = nan(size(v_adj_ind));
+v_adj_ind_filter = isfinite(v_adj_ind);
+v_adj_mapped(v_adj_ind_filter) = index_image(v_adj_ind(v_adj_ind_filter));
 
 v_adj = cell(n_points, 1);
+n_neighbors_max = min(n_points - 1, n_neighbors);
 for i = 1:n_points
-    v_adj_i = v_adj_matrix(i, :);
-    v_adj{i} = mask(v_adj_i(isfinite(v_adj_i)));
+    v_adj_mapped_i = v_adj_mapped(i, :);
+    if any(v_adj_mapped_i == 0)
+        % Just find the 8 nearest-neighbours
+        distances_sq_i = image_position - repmat(image_position(i, :), n_points, 1);
+        distances_sq_i = dot(distances_sq_i, distances_sq_i, 2);
+        [~, sorting_map] = sort(distances_sq_i);
+        v_adj{i} = sorting_map(2:(n_neighbors_max + 1));
+    else
+        v_adj{i} = v_adj_mapped_i(isfinite(v_adj_mapped_i));
+    end
 end
 
 stats = analyzePSF( psf_values, image_position, v_adj, varargin{:} );

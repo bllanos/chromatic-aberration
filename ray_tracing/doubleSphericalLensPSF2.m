@@ -364,7 +364,7 @@ for j = 1:n_depths
         
         for c = 1:n_channels
             stats_real_rgb(i, c, j) = analyzePSFImage(...
-                I_color_ji, image_bounds, I_color_ji_mask, verbose_psf_analysis...
+                I_color_ji(:, :, c), image_bounds, I_color_ji_mask, verbose_psf_analysis...
             );
         end
         
@@ -379,7 +379,7 @@ for j = 1:n_depths
             image(...
                 [image_bounds(1), image_bounds(1) + image_bounds(3)],...
                 [image_bounds(2) + image_bounds(4), image_bounds(2)],...
-                I_color_ji...
+                I_color_ji / max(max(max(I_color_ji)))...
                 );
             ax.YDir = 'normal';
             xlabel('X');
@@ -405,7 +405,7 @@ for j = 1:n_depths
 end
 
 % Visualize the results, for each depth
-if request_images
+if I_color_output_requested || display_all_psf_each_depth
     if normalize_color_images_globally
         I_color = I_color ./ max(max(max(max(I_color))));
     else
@@ -434,8 +434,8 @@ if request_images
                 mean_position_ideal = vertcat(stats_ideal_rgb(:, c, j).mean_position);
                 scatter(mean_position_ideal(:, 1), mean_position_ideal(:, 2), [], color_fmts{c}, 'o');
                 scatter(mean_position_real(:, 1), mean_position_real(:, 2), [], color_fmts{c}, '.');
-                legend_strings{c} = sprintf('Thick lens formula, %s channel', color_names{c});
-                legend_strings{n_channels + c} = sprintf('Raytracing centroids, %s channel', color_names{c});
+                legend_strings{2 * c - 1} = sprintf('Thick lens formula, %s channel', color_names{c});
+                legend_strings{2 * c} = sprintf('Raytracing centroids, %s channel', color_names{c});
             end
             legend(legend_strings);
             title(sprintf(...

@@ -507,14 +507,14 @@ if request_images
             xlabel('X');
             ylabel('Y');
             hold on
-            legend_strings = cell(k * 2, 1);
+            legend_strings = cell(n_ior_lens * 2, 1);
             for k = 1:n_ior_lens
                 mean_position_real = vertcat(stats_real(:, k, j).mean_position);
                 mean_position_ideal = vertcat(stats_ideal(:, k, j).mean_position);
                 scatter(mean_position_ideal(:, 1), mean_position_ideal(:, 2), [], wavelengths_to_rgb(k, :), 'o');
                 scatter(mean_position_real(:, 1), mean_position_real(:, 2), [], wavelengths_to_rgb(k, :), '.');
-                legend_strings{k} = sprintf('Thick lens formula, \\lambda = %g nm', wavelengths(k));
-                legend_strings{n_ior_lens + k} = sprintf('Raytracing centroids, \\lambda = %g nm', wavelengths(k));
+                legend_strings{2 * k - 1} = sprintf('Thick lens formula, \\lambda = %g nm', wavelengths(k));
+                legend_strings{2 * k} = sprintf('Raytracing centroids, \\lambda = %g nm', wavelengths(k));
             end
             legend(legend_strings);
             title(sprintf(...
