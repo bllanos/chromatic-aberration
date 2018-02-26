@@ -12,7 +12,7 @@ function [qe] = sonyQuantumEfficiency(lambda)
 % ## Input Arguments
 %
 % lambda -- Wavelengths
-%   A vector containing wavelengths of light
+%   A vector containing wavelengths of light, measured in nanometres
 %
 % ## Output Arguments
 %
@@ -27,6 +27,9 @@ function [qe] = sonyQuantumEfficiency(lambda)
 % Supervised by Dr. Y.H. Yang
 % University of Alberta, Department of Computing Science
 % File created February 23, 2018
+
+nargoutchk(1, 1);
+narginchk(1, 1);
 
 I = imread('../FL3_GE_50S5C_quantumEfficiencyData.png');
 

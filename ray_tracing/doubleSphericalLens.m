@@ -83,6 +83,11 @@ function [ ...
 %   - The foreshortening of the ray emitted from the lens onto the image
 %     plane.
 %
+%   The following effects are ignored:
+%   - Attenuation of light with distance travelled within the lens
+%   - The dependence of lens internal transmittance on wavelength
+%   - Multiple reflections
+%
 %   Ray irradiances are not equal to image intensities, because the change
 %   in ray density, between the front aperture and the image plane, is not
 %   taken into account. Rather, the image intensity (irradiance) is the sum
