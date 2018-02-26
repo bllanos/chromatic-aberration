@@ -34,61 +34,70 @@ lens_params.axial_thickness = 5.30;
 lens_params.radius_front = 40.42;
 lens_params.radius_back = lens_params.radius_front;
 
-ray_params.n_incident_rays = 250;
-ray_params.sample_random = false;
+ray_params.n_incident_rays = 500000;
+ray_params.sample_random = true;
 ray_params.ior_environment = 1.0;
 
 % #### Index of refraction
 % The focal length specification wavelength is 587.6 nm
-% At this wavelength, N-BK7 glass has a refractive index of 1.51680
-% (https://www.pgo-online.com/intl/katalog/BK7.html)
-% The refractive index at 480.0 nm is 1.52283
-% The refractive index at 546.1 nm is 1.51872
-% The refractive index at 643.8 nm is 1.51472
-lens_params.ior_lens = [1.51472, 1.51680, 1.51872, 1.52283]; % Red, Green, Green, Blue
+% The lens is made of SCHOTT N-BK7 glass
+
+% Constants for SCHOTT N-BK7 glass retrieved from the SCHOTT glass
+% datasheet provided at
+% https://refractiveindex.info/?shelf=glass&book=BK7&page=SCHOTT
+sellmeierConstants.B_1 = 1.03961212;
+sellmeierConstants.B_2 = 0.231792344;
+sellmeierConstants.B_3 = 1.01046945;
+sellmeierConstants.C_1 = 0.00600069867;
+sellmeierConstants.C_2 = 0.0200179144;
+sellmeierConstants.C_3 = 103.560653;
+
+lens_params.wavelengths = linspace(300, 1100, 1000);
+lens_params.ior_lens = sellmeierDispersion(lens_params.wavelengths, sellmeierConstants);
 
 % Index of the wavelength/index of refraction to be used to position the
 % image plane
-ior_lens_reference_index = 2; % Corresponds roughly to the green channel
-reference_channel_index = 2;
-
-% Wavelength values corresponding to indices of refraction (for display
-% purposes only)
-lens_params.wavelengths = [643.8, 587.6, 546.1, 480.0];
+[~, ior_lens_reference_index] = min(abs(lens_params.wavelengths - 587.6));
 
 % Obtained using the quantum efficiencies presented in
 % '/home/llanos/GoogleDrive/ThesisResearch/Equipment/FLEA3/20170508_FL3_GE_EMVA_Imaging Performance Specification.pdf'
 % Image sensor: Sony ICX655, 2/3", Color (page 19)
-lens_params.wavelengths_to_rgb = [
-    0.38, 0.04, 0;
-    0.12, 0.35, 0;
-    0.03, 0.52, 0.04;
-    0, 0.17, 0.44
-    ];
+lens_params.wavelengths_to_rgb = sonyQuantumEfficiency(lens_params.wavelengths);
+
 % Normalize, for improved colour saturation
 lens_params.wavelengths_to_rgb = lens_params.wavelengths_to_rgb ./...
     max(max(lens_params.wavelengths_to_rgb));
 
 % ### Ray interpolation parameters
-image_params.image_sampling = [600, 400];
-% From '/home/llanos/GoogleDrive/ThesisResearch/Equipment/FLEA3/20170508_FL3_GE_EMVA_Imaging Performance Specification.pdf'
-% Image sensor: Sony ICX655, 2/3", Color (page 19)
-image_min_x = -(2/3 * 25.4) / 2;
-image_min_y = image_min_x;
-image_width = 2/3 * 25.4;
-image_height = image_width;
+image_params.image_sampling = [2048, 2448];
+% Pixel size for the Sony ICX655 sensor is 3.45 micrometres
+% (https://www.edmundoptics.com/resources/application-notes/imaging/pixel-sizes-and-optics/)
+pixel_size = 3.45e-3; % millimetres
+image_min_x = -image_params.image_sampling(2) * pixel_size / 2;
+image_min_y = -image_params.image_sampling(1) * pixel_size / 2;
+image_width = image_params.image_sampling(2) * pixel_size;
+image_height = image_params.image_sampling(1) * pixel_size;
 image_params.image_bounds = [image_min_x, image_min_y, image_width, image_height];
 image_params.normalize_color_images_globally = false;
 image_params.intensity_threshold = 0.1;
 
 % ## Scene setup
-scene_params.theta_min = deg2rad(1);
-scene_params.theta_max = deg2rad(5);
-scene_params.n_lights = [3 2];
+scene_params.theta_min = deg2rad(0.1);
+scene_params.theta_max = deg2rad(1);
+scene_params.n_lights = [9 9];
 scene_params.light_distance_factor_focused = 2;
 scene_params.light_distance_factor_larger = [4, 2];
 scene_params.light_distance_factor_smaller = [1.5, 2];
 scene_params.preserve_angle_over_depths = true;
+
+% ## Data analysis parameters
+color_names = {'Red', 'Green', 'Blue'};
+colors_to_rgb = [
+    1, 0, 0;
+    0, 1, 0;
+    0, 0, 1
+    ];
+reference_channel_index = 2;
 
 % ## Debugging Flags
 plot_light_positions = true;
@@ -97,14 +106,14 @@ doubleSphericalLensPSF2Verbose.verbose_ray_tracing = false;
 doubleSphericalLensPSF2Verbose.verbose_ray_interpolation = false;
 doubleSphericalLensPSF2Verbose.verbose_psf_analysis = false;
 doubleSphericalLensPSF2Verbose.display_each_psf = false;
-doubleSphericalLensPSF2Verbose.display_each_psf_rgb = false;
+doubleSphericalLensPSF2Verbose.display_each_psf_rgb = true;
 doubleSphericalLensPSF2Verbose.display_all_psf_each_depth = true;
 doubleSphericalLensPSF2Verbose.display_summary = false;
 
 verbose_aberration_ideal = false;
 verbose_aberration_real = true;
-radialChromaticAberrationVerbose.display_raw_values = true;
-radialChromaticAberrationVerbose.display_raw_disparity = true;
+radialChromaticAberrationVerbose.display_raw_values = false;
+radialChromaticAberrationVerbose.display_raw_disparity = false;
 radialChromaticAberrationVerbose.display_stats_splines = true;
 radialChromaticAberrationVerbose.display_spline_differences = true;
 radialChromaticAberrationVerbose.filter = struct(...
@@ -128,7 +137,7 @@ lens_params_scene.ior_lens = lens_params.ior_lens(ior_lens_reference_index);
 %% Run the simulation
 
 [...
-    stats_real, stats_ideal,  I_color, I...
+    stats_real, stats_ideal,  I_color...
 ] = doubleSphericalLensPSF2(...
     lens_params, ray_params, image_params, X_lights, z_film, lights_filter,...
     depth_factors, doubleSphericalLensPSF2Verbose...
@@ -143,13 +152,6 @@ x_fields = struct(...
     'max_value', 'max_position',...
     'radius', 'mean_position'...
 );
-
-color_names = {'Red', 'Green', 'Blue'};
-colors_to_rgb = [
-    1, 0, 0;
-    0, 1, 0;
-    0, 0, 1
-    ];
 
 if verbose_aberration_ideal
     [...

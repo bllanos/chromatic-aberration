@@ -125,6 +125,12 @@ image_position_px = image_position_px(...
     );
 image_position_px = sub2ind(image_sampling, image_position_px(:, 2), image_position_px(:, 1));
 
+if size(image_position_px, 1) == 0
+    warning('No rays intersected the image area of the sensor plane.')
+elseif size(image_position_px, 1) < size(image_position, 1)
+    warning('Not all rays intersected the image area of the sensor plane.')
+end
+
 % Generate the image
 I = zeros(image_sampling);
 for i = 1:length(image_position_px)
