@@ -26,12 +26,10 @@
 
 % ### Lens parameters
 % Based on
-% '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20170613_SimpleLenses_EdmundOptics/25mmDiameter40mmFLUncoatedDoubleConvexLens_prnt_45296.pdf'
-% and
-% '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20170613_SimpleLenses_EdmundOptics/25mmDiameter40mmFLUncoatedDoubleConvexLens.pdf'
-lens_params.lens_radius = 25 / 2;
-lens_params.axial_thickness = 5.30;
-lens_params.radius_front = 40.42;
+% '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180226_SmallFLLenses_EdmundOptics/3mmDiameter4dot5mmFLUncoatedDoubleConvexLens_prnt_32022.pdf'
+lens_params.lens_radius = 3 / 2;
+lens_params.axial_thickness = 2;
+lens_params.radius_front = 4.29;
 lens_params.radius_back = lens_params.radius_front;
 
 ray_params.n_incident_rays = 500000;
@@ -82,12 +80,12 @@ image_params.normalize_color_images_globally = false;
 image_params.intensity_threshold = 0.1;
 
 % ## Scene setup
-scene_params.theta_min = deg2rad(0.1);
-scene_params.theta_max = deg2rad(1);
-scene_params.n_lights = [9 9];
+scene_params.theta_min = deg2rad(0);
+scene_params.theta_max = deg2rad(20);
+scene_params.n_lights = [5 5];
 scene_params.light_distance_factor_focused = 2;
-scene_params.light_distance_factor_larger = [4, 2];
-scene_params.light_distance_factor_smaller = [1.5, 2];
+scene_params.light_distance_factor_larger = [4, 10];
+scene_params.light_distance_factor_smaller = [1.5, 9];
 scene_params.preserve_angle_over_depths = true;
 
 % ## Data analysis parameters
