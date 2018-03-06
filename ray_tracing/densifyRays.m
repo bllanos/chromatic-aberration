@@ -143,6 +143,8 @@ function [ image_irradiance, v_adj, image_spline, I ] = densifyRays(...
 %   sparse image irradiances. Therefore, if `scatteredInterpolant()` was
 %   also used in this function, the interpolant should be passed to
 %   'analyzePSF()' to save computation time.
+% - This function assumes a perfect sensor: No cross-talk between pixels,
+%   bloom, or rolling shutter effects
 %
 % See also doubleSphericalLens, sphereSection, refract, tpaps, delaunayTriangulation, neighborVertices2, analyzePSF
 

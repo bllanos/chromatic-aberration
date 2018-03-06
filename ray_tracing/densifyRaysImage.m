@@ -72,6 +72,10 @@ function [ I, mask ] = densifyRaysImage(...
 %   A binary image describing which pixels in the image received any
 %   incident rays.
 %
+% ## Notes
+% - This function assumes a perfect sensor: No cross-talk between pixels,
+%   bloom, or rolling shutter effects
+%
 % See also doubleSphericalLens, analyzePSF
 
 % Bernard Llanos

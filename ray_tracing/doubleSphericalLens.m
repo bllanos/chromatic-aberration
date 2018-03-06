@@ -87,6 +87,8 @@ function [ ...
 %   - Attenuation of light with distance travelled within the lens
 %   - The dependence of lens internal transmittance on wavelength
 %   - Multiple reflections
+%   - Interference effects when multiple light paths coincide on the image
+%     plane.
 %
 %   Ray irradiances are not equal to image intensities, because the change
 %   in ray density, between the front aperture and the image plane, is not
