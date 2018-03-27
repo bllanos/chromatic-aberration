@@ -181,7 +181,7 @@ function [...
 %   vectors in `stats(:, reference_wavelength_index, :).(name)` (positive),
 %   or in the opposite direction (negative).
 %
-% See also doubleSphericalLensPSF, analyzePSF, tpaps
+% See also doubleSphericalLensPSF, analyzePSF, statsToDisparity, tpaps
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -194,11 +194,6 @@ narginchk(5, 8);
 sz = size(stats);
 n_points = sz(1);
 n_wavelengths = sz(2);
-if length(sz) < 3
-    n_depths = 1;
-else
-    n_depths = sz(3);
-end
 
 if ~isempty(varargin)
     if length(varargin) ~= 3
@@ -207,19 +202,19 @@ if ~isempty(varargin)
         wavelengths = varargin{1};
         have_wavelength_names = iscell(wavelengths);
         wavelengths_to_rgb = varargin{2};
-        n_points_all_depths = n_points * n_depths;
-        zeros_plot = zeros(n_points_all_depths, 1);
         verbose = varargin{3};
         verbose_filter = verbose.filter;
-        display_raw_values = verbose.display_raw_values;
-        display_raw_disparity = verbose.display_raw_disparity;
+        statsToDisparityVerbose.filter = verbose_filter;
+        statsToDisparityVerbose.display_raw_values = verbose.display_raw_values;
+        statsToDisparityVerbose.display_raw_disparity = verbose.display_raw_disparity;
         display_stats_splines = verbose.display_stats_splines;
         display_spline_differences = verbose.display_spline_differences;
     end
 else
     verbose_filter = struct();
-    display_raw_values = false;
-    display_raw_disparity = false;
+    statsToDisparityVerbose.filter = verbose_filter;
+    statsToDisparityVerbose.display_raw_values = false;
+    statsToDisparityVerbose.display_raw_disparity = false;
     display_stats_splines = false;
     display_spline_differences = false;
 end
@@ -228,19 +223,27 @@ names = fieldnames(stats);
 n_names = length(names);
 
 % Preliminary processing
-stats_cell = struct2cell(stats);
-for i = 1:n_names
-    stats_cell_i = squeeze(stats_cell(i, :, :, :));
-    stats_cell_i = reshape(stats_cell_i, n_points, 1, n_wavelengths, n_depths);
-    stats_mat_i = cell2mat(stats_cell_i);
-    stats_mat.(names{i}) = stats_mat_i;
-end
-
 z_adjusted = z - reference_z;
 z_adjusted = repelem(z_adjusted, n_points);
 if size(z_adjusted, 1) > size(z_adjusted, 2)
     z_adjusted = z_adjusted.';
 end
+
+% Calculate disparity vectors
+if statsToDisparityVerbose.display_raw_values || statsToDisparityVerbose.display_raw_disparity
+    statsToDisparity_varargin = {
+        z, reference_z, x_fields, wavelengths, wavelengths_to_rgb,...
+        statsToDisparityVerbose...
+        };
+else
+    statsToDisparity_varargin = {};
+end
+[...
+    disparity_raw, disparity_raw_radial, stats_mat...
+] = statsToDisparity(...
+    stats, reference_wavelength_index,...
+    statsToDisparity_varargin{:}...
+);
 
 for i = 1:n_names
     name_i = names{i};
@@ -252,164 +255,10 @@ for i = 1:n_names
     name_display_x = replace(name_x, '_', '\_');
 
     stats_mat_i = stats_mat.(name_i);
-    stats_reference_i = repmat(...
-        stats_mat_i(:, :, reference_wavelength_index, :),...
-        1, 1, n_wavelengths, 1 ...
-    );
-    disparity_raw_i = stats_mat_i - stats_reference_i;
-    disparity_raw_i_radial = sqrt(dot(disparity_raw_i, disparity_raw_i, 2));
-    disparity_raw_i_radial_signs = sign(dot(stats_reference_i, disparity_raw_i, 2));
-    disparity_raw_i_radial_signs(disparity_raw_i_radial_signs == 0) = 1;
-    disparity_raw_i_radial = disparity_raw_i_radial .* disparity_raw_i_radial_signs;
+    disparity_raw_i = disparity_raw.(name_i);
+    disparity_raw_i_radial = disparity_raw_radial.(name_i);
     
     stats_mat_x = stats_mat.(name_x);
-    
-    dimensionality_i = size(disparity_raw_i, 2);
-    dimensionality_x = size(stats_mat_x, 2);
-    
-    if verbose_filter_i && dimensionality_i <= 2 && dimensionality_x <= 2
-        
-        stats_mat_i_3D = reshape(permute(stats_mat_i, [1, 4, 2, 3]), [], dimensionality_i, n_wavelengths);
-        stats_mat_x_3D = reshape(permute(stats_mat_x, [1, 4, 2, 3]), [], dimensionality_x, n_wavelengths);
-        disparity_raw_i_3D = reshape(permute(disparity_raw_i, [1, 4, 2, 3]), [], dimensionality_i, n_wavelengths);
-        
-        if display_raw_values
-            figure
-            hold on
-            legend_strings = cell(n_wavelengths, 1);
-            for k = 1:n_wavelengths
-                if dimensionality_x == 1
-                    y_plot = zeros_plot;
-                else
-                    y_plot = stats_mat_x_3D(:, 2, k);
-                end
-                if dimensionality_i == 1
-                    v_plot = zeros_plot;
-                else
-                    v_plot = stats_mat_i_3D(:, 2, k);
-                end
-                
-                quiver3(...
-                    stats_mat_x_3D(:, 1, reference_wavelength_index),...
-                    y_plot,...
-                    z_adjusted.',...
-                    stats_mat_i_3D(:, 1, k),...
-                    v_plot,...
-                    zeros_plot,...
-                    'Color', wavelengths_to_rgb(k, :), 'AutoScale', 'on'...
-                    );
-                if have_wavelength_names
-                    legend_strings{k} = sprintf(...
-                        '%s channel',...
-                        wavelengths{k}...
-                        );
-                else
-                    legend_strings{k} = sprintf(...
-                        '\\lambda = %g nm',...
-                        wavelengths(k)...
-                        );
-                end
-            end
-            legend(legend_strings);
-            title(sprintf(...
-                'Values of ''%s'' plotted as (autoscaled) arrows at values of ''%s''',...
-                name_display_i, name_display_x...
-            ))
-            if dimensionality_x == 2
-                xlabel(sprintf('%s_x', name_display_x));
-                ylabel(sprintf('%s_y', name_display_x));
-                zlabel('Depth')
-            elseif dimensionality_x == 1
-                xlabel(sprintf('%s', name_display_x));
-                zlabel('Depth')
-            end
-            hold off
-        end
-        
-        if display_raw_disparity
-            figure
-            hold on
-            legend_strings = cell(n_wavelengths * 2 - 1, 1);
-            for k = 1:n_wavelengths
-                if dimensionality_x == 1
-                    y_plot = zeros_plot;
-                else
-                    y_plot = stats_mat_x_3D(:, 2, k);
-                end
-
-                scatter3(...
-                    stats_mat_x_3D(:, 1, k), y_plot,...
-                    z_adjusted, [], wavelengths_to_rgb(k, :), 'o'...
-                );
-                
-                if have_wavelength_names
-                    legend_strings{k} = sprintf(...
-                        '''%s'' for %s channel',...
-                        name_display_x, wavelengths{k}...
-                        );
-                else
-                    legend_strings{k} = sprintf(...
-                        '''%s'' for \\lambda = %g nm',...
-                        name_display_x, wavelengths(k)...
-                        );
-                end
-            end
-            k_legend = 1;
-            for k = 1:n_wavelengths
-                if k ~= reference_wavelength_index
-                    if dimensionality_x == 1
-                        y_plot = zeros_plot;
-                    else
-                        y_plot = stats_mat_x_3D(:, 2, reference_wavelength_index);
-                    end
-                    if dimensionality_i == 1
-                        v_plot = zeros_plot;
-                    else
-                        v_plot = disparity_raw_i_3D(:, 2, k);
-                    end
-
-                    quiver3(...
-                        stats_mat_x_3D(:, 1, reference_wavelength_index),...
-                        y_plot,...
-                        z_adjusted.',...
-                        disparity_raw_i_3D(:, 1, k),...
-                        v_plot,...
-                        zeros_plot,...
-                        'Color', wavelengths_to_rgb(k, :), 'AutoScale', 'off'...
-                    );
-                    if have_wavelength_names
-                        legend_strings{n_wavelengths + k_legend} = sprintf(...
-                            'Aberration of ''%s'' for %s channel',...
-                            name_display_i, wavelengths{k}...
-                        );
-                    else
-                        legend_strings{n_wavelengths + k_legend} = sprintf(...
-                            'Aberration of ''%s'' for \\lambda = %g nm',...
-                            name_display_i, wavelengths(k)...
-                        );
-                    end
-                    k_legend = k_legend + 1;
-                end
-            end
-            legend(legend_strings);
-            title(sprintf(...
-                'Aberrations of ''%s'' at values of ''%s''',...
-                name_display_i, name_display_x...
-            ))
-            if dimensionality_x == 2
-                xlabel(sprintf('%s_x', name_display_x));
-                ylabel(sprintf('%s_y', name_display_x));
-                zlabel('Depth')
-            elseif dimensionality_x == 1
-                xlabel(sprintf('%s', name_display_x));
-                zlabel('Depth')
-            end
-            hold off
-        end
-    elseif verbose_filter_i
-        warning('`radialChromaticAberration` cannot produce a visualization of statistics with more than two dimensions.');
-    end
-
     stats_mat_i_radial = sqrt(dot(stats_mat_i, stats_mat_i, 2));
     stats_reference_x_radial = sqrt(dot(...
         stats_mat_x(:, :, reference_wavelength_index, :),...
