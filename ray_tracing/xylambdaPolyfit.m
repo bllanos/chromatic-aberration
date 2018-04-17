@@ -115,12 +115,12 @@ function [ polyfun ] = xylambdaPolyfit(...
     end
 
     function mse = crossvalfun(x_train, x_test)
-        n_train = size(x_train, 1);
         x_train_3d = repmat(permute(x_train(:, 1:3), [1 3 2]), 1, n_powers, 1);
-        powers_3d = repmat(powers, n_train, 1, 1);
+        powers_3d = repmat(powers, size(x_train, 1), 1, 1);
         vandermonde_matrix_train = prod(x_train_3d .^ powers_3d, 3);
         
         x_test_3d = repmat(permute(x_test(:, 1:3), [1 3 2]), 1, n_powers, 1);
+        powers_3d = repmat(powers, size(x_test, 1), 1, 1);
         vandermonde_matrix_test = prod(x_test_3d .^ powers_3d, 3);
         
         y_est_x = predfun(vandermonde_matrix_train, x_train(:, 4), vandermonde_matrix_test);
@@ -142,9 +142,7 @@ else
 end
 
 sz = size(X);
-n_points = sz(1) * sz(2);
-n_lambda = sz(3);
-if n_lambda ~= length(lambda)
+if sz(2) ~= length(lambda)
     error('Expected as many wavelengths in `lambda` as the size of `X` in the third dimension.')
 end
 n_spatial_dim = 2;
@@ -153,9 +151,16 @@ if length(X(1).(x_field)) ~= n_spatial_dim
 end
 
 X_unpacked = permute(reshape([X.(x_field)], n_spatial_dim, []), [2 1]);
-lambda_unpacked = repelem(lambda, n_points, 1);
+if size(lambda, 2) > size(lambda, 1)
+    lambda = lambda.';
+end
+lambda_unpacked = repelem(lambda, sz(1), 1);
 disparity_unpacked = permute(reshape([disparity.(disparity_field)], 2, []), [2 1]);
 dataset = [X_unpacked lambda_unpacked disparity_unpacked];
+
+% Filter NaN values
+dataset = dataset(all(isfinite(dataset), 2), :);
+n_points = size(dataset, 1);
 
 [dataset_normalized_points, T_points] = normalizePointsPCA([dataset(:, 1:3), ones(n_points, 1)]);
 [dataset_normalized_disparity, T_disparity] = normalizePointsPCA([dataset(:, 4:5), ones(n_points, 1)]);
@@ -165,14 +170,14 @@ dataset_normalized = [dataset_normalized_points(:, 1:(end-1)) dataset_normalized
 % Use cross validation to find the optimal polynomial complexity
 powers = [];
 n_powers = [];
-mean_mse = zeros(max_degree_xy, max_degree_lambda);
-std_mse = zeros(max_degree_xy, max_degree_lambda);
+mean_mse = zeros(max_degree_xy + 1, max_degree_lambda + 1);
+std_mse = zeros(max_degree_xy + 1, max_degree_lambda + 1);
 for deg_xy = 0:max_degree_xy
     for deg_lambda = 0:max_degree_lambda
         [powers, n_powers] = powersarray(deg_xy, deg_lambda);
-        mse = crossval(crossvalfun, dataset_normalized); % Defaults to 10-fold cross validation
-        mean_mse(deg_xy, deg_lambda)  = mean(mse);
-        std_mse(deg_xy, deg_lambda)  = std(mse);
+        mse = crossval(@crossvalfun, dataset_normalized); % Defaults to 10-fold cross validation
+        mean_mse(deg_xy + 1, deg_lambda + 1)  = mean(mse);
+        std_mse(deg_xy + 1, deg_lambda + 1)  = std(mse);
     end
 end
 
@@ -181,19 +186,20 @@ end
 % one standard error above the error of the best model."
 %
 % From T. Hastie and R. Tibshirani, 2009.
-min_mse = min(min(mean_mse));
-choice_mse = mean_mse - std_mse - min_mse;
+[min_mse, ind] = min(mean_mse(:));
+min_mse_std = std_mse(ind);
+choice_mse = mean_mse - min_mse_std - min_mse;
 possible_choices = (choice_mse <= 0);
-[deg_xy_matrix, deg_lambda_matrix] = meshgrid(0:max_degree_xy, 0:max_degree_lambda);
+[deg_xy_matrix, deg_lambda_matrix] = ndgrid(0:max_degree_xy, 0:max_degree_lambda);
 % Prioritize simplicity with respect to wavelength
 deg_lambda_best = min(deg_lambda_matrix(possible_choices));
-possible_choices = possible_choices & (deg_lambda_matrix == deg_lambda_best);
-degree_xy_best = min(deg_xy_matrix(possible_choices));
+possible_choices_lambda_best = possible_choices & (deg_lambda_matrix == deg_lambda_best);
+degree_xy_best = min(deg_xy_matrix(possible_choices_lambda_best));
 
 % Visualization
 if verbose
-    mse_minus1std = mean_mse - std_mse;
-    mse_plus1std = mean_mse + std_mse;
+    mse_minus1std = mean_mse - min_mse_std;
+    mse_plus1std = mean_mse + min_mse_std;
     figure;
     hold on
     s1 = surf(deg_xy_matrix, deg_lambda_matrix, mse_minus1std);
@@ -202,14 +208,15 @@ if verbose
     set(s2, 'EdgeColor', 'none', 'FaceAlpha', 0.4);
     s3 = surf(deg_xy_matrix, deg_lambda_matrix, mean_mse);
     set(s3, 'EdgeColor', 'none', 'FaceAlpha', 0.8);
-    set(s3, 'CData', repmat(possible_choices, 1, 1, 3), 'FaceColor', 'texturemap');
-    scatter(degree_xy_best, deg_lambda_best, mean_mse(degree_xy_best, deg_lambda_best), 'filled')
+    cdata = double(cat(3, ~possible_choices, possible_choices, zeros(size(possible_choices))));
+    set(s3, 'CData', cdata, 'FaceColor', 'texturemap');
+    scatter3(degree_xy_best, deg_lambda_best, mean_mse(degree_xy_best + 1, deg_lambda_best + 1), 'filled')
     hold off
     xlabel('Spatial polynomial degree')
     ylabel('Wavelength polynomial degree')
     zlabel('Mean square error')
     legend('-1 std', '+1 std', 'Mean square error', 'Selected model');
-    title('Cross validation error estimates, with "1 std. dev. from min" models in white');
+    title('Cross validation error estimates, with "1 std. dev. from min" models in green');
 end
 
 % Fit the final model using all data
