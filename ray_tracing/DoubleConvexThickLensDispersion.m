@@ -55,7 +55,7 @@ sellmeierConstants.C_1 = 0.00600069867;
 sellmeierConstants.C_2 = 0.0200179144;
 sellmeierConstants.C_3 = 103.560653;
 
-lens_params.wavelengths = linspace(300, 1100, 1000);
+lens_params.wavelengths = linspace(300, 1100, 10);
 lens_params.ior_lens = sellmeierDispersion(lens_params.wavelengths, sellmeierConstants);
 
 % Index of the wavelength/index of refraction to be used to position the
@@ -92,7 +92,7 @@ request_spline_smoothing = true;
 % ## Scene setup
 scene_params.theta_min = deg2rad(0);
 scene_params.theta_max = deg2rad(20);
-scene_params.n_lights = [51 51];
+scene_params.n_lights = [5 5];
 scene_params.light_distance_factor_focused = 10;
 scene_params.light_distance_factor_larger = [4, 0];
 scene_params.light_distance_factor_smaller = [1.5, 0];
@@ -100,6 +100,8 @@ scene_params.preserve_angle_over_depths = true;
 
 % ## Dispersion model generation
 dispersion_fieldname = 'max_position';
+max_degree_xy = min(12, min(scene_params.n_lights) - 1);
+max_degree_lambda = min(12, length(lens_params.wavelengths) - 1);
 
 % ## Debugging Flags
 plot_light_positions = true;
@@ -112,8 +114,10 @@ doubleSphericalLensPSFVerbose.display_all_psf_each_ior = false;
 doubleSphericalLensPSFVerbose.display_all_psf_each_depth = false;
 doubleSphericalLensPSFVerbose.display_summary = true;
 
-dispersionModelVerbose.display_raw_values = true;
-dispersionModelVerbose.display_raw_disparity = true;
+statsToDisparityVerbose.display_raw_values = true;
+statsToDisparityVerbose.display_raw_disparity = true;
+
+xylambdaPolyfitVerbose = true;
 
 %% Create light sources
 
@@ -134,4 +138,22 @@ lens_params_scene.ior_lens = lens_params.ior_lens(ior_lens_reference_index);
     request_spline_smoothing, depth_factors, doubleSphericalLensPSFVerbose...
 );
 
-%% Analyze the results
+%% Fit a dispersion model to the results
+
+x_fields = struct(...
+    'mean_position', 'mean_position',...
+    'mean_value', 'mean_position',...
+    'max_position', 'max_position',...
+    'max_value', 'max_position',...
+    'radius', 'mean_position'...
+);
+
+disparity_raw_real = statsToDisparity(...
+    stats_real, ior_lens_reference_index,...
+    depth_factors, 0, x_fields, lens_params.wavelengths, lens_params.wavelengths_to_rgb, statsToDisparityVerbose...
+);
+
+polyfun_real = xylambdaPolyfit(...
+    stats_real, dispersion_fieldname, max_degree_xy, disparity_raw_real, dispersion_fieldname,...
+    lens_params.wavelengths, max_degree_lambda, xylambdaPolyfitVerbose...
+);
