@@ -1,6 +1,6 @@
 %% Ray tracing simulation of an image dispersion function
-% Obtain a dispersion model corresponding to a thick (biconvex) lens and an
-% image sensor.
+% Obtain a dispersion model corresponding to a thick (biconvex) lens
+% projecting an image onto a sensor.
 %
 % ## Usage
 % Modify the parameters, the first code section below, then run.
@@ -11,13 +11,16 @@
 %
 % ## Output
 %
-% TODO
+% Graphical output from 'plotXYLambdaPolyfit()'.
 %
 % ## References
 % - Baek, S.-H., Kim, I., Gutierrez, D., & Kim, M. H. (2017). "Compact
 %   single-shot hyperspectral imaging using a prism." ACM Transactions
 %   on Graphics (Proc. SIGGRAPH Asia 2017), 36(6), 217:1–12.
 %   doi:10.1145/3130800.3130896
+% - V. Rudakova and P. Monasse. "Precise Correction of Lateral Chromatic
+%   Aberration in Images," Lecture Notes on Computer Science, 8333, pp.
+%   12–22, 2014.
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -55,7 +58,7 @@ sellmeierConstants.C_1 = 0.00600069867;
 sellmeierConstants.C_2 = 0.0200179144;
 sellmeierConstants.C_3 = 103.560653;
 
-lens_params.wavelengths = linspace(300, 1100, 10);
+lens_params.wavelengths = linspace(300, 1100, 12);
 lens_params.ior_lens = sellmeierDispersion(lens_params.wavelengths, sellmeierConstants);
 
 % Index of the wavelength/index of refraction to be used to position the
@@ -92,7 +95,7 @@ request_spline_smoothing = true;
 % ## Scene setup
 scene_params.theta_min = deg2rad(0);
 scene_params.theta_max = deg2rad(20);
-scene_params.n_lights = [11 11];
+scene_params.n_lights = [13 13];
 scene_params.light_distance_factor_focused = 10;
 scene_params.light_distance_factor_larger = [4, 0];
 scene_params.light_distance_factor_smaller = [1.5, 0];
