@@ -162,10 +162,15 @@ dataset = [X_unpacked lambda_unpacked disparity_unpacked];
 dataset = dataset(all(isfinite(dataset), 2), :);
 n_points = size(dataset, 1);
 
-[dataset_normalized_points, T_points] = normalizePointsPCA([dataset(:, 1:3), ones(n_points, 1)]);
+[dataset_normalized_points, T_points] = normalizePointsPCA([dataset(:, 1:2), ones(n_points, 1)]);
+[dataset_normalized_lambda, T_lambda] = normalizePointsPCA([dataset(:, 3), ones(n_points, 1)]);
 [dataset_normalized_disparity, T_disparity] = normalizePointsPCA([dataset(:, 4:5), ones(n_points, 1)]);
 T_disparity_inv = inv(T_disparity);
-dataset_normalized = [dataset_normalized_points(:, 1:(end-1)) dataset_normalized_disparity(:, 1:(end-1))];
+dataset_normalized = [
+    dataset_normalized_points(:, 1:(end-1)),...
+    dataset_normalized_lambda(:, 1:(end-1)),...
+    dataset_normalized_disparity(:, 1:(end-1))
+    ];
 
 % Use cross validation to find the optimal polynomial complexity
 powers = [];
@@ -230,8 +235,13 @@ coeff_y = vandermonde_matrix_final \ dataset_normalized(:, 5);
     function disparity = modelfun(xylambda)
         % Apply and reverse normalization
         n = size(xylambda, 1);
-        xylambda_normalized = (T_points * [xylambda, ones(n, 1)].').';
-        xylambda_normalized_3d = repmat(permute(xylambda_normalized(:, 1:3), [1 3 2]), 1, n_powers, 1);
+        xy_normalized = (T_points * [xylambda(:, 1:2), ones(n, 1)].').';
+        lambda_normalized = (T_lambda * [xylambda(:, 3), ones(n, 1)].').';
+        xylambda_normalized = [
+            xy_normalized(:, 1:(end - 1)),...
+            lambda_normalized(:, 1:(end - 1)),...
+            ];
+        xylambda_normalized_3d = repmat(permute(xylambda_normalized, [1 3 2]), 1, n_powers, 1);
         powers_rep = repmat(powers_final, n, 1, 1);
         vandermonde_matrix = prod(xylambda_normalized_3d .^ powers_rep, 3);
 

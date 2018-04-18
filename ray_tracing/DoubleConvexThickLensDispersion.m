@@ -37,7 +37,7 @@ lens_params.axial_thickness = 2;
 lens_params.radius_front = 4.29;
 lens_params.radius_back = lens_params.radius_front;
 
-ray_params.n_incident_rays = 500;
+ray_params.n_incident_rays = 1000;
 ray_params.sample_random = true;
 ray_params.ior_environment = 1.0;
 
@@ -55,7 +55,7 @@ sellmeierConstants.C_1 = 0.00600069867;
 sellmeierConstants.C_2 = 0.0200179144;
 sellmeierConstants.C_3 = 103.560653;
 
-lens_params.wavelengths = linspace(300, 1100, 10);
+lens_params.wavelengths = linspace(300, 1100, 20);
 lens_params.ior_lens = sellmeierDispersion(lens_params.wavelengths, sellmeierConstants);
 
 % Index of the wavelength/index of refraction to be used to position the
@@ -92,7 +92,7 @@ request_spline_smoothing = true;
 % ## Scene setup
 scene_params.theta_min = deg2rad(0);
 scene_params.theta_max = deg2rad(20);
-scene_params.n_lights = [5 5];
+scene_params.n_lights = [11 11];
 scene_params.light_distance_factor_focused = 10;
 scene_params.light_distance_factor_larger = [4, 0];
 scene_params.light_distance_factor_smaller = [1.5, 0];
