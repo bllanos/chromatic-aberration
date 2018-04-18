@@ -35,20 +35,20 @@ function [ polyfun ] = xylambdaPolyfit(...
 %   the set of permissible polynomial models.
 %
 % disparity -- Data for the dependent variables
-%   A structure array of the form of the 'stats_real' or 'stats_ideal'
-%   output arguments of 'doubleSphericalLensPSF()'. 'disparity' must have a
-%   size of 1 in its third dimension.
+%   A structure of the form of the 'disparity_raw' output argument of
+%   'statsToDisparity()'. 'disparity.(name)' must have a size of 1 in its
+%   fourth dimension.
 %
 % disparity_field -- Dependent variables field
 %   A character vector containing the fieldname in 'disparity' of the data
-%   to use for the first dependent variables of the polynomial model.
-%   `disparity(i, j, 1).(disparity_field)` is expected to be a two-element
+%   to use for the dependent variables of the polynomial model.
+%   `disparity.(disparity_field)(i, :, j)` is expected to be a two-element
 %   row vector, containing the values of the two dependent variables.
 %
 % lambda -- Data for the third independent variable
 %   A vector of values of the third independent variable. `lambda(j)` is
 %   the value corresponding to the data in `X(:, j, 1).(x_field)` and
-%   `disparity(:, j, 1).(disparity_field)`.
+%   `disparity(:, :, j).(disparity_field)`.
 %
 % max_degree_lambda -- Maximum degree for the third independent variable
 %   The maximum degree of the third independent variable in the set of
@@ -231,8 +231,9 @@ coeff_y = vandermonde_matrix_final \ dataset_normalized(:, 5);
         % Apply and reverse normalization
         n = size(xylambda, 1);
         xylambda_normalized = (T_points * [xylambda, ones(n, 1)].').';
+        xylambda_normalized_3d = repmat(permute(xylambda_normalized(:, 1:3), [1 3 2]), 1, n_powers, 1);
         powers_rep = repmat(powers_final, n, 1, 1);
-        vandermonde_matrix = prod(xylambda_normalized(:, 1:(end-1)) .^ powers_rep, 3);
+        vandermonde_matrix = prod(xylambda_normalized_3d .^ powers_rep, 3);
 
         disparity_x_normalized = vandermonde_matrix * coeff_x;
         disparity_y_normalized = vandermonde_matrix * coeff_y;
