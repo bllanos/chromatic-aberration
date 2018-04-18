@@ -37,7 +37,7 @@ lens_params.axial_thickness = 2;
 lens_params.radius_front = 4.29;
 lens_params.radius_back = lens_params.radius_front;
 
-ray_params.n_incident_rays = 1000;
+ray_params.n_incident_rays = 500;
 ray_params.sample_random = true;
 ray_params.ior_environment = 1.0;
 
@@ -55,7 +55,7 @@ sellmeierConstants.C_1 = 0.00600069867;
 sellmeierConstants.C_2 = 0.0200179144;
 sellmeierConstants.C_3 = 103.560653;
 
-lens_params.wavelengths = linspace(300, 1100, 20);
+lens_params.wavelengths = linspace(300, 1100, 10);
 lens_params.ior_lens = sellmeierDispersion(lens_params.wavelengths, sellmeierConstants);
 
 % Index of the wavelength/index of refraction to be used to position the
@@ -127,7 +127,7 @@ statsToDisparityVerbose.filter = struct(...
 xylambdaPolyfitVerbose = true;
 plot_polynomial_model = true;
 if plot_polynomial_model
-    n_lambda_plot = min(5, length(lens_params.wavelengths));
+    n_lambda_plot = min(20, length(lens_params.wavelengths));
 end
 
 %% Create light sources
@@ -168,6 +168,8 @@ polyfun_real = xylambdaPolyfit(...
     stats_real, dispersion_fieldname, max_degree_xy, disparity_raw_real, dispersion_fieldname,...
     lens_params.wavelengths, max_degree_lambda, xylambdaPolyfitVerbose...
 );
+
+%% Visualization
 
 if plot_polynomial_model
     plotXYLambdaPolyfit(...

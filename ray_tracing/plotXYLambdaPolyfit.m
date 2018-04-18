@@ -83,7 +83,7 @@ xy_sampling = [200 200];
 for k = 1:n_lambda_plot
     X_unpacked = permute(reshape([X(:, lambda_samples_ind(k)).(x_field)], n_spatial_dim, []), [2 1]);
     lambda_unpacked = repelem(lambda_samples(k), sz(1), 1);
-    disparity_unpacked = permute(reshape(disparity.(disparity_field)(:, :, lambda_samples_ind(k)), 2, []), [2 1]);
+    disparity_unpacked = disparity.(disparity_field)(:, :, lambda_samples_ind(k));
     dataset = [X_unpacked lambda_unpacked disparity_unpacked];
 
     % Filter NaN values
@@ -129,7 +129,7 @@ end
 % Single plot for all wavelengths
 X_unpacked = permute(reshape([X.(x_field)], n_spatial_dim, []), [2 1]);
 lambda_unpacked = repelem(lambda, sz(1));
-disparity_unpacked = permute(reshape(disparity.(disparity_field), 2, []), [2 1]);
+disparity_unpacked = reshape(permute(disparity.(disparity_field), [1 3 2]), [], 2);
 if size(lambda_unpacked, 1) < size(lambda_unpacked, 2)
     lambda_unpacked = lambda_unpacked.';
 end

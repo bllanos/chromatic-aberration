@@ -155,7 +155,7 @@ if size(lambda, 2) > size(lambda, 1)
     lambda = lambda.';
 end
 lambda_unpacked = repelem(lambda, sz(1), 1);
-disparity_unpacked = permute(reshape([disparity.(disparity_field)], 2, []), [2 1]);
+disparity_unpacked = reshape(permute(disparity.(disparity_field), [1 3 2]), [], 2);
 dataset = [X_unpacked lambda_unpacked disparity_unpacked];
 
 % Filter NaN values
