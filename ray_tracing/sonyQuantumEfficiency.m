@@ -31,7 +31,7 @@ function [qe] = sonyQuantumEfficiency(lambda)
 nargoutchk(1, 1);
 narginchk(1, 1);
 
-I = imread('../FL3_GE_50S5C_quantumEfficiencyData.png');
+I = imread('FL3_GE_50S5C_quantumEfficiencyData.png');
 
 % Pixel coordinates of the plot axes
 x_axis_lim = [99, 931];

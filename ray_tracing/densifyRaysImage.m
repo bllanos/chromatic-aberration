@@ -1,4 +1,4 @@
-function [ I, mask ] = densifyRaysImage(...
+function [ I, mask, image_bounds_out ] = densifyRaysImage(...
     image_position, ray_irradiance, image_bounds, image_sampling, varargin...
 )
 % DENSIFYRAYSIMAGE  Generate an image from discrete samples of ray irradiance
@@ -9,6 +9,9 @@ function [ I, mask ] = densifyRaysImage(...
 % )
 % [ I, mask ] = densifyRaysImage(...
 %     image_position, ray_irradiance, image_bounds, image_sampling [, verbose]...
+% )
+% [ I, mask, image_bounds ] = densifyRaysImage(...
+%     image_position, ray_irradiance, [], image_sampling [, verbose]...
 % )
 %
 % ## Description
@@ -21,6 +24,10 @@ function [ I, mask ] = densifyRaysImage(...
 % )
 %   Additionally returns a mask representing the nonzero portions of the
 %   image
+% [ I, mask, image_bounds ] = densifyRaysImage(...
+%     image_position, ray_irradiance, [], image_sampling [, verbose]...
+% )
+%   Additionally returns the image domain in world coordinates
 %
 % ## Input Arguments
 %
@@ -45,6 +52,9 @@ function [ I, mask ] = densifyRaysImage(...
 %   2 - The y-coordinate of the bottom left corner of the image
 %   3 - The width of the image (size in the x-dimension)
 %   4 - The height of the image (size in the y-dimension)
+%
+%   If 'image_bounds' is empty, it will be calculated by this function (see
+%   output arguments below).
 %
 % image_sampling -- Image resolution
 %   The number of pixels at which to sample in the domain specified by
@@ -72,6 +82,14 @@ function [ I, mask ] = densifyRaysImage(...
 %   A binary image describing which pixels in the image received any
 %   incident rays.
 %
+% image_bounds -- Image domain
+%   If the 'image_bounds' input argument is non-empty, the output argument
+%   is a copy of the input argument.
+%
+%   If the 'image_bounds' input argument is empty, the output argument is
+%   calculated to be the smallest axis-aligned rectangle containing the
+%   rays on the image plane.
+%
 % ## Notes
 % - This function assumes a perfect sensor: No cross-talk between pixels,
 %   bloom, or rolling shutter effects
@@ -83,7 +101,7 @@ function [ I, mask ] = densifyRaysImage(...
 % University of Alberta, Department of Computing Science
 % File created August 18, 2017
 
-nargoutchk(1, 2);
+nargoutchk(1, 3);
 narginchk(4, 5);
 
 if ~isempty(varargin)
@@ -91,6 +109,21 @@ if ~isempty(varargin)
 else
     verbose = false;
 end
+
+if isempty(image_bounds)
+    image_bounds = [
+        min(image_position(:, 1)),...
+        min(image_position(:, 2)),...
+        max(image_position(:, 1)),...
+        max(image_position(:, 2))...
+        ];
+    % Pad a little, to protect against numerical error
+    pixel_width = (image_bounds(3) - image_bounds(1)) / image_sampling(2);
+    pixel_height = (image_bounds(4) - image_bounds(2)) / image_sampling(2);
+    image_bounds = image_bounds + [ -pixel_width -pixel_height pixel_width pixel_height];
+    image_bounds(3:4) = image_bounds(3:4) - image_bounds(1:2);
+end
+image_bounds_out = image_bounds;
 
 % Plot the input data
 if verbose
