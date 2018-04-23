@@ -119,7 +119,7 @@ if isempty(image_bounds)
         ];
     % Pad a little, to protect against numerical error
     pixel_width = (image_bounds(3) - image_bounds(1)) / image_sampling(2);
-    pixel_height = (image_bounds(4) - image_bounds(2)) / image_sampling(2);
+    pixel_height = (image_bounds(4) - image_bounds(2)) / image_sampling(1);
     image_bounds = image_bounds + [ -pixel_width -pixel_height pixel_width pixel_height];
     image_bounds(3:4) = image_bounds(3:4) - image_bounds(1:2);
 end

@@ -77,7 +77,7 @@ lens_params.wavelengths_to_rgb = lens_params.wavelengths_to_rgb ./...
     max(max(lens_params.wavelengths_to_rgb));
 
 % ### Ray interpolation parameters
-image_sampling = [500, 500];
+image_sampling = [250, 250];
 
 % ## Scene setup
 scene_params.theta_min = deg2rad(0);
@@ -88,8 +88,13 @@ scene_params.light_distance_factor_larger = [4, 0];
 scene_params.light_distance_factor_smaller = [1.5, 0];
 scene_params.preserve_angle_over_depths = true;
 
+% ## Disk fitting
+bayer_pattern = [];
+findAndFitDisks_options.bright_disks = true;
+findAndFitDisks_options.mask_as_threshold = true;
+
 % ## Dispersion model generation
-dispersion_fieldname = 'disk_position';
+dispersion_fieldname = 'center';
 max_degree_xy = min(12, min(scene_params.n_lights) - 1);
 max_degree_lambda = min(12, length(lens_params.wavelengths) - 1);
 
@@ -98,7 +103,11 @@ plot_light_positions = false;
 
 verbose_ray_tracing = false;
 verbose_ray_interpolation = false;
-display_each_psf = false;
+display_each_psf = true;
+
+findAndFitDisksVerbose.verbose_disk_search = true;
+findAndFitDisksVerbose.verbose_disk_fitting = true;
+findAndFitDisksVerbose.display_final_centers = true;
 
 statsToDisparityVerbose.display_raw_values = true;
 statsToDisparityVerbose.display_raw_disparity = true;
@@ -131,6 +140,7 @@ n_ior_lens = length(lens_params.ior_lens);
 X_lights = X_lights(lights_filter, :);
 n_lights = size(X_lights, 1);
 
+centers = struct('center', cell(n_lights, n_ior_lens));
 for i = 1:n_lights
     ray_params.source_position = X_lights(i, :);
     for k = 1:n_ior_lens
@@ -166,5 +176,10 @@ for i = 1:n_lights
                 ));
             axis equal
         end
+        
+        centers(i, k) = findAndFitDisks(...
+            I, mask, bayer_pattern, image_bounds, findAndFitDisks_options,...
+            findAndFitDisksVerbose...
+        );
     end
 end
