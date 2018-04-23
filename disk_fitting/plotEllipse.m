@@ -50,7 +50,7 @@ else
     figure(fg_out);
 end
 
-n_samples = 200;
+n_samples = 20;
 angle = linspace(-pi, pi, n_samples).';
 p = [cos(angle), sin(angle), ones(n_samples, 1)];
 p_ellipse = (ellipse_to_world * p.').';

@@ -90,6 +90,7 @@ scene_params.preserve_angle_over_depths = true;
 
 % ## Disk fitting
 bayer_pattern = [];
+cleanup_radius = 2; % Morphological operations radius for 'findAndFitDisks()'
 findAndFitDisks_options.bright_disks = true;
 findAndFitDisks_options.mask_as_threshold = true;
 
@@ -106,13 +107,13 @@ verbose_ray_interpolation = false;
 display_each_psf = true;
 
 findAndFitDisksVerbose.verbose_disk_search = true;
-findAndFitDisksVerbose.verbose_disk_fitting = true;
+findAndFitDisksVerbose.verbose_disk_refinement = true;
 findAndFitDisksVerbose.display_final_centers = true;
 
 statsToDisparityVerbose.display_raw_values = true;
 statsToDisparityVerbose.display_raw_disparity = true;
 statsToDisparityVerbose.filter = struct(...
-    'disk_position', true...
+    dispersion_fieldname, true...
 );
 
 xylambdaPolyfitVerbose = true;
@@ -140,7 +141,7 @@ n_ior_lens = length(lens_params.ior_lens);
 X_lights = X_lights(lights_filter, :);
 n_lights = size(X_lights, 1);
 
-centers = struct('center', cell(n_lights, n_ior_lens));
+centers = struct(dispersion_fieldname, cell(n_lights, n_ior_lens));
 for i = 1:n_lights
     ray_params.source_position = X_lights(i, :);
     for k = 1:n_ior_lens
@@ -178,7 +179,7 @@ for i = 1:n_lights
         end
         
         centers(i, k) = findAndFitDisks(...
-            I, mask, bayer_pattern, image_bounds, findAndFitDisks_options,...
+            I, mask, bayer_pattern, image_bounds, cleanup_radius, findAndFitDisks_options,...
             findAndFitDisksVerbose...
         );
     end
