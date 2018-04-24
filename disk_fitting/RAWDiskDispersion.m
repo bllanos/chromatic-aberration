@@ -80,9 +80,11 @@ end
 % ## Disk fitting
 bayer_pattern = 'gbrg'; % Colour-filter pattern
 cleanup_radius = 2; % Morphological operations radius for 'findAndFitDisks()'
+k0 = 0.1; % `k0` argument of 'findAndFitDisks()'
 findAndFitDisks_options.bright_disks = true;
 findAndFitDisks_options.mask_as_threshold = false;
 findAndFitDisks_options.group_channels = ~rgb_mode;
+findAndFitDisks_options.area_outlier_threshold = 2;
 
 % ## Dispersion model generation
 dispersion_fieldname = 'center';
@@ -137,7 +139,7 @@ for i = 1:n_images
     
     I = imread(filenames{1});
     centers_i = findAndFitDisks(...
-        I, mask, bayer_pattern, [], cleanup_radius,...
+        I, mask, bayer_pattern, [], cleanup_radius, k0,...
         findAndFitDisks_options, findAndFitDisksVerbose...
     );
     if ~rgb_mode
@@ -149,7 +151,7 @@ for i = 1:n_images
             for j = 2:n_wavelengths
                 I = imread(filenames{j});
                 centers_i(:, j) = findAndFitDisks(...
-                    I, mask, bayer_pattern, [], cleanup_radius,...
+                    I, mask, bayer_pattern, [], cleanup_radius, k0,...
                     findAndFitDisks_options, findAndFitDisksVerbose...
                 );
             end

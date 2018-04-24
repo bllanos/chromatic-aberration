@@ -1,14 +1,16 @@
-function [ centers ] = findAndFitDisks(I, mask, align, image_bounds, radius, options, varargin)
+function [ centers ] = findAndFitDisks(...
+    I, mask, align, image_bounds, radius, k0, options, varargin...
+)
 % FINDANDFITDISKS  Fit ellipses to blobs in an image
 %
 % ## Syntax
 % centers = findAndFitDisks(...
-%   I, mask, align, image_bounds, radius, options [, verbose]...
+%   I, mask, align, image_bounds, radius, k0, options [, verbose]...
 % )
 %
 % ## Description
 % centers = findAndFitDisks(...
-%   I, mask, align, image_bounds, radius, options [, verbose]...
+%   I, mask, align, image_bounds, radius, k0, options [, verbose]...
 % )
 %   Returns the centres of ellipses fit to blobs in the image
 %
@@ -53,6 +55,12 @@ function [ centers ] = findAndFitDisks(I, mask, align, image_bounds, radius, opt
 %   morphological operations to clean up an intermediate binary image prior
 %   to identifying blobs.
 %
+% k0 -- Initial guess for disk boundary width
+%   The approximate width in pixels of the transition region between the
+%   intensity of blobs in the image with the intensity of their
+%   surroundings. A higher value should be passed if the sensor resolution
+%   is higher, or if the blobs are more defocused.
+%
 % options -- Data processing options
 %   A structure with the following fields:
 %   - mask_as_threshold: If `true`, `mask` will be used as the initial
@@ -61,6 +69,9 @@ function [ centers ] = findAndFitDisks(I, mask, align, image_bounds, radius, opt
 %   - bright_disks: If `true`, the function will look for bright blobs on a
 %     dark background. Otherwise, the function will look for dark blobs on
 %     a bright background.
+%   - area_outlier_threshold: The number of sample standard deviations away
+%     from the mean blob area for blobs to be rejected as outliers. If
+%     zero, no filtering based on area will be performed.
 %   - group_channels: If `true`, all colour channels in a mosaicked image
 %     will be processed together. This situation corresponds to a colour
 %     camera taking a picture through a narrowband colour filter, for
@@ -97,6 +108,7 @@ function [ centers ] = findAndFitDisks(I, mask, align, image_bounds, radius, opt
 %   of a mosaicked image, but the binary images from all colour channels
 %   are merged prior to blob detection.
 % - Initial ellipses are fit using the MATLAB 'regionprops()' function.
+% - Ellipses are refined using 'refineDisk()'
 %
 % See also refineDisk, ellipseModel, plotEllipse, regionprops, otsuthresh, imopen, imclose
 
@@ -181,8 +193,7 @@ end
 
 ellipse_stats = regionprops(...
     bw_fused_cleaned,...
-    'Centroid', 'MajorAxisLength', 'MinorAxisLength', 'Orientation',...
-    'BoundingBox'...
+    'Centroid', 'MajorAxisLength', 'MinorAxisLength', 'Orientation', 'Area'...
     );
 n_ellipses = length(ellipse_stats);
 if verbose_disk_search
@@ -201,6 +212,31 @@ if verbose_disk_search
     end
     title('Initial detected ellipses')
 end
+centers_matrix_initial = vertcat(ellipse_stats.Centroid);
+
+% Filter out outlier ellipses based on size
+% Reference: MATLAB documentation page on "Inconsistent Data"
+if n_ellipses > 2 && options.area_outlier_threshold > 0
+    areas = [ellipse_stats.Area];
+    sigma_areas = std(areas);
+    if sigma_areas > 0
+        mu_areas = mean(areas);
+        mu_areas_rep = repmat(mu_areas, n_ellipses, 1);
+        sigma_areas_rep = repmat(sigma_areas, n_ellipses, 1);
+        inliers_filter = (abs(areas - mu_areas_rep) < options.area_outlier_threshold * sigma_areas_rep);
+        ellipse_stats = ellipse_stats(inliers_filter);
+        centers_matrix_initial = centers_matrix_initial(inliers_filter, :);
+        n_ellipses = length(ellipse_stats);
+    end
+    
+    if verbose_disk_search
+        figure(fg);
+        hold on
+        scatter(centers_matrix_initial(:, 1), centers_matrix_initial(:, 2), 'go');
+        hold off
+        title('Initial detected ellipses (blue), filtered by area (green)')
+    end
+end
 
 % For later conversion from pixel to world coordinates
 convert_coordinates = ~isempty(image_bounds);
@@ -209,21 +245,70 @@ if convert_coordinates
     pixel_height = (image_bounds(4) - image_bounds(2)) / image_height;
 end
 
-% Improve disk fitting
+%% Refine disk fitting
 split_channels = (~single_channel && ~options.group_channels);
 if split_channels
     n_channels_out = n_channels;
+    channel_masks_refinement = cell(n_channels_out, 1);
+    for c = 1:n_channels_out
+        channel_masks_refinement{c} = channel_mask(:, :, c);
+    end
 else
     n_channels_out = 1;
+    channel_masks_refinement = {channel_mask};
 end
 centers = struct('center', cell(n_ellipses, n_channels_out));
 centers_matrix = zeros(n_ellipses, 2, n_channels_out);
 
+% Initialize blob and non-blob lightnesses to be the modes of the
+% histograms of the corresponding binary regions. Perform the calculations
+% for each colour channel.
+lightness0 = zeros(n_channels, 2);
+for c = 1:n_channels
+    for b = 1:2
+        if b == 1
+            channel_values = I(bw(:, :, c));
+        else
+            channel_values = I(~bw(:, :, c));
+        end
+        [counts_cb,edges_cb] = histcounts(channel_values);
+        [~, ind_cb] = max(counts_cb);
+        lightness0(c, b) = mean(edges_cb(ind_cb:(ind_cb + 1)));
+    end
+end
+
+% Find the average spacing between disks
+if n_ellipses > 1
+    sep_mean = 0;
+    for i = 1:n_ellipses
+        sep = centers_matrix_initial([1:(i-1), (i+1):end], :)...
+            - repmat(centers_matrix_initial(i, :), n_ellipses - 1, 1);
+        sep = sqrt(dot(sep, sep, 2));
+        sep_mean = sep_mean + min(sep);
+    end
+    r_max = (sep_mean / n_ellipses) / 2;
+else
+    r_max = Inf;
+end
+
+% Refine the disks
 for i = 1:n_ellipses
     % Assume that no colour channel has an entirely zero response in bright
     % areas of other colour channels
     for c = 1:n_channels_out
-        center_ic = ellipse_stats(i).Centroid;
+        [...
+            ~, ~, center_ic...
+        ] = refineDisk(...
+            I,...
+            channel_masks_refinement{c},...
+            [ellipse_stats(i).MajorAxisLength ellipse_stats(i).MinorAxisLength],...
+            deg2rad(ellipse_stats(i).Orientation),...
+            ellipse_stats(i).Centroid,...
+            k0,...
+            lightness0,...
+            r_max,...
+            verbose_disk_refinement...
+        );
         centers_matrix(i, :, c) = center_ic;
         if convert_coordinates
             center_ic = image_bounds(1:2) + [

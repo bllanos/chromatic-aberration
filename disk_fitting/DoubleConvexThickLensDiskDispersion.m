@@ -91,8 +91,10 @@ scene_params.preserve_angle_over_depths = true;
 % ## Disk fitting
 bayer_pattern = [];
 cleanup_radius = 2; % Morphological operations radius for 'findAndFitDisks()'
+k0 = 2; % `k0` argument of 'findAndFitDisks()'
 findAndFitDisks_options.bright_disks = true;
 findAndFitDisks_options.mask_as_threshold = true;
+findAndFitDisks_options.area_outlier_threshold = 0;
 
 % ## Dispersion model generation
 dispersion_fieldname = 'center';
@@ -179,7 +181,8 @@ for i = 1:n_lights
         end
         
         centers(i, k) = findAndFitDisks(...
-            I, mask, bayer_pattern, image_bounds, cleanup_radius, findAndFitDisks_options,...
+            I, mask, bayer_pattern, image_bounds, cleanup_radius, k0,...
+            findAndFitDisks_options,...
             findAndFitDisksVerbose...
         );
     end

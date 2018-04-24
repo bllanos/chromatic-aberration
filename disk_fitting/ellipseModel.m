@@ -70,7 +70,7 @@ function [ ellipseValueFun, ellipseBoundaryFun, ellipse_to_world ] = ellipseMode
 %   A function which accepts an n x 3 array of homogenous 2D coordinates
 %   (with the homogenous coordinate scaled to 1), and returns the lightness
 %   values of the ellipse model at those coordinates, as a column vector of
-%   length 'n'.
+%   length 'n'. The input coordinates are in "world space".
 %
 % ellipseBoundaryFun -- Ellipse boundary function
 %   A function which accepts an n x 3 array of homogenous 2D coordinates
