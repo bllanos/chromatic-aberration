@@ -118,19 +118,21 @@ function [ centers ] = findAndFitDisks(...
 % File created April 20, 2018
 
 nargoutchk(1,1);
-narginchk(6,7);
+narginchk(7,8);
 
 % Parse input arguments
 if ~isempty(varargin)
     verbose = varargin{1};
     verbose_disk_search = verbose.verbose_disk_search;
-    verbose_disk_refinement = verbose.verbose_disk_fitting;
+    verbose_disk_refinement = verbose.verbose_disk_refinement;
     display_final_centers = verbose.display_final_centers;
 else
     verbose_disk_search = false;
     verbose_disk_refinement = false;
     display_final_centers = false;
 end
+
+I = im2double(I);
 
 image_height = size(I, 1);
 image_width = size(I, 2);
@@ -217,7 +219,7 @@ centers_matrix_initial = vertcat(ellipse_stats.Centroid);
 % Filter out outlier ellipses based on size
 % Reference: MATLAB documentation page on "Inconsistent Data"
 if n_ellipses > 2 && options.area_outlier_threshold > 0
-    areas = [ellipse_stats.Area];
+    areas = vertcat(ellipse_stats.Area);
     sigma_areas = std(areas);
     if sigma_areas > 0
         mu_areas = mean(areas);
@@ -277,6 +279,15 @@ for c = 1:n_channels
     end
 end
 
+if split_channels
+    lightness0_refinement = cell(n_channels_out, 1);
+    for c = 1:n_channels_out
+        lightness0_refinement{c} = lightness0(c, :);
+    end
+else
+    lightness0_refinement = {lightness0};
+end
+
 % Find the average spacing between disks
 if n_ellipses > 1
     sep_mean = 0;
@@ -301,11 +312,11 @@ for i = 1:n_ellipses
         ] = refineDisk(...
             I,...
             channel_masks_refinement{c},...
-            [ellipse_stats(i).MajorAxisLength ellipse_stats(i).MinorAxisLength],...
+            [ellipse_stats(i).MajorAxisLength ellipse_stats(i).MinorAxisLength] / 2,...
             deg2rad(ellipse_stats(i).Orientation),...
             ellipse_stats(i).Centroid,...
             k0,...
-            lightness0,...
+            lightness0_refinement{c},...
             r_max,...
             verbose_disk_refinement...
         );

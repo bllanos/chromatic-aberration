@@ -117,9 +117,12 @@ else
 end
 
 n_channels = size(channel_mask, 3);
+if size(lightness0, 1) ~= n_channels
+    error('There should be the same number of channels in `lightness0` and `channel_mask`.');
+end
 
 % Initial Guess
-p0 = zeros(1, 8);
+p0 = zeros(1, 6 + numel(lightness0));
 if verbose
     disp('Initial guess:')
     lambda0 %#ok<NOPRT>
@@ -158,11 +161,11 @@ if isfinite(r_max)
     for i = 1:n_channels
         bounding_ind_i = bounding_ind + (i - 1) * n_px;
         filter_i = channel_mask(bounding_ind_i);
-        px_values{i} = I(bounding_ind_i(filter_i));
+        px_values{i} = I(bounding_ind(filter_i));
         px_coords{i} = bounding_coords(filter_i, :);
     end
 else
-    [bounding_coords_y, bounding_coords_x] = ind2sub([image_height, image_width], 1:n_px);
+    [bounding_coords_y, bounding_coords_x] = ind2sub([image_height, image_width], (1:n_px).');
     bounding_coords = [bounding_coords_x, bounding_coords_y, ones(n_px, 1)];
     for i = 1:n_channels
         filter_i = channel_mask(:, :, i);
@@ -180,9 +183,9 @@ n_points = sum(n_points_per_channel);
     function parseSolution( p )
         lambda = lambda0 + p(1:2);
         theta = theta0 + p(3);
-        t = t0 + p(4);
-        k = k0 + p(5);
-        lightness = lightness0 + reshape(p(6:end), n_channels, []);
+        t = t0 + p(4:5);
+        k = k0 + p(6);
+        lightness = lightness0 + reshape(p(7:end), n_channels, []);
     end
 
     function [ err ] = costFunction( p )
@@ -194,7 +197,7 @@ n_points = sum(n_points_per_channel);
                 lambda, theta, t, k, lightness(j, :), true...
             );
             ellipse_values = valueFun_j(px_coords{j});
-            err(ind:(ind + n_points_per_channel(j))) = px_values{j} - ellipse_values;
+            err(ind:(ind + n_points_per_channel(j) - 1)) = px_values{j} - ellipse_values;
             ind = ind + n_points_per_channel(j);
         end
     end
@@ -212,7 +215,7 @@ p = lsqnonlin(@costFunction, p0, [], [], options);
 parseSolution(p);
 
 if any(lambda > r_max)
-    error('Ellipse exceeded bounding radius.')
+    warning('Ellipse exceeded bounding radius.')
 end
 
 if verbose

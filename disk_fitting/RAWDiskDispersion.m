@@ -92,8 +92,8 @@ max_degree_xy = 12;
 max_degree_lambda = 12;
 
 % ## Debugging Flags
-findAndFitDisksVerbose.verbose_disk_search = true;
-findAndFitDisksVerbose.verbose_disk_refinement = true;
+findAndFitDisksVerbose.verbose_disk_search = false;
+findAndFitDisksVerbose.verbose_disk_refinement = false;
 findAndFitDisksVerbose.display_final_centers = true;
 
 statsToDisparityVerbose.display_raw_values = true;
@@ -160,4 +160,4 @@ for i = 1:n_images
     centers_cell{i} = centers_i;
 end
         
-centers = vertcat(centers_cell(:));
+centers = cell2mat(centers_cell);

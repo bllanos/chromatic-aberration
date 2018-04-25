@@ -106,11 +106,11 @@ plot_light_positions = false;
 
 verbose_ray_tracing = false;
 verbose_ray_interpolation = false;
-display_each_psf = true;
+display_each_psf = false;
 
-findAndFitDisksVerbose.verbose_disk_search = true;
-findAndFitDisksVerbose.verbose_disk_refinement = true;
-findAndFitDisksVerbose.display_final_centers = true;
+findAndFitDisksVerbose.verbose_disk_search = false;
+findAndFitDisksVerbose.verbose_disk_refinement = false;
+findAndFitDisksVerbose.display_final_centers = false;
 
 statsToDisparityVerbose.display_raw_values = true;
 statsToDisparityVerbose.display_raw_disparity = true;
