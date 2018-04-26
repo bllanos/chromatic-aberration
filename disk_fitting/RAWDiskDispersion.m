@@ -70,11 +70,16 @@ mask_threshold = 0.5;
 rgb_mode = true;
 
 if rgb_mode
-    reference_channel_index = 2;
+    bands = 1:3;
+    reference_index = 2; % Green colour channel
+    bands_to_rgb = eye(3);
 else
     % Wavelengths will be expected at the end of filenames
-    wavelengths = [];
-    wavelength_reference_index = 0;
+    bands = [];
+    reference_index = 0;
+    bands_to_rgb = sonyQuantumEfficiency(bands);
+    % Normalize, for improved colour saturation
+    bands_to_rgb = bands_to_rgb ./ max(max(bands_to_rgb));
 end
 
 % ## Disk fitting
@@ -112,10 +117,10 @@ end
 
 n_images = length(partial_filepaths);
 if ~rgb_mode
-    n_wavelengths = length(wavelengths);
+    n_wavelengths = length(bands);
     wavelength_postfixes = cell(n_wavelengths, 1);
     for j = 1:n_wavelengths
-        wavelength_postfixes{j} = num2str(wavelengths(j), '%d');
+        wavelength_postfixes{j} = num2str(bands(j), '%d');
     end
 end
 
@@ -160,4 +165,48 @@ for i = 1:n_images
     centers_cell{i} = centers_i;
 end
         
-centers = cell2mat(centers_cell);
+%% Fit a dispersion model to the results
+
+if rgb_mode
+    % Centers are already associated between colour channels
+    centers = cell2mat(centers_cell);
+else
+    % TODO
+end
+
+x_fields = struct(...
+    dispersion_fieldname, dispersion_fieldname...
+);
+
+disparity_raw_disks = statsToDisparity(...
+    centers, reference_index,...
+    1, 0, x_fields, bands, bands_to_rgb, statsToDisparityVerbose...
+);
+
+if rgb_mode
+    polyfun_disks = xylambdaPolyfit(...
+        centers, dispersion_fieldname, max_degree_xy, disparity_raw_disks, dispersion_fieldname,...
+        xylambdaPolyfitVerbose...
+    );
+else
+    polyfun_disks = xylambdaPolyfit(...
+        centers, dispersion_fieldname, max_degree_xy, disparity_raw_disks, dispersion_fieldname,...
+        bands, max_degree_lambda, xylambdaPolyfitVerbose...
+    );
+end
+
+%% Visualization
+
+if plot_polynomial_model
+    if rgb_mode
+        plotXYLambdaPolyfit(...
+            centers, dispersion_fieldname, disparity_raw_disks, dispersion_fieldname,...
+            reference_index, polyfun_disks...
+        );
+    else
+        plotXYLambdaPolyfit(...
+            centers, dispersion_fieldname, disparity_raw_disks, dispersion_fieldname,...
+            bands, bands(reference_index), n_lambda_plot, polyfun_disks...
+        );
+    end
+end

@@ -1,13 +1,14 @@
-function plotXYLambdaPolyfit(...
-    X, x_field, disparity, disparity_field,...
-    lambda, lambda_ref, n_lambda_plot, polyfun...
-)
-% PLOTXYLAMBDAPOLYFIT  Plot a polynomial model of dispersion in three variables
+function plotXYLambdaPolyfit(X, x_field, disparity, disparity_field, varargin)
+% PLOTXYLAMBDAPOLYFIT  Plot a polynomial model of dispersion in two or three variables
 %
 % ## Syntax
 % plotXYLambdaPolyfit(...
 %     X, x_field, disparity, disparity_field,...
 %     lambda, lambda_ref, n_lambda_plot, polyfun...
+% )
+% plotXYLambdaPolyfit(...
+%     X, x_field, disparity, disparity_field,...
+%     channel_ref, polyfun...
 % )
 %
 % ## Description
@@ -17,6 +18,13 @@ function plotXYLambdaPolyfit(...
 % )
 %   Creates figures for graphical comparisons of measured dispersion with a
 %   polynomial model of dispersion
+%
+% plotXYLambdaPolyfit(...
+%     X, x_field, disparity, disparity_field,...
+%     channel_ref, polyfun...
+% )
+%   Identical operation, but for dispersion measured between colour
+%   channels instead of wavelength bands
 %
 % ## Input Arguments
 %
@@ -48,16 +56,22 @@ function plotXYLambdaPolyfit(...
 %
 % lambda_ref -- Reference wavelength
 %   Dispersion vectors are calculated relative to image positions for this
-%   wavelength.
+%   wavelength. This input argument is only used for plot annotation.
 %
 % n_lambda_plot -- Wavelength sample count
 %   The number of plots to generate for data for individual wavelengths.
 %   Wavelengths will be selected from 'lambda' using a procedure which
 %   favours even spacing in the spectrum.
 %
+% channel_ref -- Reference colour channel
+%   Dispersion vectors are calculated relative to image positions for the
+%   colour channel of this index in the series of colour channels. This
+%   input argument is only used for plot annotation.
+%
 % polyfun -- Polynomial model of dispersion
 %   The 'polyfun' output argument of 'xylambdaPolyfit()', which evaluates
-%   polynomials of dispersion in X, Y, and lambda.
+%   polynomials of dispersion in X, Y, and lambda, or which evaluates a
+%   separate set of polynomials in X and Y for each colour channel.
 %
 % See also xylambdaPolyfit, statsToDisparity
 
@@ -67,20 +81,42 @@ function plotXYLambdaPolyfit(...
 % File created April 18, 2018
 
 nargoutchk(0, 0);
-narginchk(8, 8);
-
-lambda_samples = linspace(lambda(1), lambda(end), n_lambda_plot);
-lambda_samples_ind = zeros(n_lambda_plot, 1);
-for k = 1:n_lambda_plot
-    [~, lambda_samples_ind(k)] = min(abs(lambda - lambda_samples(k)));
-    lambda_samples(k) = lambda(lambda_samples_ind(k));
+narginchk(6, 8);
+if nargin == 7
+    error('Unexpected number of input arguments.')
 end
 
-% Individual plots for a sample of the wavelengths
 sz = size(X);
+channel_mode = (nargin == 6);
+if channel_mode
+    index_ref = varargin{1};
+    polyfun = varargin{2};
+    n_plot = sz(2);
+    lambda = 1:n_plot;
+else
+    lambda = varargin{1};
+    index_ref = varargin{2};
+    n_plot = varargin{3};
+    polyfun = varargin{4};
+end
+
+if channel_mode
+    lambda_samples = lambda;
+    lambda_samples_ind = 1:n_plot;
+else
+    lambda_samples = linspace(lambda(1), lambda(end), n_plot);
+    lambda_samples_ind = zeros(n_plot, 1);
+    for k = 1:n_plot
+        [~, lambda_samples_ind(k)] = min(abs(lambda - lambda_samples(k)));
+        lambda_samples(k) = lambda(lambda_samples_ind(k));
+    end
+end
+
+% Individual plots for a sample of the wavelengths, or for all colour
+% channels
 n_spatial_dim = 2;
 xy_sampling = [200 200];
-for k = 1:n_lambda_plot
+for k = 1:n_plot
     X_unpacked = permute(reshape([X(:, lambda_samples_ind(k)).(x_field)], n_spatial_dim, []), [2 1]);
     lambda_unpacked = repelem(lambda_samples(k), sz(1), 1);
     disparity_unpacked = disparity.(disparity_field)(:, :, lambda_samples_ind(k));
@@ -118,12 +154,20 @@ for k = 1:n_lambda_plot
     quiver3(dataset(:, 1), dataset(:, 2), disparity_poly_points_mag, disparity_poly_points(:, 1), disparity_poly_points(:, 2), zeros(size(disparity_poly_points_mag)), 'r');
     quiver3(dataset(:, 1), dataset(:, 2), disparity_points_mag, dataset(:, 4), dataset(:, 5), zeros(size(disparity_points_mag)), 'g');
     hold off
-    xlabel('Image x-coordinate [mm]')
-    ylabel('Image y-coordinate [mm]')
-    zlabel(sprintf('Magnitude of dispersion wrt \\lambda = %g', lambda_ref))
+    xlabel('Image x-coordinate')
+    ylabel('Image y-coordinate')
+    if channel_mode
+        zlabel(sprintf('Magnitude of dispersion wrt Channel %d', index_ref))
+    else
+        zlabel(sprintf('Magnitude of dispersion wrt \\lambda = %g', index_ref))
+    end
     %legend('Polynomial model', 'Polynomial model', 'Polynomial model', 'Measured dispersion');
     legend('Polynomial model', 'Polynomial model', 'Measured dispersion');
-    title(sprintf('Evaluation of the polynomial model of dispersion for \\lambda = %g', lambda_samples(k)));
+    if channel_mode
+        title(sprintf('Evaluation of the polynomial model of dispersion for Channel %d', lambda_samples(k)));
+    else
+        title(sprintf('Evaluation of the polynomial model of dispersion for \\lambda = %g', lambda_samples(k)));
+    end
 end
 
 % Single plot for all wavelengths
@@ -147,9 +191,13 @@ hold on
 quiver3(dataset(:, 1), dataset(:, 2), dataset(:, 3), disparity_poly_points(:, 1), disparity_poly_points(:, 2), zeros(size(disparity_poly_points, 1), 1), 'r');
 quiver3(dataset(:, 1), dataset(:, 2), dataset(:, 3), dataset(:, 4), dataset(:, 5), zeros(size(disparity_poly_points, 1), 1), 'g');
 hold off
-xlabel('Image x-coordinate [mm]')
-ylabel('Image y-coordinate [mm]')
-zlabel('Wavelength [nm]')
+xlabel('Image x-coordinate')
+ylabel('Image y-coordinate')
+if channel_mode
+    zlabel('Colour channel index')
+else
+    zlabel('Wavelength [nm]')
+end
 legend('Polynomial model', 'Measured dispersion');
 title('Evaluation of the polynomial model of dispersion');
     

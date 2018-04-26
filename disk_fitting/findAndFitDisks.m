@@ -98,7 +98,10 @@ function [ centers ] = findAndFitDisks(...
 %   `centers` has dimensions n x m, where 'n' is the number of blobs. 'm'
 %   is `1`, if `align` is empty, or if `align` is not empty, but
 %   `options.group_channels` is `true`. Otherwise, 'm' is three (for the
-%   three colour channels of an RGB image).
+%   three colour channels of an RGB image). Note that the elements in a
+%   given row of `centers` correspond, by design, to the same blob,
+%   because, prior to the refinement stage, the initial blobs are detected
+%   in binary images merged across colour channels.
 %
 % ## Algorithm
 %
@@ -243,8 +246,8 @@ end
 % For later conversion from pixel to world coordinates
 convert_coordinates = ~isempty(image_bounds);
 if convert_coordinates
-    pixel_width = (image_bounds(3) - image_bounds(1)) / image_width;
-    pixel_height = (image_bounds(4) - image_bounds(2)) / image_height;
+    pixel_width = image_bounds(3) / image_width;
+    pixel_height = image_bounds(4) / image_height;
 end
 
 %% Refine disk fitting
@@ -323,7 +326,7 @@ for i = 1:n_ellipses
         centers_matrix(i, :, c) = center_ic;
         if convert_coordinates
             center_ic = image_bounds(1:2) + [
-                pixel_width * center_ic(1);
+                pixel_width * center_ic(1),...
                 pixel_height * (image_height - center_ic(2))
                 ];
         end

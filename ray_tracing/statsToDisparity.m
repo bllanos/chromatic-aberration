@@ -121,8 +121,8 @@ function [...
 %
 % disparity_raw -- Raw disparity vectors
 %   Disparity vectors, calculated from the values in `stats`.
-%   `disparity_raw.(name)` has the same dimensions as `stats`;
-%   `disparity_raw.(name)(i, k, j)` is the displacement vector from
+%   `disparity_raw.(name)` has similar dimensions to `stats`;
+%   `disparity_raw.(name)(i, :, k, j)` is the displacement vector from
 %   `stats(i, reference_wavelength_index, j).(name)` to `stats(i, k,
 %   j).(name)`. Therefore, this disparity vector is measured for the i-th
 %   scene feature, emitting light at the k-th wavelength, and positioned at
@@ -132,14 +132,16 @@ function [...
 %   The magnitudes of the vectors in `disparity_raw`, with signs indicating
 %   if they are aligned with the corresponding vectors in `stats(:,
 %   reference_wavelength_index, :).(name)` (positive), or in the opposite
-%   direction (negative).
+%   direction (negative). The magnitudes are taken along the second
+%   dimension of `disparity_raw`, such that `disparity_raw_radial.(name)(i,
+%   1, k, j)` is the magnitude of displacement vector
+%   `disparity_raw.(name)(i, :, k, j)`.
 %
 % stats_mat -- Reformatted point spread function statistics
 %   A scalar structure version of `stats`, where each field stores an array
 %   of values. In contrast, `stats` is a structure array, where each field
 %   of each element stores a single scalar/vector value. The format of
-%   `stats_mat` is the same as the format of `disparity_raw` and
-%   `disparity_raw_radial`.
+%   `stats_mat` is the same as the format of `disparity_raw`.
 %
 % See also doubleSphericalLensPSF, analyzePSF, radialChromaticAberration,
 % tpaps
