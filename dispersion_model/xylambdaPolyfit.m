@@ -310,13 +310,13 @@ for c = 1:n_models
             xlabel('Spatial polynomial degree')
             ylabel('Wavelength polynomial degree')
             zlabel('Mean square error')
-            legend('-1 std', '+1 std', 'Mean square error', 'Selected model');
+            legend('-1 std', '+1 std', 'Mean square error (<=1 std. dev. from min in green)', 'Selected model');
         end
         
         if channel_mode
-            title(sprintf('(Channel %d) Cross validation error estimates, with "1 std. dev. from min" models in green', c));
+            title(sprintf('(Channel %d) Cross validation error estimates', c));
         else
-            title('Cross validation error estimates, with "1 std. dev. from min" models in green');
+            title('Cross validation error estimates');
         end
     end
 

@@ -60,7 +60,7 @@ sellmeierConstants.C_1 = 0.00600069867;
 sellmeierConstants.C_2 = 0.0200179144;
 sellmeierConstants.C_3 = 103.560653;
 
-lens_params.wavelengths = linspace(300, 1100, 100);
+lens_params.wavelengths = linspace(300, 1100, 10);
 lens_params.ior_lens = sellmeierDispersion(lens_params.wavelengths, sellmeierConstants);
 
 % Index of the wavelength/index of refraction to be used to position the
@@ -77,7 +77,7 @@ lens_params.wavelengths_to_rgb = lens_params.wavelengths_to_rgb ./...
     max(max(lens_params.wavelengths_to_rgb));
 
 % ### Ray interpolation parameters
-image_sampling = [250, 250];
+image_sampling = [400, 400];
 
 % ## Scene setup
 scene_params.theta_min = deg2rad(0);
