@@ -110,7 +110,7 @@ statsToDisparityVerbose.filter = struct(...
 xylambdaPolyfitVerbose = true;
 plot_polynomial_model = true;
 if plot_polynomial_model && ~rgb_mode
-    n_lambda_plot = min(20, length(lens_params.wavelengths));
+    n_lambda_plot = min(20, length(bands));
 end
 
 %% Process the images
@@ -133,6 +133,10 @@ for i = 1:n_images
     if isempty(mask_listing)
         mask = [];
     else
+        mask = imread(mask_filename);
+        if size(mask, 3) ~= 1
+            error('Expected the mask, %s, to have only one channel.')
+        end
         mask = imbinarize(imread(mask_filename), mask_threshold);
     end
     
@@ -142,24 +146,20 @@ for i = 1:n_images
         filenames = strcat(partial_filepaths(i), wavelength_postfixes, {'.'}, {ext});
     end
     
-    I = imread(filenames{1});
-    centers_i = findAndFitDisks(...
-        I, mask, bayer_pattern, [], cleanup_radius, k0,...
-        findAndFitDisks_options, findAndFitDisksVerbose...
-    );
-    if ~rgb_mode
-        if n_wavelengths > 1
-            centers_i = [
-                centers_i,...
-                struct(dispersion_fieldname, cell(size(centers_i, 1), n_wavelengths - 1))...
-            ]; %#ok<AGROW>
-            for j = 2:n_wavelengths
-                I = imread(filenames{j});
-                centers_i(:, j) = findAndFitDisks(...
-                    I, mask, bayer_pattern, [], cleanup_radius, k0,...
-                    findAndFitDisks_options, findAndFitDisksVerbose...
-                );
-            end
+    if rgb_mode
+        I = imread(filenames{1});
+        centers_i = findAndFitDisks(...
+            I, mask, bayer_pattern, [], cleanup_radius, k0,...
+            findAndFitDisks_options, findAndFitDisksVerbose...
+        );
+    else
+        centers_i = cell(n_wavelengths, 1);
+        for j = 1:n_wavelengths
+            I = imread(filenames{j});
+            centers_i{j} = findAndFitDisks(...
+                I, mask, bayer_pattern, [], cleanup_radius, k0,...
+                findAndFitDisks_options, findAndFitDisksVerbose...
+            );
         end
     end
     centers_cell{i} = centers_i;
@@ -171,7 +171,7 @@ if rgb_mode
     % Centers are already associated between colour channels
     centers = cell2mat(centers_cell);
 else
-    % TODO
+    centers = matchByVectors(centers_cell, dispersion_fieldname, reference_index);
 end
 
 x_fields = struct(...
