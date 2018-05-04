@@ -1,30 +1,34 @@
-function [ polyfun ] = xylambdaPolyfit(...
+function [ polyfun, polyfun_data ] = xylambdaPolyfit(...
     X, x_field, max_degree_xy, disparity, disparity_field, varargin...
 )
 % XYLAMBDAPOLYFIT  Fit a polynomial model in three variables
 %
 % ## Syntax
-% polyfun = xylambdaPolyfit(...
+% [ polyfun, polyfun_data ] = xylambdaPolyfit(...
 %     X, x_field, max_degree_xy, disparity, disparity_field,...
 %     lambda, max_degree_lambda [, verbose]...
 % )
-% polyfun = xylambdaPolyfit(...
+% [ polyfun, polyfun_data ] = xylambdaPolyfit(...
 %     X, x_field, max_degree_xy, disparity, disparity_field [, verbose]...
 % )
 %
 % ## Description
-% polyfun = xylambdaPolyfit(...
+% [ polyfun, polyfun_data ] = xylambdaPolyfit(...
 %     X, x_field, max_degree_xy, disparity, disparity_field,...
 %     lambda, max_degree_lambda [, verbose]...
 % )
 %   Returns a polynomial model of disparity in terms of three variables X,
 %   Y, and lambda.
 %
-% polyfun = xylambdaPolyfit(...
+% [ polyfun, polyfun_data ] = xylambdaPolyfit(...
 %     X, x_field, max_degree_xy, disparity, disparity_field [, verbose]...
 % )
 %   Returns a composite model of disparity, with one polynomial model per
 %   colour channel. Each model is in terms of the variables X and Y.
+%
+% Both invocations can optionally return the data used to construct the
+% function handle form of the model of disparity. (One to two output
+% arguments can be requested.)
 %
 % ## Input Arguments
 %
@@ -81,6 +85,44 @@ function [ polyfun ] = xylambdaPolyfit(...
 %   of the colour channels (corresponding to the indices of the second
 %   dimension of the input argument `X`).
 %
+% polyfun_data -- Polynomial model data
+%   A structure which can be used to obtain a function with the same
+%   behaviour as `polyfun` by calling `polyfun =
+%   makePolyfun(polyfun_data)`. `polyfun_data` has the following fields:
+%   - T_points: The normalization transformation applied to input spatial
+%     coordinates prior to evaluating the polynomial. A 3 x 3 matrix.
+%   - T_lambda: In the case of data for wavelengths, the normalization
+%     transformation applied to wavelengths prior to evaluating the
+%     polynomial. In the case of colour channels, this is the identity
+%     transformation. A 2 x 2 matrix.
+%   - T_disparity_inv: The inverse normalization transformation applied to
+%     the output of the polynomial to obtain disparity values. A 3 x 3
+%     matrix.
+%   - powers: A 3D array where the first dimension is of size one, the
+%     second dimension indexes different powers in the polynomial model,
+%     and the third dimension indexes independent variables (x, y,
+%     wavelength). The array contains the exponents applied to each
+%     independent variable in the polynomial model.
+%   - n_powers: The number of terms in the polynomial model
+%   - coeff_x: A vector of coefficients of the terms in the polynomial
+%     model of the first component of disparity (the x-coordinate of
+%     disparity)
+%   - coeff_y: A vector of coefficients of the terms in the polynomial
+%     model of the second component of disparity (the y-coordinate of
+%     disparity)
+%   - degree_xy: The degree of the polynomial model in each of the spatial
+%     independent variables (x, y)
+%   - degree_lambda: The degree of the polynomial model in the wavelength
+%     independent variable
+%
+%   If 'xylambdaPolyfit()' is modelling wavelengths, `polyfun_data` is a
+%   scalar structure. If 'xylambdaPolyfit()' is modelling colour
+%   channels, `polyfun_data` contains one element per colour channel, and
+%   each element has a Boolean field 'reference_channel' indicating whether
+%   or not it is the reference colour channel. The element for the
+%   reference channel has empty fields except for 'reference_channel',
+%   which has a value of `true`.
+%
 % ## Algorithm
 % This function constructs polynomials for the two dependent variables
 % having degrees from zero to max_degree_xy in each of the first two
@@ -90,8 +132,9 @@ function [ polyfun ] = xylambdaPolyfit(...
 % cross-validation. The cross-validation error estimates for the
 % polynomials for the two dependent variables are pooled.
 %
-% The input data (both the independent and dependent variables) are centered
-% and scaled using 'normalizePointsPCA()' prior to polynomial fitting.
+% The input data (both the independent and dependent variables) are
+% centered and scaled using 'normalizePointsPCA()' prior to polynomial
+% fitting.
 %
 % When modelling data for colour channels instead of wavelengths, this
 % function constructs a separate polynomial model for each colour channel.
@@ -107,7 +150,8 @@ function [ polyfun ] = xylambdaPolyfit(...
 %   Aberration in Images," Lecture Notes on Computer Science, 8333, pp.
 %   12–22, 2014.
 %
-% See also doubleSphericalLensPSF, statsToDisparity, normalizePointsPCA, crossval
+% See also doubleSphericalLensPSF, statsToDisparity, normalizePointsPCA,
+% makePolyfun, crossval
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -151,7 +195,7 @@ function [ polyfun ] = xylambdaPolyfit(...
             ) / (2 * length(y_est_x));
     end
 
-nargoutchk(1, 1);
+nargoutchk(1, 2);
 narginchk(5, 8);
 
 sz = size(X);
@@ -210,13 +254,21 @@ dataset = dataset(all(isfinite(dataset), 2), :);
 n_points = size(dataset, 1);
 
 % Create one model per colour channel, or one model for all wavelengths
-T_points = cell(n_models, 1);
-T_lambda = cell(n_models, 1);
-T_disparity_inv = cell(n_models, 1);
-powers_final = cell(n_models, 1);
-n_powers_final = cell(n_models, 1);
-coeff_x = cell(n_models, 1);
-coeff_y = cell(n_models, 1);
+polyfun_data = struct(...
+    'T_points', cell(n_models, 1),...
+    'T_lambda', cell(n_models, 1),...
+    'T_disparity_inv', cell(n_models, 1),...
+    'powers', cell(n_models, 1),...
+    'n_powers', cell(n_models, 1),...
+    'coeff_x', cell(n_models, 1),...
+    'coeff_y', cell(n_models, 1),...
+    'degree_xy', cell(n_models, 1),...
+    'degree_lambda', cell(n_models, 1)...
+);
+if channel_mode
+    [polyfun_data.reference_channel] = deal(false);
+    polyfun_data(reference_channel).reference_channel = true;
+end
 
 powers = [];
 n_powers = [];
@@ -234,15 +286,15 @@ for c = 1:n_models
     dataset_c = dataset(filter_c, :);
     n_points_c = size(dataset_c, 1);
     
-    [dataset_normalized_points, T_points{c}] = normalizePointsPCA([dataset_c(:, 1:2), ones(n_points_c, 1)]);
+    [dataset_normalized_points, polyfun_data(c).T_points] = normalizePointsPCA([dataset_c(:, 1:2), ones(n_points_c, 1)]);
     if channel_mode
         dataset_normalized_lambda = [dataset_c(:, 3), ones(n_points_c, 1)];
-        T_lambda{c} = eye(2);
+        polyfun_data(c).T_lambda = eye(2);
     else
-        [dataset_normalized_lambda, T_lambda{c}] = normalizePointsPCA([dataset_c(:, 3), ones(n_points_c, 1)]);
+        [dataset_normalized_lambda, polyfun_data(c).T_lambda] = normalizePointsPCA([dataset_c(:, 3), ones(n_points_c, 1)]);
     end
     [dataset_normalized_disparity, T_disparity] = normalizePointsPCA([dataset_c(:, 4:5), ones(n_points_c, 1)]);
-    T_disparity_inv{c} = inv(T_disparity);
+    polyfun_data(c).T_disparity_inv = inv(T_disparity);
     dataset_normalized = [
         dataset_normalized_points(:, 1:(end-1)),...
         dataset_normalized_lambda(:, 1:(end-1)),...
@@ -270,9 +322,9 @@ for c = 1:n_models
     possible_choices = (choice_mse <= 0);
     [deg_xy_matrix, deg_lambda_matrix] = ndgrid(0:max_degree_xy, 0:max_degree_lambda);
     % Prioritize simplicity with respect to wavelength
-    deg_lambda_best = min(deg_lambda_matrix(possible_choices));
-    possible_choices_lambda_best = possible_choices & (deg_lambda_matrix == deg_lambda_best);
-    degree_xy_best = min(deg_xy_matrix(possible_choices_lambda_best));
+    polyfun_data(c).degree_lambda = min(deg_lambda_matrix(possible_choices));
+    possible_choices_lambda_best = possible_choices & (deg_lambda_matrix == polyfun_data(c).degree_lambda);
+    polyfun_data(c).degree_xy = min(deg_xy_matrix(possible_choices_lambda_best));
 
     % Visualization
     if verbose
@@ -285,7 +337,7 @@ for c = 1:n_models
             plot(deg_xy_matrix, mse_plus1std, 'r-');
             plot(deg_xy_matrix(~possible_choices), mean_mse(~possible_choices), 'go');
             plot(deg_xy_matrix(possible_choices), mean_mse(possible_choices), 'bx');
-            scatter(degree_xy_best, mean_mse(degree_xy_best + 1), 'filled')
+            scatter(polyfun_data(c).degree_xy, mean_mse(polyfun_data(c).degree_xy + 1), 'filled')
             hold off
             xlabel('Spatial polynomial degree')
             ylabel('Mean square error')
@@ -305,7 +357,7 @@ for c = 1:n_models
             set(s3, 'EdgeColor', 'none', 'FaceAlpha', 0.8);
             cdata = double(cat(3, ~possible_choices, possible_choices, zeros(size(possible_choices))));
             set(s3, 'CData', cdata, 'FaceColor', 'texturemap');
-            scatter3(degree_xy_best, deg_lambda_best, mean_mse(degree_xy_best + 1, deg_lambda_best + 1), 'filled')
+            scatter3(polyfun_data(c).degree_xy, polyfun_data(c).degree_lambda, mean_mse(polyfun_data(c).degree_xy + 1, polyfun_data(c).degree_lambda + 1), 'filled')
             hold off
             xlabel('Spatial polynomial degree')
             ylabel('Wavelength polynomial degree')
@@ -321,47 +373,13 @@ for c = 1:n_models
     end
 
     % Fit the final model using all data
-    [powers_final{c}, n_powers_final{c}] = powersarray(degree_xy_best, deg_lambda_best);
-    x_train_final = repmat(permute(dataset_normalized(:, 1:3), [1 3 2]), 1, n_powers_final{c}, 1);
-    powers_final_rep = repmat(powers_final{c}, n_points_c, 1, 1);
+    [polyfun_data(c).powers, polyfun_data(c).n_powers] = powersarray(polyfun_data(c).degree_xy, polyfun_data(c).degree_lambda);
+    x_train_final = repmat(permute(dataset_normalized(:, 1:3), [1 3 2]), 1, polyfun_data(c).n_powers, 1);
+    powers_final_rep = repmat(polyfun_data(c).powers, n_points_c, 1, 1);
     vandermonde_matrix_final = prod(x_train_final .^ powers_final_rep, 3);
-    coeff_x{c} = vandermonde_matrix_final \ dataset_normalized(:, 4);
-    coeff_y{c} = vandermonde_matrix_final \ dataset_normalized(:, 5);
+    polyfun_data(c).coeff_x = vandermonde_matrix_final \ dataset_normalized(:, 4);
+    polyfun_data(c).coeff_y = vandermonde_matrix_final \ dataset_normalized(:, 5);
 end
 
-    function disparity = modelfun(xylambda)
-        n_all = size(xylambda, 1);
-        disparity = zeros(n_all, n_spatial_dim);
-        for d = 1:n_models
-            % Apply and reverse normalization
-            if channel_mode
-                if d == reference_channel
-                    continue;
-                end
-                filter_d = (xylambda(:, 3) == d);
-            else
-                filter_d = true(n_all, 1);
-            end
-            dataset_d = xylambda(filter_d, :);
-            n_d = size(dataset_d, 1);
-
-            xy_normalized = (T_points{d} * [dataset_d(:, 1:2), ones(n_d, 1)].').';
-            lambda_normalized = (T_lambda{d} * [dataset_d(:, 3), ones(n_d, 1)].').';
-            xylambda_normalized = [
-                xy_normalized(:, 1:(end - 1)),...
-                lambda_normalized(:, 1:(end - 1)),...
-                ];
-            xylambda_normalized_3d = repmat(permute(xylambda_normalized, [1 3 2]), 1, n_powers_final{d}, 1);
-            powers_rep = repmat(powers_final{d}, n_d, 1, 1);
-            vandermonde_matrix = prod(xylambda_normalized_3d .^ powers_rep, 3);
-
-            disparity_x_normalized = vandermonde_matrix * coeff_x{d};
-            disparity_y_normalized = vandermonde_matrix * coeff_y{d};
-            disparity_normalized = [disparity_x_normalized disparity_y_normalized, ones(n_d, 1)];
-            disparity_d = (T_disparity_inv{d} * disparity_normalized.').';
-            disparity(filter_d, :) = disparity_d(:, 1:(end-1));
-        end
-    end
-
-polyfun = @modelfun;
+polyfun = makePolyfun(polyfun_data);
 end
