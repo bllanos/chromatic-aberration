@@ -38,6 +38,9 @@
 %   mapping from `centers` to `disparity`. `polyfun_data` can be
 %   converted to a function form using `polyfun =
 %   makePolyfun(polyfun_data)`
+% - 'bands': A vector containing the wavelengths at which dispersion was
+%   modelled. A copy of `lens_params.wavelengths`, output to imitate the
+%   output of 'RAWDiskDispersion.m'.
 %
 % Additionally, the file contains the values of all parameters in the first
 % section of the script below, for reference. (Specifically, those listed
@@ -72,7 +75,8 @@ parameters_list = {
         'findAndFitDisks_options',...
         'dispersion_fieldname',...
         'max_degree_xy',...
-        'max_degree_lambda'...
+        'max_degree_lambda',...
+        'model_from_reference'...
     };
 
 %% Input data and parameters
@@ -146,6 +150,16 @@ findAndFitDisks_options.area_outlier_threshold = 0;
 dispersion_fieldname = 'center';
 max_degree_xy = min(12, min(scene_params.n_lights) - 1);
 max_degree_lambda = min(12, length(lens_params.wavelengths) - 1);
+
+% If `true`, model dispersion between bands (colour channels or spectral
+% bands) as a function of positions in the reference band. If `false`,
+% model dispersion as a function of positions in the non-reference bands.
+% The first case is useful for warping the other bands to align with the
+% reference band, such as when correcting chromatic aberration by image
+% warping. The second case is useful for warping an "ideal" image to
+% compare it with an observed aberrated image. In both cases, the
+% dispersion vectors point from the reference band to the other bands.
+model_from_reference = true;
 
 % ## Debugging Flags
 plot_light_positions = false;
@@ -245,9 +259,14 @@ disparity = statsToDisparity(...
     depth_factors, 0, x_fields, lens_params.wavelengths, lens_params.wavelengths_to_rgb, statsToDisparityVerbose...
 );
 
-centers_reference = repmat(centers(:, ior_lens_reference_index), 1, n_ior_lens);
+if model_from_reference
+    centers_for_fitting = repmat(centers(:, ior_lens_reference_index), 1, n_ior_lens);
+else
+    centers_for_fitting = centers;
+end
+
 [ polyfun, polyfun_data ] = xylambdaPolyfit(...
-    centers_reference, dispersion_fieldname, max_degree_xy, disparity, dispersion_fieldname,...
+    centers_for_fitting, dispersion_fieldname, max_degree_xy, disparity, dispersion_fieldname,...
     lens_params.wavelengths, max_degree_lambda, xylambdaPolyfitVerbose...
 );
 
@@ -255,15 +274,17 @@ centers_reference = repmat(centers(:, ior_lens_reference_index), 1, n_ior_lens);
 
 if plot_polynomial_model
     plotXYLambdaPolyfit(...
-        centers_reference, dispersion_fieldname, disparity, dispersion_fieldname,...
+        centers_for_fitting, dispersion_fieldname, disparity, dispersion_fieldname,...
         lens_params.wavelengths, lens_params.wavelengths(ior_lens_reference_index), n_lambda_plot, polyfun...
     );
 end
 
 %% Save results to a file
+bands = lens_params.wavelengths;
 save_variables_list = [ parameters_list, {...
         'centers',...
         'disparity',...
-        'polyfun_data'...
+        'polyfun_data',...
+        'bands'...
     } ];
 uisave(save_variables_list,'DoubleConvexThickLensDiskDispersionResults');
