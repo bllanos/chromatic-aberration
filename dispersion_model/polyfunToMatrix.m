@@ -77,7 +77,7 @@ function [ W, image_bounds_out ] = polyfunToMatrix(polyfun, lambda, image_sampli
 %   equation:
 %     `I_distorted = W * I_undistorted`
 %   `I_undistorted` is a vectorized form of an image where all pixels have
-%   been rearranged from columnwise order into matrix rows.
+%   been rearranged from columnwise order into a column vector.
 %   `I_undistorted(i + n_px_out * (k - 1))` is the value of the k-th
 %   wavelength band, or colour channel, at the i-th pixel of the
 %   undistorted image. Similarly, `I_distorted(j + n_px_in * (k - 1))` is
