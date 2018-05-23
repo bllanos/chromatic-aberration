@@ -16,7 +16,9 @@
 % being loaded. Images will simply be loaded with the Image Processing
 % Toolbox 'imread()' function. All images are expected to have the same
 % pixel dimensions and 3 colour channels (Red, Green, Blue) (represented in
-% a Bayer pattern as a 2D array).
+% a Bayer pattern as a 2D array). However, the colour channels can
+% correspond to narrowband wavelength ranges - This script will input the
+% wavelengths corresponding to the colour channels.
 %
 % ### Polynomial model of chromatic aberration
 % A '.mat' file containing several variables, which is the output of
@@ -30,6 +32,10 @@
 % - 'model_from_reference': A parameter of the above scripts, which
 %   determines the frame of reference for the model of chromatic
 %   aberration. It must be set to `true`.
+% - 'bands': A vector containing the wavelengths or colour channel indices.
+%   To use as the `lambda` input argument of 'polyfunToMatrix()'. `bands`
+%   is the wavelength or colour channel information needed to evaluate the
+%   dispersion model.
 %
 % ## Output
 %
@@ -53,10 +59,6 @@
 % section of the script below, for reference. (Specifically, those listed
 % in `parameters_list`, which should be updated if the set of parameters is
 % changed.)
-%
-% Additionally, the file contains a 'bands' variable used as the 'lambda'
-% input argument of 'polyfunToMatrix()', for reference. 'bands' is equal to
-% `[1 2 3]`, representing the Red, Green, and Blue colour channels.
 %
 % ## Notes
 % - The image colour space is not altered by this script. See 'imreadRAW()'
@@ -100,7 +102,7 @@ n_images = length(image_filenames);
 
 %% Load dispersion model
 
-model_variables_required = { 'polyfun_data', 'model_from_reference' };
+model_variables_required = { 'polyfun_data', 'model_from_reference', 'bands' };
 load(polynomial_model_filename, model_variables_required{:});
 if ~all(ismember(model_variables_required, who))
     error('One or more of the dispersion model variables is not loaded.')
@@ -112,7 +114,6 @@ end
 %% Process the images
 
 polyfun = makePolyfun(polyfun_data);
-bands = 1:3;
 ext = '.tif';
 
 n_demosaicing_methods = 2;
@@ -161,7 +162,6 @@ end
 
 %% Save parameters to a file
 save_variables_list = [ parameters_list, {...
-        'bands',...
         'image_filenames'...
     } ];
 save_data_filename = fullfile(output_directory, 'CorrectByWarpingParameters.mat');

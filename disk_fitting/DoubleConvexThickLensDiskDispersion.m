@@ -38,9 +38,10 @@
 %   mapping from `centers` to `disparity`. `polyfun_data` can be
 %   converted to a function form using `polyfun =
 %   makePolyfun(polyfun_data)`
-% - 'bands': A vector containing the wavelengths at which dispersion was
-%   modelled. A copy of `lens_params.wavelengths`, output to imitate the
-%   output of 'RAWDiskDispersion.m'.
+% - 'bands': A vector containing the wavelengths at which dispersion can be
+%   evaluated to approximate the dispersion between the Red, Green, and
+%   Blue colour channels of the sensor. These are the wavelengths at which
+%   the colour channels reach their peak quantum efficiencies.
 %
 % Additionally, the file contains the values of all parameters in the first
 % section of the script below, for reference. (Specifically, those listed
@@ -280,7 +281,11 @@ if plot_polynomial_model
 end
 
 %% Save results to a file
-bands = lens_params.wavelengths;
+
+% Find appropriate wavelengths for approximating RGB chromatic aberration
+[~, ind] = max(lens_params.wavelengths_to_rgb, [], 1);
+bands = lens_params.wavelengths(ind);
+
 save_variables_list = [ parameters_list, {...
         'centers',...
         'disparity',...

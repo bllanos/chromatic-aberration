@@ -39,9 +39,10 @@
 %   mapping from `centers` to `disparity`. `polyfun_data` can be
 %   converted to a function form using `polyfun =
 %   makePolyfun(polyfun_data)`
-% - 'bands': A vector containing the wavelengths at which dispersion was
-%   modelled. A copy of `lens_params.wavelengths`, output to imitate the
-%   output of 'RAWDiskDispersion.m'.
+% - 'bands': A vector containing the wavelengths at which dispersion can be
+%   evaluated to approximate the dispersion between the Red, Green, and
+%   Blue colour channels of the sensor. These are the wavelengths at which
+%   the colour channels reach their peak quantum efficiencies.
 %
 % Additionally, the file contains the values of all parameters in the first
 % section of the script below, for reference. (Specifically, those listed
@@ -109,7 +110,7 @@ sellmeierConstants.C_1 = 0.00600069867;
 sellmeierConstants.C_2 = 0.0200179144;
 sellmeierConstants.C_3 = 103.560653;
 
-lens_params.wavelengths = linspace(300, 1100, 3);
+lens_params.wavelengths = linspace(300, 1100, 100);
 lens_params.ior_lens = sellmeierDispersion(lens_params.wavelengths, sellmeierConstants);
 
 % Index of the wavelength/index of refraction to be used to position the
@@ -146,7 +147,7 @@ request_spline_smoothing = false;
 % ## Scene setup
 scene_params.theta_min = deg2rad(0);
 scene_params.theta_max = deg2rad(20);
-scene_params.n_lights = [5 5];
+scene_params.n_lights = [12 12];
 scene_params.light_distance_factor_focused = 10;
 scene_params.light_distance_factor_larger = [4, 0];
 scene_params.light_distance_factor_smaller = [1.5, 0];
@@ -251,7 +252,11 @@ if plot_polynomial_model
 end
 
 %% Save results to a file
-bands = lens_params.wavelengths;
+
+% Find appropriate wavelengths for approximating RGB chromatic aberration
+[~, ind] = max(lens_params.wavelengths_to_rgb, [], 1);
+bands = lens_params.wavelengths(ind);
+
 save_variables_list = [ parameters_list, {...
         'centers',...
         'disparity',...
