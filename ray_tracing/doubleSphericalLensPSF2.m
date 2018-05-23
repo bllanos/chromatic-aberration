@@ -1,5 +1,5 @@
 function [...
-    stats_real_rgb, stats_ideal_rgb, I_color, I...
+    varargout...
 ] = doubleSphericalLensPSF2(...
     lens_params, ray_params, image_params, X_lights, z_film,...
     lights_filter, varargin...
@@ -7,6 +7,10 @@ function [...
 % DOUBLESPHERICALLENSPSF2  Simulate pixelated images of point light sources by raytracing
 %
 % ## Syntax
+% [ I_color, I ] = doubleSphericalLensPSF2(...
+%     lens_params, ray_params, image_params, X_lights, z_film,...
+%     lights_filter, 'images_only', [, depth_factors, verbose]...
+% )
 % [...
 %     stats_real, stats_ideal, I_color, I...
 % ] = doubleSphericalLensPSF2(...
@@ -15,26 +19,22 @@ function [...
 % )
 %
 % ## Description
+% [ I_color, I ] = doubleSphericalLensPSF2(...
+%     lens_params, ray_params, image_params, X_lights, z_film,...
+%     lights_filter, 'images_only', [, depth_factors, verbose]...
+% )
+%   Simulate the image of grids of point light sources by raytracing.
+%
 % [...
 %     stats_real, stats_ideal, I_color, I...
 % ] = doubleSphericalLensPSF2(...
 %     lens_params, ray_params, image_params, X_lights, z_film,...
 %     lights_filter [, depth_factors, verbose]...
 % )
-%   Simulate the image of grids of point light sources by raytracing. (One
-%   to four output arguments can be requested.)
-%
-%   'doubleSphericalLensPSF()' specializes in accurate PSF statistics,
-%   because its results are not dependent on an image resolution.
-%   'doubleSphericalLensPSF2()' specializes in efficient image simulation,
-%   and produces PSF statistics which are affected by image resolution.
-%   Therefore, 'doubleSphericalLensPSF()' is useful for analyzing the
-%   properties of the lens, whereas 'doubleSphericalLensPSF2()' can better
-%   simulate the lens and sensor combination.
-%
-%   Also, the PSF analysis performed by 'doubleSphericalLensPSF()' is
-%   per-wavelength, whereas the PSF analysis performed by
-%   'doubleSphericalLensPSF2()' is per-colour channel.
+%   Simulate the image of grids of point light sources by raytracing, and
+%   analyze the resulting point spread functions. One to four output
+%   arguments can be requested. Note that point spread function analysis is
+%   computationally expensive.
 %
 % ## Input Arguments
 %
@@ -168,6 +168,17 @@ function [...
 % ## Notes
 % - Automatic estimation of the image boundaries, for `I_color` and `I`,
 %   will yield poor results if all of the lights are on a single line.
+% - 'doubleSphericalLensPSF()' specializes in accurate PSF statistics,
+%   because its results are not dependent on an image resolution.
+%   'doubleSphericalLensPSF2()' specializes in efficient image simulation,
+%   and produces PSF statistics which are affected by image resolution.
+%   Therefore, 'doubleSphericalLensPSF()' is useful for analyzing the
+%   properties of the lens, whereas 'doubleSphericalLensPSF2()' can better
+%   simulate the lens and sensor combination.
+%
+%   Also, the PSF analysis performed by 'doubleSphericalLensPSF()' is
+%   per-wavelength, whereas the PSF analysis performed by
+%   'doubleSphericalLensPSF2()' is per-colour channel.
 %
 % ### Coordinate System
 % - The radii of both faces of the lens are positive when the lens is
@@ -198,8 +209,21 @@ function [...
 
 %% Parse parameters
 
-nargoutchk(1,4);
-narginchk(6,8);
+disable_analysis = false;
+varargin_new = varargin;
+if ~isempty(varargin)
+    if strcmp(varargin{1}, 'images_only')
+        varargin_new = varargin(2:end);
+        disable_analysis = true;
+        nargoutchk(1,2);
+        narginchk(7,9);
+    end
+end
+
+if ~disable_analysis
+    nargoutchk(1,4);
+    narginchk(6,8);
+end
 
 ray_params = lensParamsToRayParams(ray_params, lens_params, z_film);
 
@@ -215,13 +239,18 @@ stats_ideal_intensity_threshold = image_params.intensity_threshold;
 n_lights = size(X_lights, 1);
 single_source = (n_lights == 1);
 
-I_color_output_requested = nargout > 2;
-I_output_requested = nargout > 3;
+if disable_analysis
+    I_color_output_requested = true;
+    I_output_requested = nargout > 1;
+else
+    I_color_output_requested = nargout > 2;
+    I_output_requested = nargout > 3;
+end
 
-if ~isempty(varargin)
-    if length(varargin) == 2
-        depth_factors = varargin{1};
-        verbose = varargin{2};
+if ~isempty(varargin_new)
+    if length(varargin_new) == 2
+        depth_factors = varargin_new{1};
+        verbose = varargin_new{2};
     else
         error('Both `depth_factors`, and `verbose` must be passed together.')
     end
@@ -292,15 +321,13 @@ n_lights = size(X_lights, 1);
 %% Trace rays through the lens and form rays into an image
 if I_output_requested
     I = zeros([image_sampling, n_ior_lens, n_depths]);
-else
-    I = [];
 end
 if I_color_output_requested || display_all_psf_each_depth
     I_color = zeros([image_sampling, n_channels, n_depths]);
-else
-    I_color = [];
 end
-stats_real_rgb = preallocateStats([n_lights, n_channels, n_depths]);
+if ~disable_analysis
+    stats_real_rgb = preallocateStats([n_lights, n_channels, n_depths]);
+end
 color_fmts = {'r', 'g', 'b'};
 color_names = {'Red', 'Green', 'Blue'};
 for j = 1:n_depths
@@ -352,10 +379,12 @@ for j = 1:n_depths
             end
         end
         
-        for c = 1:n_channels
-            stats_real_rgb(i, c, j) = analyzePSFImage(...
-                I_color_ji(:, :, c), image_bounds, I_color_ji_mask, verbose_psf_analysis...
-            );
+        if ~disable_analysis
+            for c = 1:n_channels
+                stats_real_rgb(i, c, j) = analyzePSFImage(...
+                    I_color_ji(:, :, c), image_bounds, I_color_ji_mask, verbose_psf_analysis...
+                );
+            end
         end
         
         if I_color_output_requested || display_all_psf_each_depth
@@ -375,14 +404,23 @@ for j = 1:n_depths
             xlabel('X');
             ylabel('Y');
             hold on
-            legend_strings = cell(n_channels * 2, 1);
+            if disable_analysis
+                legend_strings = cell(n_channels, 1);
+            else
+                legend_strings = cell(n_channels * 2, 1);
+            end
             for c = 1:n_channels
-                mean_position_real = stats_real_rgb(i, c, j).mean_position;
                 mean_position_ideal = stats_ideal_rgb(i, c, j).mean_position;
                 scatter(mean_position_ideal(1), mean_position_ideal(2), [], color_fmts{c}, 'o');
-                scatter(mean_position_real(1), mean_position_real(2), [], color_fmts{c}, '.');
-                legend_strings{c} = sprintf('Thick lens formula, %s channel', color_names{c});
-                legend_strings{n_channels + c} = sprintf('Raytracing centroids, %s channel', color_names{c});
+                str = sprintf('Thick lens formula, %s channel', color_names{c});
+                if ~disable_analysis
+                    legend_strings{2 * c - 1} = str;
+                    mean_position_real = stats_real_rgb(i, c, j).mean_position;
+                    scatter(mean_position_real(1), mean_position_real(2), [], color_fmts{c}, '.');
+                    legend_strings{2 * c} = sprintf('Raytracing centroids, %s channel', color_names{c});
+                else
+                    legend_strings{c} = str;
+                end
             end
             legend(legend_strings);
             title(sprintf(...
@@ -418,14 +456,23 @@ if I_color_output_requested || display_all_psf_each_depth
             ylabel('Y');
             
             hold on
-            legend_strings = cell(n_channels * 2, 1);
+            if disable_analysis
+                legend_strings = cell(n_channels, 1);
+            else
+                legend_strings = cell(n_channels * 2, 1);
+            end
             for c = 1:n_channels
-                mean_position_real = vertcat(stats_real_rgb(:, c, j).mean_position);
                 mean_position_ideal = vertcat(stats_ideal_rgb(:, c, j).mean_position);
                 scatter(mean_position_ideal(:, 1), mean_position_ideal(:, 2), [], color_fmts{c}, 'o');
-                scatter(mean_position_real(:, 1), mean_position_real(:, 2), [], color_fmts{c}, '.');
-                legend_strings{2 * c - 1} = sprintf('Thick lens formula, %s channel', color_names{c});
-                legend_strings{2 * c} = sprintf('Raytracing centroids, %s channel', color_names{c});
+                str = sprintf('Thick lens formula, %s channel', color_names{c});
+                if ~disable_analysis
+                    legend_strings{2 * c - 1} = str;
+                    mean_position_real = vertcat(stats_real_rgb(:, c, j).mean_position);
+                    scatter(mean_position_real(:, 1), mean_position_real(:, 2), [], color_fmts{c}, '.');
+                	legend_strings{2 * c} = sprintf('Raytracing centroids, %s channel', color_names{c});
+                else
+                    legend_strings{c} = str;
+                end
             end
             legend(legend_strings);
             title(sprintf(...
@@ -438,7 +485,9 @@ if I_color_output_requested || display_all_psf_each_depth
 end
 
 %% Visualize the results, for all depths
-stats_real_rgb_matrix = reshape(permute(stats_real_rgb, [1, 3, 2]), [], n_channels);
+if ~disable_analysis
+    stats_real_rgb_matrix = reshape(permute(stats_real_rgb, [1, 3, 2]), [], n_channels);
+end
 
 if display_summary
     if single_source
@@ -450,21 +499,32 @@ if display_summary
         for c = 1:n_channels
             fprintf('Thick lens formula, %s channel:\n', color_names{c})
             disp(vertcat(stats_ideal_rgb_matrix(:, c).mean_position))
-            fprintf('Raytracing centroids, %s channel:\n', color_names{c})
-            disp(vertcat(stats_real_rgb_matrix(:, c).mean_position))
+            if ~disable_analysis
+                fprintf('Raytracing centroids, %s channel:\n', color_names{c})
+                disp(vertcat(stats_real_rgb_matrix(:, c).mean_position))
+            end
         end
     else
         figure
         hold on
         depth_factors_rep = repelem(depth_factors, n_lights);
-        legend_strings = cell(n_channels * 2, 1);
+        if disable_analysis
+            legend_strings = cell(n_channels, 1);
+        else
+            legend_strings = cell(n_channels * 2, 1);
+        end
         for c = 1:n_channels
             mean_position_ideal = vertcat(stats_ideal_rgb_matrix(:, c).mean_position);
-            mean_position_real = vertcat(stats_real_rgb_matrix(:, c).mean_position);
             scatter3(mean_position_ideal(:, 1), mean_position_ideal(:, 2), depth_factors_rep, [], color_fmts{c}, 'o');
-            scatter3(mean_position_real(:, 1), mean_position_real(:, 2), depth_factors_rep, [], color_fmts{c}, '.');
-            legend_strings{2 * c - 1} = sprintf('Thick lens formula, %s channel:\n', color_names{c});
-            legend_strings{2 * c} = sprintf('Raytracing centroids, %s channel', color_names{c});
+            str = sprintf('Thick lens formula, %s channel:\n', color_names{c});
+            if ~disable_analysis
+                legend_strings{2 * c - 1} = str;
+                mean_position_real = vertcat(stats_real_rgb_matrix(:, c).mean_position);
+                scatter3(mean_position_real(:, 1), mean_position_real(:, 2), depth_factors_rep, [], color_fmts{c}, '.');
+                legend_strings{2 * c} = sprintf('Raytracing centroids, %s channel', color_names{c});
+            else
+                legend_strings{c} = str;
+            end
         end
         legend(legend_strings);
         title('Images of point sources seen through a thick lens')
@@ -472,6 +532,24 @@ if display_summary
         ylabel('Y');
         zlabel('Light source distance (focal lengths)')
         hold off
+    end
+end
+
+%% Output
+
+if disable_analysis
+    varargout{1} = I_color;
+    if I_output_requested
+        varargout{2} = I;
+    end
+else
+    varargout{1} = stats_real_rgb;
+    varargout{2} = stats_ideal_rgb;
+    if I_color_output_requested
+        varargout{3} = I_color;
+    end
+    if I_output_requested
+        varargout{4} = I;
     end
 end
 

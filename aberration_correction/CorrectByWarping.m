@@ -135,9 +135,9 @@ for i = 1:n_images
     end
     for j = 1:n_demosaicing_methods
         if j == 1
-            I_color = bilinearDemosaic(I_raw, align);
+            I_color = bilinearDemosaic(I_raw, bayer_pattern);
         elseif j == 2
-            I_color = demosaic(I_raw, align);
+            I_color = demosaic(I_raw, bayer_pattern);
         else
             error('No demosaicing method associated with index %d.', j);
         end
