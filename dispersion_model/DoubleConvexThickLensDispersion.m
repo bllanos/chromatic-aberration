@@ -92,7 +92,7 @@ lens_params.axial_thickness = 2;
 lens_params.radius_front = 4.29;
 lens_params.radius_back = lens_params.radius_front;
 
-ray_params.n_incident_rays = 250000;
+ray_params.n_incident_rays = 125000;
 ray_params.sample_random = true;
 ray_params.ior_environment = 1.0;
 

@@ -12,7 +12,28 @@
 %
 % ## Output
 %
-% Presently, the output arguments of 'radialChromaticAberration.m'.
+% ### Graphical output from 'radialChromaticAberration()'
+% - Displayed depending on the parameters and debugging flags in the first
+%   code section below.
+%
+% ### Colour images
+%
+% Two images are generated for each depth at which a grid of light sources
+% was placed: A colour image, and an equivalent colour-filter array image
+% (RAW image). The output image files are saved in the output directory
+% (given by the `output_directory` parameter), and are in TIFF format. They
+% are given filenames starting with the date and time at which they were
+% produced.
+%
+% ### Parameters
+%
+% A '.mat' file containing the 'X_lights', 'z_film', 'lights_filter', and
+% 'depth_factors' variables, which were passed as arguments of the same
+% names to 'doubleSphericalLensPSF2()' to create the grids of light
+% sources. The file also contains the values of all parameters in the first
+% section of the script below, for reference. (Specifically, those listed
+% in `parameters_list`, which should be updated if the set of parameters is
+% changed.)
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang

@@ -61,9 +61,11 @@ function [ W, image_bounds_out ] = polyfunToMatrix(polyfun, lambda, image_sampli
 %   bounding box of the undistorted coordinates of the distorted image.
 %   More precisely, in this case, all pixels in the distorted image will be
 %   generated, as implemented in `W`, by bilinear interpolation of four
-%   pixels in the undistorted image; There will not be any pixels in the
-%   distorted image which originate from less than four pixels in the
-%   undistorted image.
+%   different pixels in the undistorted image. Otherwise, there may be pixels
+%   in the distorted image whose undistorted coordinates are on or outside the
+%   border of the undistorted image. In this case, the border pixels of the
+%   undistorted image will be replicated, such that the four pixels used for
+%   bilinear interpolation will not be all unique.
 %
 % negate -- Warp inversion flag
 %   If `true`, the warp vectors calculated by `polyfun` will be negated
@@ -138,6 +140,13 @@ else
     negate = false;
 end
 
+if length(image_sampling_in) ~= 2
+    error('The `image_sampling_in` input argument must contain an image height and width only.');
+end
+if length(image_sampling_out) ~= 2
+    error('The `image_sampling_out` input argument must contain an image height and width only.');
+end
+
 % Enumerate the positions of all pixels in the distorted image
 [X, Y] = meshgrid(1:image_sampling_in(2), 1:image_sampling_in(1));
 x = X(:) - 0.5; % Place coordinates at pixel centres
@@ -166,7 +175,7 @@ if ~set_bounds
     max_y = max(y_out_all_bands);
     min_x = min(x_out_all_bands);
     min_y = min(y_out_all_bands);
-    
+
     image_width_minus1 = max_x - min_x;
     pixel_width = image_width_minus1 / (image_sampling_out(2) - 1);
     image_height_minus1 = max_y - min_y;
@@ -188,7 +197,7 @@ offsets = [
      0.5  0.5; % Bottom right (Q22)
      ];
 n_offsets = size(offsets, 1);
- 
+
 neighbour_x = zeros(n_px_lambda_in, n_offsets);
 neighbour_y = zeros(n_px_lambda_in, n_offsets);
 for i = 1:n_offsets
@@ -198,11 +207,13 @@ end
 neighbour_index_x = ceil(reshape(neighbour_x, [], 1));
 neighbour_index_y = ceil(reshape(neighbour_y, [], 1));
 
-% Eliminate positions outside the image boundaries
-filter = neighbour_index_x > 0 & neighbour_index_x <= image_sampling_out(2) &...
-    neighbour_index_y > 0 & neighbour_index_y <= image_sampling_out(1);
+% Replicate pixels outside the image boundaries
+neighbour_index_x(neighbour_index_x < 1) = 1;
+neighbour_index_x(neighbour_index_x > image_sampling_out(2)) = image_sampling_out(2);
+neighbour_index_y(neighbour_index_y < 1) = 1;
+neighbour_index_y(neighbour_index_y > image_sampling_out(1)) = image_sampling_out(1);
 
-% Find bilinear interpolation weights for pixels inside the boundaries
+% Find bilinear interpolation weights
 neighbour_weights = zeros(n_px_lambda_in, n_offsets);
 x1 = neighbour_x(:, 2);
 x2 = neighbour_x(:, 1);
@@ -222,20 +233,21 @@ neighbour_weights(:, 4) = tox1 .* toy1; % Q22
 neighbour_weights = neighbour_weights ./ (dx .* dy);
 
 neighbour_weights = reshape(neighbour_weights, [], 1);
-neighbour_weights = neighbour_weights(filter);
 
-% Find linear indices for pixels inside the boundaries
-neighbour_index_x = neighbour_index_x(filter);
-neighbour_index_y = neighbour_index_x(filter);
-neighbour_index_linear = sub2ind(image_sampling_out, neighbour_index_y, neighbour_index_x);
+% Find linear indices for pixels
+neighbour_index_linear = sub2ind(...
+    [image_sampling_out, n_lambda],...
+    neighbour_index_y,...
+    neighbour_index_x,...
+    repelem((1:n_lambda).', n_px_in)...
+);
 
 % Assemble the sparse matrix
 indices_in = repmat((1:n_px_lambda_in).', n_offsets, 1);
-indices_in = indices_in(filter);
 W = sparse(...
     indices_in,...
     neighbour_index_linear,...
-    neighbour_weights, n_px_lambda_in, prod(image_sampling_out) * n_lambda...
+    neighbour_weights,...
+    n_px_lambda_in, prod(image_sampling_out) * n_lambda...
     );
 end
-
