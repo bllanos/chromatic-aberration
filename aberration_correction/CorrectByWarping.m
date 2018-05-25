@@ -84,16 +84,16 @@ parameters_list = {
 %% Input data and parameters
 
 % Wildcard for 'ls()' to find the images to process.
-input_images_wildcard = '';
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180524_Testing_CorrectByWarping/input_images/*raw*';
 
 % Colour-filter pattern
 bayer_pattern = 'gbrg';
 
 % Polynomial model of dispersion
-polynomial_model_filename = '';
+polynomial_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180524_Testing_CorrectByWarping/RAWDiskDispersionResults.mat';
 
 % Output directory for all images and saved parameters
-output_directory = '';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180524_Testing_CorrectByWarping/output_images';
 
 %% Find the images
 
@@ -138,7 +138,7 @@ for i = 1:n_images
         if j == 1
             I_color = bilinearDemosaic(I_raw, bayer_pattern);
         elseif j == 2
-            I_color = demosaic(I_raw, bayer_pattern);
+            I_color = im2double(demosaic(I_raw, bayer_pattern));
         else
             error('No demosaicing method associated with index %d.', j);
         end
@@ -155,6 +155,7 @@ for i = 1:n_images
             error('No demosaicing method associated with index %d.', j);
         end
         I_color_filename = fullfile(output_directory, I_color_filename);
+        I_color_warped_filename = fullfile(output_directory, I_color_warped_filename);
         imwrite(I_color, I_color_filename);
         imwrite(I_color_warped, I_color_warped_filename);
     end

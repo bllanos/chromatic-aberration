@@ -106,12 +106,11 @@ parameters_list = {
 % filepaths. Masks are used to avoid processing irrelevant portions of
 % images.
 partial_filepaths = {
-    '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20170808_OpticalTableMatrix/averaged/d44_a22_far_disksWhite';
-    '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20170808_OpticalTableMatrix/averaged/d28_a22_far_disksWhite'
+    '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180524_Testing_CorrectByWarping/input_images/disksBlack_warped_raw_1050x1680resPitch0.282r4sep11_Acer'
     };
 
 % Filename extension (excluding the leading '.')
-ext = 'tif';
+ext = 'tiff';
 % Mask filename extension
 mask_ext = 'png';
 
@@ -141,7 +140,7 @@ end
 bayer_pattern = 'gbrg'; % Colour-filter pattern
 cleanup_radius = 2; % Morphological operations radius for 'findAndFitDisks()'
 k0 = 0.1; % `k0` argument of 'findAndFitDisks()'
-findAndFitDisks_options.bright_disks = true;
+findAndFitDisks_options.bright_disks = false;
 findAndFitDisks_options.mask_as_threshold = false;
 findAndFitDisks_options.group_channels = ~rgb_mode;
 findAndFitDisks_options.area_outlier_threshold = 2;

@@ -27,9 +27,9 @@ function [ J ] = warpImage(I, W, varargin)
 % sz -- Image dimensions
 %   A two-element or three element vector containing the image height, and
 %   width, or the image height, image width, and number of channels,
-%   respectively, outupt image `J`. If `sz` has two elements, it will be
-%   extended with a third element equal to the size of `I` in the third
-%   dimension. If `sz` is not passed, it will be set equal to the
+%   respectively, of the output image `J`. If `sz` has two elements, it
+%   will be extended with a third element equal to the size of `I` in the
+%   third dimension. If `sz` is not passed, it will be set equal to the
 %   dimensions of `I`.
 %
 % ## Output Arguments

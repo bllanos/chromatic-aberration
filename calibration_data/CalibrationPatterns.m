@@ -40,7 +40,7 @@ disk_radius = 4;
 disk_separation = 11;
 
 % Output Directory
-output_directory = 'C:\Users\llanos\Google Drive\ThesisResearch\Data and Results\20170531_CalibrationPatterns\Acer';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180524_Testing_CorrectByWarping';
 
 % Filename Suffix
 filename_suffix = '_Acer';

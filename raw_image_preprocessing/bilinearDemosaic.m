@@ -48,6 +48,8 @@ function [ I_rgb ] = bilinearDemosaic(I_raw, align)
 nargoutchk(1, 1);
 narginchk(2, 2);
 
+I_raw = im2double(I_raw);
+
 image_height = size(I_raw, 1);
 image_width = size(I_raw, 2);
 mask = bayerMask( image_height, image_width, align );
@@ -69,7 +71,11 @@ green_index = 2;
 mask_g = mask(:, :, green_index);
 I_g = nan(image_height, image_width);
 I_g(mask_g) = I_raw(mask_g);
-center_mask_g = ~mask_g(2:(end - 1), 2:(end - 1));
+center_mask_g = ~mask_g;
+center_mask_g(1, :) = false;
+center_mask_g(end, :) = false;
+center_mask_g(:, 1) = false;
+center_mask_g(:, end) = false;
 missing_ind_g = sub2ind([image_height, image_width], Y(center_mask_g), X(center_mask_g));
 I_g(missing_ind_g) = (...
     I_g(missing_ind_g + 1) +...
@@ -79,8 +85,8 @@ I_g(missing_ind_g) = (...
     ) / 4; % Central region of image
 I_g(1, :) = interp1(X(1, mask_g(1, :)), I_g(1, mask_g(1, :)), X(1, :), 'linear'); % Top
 I_g(end, :) = interp1(X(end, mask_g(end, :)), I_g(end, mask_g(end, :)), X(end, :), 'linear'); % Bottom
-I_g(:, 1) = interp1(X(mask_g(:, 1), 1), I_g(mask_g(:, 1), 1), X(:, 1), 'linear'); % Left
-I_g(:, end) = interp1(X(mask_g(:, end), end), I_g(mask_g(:, end), end), X(:, end), 'linear'); % Right
+I_g(:, 1) = interp1(Y(mask_g(:, 1), 1), I_g(mask_g(:, 1), 1), Y(:, 1), 'linear'); % Left
+I_g(:, end) = interp1(Y(mask_g(:, end), end), I_g(mask_g(:, end), end), Y(:, end), 'linear'); % Right
 
 I_rgb(:, :, green_index) = I_g;
 

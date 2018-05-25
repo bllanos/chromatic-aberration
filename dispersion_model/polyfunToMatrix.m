@@ -130,7 +130,7 @@ if ~isempty(varargin)
 else
     image_sampling_out = image_sampling_in;
 end
-set_bounds = (length(varargin) > 1);
+set_bounds = (length(varargin) > 1) && ~isempty(varargin{2});
 if set_bounds
     image_bounds_out = varargin{2};
 end
@@ -189,6 +189,11 @@ end
 pixel_scale_x = image_sampling_out(2) / image_sampling_in(2);
 pixel_scale_y = image_sampling_out(1) / image_sampling_in(1);
 
+% Convert undistorted coordinates to pixel coordinates in the undistorted
+% image
+x_out_all_bands = pixel_scale_x * (x_out_all_bands - image_bounds_out(1));
+y_out_all_bands = pixel_scale_y * (y_out_all_bands - image_bounds_out(2));
+
 % Find the positions of neighbouring pixels in the undistorted image
 offsets = [
      0.5 -0.5; % Top right (Q21)
@@ -201,8 +206,8 @@ n_offsets = size(offsets, 1);
 neighbour_x = zeros(n_px_lambda_in, n_offsets);
 neighbour_y = zeros(n_px_lambda_in, n_offsets);
 for i = 1:n_offsets
-    neighbour_x(:, i) = pixel_scale_x * (x_out_all_bands - image_bounds_out(1)) + offsets(i, 1);
-    neighbour_y(:, i) = pixel_scale_y * (y_out_all_bands - image_bounds_out(2)) + offsets(i, 2);
+    neighbour_x(:, i) = x_out_all_bands + offsets(i, 1);
+    neighbour_y(:, i) = y_out_all_bands + offsets(i, 2);
 end
 neighbour_index_x = ceil(reshape(neighbour_x, [], 1));
 neighbour_index_y = ceil(reshape(neighbour_y, [], 1));
@@ -212,6 +217,10 @@ neighbour_index_x(neighbour_index_x < 1) = 1;
 neighbour_index_x(neighbour_index_x > image_sampling_out(2)) = image_sampling_out(2);
 neighbour_index_y(neighbour_index_y < 1) = 1;
 neighbour_index_y(neighbour_index_y > image_sampling_out(1)) = image_sampling_out(1);
+
+% Convert back to pixel coordinates
+neighbour_x = reshape(neighbour_index_x - 0.5, [], n_offsets);
+neighbour_y = reshape(neighbour_index_y - 0.5, [], n_offsets);
 
 % Find bilinear interpolation weights
 neighbour_weights = zeros(n_px_lambda_in, n_offsets);
@@ -239,7 +248,7 @@ neighbour_index_linear = sub2ind(...
     [image_sampling_out, n_lambda],...
     neighbour_index_y,...
     neighbour_index_x,...
-    repelem((1:n_lambda).', n_px_in)...
+    repmat(repelem((1:n_lambda).', n_px_in), n_offsets, 1)...
 );
 
 % Assemble the sparse matrix
