@@ -32,8 +32,8 @@
 % - 'model_from_reference': A parameter of the above scripts, which
 %   determines the frame of reference for the model of chromatic
 %   aberration. It must be set to `true`.
-% - 'bands': A vector containing the wavelengths or colour channel indices.
-%   To use as the `lambda` input argument of 'polyfunToMatrix()'. `bands`
+% - 'bands': A vector containing the wavelengths or colour channel indices
+%   to use as the `lambda` input argument of 'polyfunToMatrix()'. `bands`
 %   is the wavelength or colour channel information needed to evaluate the
 %   dispersion model.
 %
