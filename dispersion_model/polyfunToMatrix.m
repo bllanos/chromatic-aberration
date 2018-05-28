@@ -74,9 +74,9 @@ function [ W, image_bounds_out ] = polyfunToMatrix(polyfun, lambda, image_sampli
 % ## Output Arguments
 %
 % W -- Warp matrix
-%   A (n_px_in x n)-by-(n_px_out x n) array (n = length(lambda)) which
-%   warps the undistorted image to the distorted image, according to the
-%   equation:
+%   A (n_px_in x n)-by-(n_px_out x n) sparse array (n = length(lambda))
+%   which warps the undistorted image to the distorted image, according to
+%   the equation:
 %     `I_distorted = W * I_undistorted`
 %   `I_undistorted` is a vectorized form of an image where all pixels have
 %   been rearranged from columnwise order into a column vector.
@@ -186,8 +186,8 @@ if ~set_bounds
         pixel_height * image_sampling_out(1)...
     ];
 end
-pixel_scale_x = image_sampling_out(2) / image_sampling_in(2);
-pixel_scale_y = image_sampling_out(1) / image_sampling_in(1);
+pixel_scale_x = image_sampling_out(2) / image_bounds_out(3);
+pixel_scale_y = image_sampling_out(1) / image_bounds_out(4);
 
 % Convert undistorted coordinates to pixel coordinates in the undistorted
 % image

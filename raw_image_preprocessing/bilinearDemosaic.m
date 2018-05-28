@@ -1,11 +1,11 @@
-function [ I_rgb ] = bilinearDemosaic(I_raw, align)
+function [ I_rgb ] = bilinearDemosaic(I_raw, align, varargin)
 % BILINEARDEMOSAIC  Demosaic an image by bilinear interpolation
 %
 % ## Syntax
-% I_rgb = bilinearDemosaic(I_raw, align)
+% I_rgb = bilinearDemosaic(I_raw, align [, channels])
 %
 % ## Description
-% I_rgb = bilinearDemosaic(I_raw, align)
+% I_rgb = bilinearDemosaic(I_raw, align [, channels])
 %   Converts a colour-filter array image to a colour image by bilinear
 %   interpolation.
 %
@@ -20,15 +20,26 @@ function [ I_rgb ] = bilinearDemosaic(I_raw, align)
 %   For example, 'gbrg'. `align` has the same form as the `sensorAlignment`
 %   input argument of `demosaic()`.
 %
+% channels -- Requested channels
+%   A 3-element logical vector, where `channels(i)` is a flag indicating
+%   whether or not to produce the i-th demosaiced colour channel in
+%   `I_rgb`. If empty or not passed, `channels` defaults to `true(3, 1)`.
+%
 % ## Output Arguments
 %
 % I_rgb -- Full-colour image
-%   An image_height x image_width x 3 array, containing the demosaicked
-%   image, produced by per-channel bilinear interpolation of `I_raw`.
+%   An image_height x image_width x sum(channels) array, containing the
+%   demosaicked image, produced by per-channel bilinear interpolation of
+%   `I_raw`. Only the colour channels corresponding to `true` values in
+%   `channels` will be output. Consequently, while the order of the colour
+%   channels in `I_rgb` is always Red, Green, Blue, the indices of the
+%   channels depend on the contents of `channels`. For instance, `Blue`
+%   will be the first channel if it is the only channel requested.
 %
 % ## Notes
-% - Pixels at the edges of the image will be given values of 'NaN' for
-%   colour channels whose pixels do not extend to the corresponding edges.
+% - Pixels at the edges of the image will be given the values of their
+%   neighbours for colour channels whose pixels do not extend to the
+%   corresponding edges, or which omit image corners.
 % - The image dimensions are assumed to be even numbers.
 %
 % ## References
@@ -46,7 +57,17 @@ function [ I_rgb ] = bilinearDemosaic(I_raw, align)
 % File created May 20, 2018
 
 nargoutchk(1, 1);
-narginchk(2, 2);
+narginchk(2, 3);
+
+n_channels_max = 3;
+if ~isempty(varargin)
+    channels = varargin{1};
+    if length(channels) ~= n_channels_max
+        error('`channels` must have three elements, for Red, Green, and Blue.');
+    end
+else
+    channels = true(n_channels_max, 1);
+end
 
 I_raw = im2double(I_raw);
 
@@ -54,16 +75,24 @@ image_height = size(I_raw, 1);
 image_width = size(I_raw, 2);
 mask = bayerMask( image_height, image_width, align );
 
-I_rgb = nan(size(mask));
+n_channels = sum(channels);
+I_rgb = nan(image_height, image_width, n_channels);
 
 % Red and Blue
 [X, Y] = meshgrid(1:image_width, 1:image_height);
-for c = [1 3]
-    mask_c = mask(:, :, c);
-    x_c = reshape(X(mask_c), image_height / 2, image_width / 2);
-    y_c = reshape(Y(mask_c), image_height / 2, image_width / 2);
-    I_raw_c = reshape(I_raw(mask_c), image_height / 2, image_width / 2);
-    I_rgb(:, :, c) = interp2(x_c, y_c, I_raw_c, X, Y, 'linear');
+for c = [1 n_channels_max]
+    if channels(c)
+        mask_c = mask(:, :, c);
+        x_c = reshape(X(mask_c), image_height / 2, image_width / 2);
+        y_c = reshape(Y(mask_c), image_height / 2, image_width / 2);
+        I_raw_c = reshape(I_raw(mask_c), image_height / 2, image_width / 2);
+        I_c = interp2(x_c, y_c, I_raw_c, X, Y, 'linear');
+        if c == 1
+            I_rgb(:, :, c) = I_c;
+        else
+            I_rgb(:, :, n_channels) = I_c;
+        end
+    end
 end
 
 % Green
@@ -90,5 +119,21 @@ I_g(:, end) = interp1(Y(mask_g(:, end), end), I_g(mask_g(:, end), end), Y(:, end
 
 I_rgb(:, :, green_index) = I_g;
 
-end
+% Fill in boundary values by copying adjacent pixels
+ind_unknown = find(~isfinite(I_rgb));
+[row,col,channel] = ind2sub(size(I_rgb), ind_unknown);
+row_adj = row;
+col_adj = col;
+% Left
+col_adj(col == 1) = col(col == 1) + 1;
+% Top
+row_adj(row == 1) = row(row == 1) + 1;
+% Bottom
+row_adj(row == image_height) = row(row == image_height) - 1;
+% Right
+col_adj(col == image_width) = col(col == image_width) - 1;
 
+ind_adj = sub2ind(size(I_rgb), row_adj, col_adj, channel);
+I_rgb(ind_unknown) = I_rgb(ind_adj);
+
+end
