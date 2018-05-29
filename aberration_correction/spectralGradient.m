@@ -15,11 +15,10 @@ function [ G_lambda ] = spectralGradient(image_sampling, replicate)
 %   colour channels or wavelength bands, respectively, of the image.
 %
 % replicate -- Boundary conditions
-%   A Boolean value indicating how to treat the first and last colour
-%   channels (or wavelength bands) of the image. If `true`, the first and
-%   last colour channels will be replicated prior to taking the gradient.
-%   Otherwise, the gradient will not be calculated for the first and last
-%   colour channels.
+%   A Boolean value indicating how to treat the last colour channel (or
+%   wavelength band) of the image. If `true`, the last colour channel will
+%   be replicated prior to taking the gradient. Otherwise, the gradient
+%   will not be calculated for the last colour channel.
 %
 % ## Output Arguments
 %
@@ -36,14 +35,14 @@ function [ G_lambda ] = spectralGradient(image_sampling, replicate)
 %   wavelength bands, then `I` contains the data from the image in order
 %   first by row, then by column, then by colour channel. `c_out` is equal
 %   to `c` if `replicate` is `true`. Otherwise, `c_out` is equal to `c -
-%   2`.
+%   1`.
 %
 % ## Algorithm
 %
-% The central difference formula is used to produce the gradient. Boundary
+% The forward difference formula is used to produce the gradient. Boundary
 % colour channels are replicated to allow the formula to be applied to
 % every colour channel, if `replicate` is `true`. Otherwise, the gradient
-% is only calculated for colour channels with two adjacent colour channels.
+% is only calculated for colour channels with a following colour channel.
 %
 % See also spatialGradient
 
@@ -60,48 +59,40 @@ if length(image_sampling) ~= 3
 end
 
 c = image_sampling(3);
-if replicate
-    c_out = c;
-else
-    c_out = c - 2;
-end
-if c_out < 1
-    error('Cannot output less than one gradient channel.');
-end
+c_nonzero = c - 1;
 n_px = prod(image_sampling(1:2));
 n_px_c = prod(image_sampling);
-n_px_cout = n_px * c_out;
+n_px_c_nonzero = n_px * c_nonzero;
 
 % Row indices
 % - Go through all pixels once, and create two matrix elements per pixel
-offsets = [1; 3];
+offsets = [0; 1];
 n_offsets = size(offsets, 1);
-rows = repelem((1:n_px_cout).', n_offsets);
+rows = repelem((1:n_px_c_nonzero).', n_offsets);
 
 % Column indices
-% Each element of the central difference gradient is calculated from two colour
-% channel values
-channel_indices = repmat(offsets, n_px * (c - 2), 1) +...
-    repelem((0:(c - 3)).', n_px * n_offsets);
-if replicate
-    channel_indices = [
-        ones(n_px * n_offsets, 1);
-        channel_indices;
-        repmat(c, n_px * n_offsets, 1)
-    ];
-end
+% Each element of the forward difference gradient is calculated from two
+% colour channel values
+channel_indices = repmat(offsets, n_px_c_nonzero, 1) +...
+    repelem((1:c_nonzero).', n_px * n_offsets);
 
 % Convert to linear indices
-columns = repmat(repelem((1:n_px).', 2), c_out, 1) + (channel_indices - 1) * n_px;
+columns = repmat(repelem((1:n_px).', n_offsets), c_nonzero, 1) +...
+    (channel_indices - 1) * n_px;
 
 % Matrix values
-elements = repmat([-0.5; 0.5], n_px_cout);
+elements = repmat([-1; 1], n_px_c_nonzero, 1);
 
 % Assemble the sparse matrix
+if replicate
+    sz_1 = n_px_c;
+else
+    sz_1 = n_px_c_nonzero;
+end
 G_lambda = sparse(...
     rows,...
     columns,...
     elements,...
-    n_px_cout, n_px_c...
+    sz_1, n_px_c...
 );
 end
