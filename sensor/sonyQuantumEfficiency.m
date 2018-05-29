@@ -21,7 +21,7 @@ function [qe] = sonyQuantumEfficiency(lambda)
 %   `lambda`. `qe(i, :)` contains the Red, Green, and Blue colour channels'
 %   quantum efficiencies for the wavelength `lambda(i)`. The data is drawn
 %   from the plot of quantum efficiency curves for the Sony ICX655, 2/3"
-%   sensor saved in '../FL3_GE_50S5C_quantumEfficiencyData.png'.
+%   sensor saved in 'FL3_GE_50S5C_quantumEfficiencyData.png'.
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
