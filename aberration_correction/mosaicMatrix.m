@@ -58,7 +58,7 @@ columns = find(mask);
 % Row indices
 rows = columns;
 for c = 1:n_channels
-    filter = (rows > (n_px * (c - 1))) & (rows < (n_px * c));
+    filter = (rows > (n_px * (c - 1))) & (rows <= (n_px * c));
     rows(filter) = rows(filter) - (n_px * (c - 1));
 end
 

@@ -39,6 +39,13 @@ function [ y ] = softThreshold(x, t)
 % University of Alberta, Department of Computing Science
 % File created May 27, 2018
 
+nargoutchk(1, 1);
+narginchk(2, 2);
+
+if ~isscalar(t) || t < 0
+    error('The threshold `t` must be a non-negative scalar.');
+end
+
 y = zeros(size(x));
 y(x > t) = x(x > t) - t;
 y(x < -t) = x(x < -t) + t;

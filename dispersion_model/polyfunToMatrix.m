@@ -102,6 +102,11 @@ function [ W, image_bounds_out ] = polyfunToMatrix(polyfun, lambda, image_sampli
 % interpolation calculation yielding the j-th pixel in the distorted image,
 % for the k-th wavelength band.
 %
+% ## Notes
+% - This function is presently not suitable for downsampling an image
+%   during warping, as proper downsampling would involve blurring to avoid
+%   aliasing.
+%
 % ## References
 % - V. Rudakova and P. Monasse. "Precise Correction of Lateral Chromatic
 %   Aberration in Images," Lecture Notes on Computer Science, 8333, pp.
