@@ -183,7 +183,7 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % File created May 27, 2018
 
 nargoutchk(1, 5);
-narginchk(10, 10);
+narginchk(12, 13);
 
 if ~isempty(varargin)
     verbose = varargin{1};
@@ -221,7 +221,12 @@ G_lambda = [
 
 % Initialization
 J = J_2D(:);
-I = bilinearDemosaic(J_2D, align, [false, true, false]); % Initialize with the Green channel
+J_bilinear = bilinearDemosaic(J_2D, align, [false, true, false]); % Initialize with the Green channel
+if any(image_sampling ~= image_sampling_J)
+    I = imresize(J_bilinear, image_sampling, 'bilinear');
+else
+    I = J_bilinear;
+end
 I = repmat(I(:), n_bands, 1);
 len_I = length(I);
 Z1 = G_xy * I;
@@ -316,15 +321,16 @@ I_3D = reshape(I, image_sampling(1), image_sampling(2), n_bands);
 if nargout > 2
     Omega_I = channelConversionMatrix(image_sampling, sensitivity);
     I_rgb = Omega_I * I;
-    varargout{1} = I_rgb;
+    n_channels_rgb = 3;
+    varargout{1} = reshape(I_rgb, image_sampling(1), image_sampling(2), n_channels_rgb);
     
     if nargout > 3
         J_full = Omega * Phi * I;
-        varargout{2} = J_full;
+        varargout{2} = reshape(J_full, image_sampling_J(1), image_sampling_J(2), n_channels_rgb);
         
         if nargout > 4
             J_est = M * J_full;
-            varargout{3} = J_est;
+            varargout{3} = reshape(J_est, image_sampling_J);
         end
     end
 end

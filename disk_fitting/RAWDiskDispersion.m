@@ -106,7 +106,7 @@ parameters_list = {
 % filepaths. Masks are used to avoid processing irrelevant portions of
 % images.
 partial_filepaths = {
-    '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180524_Testing_CorrectByWarping/input_images/disksBlack_warped_raw_1050x1680resPitch0.282r4sep11_Acer'
+    '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180530_Testing_CorrectByHyperspectralADMM/input_images/disksBlack_warped_raw'
     };
 
 % Filename extension (excluding the leading '.')
@@ -123,6 +123,8 @@ mask_threshold = 0.5; % In a range of intensities from 0 to 1
 % taken under different spectral bands
 rgb_mode = true;
 
+% Note that `bands_to_rgb` is used only for visualization purposes, not for
+% calculations. It does not need to be accurate.
 if rgb_mode
     bands = 1:3;
     reference_index = 2; % Green colour channel
@@ -158,14 +160,14 @@ max_degree_lambda = 12;
 % warping. The second case is useful for warping an "ideal" image to
 % compare it with an observed aberrated image. In both cases, the
 % dispersion vectors point from the reference band to the other bands.
-model_from_reference = true;
+model_from_reference = false;
 
 % ## Debugging Flags
 findAndFitDisksVerbose.verbose_disk_search = false;
 findAndFitDisksVerbose.verbose_disk_refinement = false;
 findAndFitDisksVerbose.display_final_centers = true;
 
-statsToDisparityVerbose.display_raw_values = true;
+statsToDisparityVerbose.display_raw_values = false;
 statsToDisparityVerbose.display_raw_disparity = true;
 statsToDisparityVerbose.filter = struct(...
     dispersion_fieldname, true...

@@ -201,16 +201,16 @@ parameters_list = {
 %% Input data and parameters
 
 % Wildcard for 'ls()' to find the images to process.
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180524_Testing_CorrectByWarping/input_images/*raw*';
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180530_Testing_CorrectByHyperspectralADMM/input_images/*raw*';
 
 % Colour-filter pattern
 bayer_pattern = 'gbrg';
 
 % Polynomial model of dispersion
-polynomial_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180524_Testing_CorrectByWarping/RAWDiskDispersionResults.mat';
+polynomial_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180530_Testing_CorrectByHyperspectralADMM/RAWDiskDispersionResults.mat';
 
 % Colour space conversion data
-color_map_filename = '';
+color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180530_Testing_CorrectByHyperspectralADMM/RGBColorMapData.mat';
 
 % Override the wavelengths or colour channel indices at which to evaluate
 % the polynomial model of dispersion, if desired.
@@ -221,10 +221,10 @@ bands_interp_method = 'linear';
 
 % Downsampling factor to apply to the estimated latent images relative to
 % the input images. If empty (`[]`), downsampling will not occur.
-downsampling_factor = 2;
+downsampling_factor = 1;
 
 % Output directory for all images and saved parameters
-output_directory = '';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180530_Testing_CorrectByHyperspectralADMM/output_images';
 
 % Whether or not to save the latent images to image files, beyond including
 % them in the output '.mat' file
@@ -256,7 +256,7 @@ weights = [ 0.1, 0.1 ];
 tol = [ 1e-3, 1e-2, 1e-3 ];
 
 % Maximum number of inner and outer iterations, the `maxit` input argument
-maxit = [ 20, 30 ];
+maxit = [ 20, Inf ];
 
 % ## Debugging Flags
 baek2017Algorithm2Verbose = true;
@@ -335,7 +335,7 @@ else
     sensor_map_resampled = sensor_map;
 end
 
-if save_latent_image_files && (n_channels ~= 3 || n_channels ~= 1)
+if save_latent_image_files && (n_channels ~= 3 && n_channels ~= 1)
     error('Cannot save latent images to image files, because they have %d colour channels.', n_channels);
 end
 

@@ -200,11 +200,11 @@ x_out_all_bands = pixel_scale_x * (x_out_all_bands - image_bounds_out(1));
 y_out_all_bands = pixel_scale_y * (y_out_all_bands - image_bounds_out(2));
 
 % Find the positions of neighbouring pixels in the undistorted image
-offsets = [
-     0.5 -0.5; % Top right (Q21)
-    -0.5 -0.5; % Top left (Q11)
-    -0.5  0.5; % Bottom left (Q12)
-     0.5  0.5; % Bottom right (Q22)
+offsets = (0.5 + eps) * [
+     1 -1; % Top right (Q21)
+    -1 -1; % Top left (Q11)
+    -1  1; % Bottom left (Q12)
+     1  1; % Bottom right (Q22)
      ];
 n_offsets = size(offsets, 1);
 
@@ -217,15 +217,15 @@ end
 neighbour_index_x = ceil(reshape(neighbour_x, [], 1));
 neighbour_index_y = ceil(reshape(neighbour_y, [], 1));
 
+% Convert back to pixel coordinates
+neighbour_x = reshape(neighbour_index_x - 0.5, [], n_offsets);
+neighbour_y = reshape(neighbour_index_y - 0.5, [], n_offsets);
+
 % Replicate pixels outside the image boundaries
 neighbour_index_x(neighbour_index_x < 1) = 1;
 neighbour_index_x(neighbour_index_x > image_sampling_out(2)) = image_sampling_out(2);
 neighbour_index_y(neighbour_index_y < 1) = 1;
 neighbour_index_y(neighbour_index_y > image_sampling_out(1)) = image_sampling_out(1);
-
-% Convert back to pixel coordinates
-neighbour_x = reshape(neighbour_index_x - 0.5, [], n_offsets);
-neighbour_y = reshape(neighbour_index_y - 0.5, [], n_offsets);
 
 % Find bilinear interpolation weights
 neighbour_weights = zeros(n_px_lambda_in, n_offsets);

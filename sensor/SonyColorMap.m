@@ -37,8 +37,6 @@
 % section of the script below, for reference. (Specifically, those listed
 % in `parameters_list`, which should be updated if the set of parameters is
 % changed.)
-%
-% ## Notes
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
