@@ -7,7 +7,7 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % BAEK2017ALGORITHM2  Run ADMM as in Algorithm 2 of Baek et al. 2017
 %
 % ## Syntax
-% I = algorithm2(...
+% I = baek2017Algorithm2(...
 %     image_sampling, align, sensitivity,...
 %     polyfun, lambda, add_border,...
 %     full_GLambda, J, rho, weights,...
@@ -19,7 +19,7 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % [ I, image_bounds, I_rgb, J_full, J_est ] = baek2017Algorithm2(___)
 %
 % ## Description
-% I = algorithm2(...
+% I = baek2017Algorithm2(...
 %     image_sampling, align, sensitivity,...
 %     polyfun, lambda, add_border,...
 %     full_GLambda, J, rho, weights,...
@@ -167,6 +167,13 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %     Trends in Machine Learning, vol. 3, no. 1, pp. 1-122, 2011.
 %     doi:10.1561/2200000016
 %
+% ## Future Work
+%
+% There are several modifications and expansions which may improve the
+% performance of ADMM:
+% - Section 3.4.1 of Boyd et al. 2011, "Varying Penalty Parameter"
+% - Section 4.3.2 of Boyd et al. 2011, "Early Termination"
+%
 % See also mosaicMatrix, channelConversionMatrix, polyfunToMatrix,
 % spatialGradient, spectralGradient, softThreshold, subproblemI
 
@@ -190,6 +197,7 @@ end
 
 % Create constant matrices
 image_sampling_J = size(J_2D);
+n_bands = length(lambda);
 M = mosaicMatrix(image_sampling_J, align);
 Omega = channelConversionMatrix(image_sampling_J, sensitivity);
 if add_border
@@ -200,8 +208,8 @@ end
 [ Phi, image_bounds ] = polyfunToMatrix(...
    polyfun, lambda, image_sampling_J, image_sampling, image_bounds, true...
 );
-G_xy = spatialGradient(image_sampling);
-G_lambda = spectralGradient(image_sampling, full_GLambda);
+G_xy = spatialGradient([image_sampling, n_bands]);
+G_lambda = spectralGradient([image_sampling, n_bands], full_GLambda);
 G_lambda_sz1 = size(G_lambda, 1);
 G_lambda_sz2 = size(G_lambda, 2);
 % The product `G_lambda * G_xy` must be defined, so `G_lambda` needs to be
@@ -214,7 +222,6 @@ G_lambda = [
 % Initialization
 J = J_2D(:);
 I = bilinearDemosaic(J_2D, align, [false, true, false]); % Initialize with the Green channel
-n_bands = length(lambda);
 I = repmat(I(:), n_bands, 1);
 len_I = length(I);
 Z1 = G_xy * I;

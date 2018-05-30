@@ -60,7 +60,7 @@ bands = linspace(200, 1200, 1000);
 
 data_source = which(fn_name);
 
-qe = sonyQuantumEfficiency(bands);
+qe = feval(fn_name, bands);
 qe_percent = qe * 100;
 
 sensor_map = qe.';
