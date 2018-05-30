@@ -106,7 +106,7 @@ parameters_list = {
 % filepaths. Masks are used to avoid processing irrelevant portions of
 % images.
 partial_filepaths = {
-    '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180530_Testing_CorrectByHyperspectralADMM/input_images/disksBlack_warped_raw'
+    '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180530_CorrectionMethodsBasicComparison/input_images/disksBlack_warped_raw'
     };
 
 % Filename extension (excluding the leading '.')
@@ -160,7 +160,7 @@ max_degree_lambda = 12;
 % warping. The second case is useful for warping an "ideal" image to
 % compare it with an observed aberrated image. In both cases, the
 % dispersion vectors point from the reference band to the other bands.
-model_from_reference = false;
+model_from_reference = true;
 
 % ## Debugging Flags
 findAndFitDisksVerbose.verbose_disk_search = false;

@@ -105,6 +105,13 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %   the `beta` weight on the regularization of the spectral gradient of the
 %   spatial gradient of the image in the ADMM optimization problem.
 %
+%   If all elements of `weights` are zero, this function will find the
+%   minimum-norm least squares solution to the simpler problem:
+%     argmin_i (||M * Omega * Phi * i - j||_2) ^ 2
+%   where `M` performs mosaicing, `Omega` converts colours to the RGB
+%   colour space of the camera, and `Phi` warps the image according to the
+%   dispersion model. `j` is the input RAW image.
+%
 % tol -- Convergence tolerances
 %   The first element of `tol` is the tolerance value to use with MATLAB's
 %   'pcg()' function when solving the I-minimization step of the ADMM
@@ -175,7 +182,7 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % - Section 4.3.2 of Boyd et al. 2011, "Early Termination"
 %
 % See also mosaicMatrix, channelConversionMatrix, polyfunToMatrix,
-% spatialGradient, spectralGradient, softThreshold, subproblemI
+% spatialGradient, spectralGradient, softThreshold, subproblemI, lsqminnorm
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -195,6 +202,8 @@ if length(image_sampling) ~= 2
     error('The `image_sampling` input argument must contain an image height and width only.');
 end
 
+J = J_2D(:);
+
 % Create constant matrices
 image_sampling_J = size(J_2D);
 n_bands = length(lambda);
@@ -208,111 +217,118 @@ end
 [ Phi, image_bounds ] = polyfunToMatrix(...
    polyfun, lambda, image_sampling_J, image_sampling, image_bounds, true...
 );
-G_xy = spatialGradient([image_sampling, n_bands]);
-G_lambda = spectralGradient([image_sampling, n_bands], full_GLambda);
-G_lambda_sz1 = size(G_lambda, 1);
-G_lambda_sz2 = size(G_lambda, 2);
-% The product `G_lambda * G_xy` must be defined, so `G_lambda` needs to be
-% replicated to operate on both the x and y-gradients.
-G_lambda = [
-    G_lambda, sparse(G_lambda_sz1, G_lambda_sz2);
-    sparse(G_lambda_sz1, G_lambda_sz2), G_lambda
-    ];
 
-% Initialization
-J = J_2D(:);
-J_bilinear = bilinearDemosaic(J_2D, align, [false, true, false]); % Initialize with the Green channel
-if any(image_sampling ~= image_sampling_J)
-    I = imresize(J_bilinear, image_sampling, 'bilinear');
+if all(weights == 0)
+    % Minimum-norm least squares solution to the non-regularized problem
+    A = M * Omega * Phi;
+    I = lsqminnorm(A, J);
 else
-    I = J_bilinear;
-end
-I = repmat(I(:), n_bands, 1);
-len_I = length(I);
-Z1 = G_xy * I;
-G_lambda_xy = G_lambda * G_xy;
-Z2 = G_lambda_xy * I;
-len_Z1 = length(Z1);
-U1 = zeros(len_Z1, 1);
-len_Z2 = length(Z2);
-U2 = zeros(len_Z2, 1);
+    % Perform ADMM
+    G_xy = spatialGradient([image_sampling, n_bands]);
+    G_lambda = spectralGradient([image_sampling, n_bands], full_GLambda);
+    G_lambda_sz1 = size(G_lambda, 1);
+    G_lambda_sz2 = size(G_lambda, 2);
+    % The product `G_lambda * G_xy` must be defined, so `G_lambda` needs to be
+    % replicated to operate on both the x and y-gradients.
+    G_lambda = [
+        G_lambda, sparse(G_lambda_sz1, G_lambda_sz2);
+        sparse(G_lambda_sz1, G_lambda_sz2), G_lambda
+        ];
 
-% Iteration
-[ b, A ] = subproblemI(M, Omega, Phi, G_xy, G_lambda, J, Z1, Z2, U1, U2, rho);
-soft_thresholds = weights ./ rho;
-G_xy_T = G_xy.';
-G_lambda_xy_T = G_lambda_xy.';
-converged = false;
-for iter = 1:maxit(2)
-    % Optimization
-    [ I, flag, relres, iter_pcg ] = pcg(...
-        A, b, tol(1), maxit(1), [], [], I...
-    );
-    if(verbose)
-        fprintf('%d:    PCG (flag = %d, relres = %g, iter = %d)\n',...
-            iter, flag, relres, iter_pcg...
-            );
-    end
-    g_xy = G_xy * I;
-    g_lambda_xy = G_lambda_xy * I;
-    Z1_prev = Z1;
-    Z2_prev = Z2;
-    Z1 = softThreshold(g_xy + U1, soft_thresholds(1));
-    Z2 = softThreshold(g_lambda_xy + U2, soft_thresholds(2));
-    R1 = g_xy - Z1;
-    R2 = g_lambda_xy - Z2;
-    U1 = U1 + R1;
-    U2 = U2 + R2;
-    
-    % Calculate residuals
-    R1_norm = norm(R1);
-    R2_norm = norm(R2);
-    S1 = rho(1) * G_xy_T * (Z1 - Z1_prev);
-    S2 = rho(2) * G_lambda_xy_T * (Z2 - Z2_prev);
-    S1_norm = norm(S1);
-    S2_norm = norm(S2);
-    
-    if(verbose)
-        fprintf(' Residuals (R1_norm = %g, R2_norm = %g, S1_norm = %g, S2_norm = %g)\n',...
-            R1_norm, R2_norm, S1_norm, S2_norm...
-        );
-    end
-    
-    % Calculate stopping criteria
-    % See Section 3.3.1 of Boyd et al. 2011.
-    epsilon_pri1 = sqrt(len_Z1) * tol(2) +...
-        tol(3) * max([norm(g_xy), norm(Z1)]);
-    epsilon_pri2 = sqrt(len_Z2) * tol(2) +...
-        tol(3) * max([norm(g_lambda_xy), norm(Z2)]);
-    
-    Y1 = rho(1) * U1;
-    Y2 = rho(2) * U2;
-    epsilon_dual1 = sqrt(len_I) * tol(2) +...
-        tol(3) * norm(G_xy_T * Y1);
-    epsilon_dual2 = sqrt(len_I) * tol(2) +...
-        tol(3) * norm(G_lambda_xy_T * Y2);
-    
-    if(verbose)
-        fprintf('Stop Crit. (e_p1 = %g, e_p2 = %g, e_d2 = %g, e_d2 = %g)\n',...
-            epsilon_pri1, epsilon_pri2, epsilon_dual1, epsilon_dual2...
-        );
-    end
-    
-    % Check against stopping criteria
-    if (R1_norm < epsilon_pri1  && R2_norm < epsilon_pri2 &&...
-        S1_norm < epsilon_dual1 && S2_norm < epsilon_dual2)
-        converged = true;
-        break;
-    end
-    
-    b = subproblemI(M, Omega, Phi, G_xy, G_lambda, J, Z1, Z2, U1, U2, rho);
-end
-
-if verbose
-    if converged
-        fprintf('Convergence after %d iterations.\n', iter);
+    % Initialization
+    J_bilinear = bilinearDemosaic(J_2D, align, [false, true, false]); % Initialize with the Green channel
+    if any(image_sampling ~= image_sampling_J)
+        I = imresize(J_bilinear, image_sampling, 'bilinear');
     else
-        fprintf('Maximum number of iterations, %d, reached without convergence.\n', iter);
+        I = J_bilinear;
+    end
+    I = repmat(I(:), n_bands, 1);
+    len_I = length(I);
+    Z1 = G_xy * I;
+    G_lambda_xy = G_lambda * G_xy;
+    Z2 = G_lambda_xy * I;
+    len_Z1 = length(Z1);
+    U1 = zeros(len_Z1, 1);
+    len_Z2 = length(Z2);
+    U2 = zeros(len_Z2, 1);
+
+    % Iteration
+    [ b, A ] = subproblemI(M, Omega, Phi, G_xy, G_lambda, J, Z1, Z2, U1, U2, rho);
+    soft_thresholds = weights ./ rho;
+    G_xy_T = G_xy.';
+    G_lambda_xy_T = G_lambda_xy.';
+    converged = false;
+    for iter = 1:maxit(2)
+        % Optimization
+        [ I, flag, relres, iter_pcg ] = pcg(...
+            A, b, tol(1), maxit(1), [], [], I...
+        );
+        if(verbose)
+            fprintf('%d:    PCG (flag = %d, relres = %g, iter = %d)\n',...
+                iter, flag, relres, iter_pcg...
+                );
+        end
+        g_xy = G_xy * I;
+        g_lambda_xy = G_lambda_xy * I;
+        Z1_prev = Z1;
+        Z2_prev = Z2;
+        Z1 = softThreshold(g_xy + U1, soft_thresholds(1));
+        Z2 = softThreshold(g_lambda_xy + U2, soft_thresholds(2));
+        R1 = g_xy - Z1;
+        R2 = g_lambda_xy - Z2;
+        U1 = U1 + R1;
+        U2 = U2 + R2;
+
+        % Calculate residuals
+        R1_norm = norm(R1);
+        R2_norm = norm(R2);
+        S1 = rho(1) * G_xy_T * (Z1 - Z1_prev);
+        S2 = rho(2) * G_lambda_xy_T * (Z2 - Z2_prev);
+        S1_norm = norm(S1);
+        S2_norm = norm(S2);
+
+        if(verbose)
+            fprintf(' Residuals (R1_norm = %g, R2_norm = %g, S1_norm = %g, S2_norm = %g)\n',...
+                R1_norm, R2_norm, S1_norm, S2_norm...
+            );
+        end
+
+        % Calculate stopping criteria
+        % See Section 3.3.1 of Boyd et al. 2011.
+        epsilon_pri1 = sqrt(len_Z1) * tol(2) +...
+            tol(3) * max([norm(g_xy), norm(Z1)]);
+        epsilon_pri2 = sqrt(len_Z2) * tol(2) +...
+            tol(3) * max([norm(g_lambda_xy), norm(Z2)]);
+
+        Y1 = rho(1) * U1;
+        Y2 = rho(2) * U2;
+        epsilon_dual1 = sqrt(len_I) * tol(2) +...
+            tol(3) * norm(G_xy_T * Y1);
+        epsilon_dual2 = sqrt(len_I) * tol(2) +...
+            tol(3) * norm(G_lambda_xy_T * Y2);
+
+        if(verbose)
+            fprintf('Stop Crit. (e_p1 = %g, e_p2 = %g, e_d2 = %g, e_d2 = %g)\n',...
+                epsilon_pri1, epsilon_pri2, epsilon_dual1, epsilon_dual2...
+            );
+        end
+
+        % Check against stopping criteria
+        if (R1_norm < epsilon_pri1  && R2_norm < epsilon_pri2 &&...
+            S1_norm < epsilon_dual1 && S2_norm < epsilon_dual2)
+            converged = true;
+            break;
+        end
+
+        b = subproblemI(M, Omega, Phi, G_xy, G_lambda, J, Z1, Z2, U1, U2, rho);
+    end
+
+    if verbose
+        if converged
+            fprintf('Convergence after %d iterations.\n', iter);
+        else
+            fprintf('Maximum number of iterations, %d, reached without convergence.\n', iter);
+        end
     end
 end
 

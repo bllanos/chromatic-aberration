@@ -84,16 +84,16 @@ parameters_list = {
 %% Input data and parameters
 
 % Wildcard for 'ls()' to find the images to process.
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180524_Testing_CorrectByWarping/input_images/*raw*';
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180530_CorrectionMethodsBasicComparison/input_images/*raw*';
 
 % Colour-filter pattern
 bayer_pattern = 'gbrg';
 
 % Polynomial model of dispersion
-polynomial_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180524_Testing_CorrectByWarping/RAWDiskDispersionResults.mat';
+polynomial_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180530_CorrectionMethodsBasicComparison/RAWDiskDispersionResults_true.mat';
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180524_Testing_CorrectByWarping/output_images';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180530_CorrectionMethodsBasicComparison/output_images_warping';
 
 %% Find the images
 
