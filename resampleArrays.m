@@ -97,6 +97,8 @@ function [Y1_resampled, varargout] = resampleArrays(x1, Y1, x2, varargin)
 % dimension of `Y1` with a size equal to the length of `x1` (and likewise
 % for `Y2` and `x2`), otherwise resampling will occur along the wrong
 % dimension.
+%
+% % See also interp1
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang

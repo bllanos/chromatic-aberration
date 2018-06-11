@@ -45,6 +45,8 @@ function [p, lambda] = ciedIlluminant(T, lambda_S, S, lambda)
 % - Lindbloom, Bruce J. (2017). Spectral Power Distribution of a CIE
 %   D-Illuminant. Retrieved from http://www.brucelindbloom.com on June 4,
 %   2018.
+%
+% See also resampleArrays
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
