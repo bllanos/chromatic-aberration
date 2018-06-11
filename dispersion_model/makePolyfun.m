@@ -7,7 +7,7 @@ function [ polyfun ] = makePolyfun(polyfun_data)
 % ## Description
 % polyfun = makePolyfun(polyfun_data)
 %   Returns a function for evaluating polynomial model of disparity in
-%   terms of three variables X, Y, and lambda/colour channel.
+%   terms of three variables, X, Y, and lambda/colour channel.
 %
 % ## Input Arguments
 %

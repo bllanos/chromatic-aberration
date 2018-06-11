@@ -121,7 +121,7 @@
 % - 'bands': The final value of the 'bands' variable, determined as
 %   discussed under the section "Latent colour space" above.
 % - 'bands_color': The 'bands' variable loaded from the colour space
-%   conversion data file, for reference. 'bands_polyfun' is empty if no
+%   conversion data file, for reference. 'bands_color' is empty if no
 %   such variable was found in the data file, or if the value of the loaded
 %   variable was empty.
 % - 'bands_polyfun': The 'bands' variable loaded from the dispersion model
@@ -224,7 +224,7 @@ bands_interp_method = 'linear';
 downsampling_factor = 1;
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180530_CorrectionMethodsBasicComparison/output_images_admm';
+output_directory = '/home/llanos/Downloads';
 
 % Whether or not to save the latent images to image files, beyond including
 % them in the output '.mat' file
@@ -247,7 +247,7 @@ full_GLambda = false;
 rho = [ 1, 1 ];
 
 % Weights on the two prior terms, the `weights` input argument.
-weights = [ 0.1, 0.1 ];
+weights = [ 0.001, 0.1 ];
 
 % Convergence tolerances in ADMM, the `tol` input argument.
 %
@@ -324,13 +324,12 @@ end
 n_channels = size(sensor_map, 1);
 % Resample colour space conversion data if necessary
 if resample_bands
-    sensor_map_resampled = zeros(n_channels, n_bands);
-    for c = 1:n_channels
-        sensor_map_resampled(c, :) = interp1(...
-            bands_for_interp, sensor_map(c, :), bands,...
-            bands_interp_method, 'extrap'...
+    [sensor_map_resampled, bands] = resampleArrays(...
+        bands_for_interp, sensor_map.', bands,...
+        bands_interp_method...
         );
-    end
+    n_bands = length(bands);
+    sensor_map_resampled = sensor_map_resampled.';
 else
     sensor_map_resampled = sensor_map;
 end
