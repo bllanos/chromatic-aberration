@@ -1,17 +1,26 @@
-function [rgb] = reflectanceToRGB(lambda_L, L, lambda_Ref, Ref, lambda_C, C, varargin)
-% REFLECTANCETORGB Convert spectral reflectances to RGB colour values
+function [rgb, XYZ] = reflectanceToColor(lambda_L, L, lambda_Ref, Ref, lambda_C, C, varargin)
+% REFLECTANCETOCOLOR Convert spectral reflectances to RGB colour values
 %
 % ## Syntax
-% rgb = reflectanceToRGB(...
+% rgb = reflectanceToColor(...
+%     lambda_L, L, lambda_Ref, Ref, lambda_C, C [, whitepoint]...
+% )
+% [rgb, XYZ] = reflectanceToColor(...
 %     lambda_L, L, lambda_Ref, Ref, lambda_C, C [, whitepoint]...
 % )
 %
 % ## Description
-% rgb = reflectanceToRGB(...
+% rgb = reflectanceToColor(...
 %     lambda_L, L, lambda_Ref, Ref, lambda_C, C [, whitepoint]...
 % )
 %   Returns rgb values for the given reflectances seen under the given
 %   illuminant
+%
+% [rgb, XYZ] = reflectanceToColor(...
+%     lambda_L, L, lambda_Ref, Ref, lambda_C, C [, whitepoint]...
+% )
+%   Additionally returns CIE 1931 tristimulus values for the given
+%   reflectances seen under the given illuminant
 %
 % ## Input Arguments
 %
@@ -47,7 +56,7 @@ function [rgb] = reflectanceToRGB(lambda_L, L, lambda_Ref, Ref, lambda_C, C, var
 %
 % whitepoint -- Illuminant whitepoint
 %   A character vector naming the CIE standard illuminant corresponding to
-%   `L`. The 'cieSpectralToRGB()' function will use a default value of
+%   `L`. The 'cieSpectralToColor()' function will use a default value of
 %   'd65' if its `whitepoint` input argument is not passed by this
 %   function.
 %
@@ -59,11 +68,17 @@ function [rgb] = reflectanceToRGB(lambda_L, L, lambda_Ref, Ref, lambda_C, C, var
 %   spectral response of the CIE 1931 color matching functions. Values are
 %   clipped to the range [0, 1].
 %
+% XYZ -- CIE 1931 tristimulus responses
+%   An n x 3 matrix, where `XYZ(i, :)` is the tristimulus (X, Y, and Z)
+%   response corresponding to the i-th spectral reflectance, assuming the
+%   imaging system has the spectral response of the CIE 1931 color matching
+%   functions. Values are clipped to the range [0, 1].
+%
 % ## References
 % - Lindbloom, Bruce J. (2017). Computing XYZ From Spectral Data. Retrieved
 %   from http://www.brucelindbloom.com on June 11, 2018.
 %
-% See also ciedIlluminant, cieSpectralToRGB, resampleArrays
+% See also ciedIlluminant, cieSpectralToColor, resampleArrays
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -99,13 +114,13 @@ N = sum(L_resampled2 .* ybar_resampled .* lambda_diff);
 Rad = Rad ./ N;
 
 if ~isempty(varargin)
-    rgb = cieSpectralToRGB(...
+    [rgb, XYZ] = cieSpectralToColor(...
         lambda_C, C,...
         lambda_resampled, Rad.',...
         varargin{1}...
     );
 else
-    rgb = cieSpectralToRGB(...
+    [rgb, XYZ] = cieSpectralToColor(...
         lambda_C, C,...
         lambda_resampled, Rad.',...
         varargin{1}...

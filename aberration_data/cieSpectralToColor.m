@@ -1,12 +1,17 @@
-function [rgb] = cieSpectralToRGB(lambda_C, C, lambda_R, R, varargin)
-% CIESPECTRALTORGB Convert spectral radiance to sRGB using the CIE tristimulus functions
+function [rgb, XYZ] = cieSpectralToColor(lambda_C, C, lambda_R, R, varargin)
+% CIESPECTRALTOCOLOR Convert spectral radiance to sRGB using the CIE tristimulus functions
 %
 % ## Syntax
-% rgb = cieSpectralToRGB(lambda_C, C, lambda_R, R [, whitepoint])
+% rgb = cieSpectralToColor(lambda_C, C, lambda_R, R [, whitepoint])
+% [rgb, XYZ] = cieSpectralToColor(lambda_C, C, lambda_R, R [, whitepoint])
 %
 % ## Description
-% rgb = cieSpectralToRGB(lambda_C, C, lambda_R, R [, whitepoint])
+% rgb = cieSpectralToColor(lambda_C, C, lambda_R, R [, whitepoint])
 %   Returns sRGB values corresponding to the input spectral radiances
+%
+% [rgb, XYZ] = cieSpectralToColor(lambda_C, C, lambda_R, R [, whitepoint])
+%   Additionally returns the CIE 1931 tristimulus values corresponding to
+%   the input spectral radiances
 %
 % ## Input Arguments
 %
@@ -41,13 +46,17 @@ function [rgb] = cieSpectralToRGB(lambda_C, C, lambda_R, R, varargin)
 %   response of the CIE 1931 color matching functions. Values are clipped
 %   to the range [0, 1].
 %
+% XYZ -- CIE 1931 tristimulus responses
+%   An n x 3 matrix, where `XYZ(i, :)` is the tristimulus (X, Y, and Z)
+%   response corresponding to the i-th sample, assuming the imaging system
+%   has the spectral response of the CIE 1931 color matching functions.
+%   Values are clipped to the range [0, 1].
+%
 % ## Notes
 % - Spectral radiances can be obtained from spectral reflectances by
 %   multiplying by the spectral power distribution of the illuminant, and
 %   normalizing by the "Y" tristimulus value of the illuminant. The
-%   'reflectanceToRGB()' function can be used for this purpose.
-% - The tristimulus values of the spectral radiances will be clipped to the
-%   range [0, 1].
+%   'reflectanceToColor()' function can be used for this purpose.
 % - This function will resample `R` and `C` if they were sampled at
 %   different wavelengths.
 %
@@ -59,7 +68,7 @@ function [rgb] = cieSpectralToRGB(lambda_C, C, lambda_R, R, varargin)
 % - Lindbloom, Bruce J. (2017). Computing XYZ From Spectral Data. Retrieved
 %   from http://www.brucelindbloom.com on June 11, 2018.
 %
-% See also xyz2rgb, resampleArrays, reflectanceToRGB
+% See also xyz2rgb, resampleArrays, reflectanceToColor
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang

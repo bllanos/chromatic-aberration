@@ -222,9 +222,8 @@ color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/2
 
 % Override the wavelengths or colour channel indices at which to evaluate
 % the polynomial model of dispersion, if desired.
-bands_script = [];
-% Interpolation method passed to 'interp1()' when resampling wavelength
-% values
+bands = [];
+% Interpolation method used when resampling colour space conversion data
 bands_interp_method = 'linear';
 
 % Downsampling factor to apply to the estimated latent images relative to
@@ -276,6 +275,7 @@ n_images = length(image_filenames);
 
 %% Load calibration data
 
+bands_script = bands;
 bands = [];
 
 optional_variable = 'bands';

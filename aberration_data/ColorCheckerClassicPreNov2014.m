@@ -24,7 +24,7 @@
 %
 % ### CIE tristimulus functions
 % A '.mat' file containing a variable 'xyzbar', which can be used as the
-% `C` input argument of 'cieSpectralToRGB()'.
+% `C` input argument of 'cieSpectralToColor()'.
 %
 % ## Output
 %
@@ -102,7 +102,7 @@ if ~all(ismember(variables_required, who))
     error('One or more of the CIE tristimulus functions variables is not loaded.')
 end
 
-rgb = reflectanceToRGB(...
+rgb = reflectanceToColor(...
     lambda_illuminant, spd_illuminant,...
     lambda_colorChecker, reflectances,...
     lambda_xyzbar, xyzbar,...
