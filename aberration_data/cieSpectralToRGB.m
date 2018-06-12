@@ -35,7 +35,7 @@ function [rgb] = cieSpectralToRGB(lambda_C, C, lambda_R, R, varargin)
 %
 % ## Output Arguments
 %
-% rgb -- Relative sRGB responses
+% rgb -- sRGB responses
 %   An n x 3 matrix, where `rgb(i, :)` is the sRGB response corresponding
 %   to the i-th sample, assuming the imaging system has the spectral
 %   response of the CIE 1931 color matching functions. Values are clipped
@@ -44,7 +44,8 @@ function [rgb] = cieSpectralToRGB(lambda_C, C, lambda_R, R, varargin)
 % ## Notes
 % - Spectral radiances can be obtained from spectral reflectances by
 %   multiplying by the spectral power distribution of the illuminant, and
-%   normalizing by the "Y" tristimulus value of the illuminant.
+%   normalizing by the "Y" tristimulus value of the illuminant. The
+%   'reflectanceToRGB()' function can be used for this purpose.
 % - The tristimulus values of the spectral radiances will be clipped to the
 %   range [0, 1].
 % - This function will resample `R` and `C` if they were sampled at
@@ -58,7 +59,7 @@ function [rgb] = cieSpectralToRGB(lambda_C, C, lambda_R, R, varargin)
 % - Lindbloom, Bruce J. (2017). Computing XYZ From Spectral Data. Retrieved
 %   from http://www.brucelindbloom.com on June 11, 2018.
 %
-% See also xyz2rgb, resampleArrays
+% See also xyz2rgb, resampleArrays, reflectanceToRGB
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
