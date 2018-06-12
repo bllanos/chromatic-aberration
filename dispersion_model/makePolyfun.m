@@ -1,11 +1,11 @@
-function [ polyfun ] = makePolyfun(polyfun_data)
-% MAKEPOLYFUN  Create a function to evaluate a polynomial function in three variables
+function [ polyfun ] = makePolyfun(polyfun_data, varargin)
+% MAKEPOLYFUN  Create a function to evaluate a polynomial function of disparity in three variables
 %
 % ## Syntax
-% polyfun = makePolyfun(polyfun_data)
+% polyfun = makePolyfun(polyfun_data [, T])
 %
 % ## Description
-% polyfun = makePolyfun(polyfun_data)
+% polyfun = makePolyfun(polyfun_data [, T])
 %   Returns a function for evaluating polynomial model of disparity in
 %   terms of three variables, X, Y, and lambda/colour channel.
 %
@@ -14,15 +14,28 @@ function [ polyfun ] = makePolyfun(polyfun_data)
 % polyfun_data -- Polynomial model data
 %   The `polyfun_data` output argument of 'xylambdaPolyfit()'.
 %
+% T -- Coordinate transformation
+%   A 3 x 3 transformation matrix applied to the spatial variables prior to
+%   evaluating the polynomial. For instance, `T` might convert the point
+%   (x, y, 1), with 'x' and 'y', in pixel coordinates, to a coordinate
+%   system having its origin at the centre of the image, and with 'x' and
+%   'y' measured in millimetres. `T` is applied to homogenous coordinates,
+%   and is assumed to be an affine transformation.
+%
+%   The inverse of `T` is applied to the disparity vectors produced by the
+%   polynomial model, to convert them to the coordinate frame of the input.
+%   Note that disparity vectors are unaffected by the translational
+%   component of the inverse of `T`.
+%
 % ## Output Arguments
 %
 % polyfun -- Polynomial model
 %   A function which takes an input 2D array 'xylambda', where the three
-%   columns represent the three independent variables (x, y, lambda). The
-%   output of the function is a 2D array, 'disparity', where the columns
-%   represent the two dependent variables (x and y-components of
-%   disparity). 'disparity' is an evaluation of the polynomials in X, Y,
-%   and lambda for the two dependent variables.
+%   columns represent two spatial coordinates and a wavelength or colour
+%   channel index, (x, y, lambda). The output of the function is a 2D
+%   array, 'disparity', where the columns represent the x and y-components
+%   of disparity vectors. 'disparity' is an evaluation of the polynomials
+%   in X, Y, and lambda for the two components of disparity vectors.
 %
 %   If 'xylambdaPolyfit()', which created `polyfun_data`, was modelling
 %   colour channels instead of wavelengths, the third column of 'xylambda'
@@ -38,13 +51,28 @@ function [ polyfun ] = makePolyfun(polyfun_data)
 % File created May 4, 2018
 
 nargoutchk(1, 1);
-narginchk(1, 1);
+narginchk(1, 2);
 
 n_spatial_dim = 2;
 n_models = length(polyfun_data);
 channel_mode = isfield(polyfun_data, 'reference_channel');
 if channel_mode
     reference_channel = find([polyfun_data.reference_channel]);
+end
+
+if ~isempty(varargin)
+    T_frame = varargin{1};
+    T_frame_disparity = inv(T_frame);
+    % The last column containing zeros is needed because disparity values
+    % are vectors, and so cannot be translated.
+    T_frame_disparity = [T_frame_disparity(:, 1:(end - 1)), zeros(size(T_frame, 1), 1)];
+    for i = 1:n_models
+        polyfun_data(i).T_points = polyfun_data(i).T_points * T_frame;
+        % This next line relies on the assumption that both transformations
+        % are affine, such that division by the homogenous coordinate is
+        % not needed between the two transformations.
+        polyfun_data(i).T_disparity_inv = T_frame_disparity * polyfun_data(i).T_disparity_inv;
+    end
 end
 
     function disparity = modelfun(xylambda)

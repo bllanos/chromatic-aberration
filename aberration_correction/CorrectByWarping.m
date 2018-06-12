@@ -37,6 +37,14 @@
 %   is the wavelength or colour channel information needed to evaluate the
 %   dispersion model.
 %
+% The following variables are optional. If they are present, they are
+% assumed to define a conversion between a geometrical optics coordinate
+% system in which the polynomial model of chromatic aberration was
+% constructed, and the image coordinate system:
+% - 'image_params': A structure with an 'image_sampling' field, which is a
+%   two-element vector containing the pixel height and width of the image.
+% - 'pixel_size': A scalar containing the side length of a pixel.
+%
 % ## Output
 %
 % ### Colour images
@@ -103,7 +111,8 @@ n_images = length(image_filenames);
 %% Load dispersion model
 
 model_variables_required = { 'polyfun_data', 'model_from_reference', 'bands' };
-load(polynomial_model_filename, model_variables_required{:});
+model_variables_optional = { 'image_params', 'pixel_size' };
+load(polynomial_model_filename, model_variables_required{:}, model_variables_optional{:});
 if ~all(ismember(model_variables_required, who))
     error('One or more of the dispersion model variables is not loaded.')
 end
@@ -111,9 +120,15 @@ if ~model_from_reference
     error('Dispersion model is in the wrong frame of reference.')
 end
 
+if all(ismember(model_variables_optional, who))
+    T = pixelsToWorldTransform(image_params.image_sampling, pixel_size);
+    polyfun = makePolyfun(polyfun_data, T);
+else
+    polyfun = makePolyfun(polyfun_data);
+end
+
 %% Process the images
 
-polyfun = makePolyfun(polyfun_data);
 ext = '.tif';
 
 n_demosaicing_methods = 2;

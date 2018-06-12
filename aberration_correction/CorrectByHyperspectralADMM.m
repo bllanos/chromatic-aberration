@@ -42,6 +42,14 @@
 %   colour space conversion data file, or directly in this script (see
 %   below).
 %
+% The following variables are optional. If they are present, they are
+% assumed to define a conversion between a geometrical optics coordinate
+% system in which the polynomial model of chromatic aberration was
+% constructed, and the image coordinate system:
+% - 'image_params': A structure with an 'image_sampling' field, which is a
+%   two-element vector containing the pixel height and width of the image.
+% - 'pixel_size': A scalar containing the side length of a pixel.
+%
 % ### Colour space conversion data
 % A '.mat' file containing several variables, which is the output of
 % 'SonyColorMap.m', for example. The following variables are required:
@@ -271,13 +279,25 @@ n_images = length(image_filenames);
 bands = [];
 
 optional_variable = 'bands';
-model_variables_required = { 'polyfun_data', 'model_from_reference', optional_variable };
-load(polynomial_model_filename, model_variables_required{:});
-if ~all(ismember(model_variables_required(1:(end - 1)), who))
+model_variables_required = { 'polyfun_data', 'model_from_reference' };
+model_variables_transform = { 'image_params', 'pixel_size' };
+load(...
+    polynomial_model_filename,...
+    model_variables_required{:}, model_variables_transform{:},...
+    optional_variable...
+    );
+if ~all(ismember(model_variables_required, who))
     error('One or more of the required dispersion model variables is not loaded.')
 end
 if model_from_reference
     error('Dispersion model is in the wrong frame of reference.')
+end
+
+if all(ismember(model_variables_transform, who))
+    T = pixelsToWorldTransform(image_params.image_sampling, pixel_size);
+    polyfun = makePolyfun(polyfun_data, T);
+else
+    polyfun = makePolyfun(polyfun_data);
 end
 
 bands_polyfun = bands;
@@ -292,8 +312,6 @@ end
 bands_color = bands;
 
 %% Preprocessing input data
-
-polyfun = makePolyfun(polyfun_data);
 
 % Select the highest-priority value of `bands`
 if ~isempty(bands_script)

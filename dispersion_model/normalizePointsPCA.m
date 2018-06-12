@@ -15,7 +15,7 @@ function [newPoints, T] = normalizePointsPCA(points)
 %             is 1.
 %
 % T - The transform matrix which normalized the points
-%     `newPoints = (T * points.').'`
+%     `newPoints = (T * points.').'`. `T` is an affine transformation.
 %
 % Created for: CMPUT 615 Lab 3: Geometry II and SFM
 % Bernard Llanos
