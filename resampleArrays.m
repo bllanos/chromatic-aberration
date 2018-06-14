@@ -29,7 +29,8 @@ function [Y1_resampled, varargout] = resampleArrays(x1, Y1, x2, varargin)
 % x2 -- Second set of sampling points
 %   In the syntax where `Y2` is passed as a non-empty array, `x2` is to
 %   `Y2` as `x1` is to `Y1`. Otherwise, `x2` is the new set of sampling
-%   locations at which the data in `Y1` must be resampled.
+%   locations at which the data in `Y1` must be resampled (depending on the
+%   value of `extrapolation`).
 %
 % Y2 -- Second array
 %   An N-d array corresponding to the sample values in `x2`.
@@ -70,11 +71,15 @@ function [Y1_resampled, varargout] = resampleArrays(x1, Y1, x2, varargin)
 %   values in `x_new`.
 %
 % x_new -- Resampling locations
-%   If extrapolation is enabled, `x_new` is equal to `x1` or `x2`,
-%   whichever is longer. Otherwise, `x_new` consists of the values from
-%   `x1` or in `x2` which are in the interval `[max(min(x1), min(x2)),
+%   If extrapolation is enabled, and `Y2` is passed, `x_new` is equal to
+%   `x1` or `x2`, whichever is longer. If extrapolation is enabled, and
+%   `Y2` is not passed, `x_new` is equal to `x2`. Otherwise, when
+%   extrapolation is disabled, and `Y2` is passed, `x_new` consists of the
+%   values from `x1` or in `x2` in the interval `[max(min(x1), min(x2)),
 %   min(max(x1), max(x2))]`, whichever set of values (the set from `x1` or
-%   the set from `x2`) is more numerous.
+%   the set from `x2`) is more numerous. When extrapolation is disabled,
+%   and `Y2` is not passed, `x_new` consists of the values from `x2` in the
+%   interval `[max(min(x1), min(x2)), min(max(x1), max(x2))]`.
 %
 % Y1 -- Resampled version of Y1
 %   In the syntax where two data arrays are provided, and extrapolation is
@@ -160,7 +165,7 @@ Y2_resampled = Y2;
 x_new = x1;
 if (n_x1 ~= n_x2) || ~all(x1(:) == x2(:))
     if do_extrapolation
-        resample_Y = [(n_x2 > n_x1) (Y2_passed & n_x2 < n_x1)];
+        resample_Y = [ (~Y2_passed | (n_x2 > n_x1)) (Y2_passed & n_x2 < n_x1)];
         if resample_Y(1)
             x_new = x2;
         end
@@ -170,7 +175,7 @@ if (n_x1 ~= n_x2) || ~all(x1(:) == x2(:))
         x2_new = x2(x2 >= interval(1) & x2 <= interval(2));
         n_x1_new = length(x1_new);
         n_x2_new = length(x2_new);
-        use_x2 = n_x2_new > n_x1_new;
+        use_x2 = ~Y2_passed | (n_x2_new > n_x1_new);
         if use_x2
             x_new = x2_new;
         else

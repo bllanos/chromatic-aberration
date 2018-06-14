@@ -8,7 +8,8 @@
 % ## Input
 %
 % ### CIE D-illuminant data file
-% A '.csv' file containing the following columns:
+% A '.csv' file containing the following columns (refer to the webpage by
+% Bruce Lindbloom cited below):
 % - Wavelength, in nanometres
 % - The 'S_0' function value at the corresponding wavelength
 % - The 'S_1' function value at the corresponding wavelength

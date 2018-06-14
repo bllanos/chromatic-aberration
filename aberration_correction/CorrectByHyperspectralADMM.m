@@ -87,10 +87,10 @@
 % If the final value of 'bands' is not identical to the value of 'bands'
 % loaded from the colour space conversion data, the 'sensor_map' variable
 % from the colour space conversion data must be resampled along its second
-% dimension to correspond to the final value of 'bands'. Linear
-% interpolation is used for resampling. Note that resampling only makes
-% sense when 'bands' is a set of wavelengths, and it is not possible for
-% this script to programmatically validate that this is the case.
+% dimension to correspond to the final value of 'bands'. Note that
+% resampling only makes sense when 'bands' is a set of wavelengths, and it
+% is not possible for this script to programmatically validate that this is
+% the case.
 %
 % If no variable 'bands' was found in the colour space conversion data, but
 % the final value of 'bands' has a length equal to the size of the second
@@ -303,9 +303,9 @@ end
 bands_polyfun = bands;
 bands = [];
 
-model_variables_required = { 'sensor_map', optional_variable };
-load(color_map_filename, model_variables_required{:});
-if ~all(ismember(model_variables_required(1:(end - 1)), who))
+model_variables_required = { 'sensor_map' };
+load(color_map_filename, model_variables_required{:}, optional_variable);
+if ~all(ismember(model_variables_required, who))
     error('One or more of the required colour space conversion variables is not loaded.')
 end
 
@@ -339,7 +339,7 @@ elseif n_bands_sensor_map ~= n_bands
     resample_bands = true;
     bands_for_interp = linspace(bands(1), bands(end), n_bands_sensor_map);
 end
-n_channels = size(sensor_map, 1);
+n_latent_channels = size(sensor_map, 2);
 % Resample colour space conversion data if necessary
 if resample_bands
     [sensor_map_resampled, bands] = resampleArrays(...
@@ -352,8 +352,8 @@ else
     sensor_map_resampled = sensor_map;
 end
 
-if save_latent_image_files && (n_channels ~= 3 && n_channels ~= 1)
-    error('Cannot save latent images to image files, because they have %d colour channels.', n_channels);
+if save_latent_image_files && (n_latent_channels ~= 3 && n_latent_channels ~= 1)
+    error('Cannot save latent images to image files, because they have %d channels.', n_latent_channels);
 end
 
 %% Process the images

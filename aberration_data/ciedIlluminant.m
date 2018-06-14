@@ -37,9 +37,8 @@ function [p, lambda] = ciedIlluminant(T, lambda_S, S, lambda)
 %
 % lambda -- Wavelengths
 %   The wavelengths corresponding to the values in `p`. `lambda` is the
-%   portion of `lambda_S` or the input argument `lambda` in the interval
-%   `[max(min(lambda_S), min(lambda), min(max(lambda_S), max(lambda))]`,
-%   whichever has more elements in that interval.
+%   portion of `lambda` in the interval
+%   `[max(min(lambda_S), min(lambda), min(max(lambda_S), max(lambda))]`.
 %
 % ## References
 % - Lindbloom, Bruce J. (2017). Spectral Power Distribution of a CIE
