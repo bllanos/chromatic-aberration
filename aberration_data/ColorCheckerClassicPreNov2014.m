@@ -62,9 +62,7 @@ illuminant_temperature = 5003; % From https://en.wikipedia.org/wiki/Standard_ill
 illuminant_name = 'd50';
 
 % CIE tristimulus functions
-xyzbar_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180605_HyperspectralToSRGB_DHFoster/Tutorial_HSI2RGB/xyzbar.mat';
-% Wavelengths at which the tristimulus functions were sampled
-lambda_xyzbar = (400:10:720).';
+xyzbar_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180614_ASTM_E308/Table1_CIE1931_2DegStandardObserver.csv';
 
 % ColorChecker spectral reflectances
 reflectances_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180604_ColorCheckerSpectralData_BabelColor/ColorChecker_spectra_reformatted_llanos.csv';
@@ -97,11 +95,9 @@ reflectances = colorChecker_table{:, 2:end};
 n_patches = length(patch_names);
 
 % Find patch colours
-variables_required = { 'xyzbar' };
-load(xyzbar_filename, variables_required{:});
-if ~all(ismember(variables_required, who))
-    error('One or more of the CIE tristimulus functions variables is not loaded.')
-end
+xyzbar_table = readtable(xyzbar_filename);
+lambda_xyzbar = xyzbar_table{:, 1};
+xyzbar = xyzbar_table{:, 2:end};
 
 rgb = reflectanceToColor(...
     lambda_illuminant, spd_illuminant,...

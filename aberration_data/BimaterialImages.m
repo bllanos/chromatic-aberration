@@ -1,6 +1,6 @@
 %% Aberrated image generation
-% Create ideal, and warped hyperspectral images and their RGB equivalents,
-% from distributions of pairs of object spectral reflectances.
+% Create ideal, and warped hyperspectral images and their 3-channel
+% equivalents, from distributions of pairs of object spectral reflectances.
 %
 % ## Usage
 % Modify the parameters, the first code section below, then run.
@@ -68,8 +68,8 @@
 % A '.mat' file containing several variables, which is the output of
 % 'SonyColorMap.m', for example. The following variables are required:
 % - 'sensor_map': A 2D array, where `sensor_map(i, j)` is the sensitivity
-%   of the i-th colour channel of the output RGB images to the j-th
-%   spectral band of the synthetic hyperspectral images.
+%   of the i-th colour channel of the output sensor response images to the
+%   j-th spectral band of the synthetic hyperspectral images.
 % The following variables are sometimes required:
 % - 'bands': A vector containing the wavelengths to use as the `lambda`
 %   input argument of 'polyfunToMatrix()' (to evaluate a dispersion model),
@@ -146,17 +146,22 @@
 %   'I_hyper') produced by blending two reflectance spectra according to
 %   the per-pixel weights in the soft segmentation of the chromaticity map,
 %   and then by illuminating the spectra according to the illumination
-%   weights in the illumination map.
-% - '*_rgb.tif': A colour image created by converting the hyperspectral
-%   image to the RGB colour space of the camera.
+%   weights in the illumination map. Image values are normalized radiances.
+% - '*_3.tif': A colour image created by converting the hyperspectral
+%   image to the raw colour space of the camera.
 % - '*_hyperspectral_warped.mat': A warped version of the hyperspectral
 %   image (stored in the variable 'I_hyper_warped') created by applying the
 %   dispersion model to the image.
-% - '*_rgb_warped.tif': A colour image created by converting the
-%   warped hyperspectral image to the RGB colour space of the camera.
+% - '*_3_warped.tif': A colour image created by converting the
+%   warped hyperspectral image to the raw colour space of the camera.
 % - '*_raw_warped.tif': A colour-filter array image produced by mosaicing
-%   the warped RGB image according to the colour-filter pattern of the
-%   camera.
+%   the warped sensor response image according to the colour-filter pattern
+%   of the camera.
+%
+% The raw colour space of the camera is determined by the colour space
+% conversion data provided as input to this script. A camera may apply
+% additional operations to convert sensor responses from the raw colour
+% space to, for example, sRGB colours.
 %
 % ### Data file output
 %
@@ -267,9 +272,7 @@ else
 end
 
 % CIE tristimulus functions
-xyzbar_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180605_HyperspectralToSRGB_DHFoster/Tutorial_HSI2RGB/xyzbar.mat';
-% Wavelengths at which the tristimulus functions were sampled
-lambda_xyzbar = (400:10:720).';
+xyzbar_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180614_ASTM_E308/Table1_CIE1931_2DegStandardObserver.csv';
 
 % ColorChecker spectral reflectances
 reflectances_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180604_ColorCheckerSpectralData_BabelColor/ColorChecker_spectra_reformatted_llanos.csv';
@@ -309,11 +312,9 @@ else
 end
 
 % Find patch colours
-variables_required = { 'xyzbar' };
-load(xyzbar_filename, variables_required{:});
-if ~all(ismember(variables_required, who))
-    error('One or more of the CIE tristimulus functions variables is not loaded.')
-end
+xyzbar_table = readtable(xyzbar_filename);
+lambda_xyzbar = xyzbar_table{:, 1};
+xyzbar = xyzbar_table{:, 2:end};
 
 colorChecker_rgb = reflectanceToColor(...
     lambda_illuminant, spd_illuminant,...
@@ -411,37 +412,19 @@ else
     sensor_map_resampled = sensor_map;
 end
 
-% Resample ColorChecker reflectances
-reflectances_resampled = resampleArrays(...
-    lambda_colorChecker, reflectances, bands,...
-    bands_interp_method...
-    );
-
-% Resample the illuminant
-if use_cie_illuminant
-    spd_illuminant_resampled = ciedIlluminant(...
-        illuminant_temperature, lambda_illuminant, S_illuminant, bands...
-    );
-else
-    spd_illuminant_resampled = feval(illuminant_function_name, bands);
-end
-
-% Resample the CIE 'y-bar' function
-xyzbar_resampled = resampleArrays(...
-    lambda_xyzbar, xyzbar, bands,...
-    bands_interp_method...
-    );
-
 n_bands = length(bands);
 
-%% Compute the normalization constant for radiance
+%% Calculate spectral radiances
 
-bands_diff = diff(bands);
-bands_diff = [
-    bands_diff;
-    bands_diff(end)
-    ];
-radiance_normalization_constant = sum(spd_illuminant_resampled .* xyzbar_resampled(:, 2) .* bands_diff);
+[lambda_Rad, ~, Rad_normalized] = reflectanceToRadiance(...
+    lambda_illuminant, spd_illuminant, lambda_colorChecker, reflectances, lambda_xyzbar, xyzbar(:, 2)...
+);
+
+% Resample radiances
+Rad_normalized_resampled = resampleArrays(...
+    lambda_Rad, Rad_normalized, bands,...
+    bands_interp_method...
+    );
 
 %% Find the chromaticity and illumination maps
 
@@ -464,6 +447,7 @@ end
 %% Process the images
 
 n_channels_rgb = 3;
+n_channels_raw = 3;
 ext = '.tif';
 
 for i = 1:n_images
@@ -494,19 +478,14 @@ for i = 1:n_images
         color_indices = randperm(n_patches, n_colors).';
     end
     
-    % Blend spectral reflectances together: Sum weighted reflectances
-    reflectance_per_pixel = sum(repmat(...
-        permute(reflectances_resampled(:, color_indices), [3, 1, 2]),...
+    % Blend radiances together: Sum weighted radiances
+    Rad_per_pixel = sum(repmat(...
+        permute(Rad_normalized_resampled(:, color_indices), [3, 1, 2]),...
         n_px, 1, 1 ...
     ) * repmat(...
         permute(reshape(C_softSegmentation, n_px, n_colors, 1), [1, 3, 2]),...
         1, n_bands, 1 ...
     ), 3);
-
-    % Compute radiances
-    Rad = reflectance_per_pixel .* repmat(...
-        spd_illuminant_resampled.', n_px, 1 ...
-        ) ./ radiance_normalization_constant;
     
     % Load the illumination map
     I_map = imread(illumination_filenames{i});
@@ -528,10 +507,10 @@ for i = 1:n_images
     H = reshape(Rad .* repmat(reshape(I_map, n_px, 1), 1, n_bands), [], 1);
     I_hyper = reshape(H, image_height, image_width, n_bands);
     
-    % Compute the equivalent RGB image
+    % Compute the equivalent sensor response image
     Omega = channelConversionMatrix(image_sampling, sensor_map_resampled);
-    rgb = Omega * H;
-    rgb_3D = reshape(rgb, image_height, image_width, n_channels_rgb);
+    raw_full = Omega * H;
+    raw_full_3D = reshape(raw_full, image_height, image_width, n_channels_raw);
 
     % Simulate dispersion
     W = polyfunToMatrix(...
@@ -540,26 +519,26 @@ for i = 1:n_images
             [0, 0, image_width,  image_height], true...
         );
     H_warped = W * H;
-    I_hyper_warped = reshape(H_warped, image_height, image_width, n_channels_rgb);
+    I_hyper_warped = reshape(H_warped, image_height, image_width, n_bands);
     
-    % Compute the equivalent RGB image
-    rgb_warped = Omega * H_warped;
-    rgb_warped_3D = reshape(rgb_warped, image_height, image_width, n_bands);
+    % Compute the equivalent sensor response image
+    raw_warped = Omega * H_warped;
+    raw_warped_3D = reshape(raw_warped, image_height, image_width, n_bands);
     
     % Compute the RAW image
     M = mosaicMatrix(image_sampling, bayer_pattern);
-    raw = M * rgb_warped;
+    raw = M * raw_warped;
     raw_2D = reshape(raw, image_sampling);
             
     % Save the results
     output_filename = fullfile(output_directory, [chromaticity_names{i} '_hyperspectral.mat']);
     save(output_filename, 'I_hyper');
-    output_filename = fullfile(output_directory, [chromaticity_names{i} '_rgb' ext]);
-    imwrite(rgb_3D, output_filename);
+    output_filename = fullfile(output_directory, [chromaticity_names{i} '_3' ext]);
+    imwrite(raw_full_3D, output_filename);
     output_filename = fullfile(output_directory, [chromaticity_names{i} '_hyperspectral_warped.mat']);
     save(output_filename, 'I_hyper_warped');
-    output_filename = fullfile(output_directory, [chromaticity_names{i} '_rgb_warped' ext]);
-    imwrite(rgb_warped_3D, output_filename);
+    output_filename = fullfile(output_directory, [chromaticity_names{i} '_3_warped' ext]);
+    imwrite(raw_warped_3D, output_filename);
     output_filename = fullfile(output_directory, [chromaticity_names{i} '_raw_warped' ext]);
     imwrite(raw_2D, output_filename);
 end

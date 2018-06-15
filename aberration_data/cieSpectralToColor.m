@@ -24,6 +24,12 @@ function [rgb, XYZ] = cieSpectralToColor(lambda_C, C, lambda_R, R, varargin)
 %   tristimulus function evaluated at the wavelength `lambda_C(i)`. The
 %   length of `lambda_C` must equal the size of the first dimension of `C`.
 %
+%   If the range of wavelengths is a sub-interval of 360 to 780 nm, the
+%   values of `C(:, 1)` and `C(:, end)` should be equal to the sums of the
+%   tristimulus function values from the endpoints of the sub-interval to
+%   the endpoints of the 360 to 780 nm interval. This recommendation is in
+%   the ASTM E308 standard (Section 7.3.2.2).
+%
 % lambda_R -- Wavelengths
 %   A vector of wavelengths at which the spectral radiances were sampled.
 %
@@ -68,14 +74,15 @@ function [rgb, XYZ] = cieSpectralToColor(lambda_C, C, lambda_R, R, varargin)
 % - Lindbloom, Bruce J. (2017). Computing XYZ From Spectral Data. Retrieved
 %   from http://www.brucelindbloom.com on June 11, 2018.
 %
-% See also xyz2rgb, resampleArrays, reflectanceToColor
+% See also xyz2rgb, resampleArrays, reflectanceToColor,
+% reflectanceToRadiance
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
 % University of Alberta, Department of Computing Science
 % File created June 7, 2018
 
-nargoutchk(1, 1);
+nargoutchk(1, 2);
 narginchk(4, 5);
 
 if ~isempty(varargin)
