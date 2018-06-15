@@ -231,28 +231,28 @@ parameters_list = {
 %% Input data and parameters
 
 % Wildcard for 'ls()' to find the chromaticity maps.
-input_chromaticity_maps_wildcard = '';
+input_chromaticity_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180605_DescribableTexturesDataset/dtd/images/veined/veined_0148*';
 
 % Wildcard for 'ls()' to find the illumination maps.
-input_illumination_maps_wildcard = '';
+input_illumination_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180605_DescribableTexturesDataset/dtd/images/veined/veined_0148*';
 
 data_dispersion_model = true;
 if data_dispersion_model
     % Polynomial model of dispersion
-    polynomial_model_filename = '';
-    dispersonFun_name = [];
+    polynomial_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180524_PolynomialDispersion_AnalyzePSF_accurate/DoubleConvexThickLensDispersionResults_modelFromReference_false.mat';
+    dispersonFun_name = []; % Unused
 else
     % Function model of dispersion
     dispersonFun_name = 'sin';
-    polynomial_model_filename = [];
+    polynomial_model_filename = []; % Unused
 end
 
 % Colour space conversion data
-color_map_filename = '';
+color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180615_TestingBimaterialImages/SonyColorMapData.mat';
 
 % Override the wavelengths at which to evaluate the model of dispersion, if
 % desired.
-bands = [];
+bands = 430:10:650;
 % Interpolation method used when resampling spectral data
 bands_interp_method = 'linear';
 
@@ -262,13 +262,13 @@ if use_cie_illuminant
     illuminant_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180604_Spectral power distributions_BruceLindbloom/DIlluminants.csv';
     illuminant_temperature = 5003; % From https://en.wikipedia.org/wiki/Standard_illuminant#Illuminant_series_D
     illuminant_name = 'd50';
-    illuminant_function_name = [];
+    illuminant_function_name = []; % Unused
 else
     % Arbitrary illuminant function
     illuminant_function_name = 'sqrt';
-    illuminant_filename = [];
-    illuminant_temperature = [];
-    illuminant_name = [];
+    illuminant_filename = []; % Unused
+    illuminant_temperature = []; % Unused
+    illuminant_name = []; % Unused
 end
 
 % CIE tristimulus functions
@@ -284,10 +284,10 @@ n_colors = 2;
 bayer_pattern = 'gbrg';
 
 % Output directory for all images and saved data
-output_directory = '';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180615_TestingBimaterialImages';
 
 % ## Debugging Flags
-segmentColorsVerbose = true;
+segmentColorsVerbose = false;
 
 %% Load ColorChecker spectral reflectances and calculate their RGB values
 
@@ -437,11 +437,15 @@ if n_images ~= length(chromaticity_filenames)
 end
 
 % Associate by filename
-[~, chromaticity_names] = cellfun(fileparts, chromaticity_filenames, 'UniformOutput', false);
-[~, illumination_names] = cellfun(fileparts, illumination_filenames, 'UniformOutput', false);
-names_match = cellfun(strcmp, chromaticity_names, illumination_names, 'UniformOutput', true);
-if ~all(names_match)
-    error('Not all chromaticity map filenames and illumination map filenames match.');
+chromaticity_names = cell(n_images, 1);
+illumination_names = cell(n_images, 1);
+for i = 1:n_images
+    [~, chromaticity_names{i}] = fileparts(chromaticity_filenames{i});
+    [~, illumination_names{i}] = fileparts(illumination_filenames{i});
+    names_match = strcmp(chromaticity_names{i}, illumination_names{i});
+    if ~names_match
+        error('Not all chromaticity map filenames and illumination map filenames match.');
+    end
 end
 
 %% Process the images
@@ -463,7 +467,7 @@ for i = 1:n_images
     if n_channels == n_channels_rgb
         % Select matching colours to blend
         color_indices = zeros(n_colors, 1);
-        for k = 1:color_indices
+        for k = 1:n_colors
             distances = repmat(C_centers(k, :), n_patches, 1) - colorChecker_rgb;
             distances = dot(distances, distances, 2);
             [ ~, color_indices(k) ] = min(distances);
@@ -482,7 +486,7 @@ for i = 1:n_images
     Rad_per_pixel = sum(repmat(...
         permute(Rad_normalized_resampled(:, color_indices), [3, 1, 2]),...
         n_px, 1, 1 ...
-    ) * repmat(...
+    ) .* repmat(...
         permute(reshape(C_softSegmentation, n_px, n_colors, 1), [1, 3, 2]),...
         1, n_bands, 1 ...
     ), 3);
@@ -504,7 +508,7 @@ for i = 1:n_images
     end
     
     % Multiply by the illumination map and reshape into a hyperspectral image
-    H = reshape(Rad .* repmat(reshape(I_map, n_px, 1), 1, n_bands), [], 1);
+    H = reshape(Rad_per_pixel .* repmat(reshape(I_map, n_px, 1), 1, n_bands), [], 1);
     I_hyper = reshape(H, image_height, image_width, n_bands);
     
     % Compute the equivalent sensor response image
