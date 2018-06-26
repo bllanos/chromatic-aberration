@@ -24,12 +24,12 @@ function printFigure( filename, sz_paper, varargin )
 %   or if not passed.
 %
 % sz_figure -- Figure dimensions
-%   The print size of the figure. A two-element vector containing the width
-%   and height, respectively, of the figure in inches. An error will be
-%   thrown if the print size results in insufficient margins (less than
-%   0.25 inches). Note that the width and height are in the context of the
-%   figure's screen orientation, not its orientation on the page. Defaults
-%   to "best fit" if empty, or if not passed.
+%   The print size of the figure's axes. A two-element vector containing
+%   the width and height, respectively, of the axes in inches. An error
+%   will be thrown if the print size results in insufficient margins (less
+%   than 0.25 inches). Note that the width and height are in the context of
+%   the figure's screen orientation, not its orientation on the page.
+%   Defaults to "best fit" if empty, or if not passed.
 %
 % fg -- Figure handle
 %   The handle to the figure to save. Defaults to the value of `gcf()` if
@@ -84,24 +84,27 @@ else
     error('Unknown paper orientation "%s".', orientation);
 end
 
-if (is_portrait && (sz_paper(1) <= sz_paper(2))) || (~is_portrait && (sz_paper(1) > sz_paper(2)))
-    sz_figure_oriented = sz_figure;
-else
-    sz_figure_oriented = flip(sz_figure);
-end
-
-margin_bound = 0.25;
-if any(sz_paper - sz_figure_oriented) < (margin_bound * 2)
-    error('Figure size is too large for the page, taking into account a margin of %f inches.', margin_bound)
-end
-
 set(fg, 'PaperUnits', 'inches');
 set(fg, 'PaperSize', sz_paper);
 set(fg, 'PaperOrientation', orientation);
 set(fg, 'PaperPositionMode', 'manual');
-set(fg, 'PaperPosition', [margin_bound, margin_bound, sz_figure_oriented(1), sz_figure_oriented(2)]);
 
-print(fg, filename, '-dpdf', '-r300');
+if isempty(sz_figure)
+    print(fg, filename, '-dpdf', '-r300', '-bestfit');
+else
+    margin_bound = 0.25;
+    if (is_portrait && (sz_paper(1) <= sz_paper(2))) || (~is_portrait && (sz_paper(1) >= sz_paper(2)))
+        space = sz_paper - sz_figure;
+    else
+        space = flip(sz_paper) - sz_figure;
+    end
+    
+    if any(space < (margin_bound * 2))
+        error('Figure size is too large for the page, taking into account a margin of %f inches.', margin_bound)
+    end
+    set(fg, 'PaperPosition', [margin_bound, margin_bound, sz_figure(1), sz_figure(2)]);
+    print(fg, filename, '-dpdf', '-r300');
+end
 
 end
 

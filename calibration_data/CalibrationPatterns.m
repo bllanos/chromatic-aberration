@@ -40,7 +40,7 @@ disk_radius = 4;
 disk_separation = 11;
 
 % Output Directory
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180524_Testing_CorrectByWarping';
+output_directory = '/home/llanos/Downloads/patterns';
 
 % Filename Suffix
 filename_suffix = '_Acer';

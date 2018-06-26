@@ -1,24 +1,22 @@
-function [ I, I_rgb ] = diskImage( sz, res, r, sep, c_bg, c_fg )
-% DISKIMAGE  Generate an image of a grid of disks
+function [ fg ] = diskImagePrint( sz, r, sep, c_bg, c_fg )
+% DISKIMAGEPRINT  Generate an image of a grid of disks for printing
 %
 % ## Syntax
-% [ I ] = diskImage( sz, res, r, sep, c_bg, c_fg )
-% [ I, I_rgb ] = diskImage( sz, res, r, sep, c_bg, c_fg )
+% fg = diskImagePrint( sz, r, sep, c_bg, c_fg )
 %
 % ## Description
-% [ I ] = diskImage( sz, res, r, sep, c_bg, c_fg )
-%   Returns an image containing a grid of sharp-edged disks
-% [ I, I_rgb ] = diskImage( sz, res, r, sep, c_bg, c_fg )
-%   Additionally returns individual colour channels as full images.
+% fg = diskImagePrint( sz, r, sep, c_bg, c_fg )
+%   Returns a handle to a figure of an image an image containing a grid of
+%   sharp-edged disks
 %
 % ## Input Arguments
 %
 % sz -- Image dimensions
-%   A two-element vector containing the image height and width.
-%
-% res -- Image resolution
-%   The resolution of the image, in pixels per millimetre. (Pixels are
-%   assumed to be square.)
+%   A two-element vector containing the image width and height,
+%   respectively, in inches. Note that these dimensions are flipped
+%   relative to the usual ordering (height, width) of image dimensions,
+%   reflecting the difference in conventions between array dimensions and
+%   paper sizes.
 %
 % r -- Disk radius
 %   The radius of a disk in millimetres.
@@ -44,14 +42,17 @@ function [ I, I_rgb ] = diskImage( sz, res, r, sep, c_bg, c_fg )
 %
 % ## Output Arguments
 %
-% I -- Output Image
-%   An image of dimensions `sz` with a centered grid of disks meeting the
-%   requirements of the input arguments.
+% fg -- Output figure for printing
+%   A handle to a figure containing the image for printing. The image is a
+%   centered grid of disks meeting the requirements of the input arguments.
 %
-% I_rgb -- Output image channels
-%   A 3-element cell vector where the elements are versions of `I` with the
-%   same Red, Green, and Blue channels as `I`, respectively, but with the
-%   two other colour channels set to zero.
+% ## Notes
+%
+% MATLAB is not designed for vector image generation. This function uses
+% the 'scatter()' plotting function to produce disks, as it is the only
+% function I could find which produces filled vector graphics circles.
+% Unfortunately, the radius of a plotted circle is somewhat smaller than
+% the radius value given as input to 'diskImagePrint()'.
 %
 % ## References
 % - Mannan, F. & Langer, M. S. (2016a). "Blur calibration for depth from
@@ -66,10 +67,10 @@ function [ I, I_rgb ] = diskImage( sz, res, r, sep, c_bg, c_fg )
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
 % University of Alberta, Department of Computing Science
-% File created May 31, 2017
+% File created June 25, 2018
 
-nargoutchk(1, 2);
-narginchk(6, 6);
+nargoutchk(1, 1);
+narginchk(5, 5);
 
 if length(c_bg) == 1
     c_bg = repmat(c_bg, 1, 3);
@@ -79,19 +80,32 @@ if length(c_fg) == 1
     c_fg = repmat(c_fg, 1, 3);
 end
 
-I = ones(sz);
-sz = flip(sz);
+% Background
+max_size_px = 2048;
+max_size_inches = max(sz);
+sz_pixels = ceil(flip(sz) * max_size_px / max_size_inches);
+
+I = ones(sz_pixels);
 I = cat(3, I * c_bg(1), I * c_bg(2), I * c_bg(3));
 
-% Disk dimensions in pixels
-r = r * res;
-sep = sep * res;
+fg = figure;
+imshow(I, 'Border', 'tight');
+
+% Disk quantities in pixels
+pixelsPerMM = (max_size_px / max_size_inches) * unitsratio('inch', 'mm');
+sep = sep * pixelsPerMM;
+
+% According to MATLAB's documentation, scatter markers have sizes in units
+% of points. A typography point equals 1/72 inch.
+pointsPerMM = 72 * unitsratio('inch', 'mm');
+r = r * pointsPerMM;
 
 % Number of disks in each direction
-n = floor(((sz - r * 2) / sep) + 1);
+sz_pixels = flip(sz_pixels);
+n = floor((sz_pixels - r * 2) / sep);
 
 % Disk center positions
-image_center = sz / 2;
+image_center = sz_pixels / 2;
 disk_origin = image_center - (((n-1) / 2) * sep);
 disk_centers_x = disk_origin(1) + ((1:n(1)) - 1) * sep;
 disk_centers_y = disk_origin(2) + ((1:n(2)) - 1) * sep;
@@ -99,17 +113,13 @@ disk_centers_y = disk_origin(2) + ((1:n(2)) - 1) * sep;
 [disk_centers_x, disk_centers_y] = meshgrid(disk_centers_x, disk_centers_y);
 
 % Draw circles without anti-aliasing
-I = insertShape(...
-    I, 'FilledCircle',...
-    [disk_centers_x(:) disk_centers_y(:) repmat(r, prod(n), 1)],...
-    'Color', c_fg, 'Opacity', 1, 'SmoothEdges', false...
-);
-
-if nargout > 1
-    I_rgb = {I, I, I};
-    I_rgb{1}(:, :, 2:3) = 0;
-    I_rgb{2}(:, :, [1 3]) = 0;
-    I_rgb{3}(:, :, 1:2) = 0;
-end
+hold on
+scatter(...
+    disk_centers_x(:), disk_centers_y(:),...
+    pi * (r ^ 2),...
+    c_fg,...
+    'filled'...
+    );
+hold off
 
 end
