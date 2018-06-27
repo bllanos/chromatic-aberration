@@ -5,7 +5,12 @@ function [lambda_Rad, Rad, varargout] = reflectanceToRadiance(lambda_L, L, lambd
 % [lambda_Rad, Rad] = reflectanceToRadiance(...
 %     lambda_L, L, lambda_Ref, Ref...
 % )
-% [lambda_Rad, Rad, Rad_normalized, C_resampled] = reflectanceToRadiance(...
+% [lambda_Rad, Rad, Rad_normalized] = reflectanceToRadiance(...
+%     lambda_L, L, lambda_Ref, Ref, lambda_C, C [, C_ind]...
+% )
+% [...
+%   lambda_Rad, Rad, Rad_normalized, lambda_C_resampled, C_resampled...
+% ] = reflectanceToRadiance(...
 %     lambda_L, L, lambda_Ref, Ref, lambda_C, C [, C_ind]...
 % )
 %
@@ -16,13 +21,20 @@ function [lambda_Rad, Rad, varargout] = reflectanceToRadiance(lambda_L, L, lambd
 %   Returns radiances for the given reflectances seen under the given
 %   illuminant
 %
-% [lambda_Rad, Rad, Rad_normalized, C_resampled] = reflectanceToRadiance(...
+% [lambda_Rad, Rad, Rad_normalized] = reflectanceToRadiance(...
 %     lambda_L, L, lambda_Ref, Ref, lambda_C, C [, C_ind]...
 % )
 %   Additionally returns radiances normalized by the sensor's response to
-%   the illuminant, and the version of the sensor's response functions
-%   which can be used for colour calculation. Three or four output
-%   arguments can be requested.
+%   the illuminant.
+%
+% [...
+%   lambda_Rad, Rad, Rad_normalized, lambda_C_resampled, C_resampled...
+% ] = reflectanceToRadiance(...
+%     lambda_L, L, lambda_Ref, Ref, lambda_C, C [, C_ind]...
+% )
+%   Additionally returns the version of the sensor's response functions
+%   which can be used for colour calculation, along with the wavelengths at
+%   which it was resampled. Five output arguments must be requested.
 %
 % ## Input Arguments
 %
@@ -90,10 +102,14 @@ function [lambda_Rad, Rad, varargout] = reflectanceToRadiance(lambda_L, L, lambd
 %   Normalied radiances are required when computing the corresponding
 %   colours.
 %
+% lambda_C_resampled -- Resampled reference wavelength values
+%   A vector containing the wavelength values in `lambda_Rad` that are
+%   inside the interval represented by `lambda_C`.
+%
 % C_resampled -- Resampled sensor response function
 %   A version of `C` which has been resampled according to the
-%   `lambda_Rad` series of wavelengths. The first and last values of
-%   `C_resampled` have been adjusted to compensate for any truncation of
+%   `lambda_C_resampled` series of wavelengths. The first and last values
+%   of `C_resampled` have been adjusted to compensate for any truncation of
 %   the domain of wavelengths `lambda_C` represented by `lambda_Rad`.
 %   `C_resampled` should be used instead of `C` when calculating CIE
 %   tristimulus responses to the radiances in `Rad_normalized`, according
@@ -149,7 +165,10 @@ if isempty(varargin)
     narginchk(4, 4);
     normalize = false;
 elseif length(varargin) == 2 || length(varargin) == 3
-    nargoutchk(3, 4);
+    nargoutchk(3, 5);
+    if nargout == 4
+        error('Either three or five output arguments must be requested.');
+    end
     narginchk(6, 7);
     normalize = true;
     lambda_C = varargin{1};
@@ -198,12 +217,13 @@ if normalize
     varargout{1} = Rad_normalized;
     
     if nargout > 3
-        C_resampled = resampleArrays(...
+        [C_resampled, lambda_C_resampled] = resampleArrays(...
             lambda_C, C, lambda_Rad,...
             'spline'...
         );
+        varargout{2} = lambda_C_resampled;
         C_resampled = sumEnds(lambda_C, lambda_Rad, C, C_resampled);
-        varargout{2} = C_resampled;
+        varargout{3} = C_resampled;
     end
 end
 

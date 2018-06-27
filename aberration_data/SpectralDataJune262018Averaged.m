@@ -1,6 +1,6 @@
-%% Display pre-November 2014 ColorChecker Classic spectral data
-% Plot spectral reflectances and display sRGB values for the ColorChecker
-% Classic, from the data provided by Danny Pascale.
+%% Display June 26, 2018 averaged spectral data
+% Plot spectral reflectances and display sRGB values for the spectral data
+% collected on June 26, 2018
 %
 % ## Usage
 % Modify the parameters, the first code section below, then run.
@@ -21,7 +21,7 @@
 % ### Spectral reflectances
 % A '.csv' file containing a header row, a first column for wavelength
 % values, and remaining columns for relative spectral reflectances of each
-% patch in the ColorChecker chart.
+% sample.
 %
 % ### CIE tristimulus functions
 % A '.mat' file containing a variable 'xyzbar', which can be used as the
@@ -30,11 +30,11 @@
 % ## Output
 %
 % ### Graphical output
-% - Plots of the spectral reflectances of the ColorChecker chart patches,
-%   with plotlines coloured by their sRGB colours
+% - Plots of the spectral reflectances of the samples, with plotlines
+%   coloured by their sRGB colours.
 %
 % ### Console output
-% - sRGB values of the ColorChecker chart patches
+% - sRGB values of the samples
 %
 % ## References
 % - Foster, D. H. (2018). Tutorial on Transforming Hyperspectral Images to
@@ -46,13 +46,11 @@
 % - Lindbloom, Bruce J. (2017). Spectral Power Distribution of a CIE
 %   D-Illuminant. Retrieved from http://www.brucelindbloom.com on June 4,
 %   2018.
-% - Pascale, Danny (2016). The ColorChecker Pages. Retrieved from
-%   http://www.babelcolor.com/colorchecker.htm on June 4, 2018.
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
 % University of Alberta, Department of Computing Science
-% File created June 7, 2018
+% File created June 26, 2018
 
 %% Input data and parameters
 
@@ -64,8 +62,29 @@ illuminant_name = 'd50';
 % CIE tristimulus functions
 xyzbar_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180614_ASTM_E308/Table1_CIE1931_2DegStandardObserver.csv';
 
-% ColorChecker spectral reflectances
-reflectances_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180604_ColorCheckerSpectralData_BabelColor/ColorChecker_spectra_reformatted_llanos.csv';
+% Sample spectral reflectances
+reflectances_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180626_SpectralCharacterizationOfSetup/spectra_averaged.csv';
+
+% Categorization of the samples
+indices.bandpass_filters = 2:8;
+indices.large_chequerboard = 9:10;
+indices.paper = 11:12;
+indices.patches = 13:36;
+indices.small_chequerboard = 37:38;
+
+% Names for plots
+set_names.bandpass_filters = 'Bandpass filters';
+set_names.large_chequerboard = 'Large chequerboard';
+set_names.paper = 'Laser printer paper';
+set_names.patches = 'ColorChecker Classic';
+set_names.small_chequerboard = 'Small chequerboard';
+
+% Wavelength limits for plots
+x_limits.bandpass_filters = [350 750];
+x_limits.large_chequerboard = [];
+x_limits.paper = [];
+x_limits.patches = [];
+x_limits.small_chequerboard = [];
 
 %% Load and display the illuminant spectral power distribution
 
@@ -85,49 +104,60 @@ title(sprintf(...
 xlabel('\lambda [nm]');
 ylabel('Relative power');
 
-%% Load and display ColorChecker spectral reflectances
+%% Load and display sample spectra
 
-colorChecker_table = readtable(reflectances_filename);
-variable_names = colorChecker_table.Properties.VariableNames;
-patch_names = variable_names(2:end);
-lambda_colorChecker = colorChecker_table.(variable_names{1});
-reflectances = colorChecker_table{:, 2:end};
-n_patches = length(patch_names);
+sample_table = readtable(reflectances_filename);
+variable_names = sample_table.Properties.VariableNames;
+lambda_samples = sample_table.(variable_names{1});
+reflectances = sample_table{:, :};
 
-% Find patch colours
+% Find sample colours
 xyzbar_table = readtable(xyzbar_filename);
 lambda_xyzbar = xyzbar_table{:, 1};
 xyzbar = xyzbar_table{:, 2:end};
 
 rgb = reflectanceToColor(...
     lambda_illuminant, spd_illuminant,...
-    lambda_colorChecker, reflectances,...
+    lambda_samples, reflectances,...
     lambda_xyzbar, xyzbar,...
     illuminant_name...
     );
 rgb_integer = floor(256 * rgb);
 
 % Visualization
-figure;
-hold on
-patch_names_legend = cell(n_patches, 1);
-fprintf('ColorChecker patch sRGB colours under a %s illuminant:\n', illuminant_name);
-for i = 1:n_patches
-    plot(...
-        lambda_colorChecker, reflectances(:, i),...
-        'Color', rgb(i, :), 'LineWidth', 2, 'Marker', 'none'...
-    );
-    % Recover original variable names, which contained spaces
-    patch_names_legend{i} = strsplit(colorChecker_table.Properties.VariableDescriptions{i+1}, ':');
-    patch_names_legend{i} = patch_names_legend{i}{end};
-    if isempty(patch_names_legend{i})
-        patch_names_legend{i} = colorChecker_table.Properties.VariableNames{i+1};
+sets = fieldnames(indices);
+for s = 1:length(sets)
+    current_indices = indices.(sets{s});
+    set_name = set_names.(sets{s});
+
+    figure;
+    hold on
+    names_legend = cell(length(current_indices), 1);
+    fprintf('%s sRGB colours under a %s illuminant:\n', set_name, illuminant_name);
+    for i = 1:length(current_indices)
+        j = current_indices(i);
+        plot(...
+            lambda_samples, reflectances(:, j),...
+            'Color', rgb(j, :), 'LineWidth', 2, 'Marker', 'none'...
+        );
+        % Recover original variable names, which contained spaces
+        names_legend{i} = strsplit(sample_table.Properties.VariableDescriptions{j}, ':');
+        names_legend{i} = names_legend{i}{end};
+        if isempty(names_legend{i})
+            names_legend{i} = sample_table.Properties.VariableNames{j};
+        end
+
+        fprintf('\t%s: %d, %d, %d\n', names_legend{i}, rgb_integer(j, 1), rgb_integer(j, 2), rgb_integer(j, 3));
     end
-    
-    fprintf('\t%s: %d, %d, %d\n', patch_names_legend{i}, rgb_integer(i, 1), rgb_integer(i, 2), rgb_integer(i, 3));
+    hold off
+    title(sprintf('%s spectral signals', set_name))
+    if ~isempty(x_limits.(sets{s})) 
+        xlim(x_limits.(sets{s}));
+    end
+    ylim([0, 1.3]);
+    xlabel('\lambda [nm]')
+    ylabel('Relative spectral signal')
+    legend(names_legend);
+    ax = gca;
+    ax.Color = [0.5 0.5 0.5];
 end
-hold off
-title('ColorChecker spectral reflectances')
-xlabel('\lambda [nm]')
-ylabel('Relative spectral reflectance')
-legend(patch_names_legend);
