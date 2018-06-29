@@ -19,6 +19,9 @@
 % ### Sensor quantum efficiency data
 %
 % A '.mat' file containing the following variables:
+% - 'channel_mode': A Boolean value set to `false` to indicate that the
+%   data in `sensor_map` represents spectral sensitivities, not colour
+%   channel mappings
 % - 'sensor_map': A 2D array, where `sensor_map(i, j)` is the sensitivity
 %   of the i-th tristimulus function (x-bar, y-bar or z-bar) to light of
 %   the j-th wavelength.
@@ -37,12 +40,15 @@
 
 % List of parameters to save with results
 parameters_list = {
-        'data_source'...
+        'data_source',...
+        'channel_mode'...
     };
 
 %% Input data and parameters
 
 data_source = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180614_ASTM_E308/Table1_CIE1931_2DegStandardObserver.csv';
+% Data represents spectral sensitivities, not colour channel mappings
+channel_mode = false;
 
 %% Load the data
 
@@ -64,6 +70,7 @@ title('CIE 1931 colour matching functions')
 legend('x-bar', 'y-bar', 'z-bar')
 
 %% Save to a file
+sensor_map = sensor_map.';
 save_variables_list = [ parameters_list, {...
         'sensor_map',...
         'bands'...

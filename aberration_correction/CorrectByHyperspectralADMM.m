@@ -58,6 +58,9 @@
 %   j-th colour channel or spectral band of the latent images. For example,
 %   `sensor_map` is a matrix mapping discretized spectral power
 %   distributions to RGB colours.
+% - 'channel_mode': A Boolean value indicating whether the latent colour
+%   space is a set of colour channels (true) or a set of spectral bands
+%   (false).
 % The following variables are sometimes required:
 % - 'bands': A vector containing the wavelengths or colour channel indices
 %   to use as the `lambda` input argument of 'polyfunToMatrix()' when
@@ -198,12 +201,10 @@ parameters_list = {
         'downsampling_factor',...
         'output_directory',...
         'save_latent_image_files',...
-        'add_border',...
-        'full_GLambda',...
+        'baek2017Algorithm2Options',...
         'rho',...
         'weights',...
-        'tol',...
-        'maxit'...
+        'int_method'...
     };
 
 %% Input data and parameters
@@ -242,11 +243,11 @@ save_latent_image_files = true;
 % Whether to expand the latent image relative to the input image to cover
 % all undistorted coordinates from the input image. This is the
 % `add_border` input argument.
-add_border = false;
+baek2017Algorithm2Options.add_border = false;
 
 % Whether to make the spectral gradient the same size as the image. This is
 % the `full_GLambda` input argument.
-full_GLambda = false;
+baek2017Algorithm2Options.full_GLambda = false;
 
 % Penalty parameters in ADMM, the `rho` input argument.
 % Sample values seem to be in the range 1-10 (see pages 89, 93, and 95 of
@@ -260,10 +261,15 @@ weights = [ 0.001, 0.1 ];
 %
 % Reasonable values for the third element are 10^-4 to 10^-3 (page 21 of
 % Boyd et al. 2011).
-tol = [ 1e-3, 1e-2, 1e-3 ];
+baek2017Algorithm2Options.tol = [ 1e-3, 1e-2, 1e-3 ];
 
 % Maximum number of inner and outer iterations, the `maxit` input argument
-maxit = [ 20, 500 ];
+baek2017Algorithm2Options.maxit = [ 20, 500 ];
+
+% If the latent space consists of wavelength bands, use this type of
+% numerical integration in 'channelConversionMatrix()'. (Otherwise, a value
+% of 'none' will automatically be used instead.)
+int_method = 'trap';
 
 % ## Debugging Flags
 baek2017Algorithm2Verbose = true;
@@ -303,13 +309,19 @@ end
 bands_polyfun = bands;
 bands = [];
 
-model_variables_required = { 'sensor_map' };
+model_variables_required = { 'sensor_map', 'channel_mode' };
 load(color_map_filename, model_variables_required{:}, optional_variable);
 if ~all(ismember(model_variables_required, who))
     error('One or more of the required colour space conversion variables is not loaded.')
 end
 
 bands_color = bands;
+
+if channel_mode
+    baek2017Algorithm2Options.int_method = int_method;
+else
+    baek2017Algorithm2Options.int_method = 'none';
+end
 
 %% Preprocessing input data
 
@@ -376,9 +388,8 @@ for i = 1:n_images
     
     [ I_latent{i}, image_bounds{i}, I_rgb, J_full, J_est ] = baek2017Algorithm2(...
         image_sampling, bayer_pattern, sensor_map_resampled,...
-        polyfun, bands, add_border,...
-        full_GLambda, I_raw, rho, weights,...
-        tol, maxit, baek2017Algorithm2Verbose...
+        polyfun, bands, I_raw, rho, weights,...
+        baek2017Algorithm2Options, baek2017Algorithm2Verbose...
     );
             
     % Save the results

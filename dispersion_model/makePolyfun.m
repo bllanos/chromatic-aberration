@@ -97,13 +97,18 @@ end
                 xy_normalized(:, 1:(end - 1)),...
                 lambda_normalized(:, 1:(end - 1)),...
                 ];
-            xylambda_normalized_3d = repmat(permute(xylambda_normalized, [1 3 2]), 1, polyfun_data(d).n_powers, 1);
-            powers_rep = repmat(polyfun_data(d).powers, n_d, 1, 1);
-            vandermonde_matrix = prod(xylambda_normalized_3d .^ powers_rep, 3);
-
-            disparity_x_normalized = vandermonde_matrix * polyfun_data(d).coeff_x;
-            disparity_y_normalized = vandermonde_matrix * polyfun_data(d).coeff_y;
-            disparity_normalized = [disparity_x_normalized disparity_y_normalized, ones(n_d, 1)];
+            xylambda_normalized_3d = permute(xylambda_normalized, [1 3 2]);
+            
+            disparity_normalized = ones(n_d, 3);
+            for j = 1:n_d
+                vandermonde_vector = prod(...
+                    repmat(xylambda_normalized_3d(j, :, :), 1, polyfun_data(d).n_powers, 1)...
+                    .^ polyfun_data(d).powers, 3 ...
+                );
+                disparity_normalized(j, 1) = dot(vandermonde_vector, polyfun_data(d).coeff_x);
+                disparity_normalized(j, 2) = dot(vandermonde_vector, polyfun_data(d).coeff_y);
+            end
+            
             disparity_d = (polyfun_data(d).T_disparity_inv * disparity_normalized.').';
             disparity(filter_d, :) = disparity_d(:, 1:(end-1));
         end

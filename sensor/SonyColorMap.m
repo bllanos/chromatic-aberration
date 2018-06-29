@@ -27,6 +27,9 @@
 % ### Sensor quantum efficiency data
 %
 % A '.mat' file containing the following variables:
+% - 'channel_mode': A Boolean value set to `false` to indicate that the
+%   data in `sensor_map` represents spectral sensitivities, not colour
+%   channel mappings
 % - 'sensor_map': A 2D array, where `sensor_map(i, j)` is the sensitivity
 %   of the i-th colour channel (Red, Green, or Blue) to light of the j-th
 %   wavelength.
@@ -45,6 +48,7 @@
 
 % List of parameters to save with results
 parameters_list = {
+        'channel_mode',...
         'data_source',...
         'bands'...
     };
@@ -52,7 +56,8 @@ parameters_list = {
 %% Input data and parameters
 
 fn_name = 'sonyQuantumEfficiency';
-bands = linspace(200, 1200, 1000);
+bands = linspace(200, 1200, 1000).';
+channel_mode = false;
 
 %% Load the data
 

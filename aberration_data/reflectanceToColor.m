@@ -3,21 +3,21 @@ function [rgb, XYZ] = reflectanceToColor(lambda_L, L, lambda_Ref, Ref, lambda_C,
 %
 % ## Syntax
 % rgb = reflectanceToColor(...
-%     lambda_L, L, lambda_Ref, Ref, lambda_C, C [, whitepoint]...
+%     lambda_L, L, lambda_Ref, Ref, lambda_C, C [, whitepoint, int_method]...
 % )
 % [rgb, XYZ] = reflectanceToColor(...
-%     lambda_L, L, lambda_Ref, Ref, lambda_C, C [, whitepoint]...
+%     lambda_L, L, lambda_Ref, Ref, lambda_C, C [, whitepoint, int_method]...
 % )
 %
 % ## Description
 % rgb = reflectanceToColor(...
-%     lambda_L, L, lambda_Ref, Ref, lambda_C, C [, whitepoint]...
+%     lambda_L, L, lambda_Ref, Ref, lambda_C, C [, whitepoint, int_method]...
 % )
 %   Returns rgb values for the given reflectances seen under the given
 %   illuminant
 %
 % [rgb, XYZ] = reflectanceToColor(...
-%     lambda_L, L, lambda_Ref, Ref, lambda_C, C [, whitepoint]...
+%     lambda_L, L, lambda_Ref, Ref, lambda_C, C [, whitepoint, int_method]...
 % )
 %   Additionally returns CIE 1931 tristimulus values for the given
 %   reflectances seen under the given illuminant
@@ -47,8 +47,9 @@ function [rgb, XYZ] = reflectanceToColor(lambda_L, L, lambda_Ref, Ref, lambda_C,
 %
 % lambda_C -- Reference wavelength values
 %   A vector of wavelengths at which the 'C(lambda)' distributions were
-%   sampled. An even sampling of 5 nm is required, spanning the range from
-%   360 nm (inclusive) to 780 nm (inclusive).
+%   sampled. An even sampling of 5 nm, spanning the range from 360 nm
+%   (inclusive) to 780 nm (inclusive), is required for this function to
+%   conform to the ASTM E308 standard.
 %
 % C -- CIE 1931 color matching functions
 %   A 3-column matrix, where `C(i, j)` contains the value of the j-th CIE
@@ -59,7 +60,15 @@ function [rgb, XYZ] = reflectanceToColor(lambda_L, L, lambda_Ref, Ref, lambda_C,
 %   A character vector naming the CIE standard illuminant corresponding to
 %   `L`. The 'cieSpectralToColor()' function will use a default value of
 %   'd65' if its `whitepoint` input argument is not passed by this
-%   function.
+%   function. `whitepoint` can be empty (`[]`).
+%
+% int_method -- Numerical integration method
+%   The numerical integration method to use when integrating over the
+%   tristimulus functions. `int_method` is passed to `integrationWeights()`
+%   as its `method` input argument. A value of 'rect' is required for this
+%   function to operate according to the ASTM E308 standard.
+%
+%   Defaults to 'rect' if not passed.
 %
 % ## Output Arguments
 %
@@ -83,7 +92,7 @@ function [rgb, XYZ] = reflectanceToColor(lambda_L, L, lambda_Ref, Ref, lambda_C,
 %   https://doi.org/10.1520/E0308-17
 %
 % See also reflectanceToRadiance, ciedIlluminant, cieSpectralToColor,
-% resampleArrays
+% resampleArrays, integrationWeights
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -91,22 +100,28 @@ function [rgb, XYZ] = reflectanceToColor(lambda_L, L, lambda_Ref, Ref, lambda_C,
 % File created June 12, 2018
 
 nargoutchk(1, 2);
-narginchk(6, 7);
+narginchk(6, 8);
+
+if length(varargin) > 1
+    int_method = varargin{2};
+else
+    int_method = 'rect';
+end
 
 [lambda_resampled, ~, Rad_normalized, lambda_C_resampled, C_resampled] = reflectanceToRadiance(...
-    lambda_L, L, lambda_Ref, Ref, lambda_C, C, 2 ...
+    lambda_L, L, lambda_Ref, Ref, lambda_C, C, 2, int_method...
 );
 
 if isempty(varargin)
     [rgb, XYZ] = cieSpectralToColor(...
         lambda_resampled, C_resampled,...
-        lambda_resampled, Rad_normalized.'...
+        lambda_resampled, Rad_normalized.', [], int_method...
     );
 else
     [rgb, XYZ] = cieSpectralToColor(...
         lambda_C_resampled, C_resampled,...
         lambda_resampled, Rad_normalized.',...
-        varargin{1}...
+        varargin{1}, int_method...
     );
 end
 

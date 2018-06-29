@@ -44,12 +44,6 @@
 % - 'model_from_reference': A parameter of the above scripts, which
 %   determines the frame of reference for the model of chromatic
 %   aberration. It must be set to `false`.
-% The following variables are sometimes required:
-% - 'bands': A vector containing the wavelengths to use as the `lambda`
-%   input argument of 'polyfunToMatrix()' (to evaluate a dispersion model),
-%   and to form hyperspectral images. This variable is required only if not
-%   provided in the colour space conversion data file, or directly in this
-%   script (see below).
 %
 % The following variables are optional. If they are present, they are
 % assumed to define a conversion between a geometrical optics coordinate
@@ -70,39 +64,23 @@
 % - 'sensor_map': A 2D array, where `sensor_map(i, j)` is the sensitivity
 %   of the i-th colour channel of the output sensor response images to the
 %   j-th spectral band of the synthetic hyperspectral images.
-% The following variables are sometimes required:
 % - 'bands': A vector containing the wavelengths to use as the `lambda`
 %   input argument of 'polyfunToMatrix()' (to evaluate a dispersion model),
-%   and to form hyperspectral images. This variable takes precedence over
-%   the same variable provided with the dispersion model (see above), but
-%   can be overridden by a version of the variable provided directly in
-%   this script (see below).
+%   and to form hyperspectral images. This variable can be overridden by a
+%   version of the variable provided directly in this script (see below).
+%   However, it is still needed from this file to normalize spectral
+%   radiances, even when overridden in its other functions.
 %
 % ### Discrete spectral space
 %
 % The 'bands' variable defined in the parameters section of the code below
-% can be empty (`[]`), in which case it is loaded from the dispersion model
-% data or from the colour space conversion data (see above).
-%
-% The final value of 'bands' is determined according to the following list,
-% in order by decreasing priority:
-% - 'bands' defined in this script
-% - 'bands' loaded from with colour space conversion data
-% - 'bands' loaded from a polynomial model of dispersion
+% can be empty (`[]`), in which case it is loaded from the colour space
+% conversion data (see above).
 %
 % The final 'bands' vector is clipped to the intervals defined by the other
 % vectors of wavelengths, to avoid extrapolation when resampling data to
 % conform to the final value of 'bands'. Resampling is needed to express
 % all spectral quantities in the same discrete space of wavelengths.
-%
-% If no variable 'bands' was found in the colour space conversion data, but
-% the final value of 'bands' has a length equal to the size of the second
-% dimension of 'sensor_map', 'bands' is assumed to be compatible with
-% 'sensor_map'. Otherwise, 'sensor_map' is resampled along its second
-% dimension, by assuming that its first and last columns correspond to the
-% first and last elements of 'bands', and that its remaining columns
-% correspond to equally-spaced wavelengths in-between the first and last
-% elements of 'bands'.
 %
 % ### Illuminant
 % The following two sources of data can be provided:
@@ -147,21 +125,26 @@
 %   the per-pixel weights in the soft segmentation of the chromaticity map,
 %   and then by illuminating the spectra according to the illumination
 %   weights in the illumination map. Image values are normalized radiances.
-% - '*_3.tif': A colour image created by converting the hyperspectral
-%   image to the raw colour space of the camera.
+% - '*_3.tif' and '*_3.mat': A colour image created by converting the
+%   hyperspectral image to the raw colour space of the camera.
 % - '*_hyperspectral_warped.mat': A warped version of the hyperspectral
 %   image (stored in the variable 'I_hyper_warped') created by applying the
 %   dispersion model to the image.
-% - '*_3_warped.tif': A colour image created by converting the
-%   warped hyperspectral image to the raw colour space of the camera.
-% - '*_raw_warped.tif': A colour-filter array image produced by mosaicing
-%   the warped sensor response image according to the colour-filter pattern
-%   of the camera.
+% - '*_3_warped.tif' and '*_3_warped.mat': A colour image created by
+%   converting the warped hyperspectral image to the raw colour space of
+%   the camera.
+% - '*_raw_warped.tif' and '*_raw_warped.mat': A colour-filter array image
+%   produced by mosaicing the warped sensor response image according to the
+%   colour-filter pattern of the camera.
 %
 % The raw colour space of the camera is determined by the colour space
 % conversion data provided as input to this script. A camera may apply
 % additional operations to convert sensor responses from the raw colour
 % space to, for example, sRGB colours.
+%
+% Note that both '.mat' and '.tif' files are output for monochromatic or
+% three-channel images to provide both easy display ('.tif' files) and
+% lossless storage ('.mat' files).
 %
 % ### Data file output
 %
@@ -170,13 +153,7 @@
 % - 'bands': The final value of the 'bands' variable, determined as
 %   discussed under the section "Discrete spectral space" above.
 % - 'bands_color': The 'bands' variable loaded from the colour space
-%   conversion data file, for reference. 'bands_color' is empty if no
-%   such variable was found in the data file, or if the value of the loaded
-%   variable was empty.
-% - 'bands_polyfun': The 'bands' variable loaded from the dispersion model
-%   data file, for reference. 'bands_polyfun' is empty if no such variable
-%   was found in the data file, or if the value of the loaded variable was
-%   empty.
+%   conversion data file, for reference.
 % - 'chromaticity_filenames': A cell vector containing the input
 %   chromaticity map filenames retrieved based on the wildcard provided in
 %   the parameters section of the script.
@@ -214,6 +191,8 @@ parameters_list = {
         'polynomial_model_filename',...
         'dispersonFun_name',...
         'color_map_filename',...
+        'normalization_channel',...
+        'int_method',...
         'bands_interp_method',...
         'use_cie_illuminant',...
         'illuminant_filename',...
@@ -221,7 +200,6 @@ parameters_list = {
         'illuminant_name',...
         'illuminant_function_name',...
         'xyzbar_filename',...
-        'lambda_xyzbar',...
         'reflectances_filename',...
         'n_colors',...
         'bayer_pattern',...
@@ -248,7 +226,11 @@ else
 end
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180615_TestingBimaterialImages/SonyColorMapData.mat';
+color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180629_TestingBimaterialImages/SonyColorMapData.mat';
+% Colour channel to use for radiance normalization
+normalization_channel = 2;
+% Integration method to use for colour calculations
+int_method = 'trap';
 
 % Override the wavelengths at which to evaluate the model of dispersion, if
 % desired.
@@ -284,7 +266,7 @@ n_colors = 2;
 bayer_pattern = 'gbrg';
 
 % Output directory for all images and saved data
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180615_TestingBimaterialImages';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180629_TestingBimaterialImages';
 
 % ## Debugging Flags
 segmentColorsVerbose = false;
@@ -320,7 +302,7 @@ colorChecker_rgb = reflectanceToColor(...
     lambda_illuminant, spd_illuminant,...
     lambda_colorChecker, reflectances,...
     lambda_xyzbar, xyzbar,...
-    illuminant_name...
+    illuminant_name, int_method...
     );
 
 %% Load dispersion model
@@ -359,8 +341,8 @@ bands = [];
 
 %% Load colour space conversion data
 
-model_variables_required = { 'sensor_map' };
-load(color_map_filename, model_variables_required{:}, optional_variable);
+model_variables_required = { 'sensor_map', optional_variable };
+load(color_map_filename, model_variables_required{:});
 if ~all(ismember(model_variables_required, who))
     error('One or more of the required colour space conversion variables is not loaded.')
 end
@@ -372,52 +354,33 @@ bands_color = bands;
 % Select the highest-priority value of `bands`
 if ~isempty(bands_script)
     bands = bands_script;
-elseif ~isempty(bands_color)
-    bands = bands_color;
-elseif ~isempty(bands_polyfun)
-    bands = bands_polyfun;
 else
-    error('The variable `bands` is not defined, or is empty');
+    bands = bands_color;
 end
 
 % Use the intersection of all values of `bands` corresponding to arrays
-if ~isempty(bands_color)
-    bands = bands(bands >= min(bands_color) & bands <= max(bands_color));
-end
+bands = bands(bands >= min(bands_color) & bands <= max(bands_color));
 bands = bands(bands >= min(lambda_colorChecker) & bands <= max(lambda_colorChecker));
 
-% Compare with colour space conversion data
-n_bands = length(bands);
-n_bands_sensor_map = size(sensor_map, 2);
-resample_bands = false;
-if ~isempty(bands_color)
-    if n_bands ~= length(bands_color) || any(bands ~= bands_color)
-        % Resampling is needed
-        resample_bands = true;
-        bands_for_interp = bands_color;
-    end
-elseif n_bands_sensor_map ~= n_bands
-    % Resampling is needed, but will be "blind"
-    resample_bands = true;
-    bands_for_interp = linspace(bands(1), bands(end), n_bands_sensor_map);
-end
 % Resample colour space conversion data if necessary
-if resample_bands
+if length(bands) ~= length(bands_color) || any(bands ~= bands_color)
     [sensor_map_resampled, bands] = resampleArrays(...
-        bands_for_interp, sensor_map.', bands,...
+        bands_color, sensor_map.', bands,...
         bands_interp_method...
         );
     sensor_map_resampled = sensor_map_resampled.';
 else
     sensor_map_resampled = sensor_map;
 end
-
 n_bands = length(bands);
 
 %% Calculate spectral radiances
 
 [lambda_Rad, ~, Rad_normalized] = reflectanceToRadiance(...
-    lambda_illuminant, spd_illuminant, lambda_colorChecker, reflectances, lambda_xyzbar, xyzbar(:, 2)...
+    lambda_illuminant, spd_illuminant,...
+    lambda_colorChecker, reflectances,...
+    bands_color, sensor_map(normalization_channel, :).',...
+    int_method...
 );
 
 % Resample radiances
@@ -512,10 +475,10 @@ for i = 1:n_images
     I_hyper = reshape(H, image_height, image_width, n_bands);
     
     % Compute the equivalent sensor response image
-    Omega = channelConversionMatrix(image_sampling, sensor_map_resampled);
-    raw_full = Omega * H;
+    Omega = channelConversionMatrix(image_sampling, sensor_map_resampled, bands, int_method);
+    raw_full = Omega * H;    
     raw_full_3D = reshape(raw_full, image_height, image_width, n_channels_raw);
-
+    
     % Simulate dispersion
     W = polyfunToMatrix(...
             dispersonFun, bands,...
@@ -537,12 +500,22 @@ for i = 1:n_images
     % Save the results
     output_filename = fullfile(output_directory, [chromaticity_names{i} '_hyperspectral.mat']);
     save(output_filename, 'I_hyper');
+    
+    output_filename = fullfile(output_directory, [chromaticity_names{i} '_3.mat']);
+    save(output_filename, 'raw_full_3D');
     output_filename = fullfile(output_directory, [chromaticity_names{i} '_3' ext]);
     imwrite(raw_full_3D, output_filename);
+    
     output_filename = fullfile(output_directory, [chromaticity_names{i} '_hyperspectral_warped.mat']);
     save(output_filename, 'I_hyper_warped');
+    
+    output_filename = fullfile(output_directory, [chromaticity_names{i} '_3_warped.mat']);
+    save(output_filename, 'raw_warped_3D');
     output_filename = fullfile(output_directory, [chromaticity_names{i} '_3_warped' ext]);
     imwrite(raw_warped_3D, output_filename);
+    
+    output_filename = fullfile(output_directory, [chromaticity_names{i} '_raw_warped.mat']);
+    save(output_filename, 'raw_2D');
     output_filename = fullfile(output_directory, [chromaticity_names{i} '_raw_warped' ext]);
     imwrite(raw_2D, output_filename);
 end

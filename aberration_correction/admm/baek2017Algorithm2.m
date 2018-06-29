@@ -1,17 +1,15 @@
 function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
     image_sampling, align, sensitivity,...
-    polyfun, lambda, add_border,...
-    full_GLambda, J_2D, rho, weights,...
-    tol, maxit, varargin...
+    polyfun, lambda, J_2D, rho, weights,...
+    options, varargin...
     )
 % BAEK2017ALGORITHM2  Run ADMM as in Algorithm 2 of Baek et al. 2017
 %
 % ## Syntax
 % I = baek2017Algorithm2(...
 %     image_sampling, align, sensitivity,...
-%     polyfun, lambda, add_border,...
-%     full_GLambda, J, rho, weights,...
-%     tol, maxit [, verbose]...
+%     polyfun, lambda, J, rho, weights,...
+%     options [, verbose]...
 % )
 % [ I, image_bounds ] = baek2017Algorithm2(___)
 % [ I, image_bounds, I_rgb ] = baek2017Algorithm2(___)
@@ -21,9 +19,8 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % ## Description
 % I = baek2017Algorithm2(...
 %     image_sampling, align, sensitivity,...
-%     polyfun, lambda, add_border,...
-%     full_GLambda, J, rho, weights,...
-%     tol, maxit [, verbose]...
+%     polyfun, lambda, J, rho, weights,...
+%     options [, verbose]...
 % )
 %   Estimate a latent RGB or hyperspectral image `I` from dispersion in
 %   the input RAW image `J`.
@@ -77,20 +74,6 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %   encapsulated by `polyfun`. 'c' is the desired number of spectral bands
 %   or colour channels in `I`.
 %
-% add_border -- Padding flag
-%   A Boolean value indicating whether or not the `image_bounds` input
-%   argument of 'polyfunToMatrix()' should be empty. If `true`, the output
-%   image `I` will be large enough to contain the lateral chromatic
-%   aberration-corrected coordinates of all pixels in `J`. If `false`,
-%   the output image `I` will be clipped to the region occupied by
-%   `J`.
-%
-% full_GLambda -- Approximate spectral gradients at border bands
-%   A Boolean value used as the `replicate` input argument of
-%   'spectralGradient()' when creating the spectral gradient matrix needed
-%   for regularizing `I`. Refer to the documentation of
-%   'spectralGradient.m' for details.
-%
 % J -- Input RAW image
 %   A 2D array containing the raw colour-filter pattern data of an image.
 %
@@ -105,25 +88,51 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %   the `beta` weight on the regularization of the spectral gradient of the
 %   spatial gradient of the image in the ADMM optimization problem.
 %
-%   If all elements of `weights` are zero, this function will find the
-%   minimum-norm least squares solution to the simpler problem:
+%   If all elements of `weights` are zero, this function will find a
+%   solution to the simpler problem:
 %     argmin_i (||M * Omega * Phi * i - j||_2) ^ 2
 %   where `M` performs mosaicing, `Omega` converts colours to the RGB
 %   colour space of the camera, and `Phi` warps the image according to the
-%   dispersion model. `j` is the input RAW image.
+%   dispersion model. `j` is the input RAW image. If the linear system is
+%   underdetermined, the function will find the minimum-norm least squares
+%   solution. If the problem is sufficiently determined, as it may be in
+%   cases where `i` has fewer wavelength bands of colour channels than `j`
+%   has colour channels, then the function will find the exact or
+%   least-squares solution.
 %
-% tol -- Convergence tolerances
-%   The first element of `tol` is the tolerance value to use with MATLAB's
-%   'pcg()' function when solving the I-minimization step of the ADMM
-%   algorithm. The second and third elements of `tol` are the absolute and
-%   relative tolerance values for the ADMM algorithm, as explained in
-%   Section 3.3.1 of Boyd et al. 2011.
+%   This function will not terminate if `weights` has a mixture of zero and
+%   nonzero elements, because the ADMM algorithm will not converge.
 %
-% maxit -- Maximum number of iterations
-%   The first element of `maxit` contains the maximum number of iterations
-%   to use with MATLAB's 'pcg()' function when solving the I-minimization
-%   step of the ADMM algorithm. The second element of `maxit` contains the
-%   maximum number of ADMM iterations to perform.
+% options -- Options and small parameters
+%   A structure with the following fields:
+%   - 'add_border': A Boolean value indicating whether or not the
+%     `image_bounds` input argument of 'polyfunToMatrix()' should be empty.
+%     If `true`, the output image `I` will be large enough to contain the
+%     lateral chromatic aberration-corrected coordinates of all pixels in
+%     `J`. If `false`, the output image `I` will be clipped to the region
+%     occupied by `J`.
+%   - 'full_GLambda': A Boolean value used as the `replicate` input
+%     argument of 'spectralGradient()' when creating the spectral gradient
+%     matrix needed for regularizing `I`. Refer to the documentation of
+%     'spectralGradient.m' for details.
+%   - 'int_method': The numerical integration method used for spectral to
+%     colour space conversion. `int_method` is passed to
+%     'channelConversionMatrix()' as its `int_method` argument. Refer to
+%     the documentation of 'channelConversionMatrix.m' for details. If
+%     'int_method' is 'none', as should be the case when colour conversion
+%     is from a set of colour channels, not a spectral space, numerical
+%     integration will not be performed.
+%   - 'maxit': Maximum number of iterations: The first element of `maxit`
+%     contains the maximum number of iterations to use with MATLAB's
+%     'pcg()' function when solving the I-minimization step of the ADMM
+%     algorithm. The second element of `maxit` contains the maximum number
+%     of ADMM iterations to perform.
+%   - 'tol': Convergence tolerances: The first element of `tol` is the
+%     tolerance value to use with MATLAB's 'pcg()' function when solving
+%     the I-minimization step of the ADMM algorithm. The second and third
+%     elements of `tol` are the absolute and relative tolerance values for
+%     the ADMM algorithm, as explained in Section 3.3.1 of Boyd et al.
+%     2011.
 %
 % verbose -- Verbosity flag
 %   If `true`, console output will be displayed to show the progress of the
@@ -190,7 +199,7 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % File created May 27, 2018
 
 nargoutchk(1, 5);
-narginchk(12, 13);
+narginchk(9, 10);
 
 if ~isempty(varargin)
     verbose = varargin{1};
@@ -202,14 +211,24 @@ if length(image_sampling) ~= 2
     error('The `image_sampling` input argument must contain an image height and width only.');
 end
 
+if isStringScalar(options.int_method) || ischar(options.int_method)
+    do_integration = ~strcmp(options.int_method, 'none');
+else
+    error('`options.int_method` must be a character vector or a string scalar.');
+end
+
 J = J_2D(:);
 
 % Create constant matrices
 image_sampling_J = size(J_2D);
 n_bands = length(lambda);
 M = mosaicMatrix(image_sampling_J, align);
-Omega = channelConversionMatrix(image_sampling_J, sensitivity);
-if add_border
+if do_integration
+    Omega = channelConversionMatrix(image_sampling_J, sensitivity, lambda, options.int_method);
+else
+    Omega = channelConversionMatrix(image_sampling_J, sensitivity);
+end
+if options.add_border
     image_bounds = [];
 else
     image_bounds = [0, 0, image_sampling_J(2), image_sampling_J(1)];
@@ -219,13 +238,18 @@ end
 );
 
 if all(weights == 0)
-    % Minimum-norm least squares solution to the non-regularized problem
     A = M * Omega * Phi;
-    I = lsqminnorm(A, J);
+    if (size(A, 1) < size(A, 2)) || (rank(A) < size(A, 2))
+        % Minimum-norm least squares solution to the non-regularized problem
+        I = lsqminnorm(A, J);
+    else
+        % Unique or least-squares solution
+        I = A \ J;
+    end  
 else
     % Perform ADMM
     G_xy = spatialGradient([image_sampling, n_bands]);
-    G_lambda = spectralGradient([image_sampling, n_bands], full_GLambda);
+    G_lambda = spectralGradient([image_sampling, n_bands], options.full_GLambda);
     G_lambda_sz1 = size(G_lambda, 1);
     G_lambda_sz2 = size(G_lambda, 2);
     % The product `G_lambda * G_xy` must be defined, so `G_lambda` needs to be
@@ -258,10 +282,10 @@ else
     G_xy_T = G_xy.';
     G_lambda_xy_T = G_lambda_xy.';
     converged = false;
-    for iter = 1:maxit(2)
+    for iter = 1:options.maxit(2)
         % Optimization
         [ I, flag, relres, iter_pcg ] = pcg(...
-            A, b, tol(1), maxit(1), [], [], I...
+            A, b, options.tol(1), options.maxit(1), [], [], I...
         );
         if(verbose)
             fprintf('%d:    PCG (flag = %d, relres = %g, iter = %d)\n',...
@@ -295,17 +319,17 @@ else
 
         % Calculate stopping criteria
         % See Section 3.3.1 of Boyd et al. 2011.
-        epsilon_pri1 = sqrt(len_Z1) * tol(2) +...
-            tol(3) * max([norm(g_xy), norm(Z1)]);
-        epsilon_pri2 = sqrt(len_Z2) * tol(2) +...
-            tol(3) * max([norm(g_lambda_xy), norm(Z2)]);
+        epsilon_pri1 = sqrt(len_Z1) * options.tol(2) +...
+            options.tol(3) * max([norm(g_xy), norm(Z1)]);
+        epsilon_pri2 = sqrt(len_Z2) * options.tol(2) +...
+            options.tol(3) * max([norm(g_lambda_xy), norm(Z2)]);
 
         Y1 = rho(1) * U1;
         Y2 = rho(2) * U2;
-        epsilon_dual1 = sqrt(len_I) * tol(2) +...
-            tol(3) * norm(G_xy_T * Y1);
-        epsilon_dual2 = sqrt(len_I) * tol(2) +...
-            tol(3) * norm(G_lambda_xy_T * Y2);
+        epsilon_dual1 = sqrt(len_I) * options.tol(2) +...
+            options.tol(3) * norm(G_xy_T * Y1);
+        epsilon_dual2 = sqrt(len_I) * options.tol(2) +...
+            options.tol(3) * norm(G_lambda_xy_T * Y2);
 
         if(verbose)
             fprintf('Stop Crit. (e_p1 = %g, e_p2 = %g, e_d2 = %g, e_d2 = %g)\n',...
@@ -335,7 +359,11 @@ end
 I_3D = reshape(I, image_sampling(1), image_sampling(2), n_bands);
 
 if nargout > 2
-    Omega_I = channelConversionMatrix(image_sampling, sensitivity);
+    if do_integration
+        Omega_I = channelConversionMatrix(image_sampling, sensitivity, lambda, options.int_method);
+    else
+        Omega_I = channelConversionMatrix(image_sampling, sensitivity);
+    end
     I_rgb = Omega_I * I;
     n_channels_rgb = 3;
     varargout{1} = reshape(I_rgb, image_sampling(1), image_sampling(2), n_channels_rgb);

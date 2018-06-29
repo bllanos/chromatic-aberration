@@ -2,14 +2,14 @@ function [rgb, XYZ] = cieSpectralToColor(lambda_C, C, lambda_R, R, varargin)
 % CIESPECTRALTOCOLOR Convert spectral radiance to sRGB using the CIE tristimulus functions
 %
 % ## Syntax
-% rgb = cieSpectralToColor(lambda_C, C, lambda_R, R [, whitepoint])
-% [rgb, XYZ] = cieSpectralToColor(lambda_C, C, lambda_R, R [, whitepoint])
+% rgb = cieSpectralToColor(lambda_C, C, lambda_R, R [, whitepoint, int_method])
+% [rgb, XYZ] = cieSpectralToColor(lambda_C, C, lambda_R, R [, whitepoint, int_method])
 %
 % ## Description
-% rgb = cieSpectralToColor(lambda_C, C, lambda_R, R [, whitepoint])
+% rgb = cieSpectralToColor(lambda_C, C, lambda_R, R [, whitepoint, int_method])
 %   Returns sRGB values corresponding to the input spectral radiances
 %
-% [rgb, XYZ] = cieSpectralToColor(lambda_C, C, lambda_R, R [, whitepoint])
+% [rgb, XYZ] = cieSpectralToColor(lambda_C, C, lambda_R, R [, whitepoint, int_method])
 %   Additionally returns the CIE 1931 tristimulus values corresponding to
 %   the input spectral radiances
 %
@@ -42,7 +42,15 @@ function [rgb, XYZ] = cieSpectralToColor(lambda_C, C, lambda_R, R, varargin)
 % whitepoint -- Illuminant whitepoint
 %   A character vector describing the CIE standard illuminant with which
 %   the radiances were obtained. `whitepoint` is passed to the MATLAB
-%   'xyz2rgb()' function, and defaults to 'd65' if not passed.
+%   'xyz2rgb()' function, and defaults to 'd65' if empty or if not passed.
+%
+% int_method -- Numerical integration method
+%   The numerical integration method to use when integrating over the
+%   tristimulus functions. `int_method` is passed to `integrationWeights()`
+%   as its `method` input argument. A value of 'rect' is required for this
+%   function to operate according to the ASTM E308 standard.
+%
+%   Defaults to 'rect' if not passed.
 %
 % ## Output Arguments
 %
@@ -73,9 +81,12 @@ function [rgb, XYZ] = cieSpectralToColor(lambda_C, C, lambda_R, R, varargin)
 %   on June 5, 2018.
 % - Lindbloom, Bruce J. (2017). Computing XYZ From Spectral Data. Retrieved
 %   from http://www.brucelindbloom.com on June 11, 2018.
+% - ASTM E308-17 Standard Practice for Computing the Colors of Objects by
+%   Using the CIE System, ASTM International, West Conshohocken, PA, 2017,
+%   https://doi.org/10.1520/E0308-17
 %
 % See also xyz2rgb, resampleArrays, reflectanceToColor,
-% reflectanceToRadiance
+% reflectanceToRadiance, integrationWeights
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -83,11 +94,17 @@ function [rgb, XYZ] = cieSpectralToColor(lambda_C, C, lambda_R, R, varargin)
 % File created June 7, 2018
 
 nargoutchk(1, 2);
-narginchk(4, 5);
+narginchk(4, 6);
 
+whitepoint = [];
+int_method = 'rect';
 if ~isempty(varargin)
     whitepoint = varargin{1};
-else
+    if length(varargin) > 1
+        int_method = varargin{2};
+    end
+end
+if isempty(whitepoint)
     whitepoint = 'd65';
 end
 
@@ -98,13 +115,9 @@ end
 R_resampled = R_resampled.';
 
 lambda = reshape(lambda, length(lambda), 1);
-lambda_diff = diff(lambda);
-lambda_diff = [
-    lambda_diff;
-    lambda_diff(end)
-    ];
+weights = repmat(integrationWeights(lambda, int_method).', size(R, 2), 1);
 
-XYZ = R_resampled * diag(lambda_diff) * C_resampled;
+XYZ = (R_resampled .* weights) * C_resampled;
 XYZ(XYZ < 0) = 0;
 XYZ(XYZ > 1) = 1;
 

@@ -6,12 +6,12 @@ function [lambda_Rad, Rad, varargout] = reflectanceToRadiance(lambda_L, L, lambd
 %     lambda_L, L, lambda_Ref, Ref...
 % )
 % [lambda_Rad, Rad, Rad_normalized] = reflectanceToRadiance(...
-%     lambda_L, L, lambda_Ref, Ref, lambda_C, C [, C_ind]...
+%     lambda_L, L, lambda_Ref, Ref, lambda_C, C [, C_ind, int_method]...
 % )
 % [...
 %   lambda_Rad, Rad, Rad_normalized, lambda_C_resampled, C_resampled...
 % ] = reflectanceToRadiance(...
-%     lambda_L, L, lambda_Ref, Ref, lambda_C, C [, C_ind]...
+%     lambda_L, L, lambda_Ref, Ref, lambda_C, C [, C_ind, int_method]...
 % )
 %
 % ## Description
@@ -22,7 +22,7 @@ function [lambda_Rad, Rad, varargout] = reflectanceToRadiance(lambda_L, L, lambd
 %   illuminant
 %
 % [lambda_Rad, Rad, Rad_normalized] = reflectanceToRadiance(...
-%     lambda_L, L, lambda_Ref, Ref, lambda_C, C [, C_ind]...
+%     lambda_L, L, lambda_Ref, Ref, lambda_C, C [, C_ind, int_method]...
 % )
 %   Additionally returns radiances normalized by the sensor's response to
 %   the illuminant.
@@ -30,7 +30,7 @@ function [lambda_Rad, Rad, varargout] = reflectanceToRadiance(lambda_L, L, lambd
 % [...
 %   lambda_Rad, Rad, Rad_normalized, lambda_C_resampled, C_resampled...
 % ] = reflectanceToRadiance(...
-%     lambda_L, L, lambda_Ref, Ref, lambda_C, C [, C_ind]...
+%     lambda_L, L, lambda_Ref, Ref, lambda_C, C [, C_ind, int_method]...
 % )
 %   Additionally returns the version of the sensor's response functions
 %   which can be used for colour calculation, along with the wavelengths at
@@ -80,6 +80,13 @@ function [lambda_Rad, Rad, varargout] = reflectanceToRadiance(lambda_L, L, lambd
 %
 %   Defaults to 1 if not passed.
 %
+% int_method -- Numerical integration method
+%   The numerical integration method to use when computing the radiance
+%   normalization constant. `int_method` is passed to
+%   `integrationWeights()` as its `method` input argument.
+%
+%   Defaults to 'rect' if not passed.
+%
 % ## Output Arguments
 %
 % lambda_Rad -- Radiance wavelength values
@@ -121,7 +128,7 @@ function [lambda_Rad, Rad, varargout] = reflectanceToRadiance(lambda_L, L, lambd
 %   https://doi.org/10.1520/E0308-17
 %
 % See also ciedIlluminant, reflectanceToColor, cieSpectralToColor,
-% resampleArrays
+% resampleArrays, integrationWeights
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -164,22 +171,27 @@ if isempty(varargin)
     nargoutchk(2, 2);
     narginchk(4, 4);
     normalize = false;
-elseif length(varargin) == 2 || length(varargin) == 3
+elseif length(varargin) == 2 || length(varargin) == 3 || length(varargin) == 4
     nargoutchk(3, 5);
     if nargout == 4
         error('Either three or five output arguments must be requested.');
     end
-    narginchk(6, 7);
+    narginchk(6, 8);
     normalize = true;
     lambda_C = varargin{1};
     C = varargin{2};
+    int_method = 'rect';
     if length(varargin) > 2
         C_ind = varargin{3};
+        
+        if length(varargin) > 3
+            int_method = varargin{4};
+        end
     else
         C_ind = 1;
     end
 else
-    error('Either zero, two, or three optional input arguments must be provided, not %d.', length(varargin));
+    error('Either zero, two, three, or four optional input arguments must be provided, not %d.', length(varargin));
 end
 
 [...
@@ -201,16 +213,11 @@ if normalize
         lambda_L, L, lambda_C, ybar,...
         'spline'...
         );
-    lambda_diff = diff(lambda_resampled2);
-    lambda_diff = [
-        lambda_diff;
-        lambda_diff(end)
-        ];
-    
+    weights = integrationWeights(lambda_resampled2, int_method);
     ybar_resampled = sumEnds(lambda_C, lambda_resampled2, ybar, ybar_resampled);
 
     % Compute the normalization constant
-    N = sum(L_resampled2 .* ybar_resampled .* lambda_diff);
+    N = dot(L_resampled2 .* ybar_resampled, weights);
 
     Rad_normalized = Rad ./ N;
     
