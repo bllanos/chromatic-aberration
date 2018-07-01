@@ -39,6 +39,18 @@
 %   mapping from `centers` to `disparity`. `polyfun_data` can be
 %   converted to a function form using `polyfun =
 %   makePolyfun(polyfun_data)`
+% - 'model_space': A structure describing the range of image coordinates
+%   over which the polynomial model of dispersion is valid, having the
+%   following fields:
+%   - 'corners': The first and second rows contain the (x,y) image
+%     coordinates of the top left and bottom right corners of the region,
+%     respectively.
+%   - 'pixel_size': The side length of a pixel in the coordinate frame used
+%     by the 'corners' field (equal to 1).
+%   - 'system': A character vector, 'image', indicating that the
+%     dispersion model was constructed under image coordinate conventions,
+%     wherein the y-axis is positive downards on the image plane, and the
+%     origin is the top left corner of the image.
 %
 % Additionally, the file contains the values of all parameters in the first
 % section of the script below, for reference. (Specifically, those listed
@@ -284,9 +296,20 @@ if plot_polynomial_model
 end
 
 %% Save results to a file
+
+% Indicate where in the image the model is usable
+centers_unpacked = permute(reshape([centers.(dispersion_fieldname)], 2, []), [2 1]);
+model_space.corners = [
+    min(centers_unpacked(:, 1)), min(centers_unpacked(:, 2));
+    max(centers_unpacked(:, 1)), max(centers_unpacked(:, 2))
+    ];
+model_space.pixel_size = 1;
+model_space.system = 'image';
+
 save_variables_list = [ parameters_list, {...
         'centers',...
         'disparity',...
-        'polyfun_data'...
+        'polyfun_data',...
+        'model_space'...
     } ];
 uisave(save_variables_list,'RAWDiskDispersionResults');

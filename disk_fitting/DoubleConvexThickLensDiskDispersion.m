@@ -42,6 +42,17 @@
 %   evaluated to approximate the dispersion between the Red, Green, and
 %   Blue colour channels of the sensor. These are the wavelengths at which
 %   the colour channels reach their peak quantum efficiencies.
+% - 'model_space': A structure describing the range of coordinates over
+%   which the polynomial model of dispersion is valid, having the following
+%   fields:
+%   - 'corners': The first and second rows contain the (x,y) coordinates of
+%     the top left and bottom right corners of the region, respectively.
+%   - 'pixel_size': The side length of a pixel in the coordinate frame used
+%     by the 'corners' field.
+%   - 'system': A character vector, 'geometric', indicating that the
+%     dispersion model was constructed under geometrical optics coordinate
+%     conventions, wherein the y-axis is positive upwards on the image
+%     plane, and the origin is the image centre.
 %
 % Additionally, the file contains the values of all parameters in the first
 % section of the script below, for reference. (Specifically, those listed
@@ -286,10 +297,20 @@ end
 [~, ind] = max(lens_params.wavelengths_to_rgb, [], 1);
 bands = lens_params.wavelengths(ind);
 
+% Indicate where in the image the model is usable
+centers_unpacked = permute(reshape([centers.(dispersion_fieldname)], 2, []), [2 1]);
+model_space.corners = [
+    min(centers_unpacked(:, 1)), max(centers_unpacked(:, 2));
+    max(centers_unpacked(:, 1)), min(centers_unpacked(:, 2))
+    ];
+model_space.pixel_size = pixel_size;
+model_space.system = 'geometric';
+
 save_variables_list = [ parameters_list, {...
         'centers',...
         'disparity',...
         'polyfun_data',...
-        'bands'...
+        'bands',...
+        'model_space'...
     } ];
 uisave(save_variables_list,'DoubleConvexThickLensDiskDispersionResults');
