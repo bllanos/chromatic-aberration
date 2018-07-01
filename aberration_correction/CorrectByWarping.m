@@ -14,17 +14,20 @@
 % Images are expected to have been preprocessed, such as using
 % 'AverageRAWImages.m', so that they do not need to be linearized after
 % being loaded. Images will simply be loaded with the Image Processing
-% Toolbox 'imread()' function. All images are expected to have the same
-% pixel dimensions and 3 colour channels (Red, Green, Blue) (represented in
-% a Bayer pattern as a 2D array). However, the colour channels can
-% correspond to narrowband wavelength ranges - This script will input the
-% wavelengths corresponding to the colour channels.
+% Toolbox 'imread()' function. All images are expected to have 3 colour
+% channels (Red, Green, Blue) (represented in a Bayer pattern as a 2D
+% array). However, the colour channels can correspond to narrowband
+% wavelength ranges - This script will input the wavelengths corresponding
+% to the colour channels.
+%
+% Images may have different pixel dimensions, provided that they are
+% compatible with the input model of chromatic aberration described below.
 %
 % ### Polynomial model of chromatic aberration
 % A '.mat' file containing several variables, which is the output of
-% 'DoubleConvexThickLensDiskDispersion.m', 'RAWDiskDispersion.m' or
-% 'DoubleConvexThickLensDispersion.m'. The following variables are
-% required:
+% 'DoubleConvexThickLensDiskDispersion.m', 'RAWDiskDispersion.m',
+% 'DoubleConvexThickLensDispersion.m' or 'BimaterialImages.m', for example.
+% The following variables are required:
 % - 'polyfun_data': A polynomial model of chromatic aberration, modeling the
 %   warping from the reference colour channel to the other colour channels.
 %   `polyfun_data` can be converted to a function form using `polyfun =
@@ -37,19 +40,32 @@
 %   is the wavelength or colour channel information needed to evaluate the
 %   dispersion model.
 %
-% The following variables are optional. If they are present, they are
-% assumed to define a conversion between a geometrical optics coordinate
-% system in which the polynomial model of chromatic aberration was
-% constructed, and the image coordinate system:
-% - 'image_params': A structure with an 'image_sampling' field, which is a
-%   two-element vector containing the pixel height and width of the image.
-% - 'pixel_size': A scalar containing the side length of a pixel.
+% The following two additional variables are optional. If they are present,
+% they will be used for the following purposes:
+% - Conversion between the coordinate system in which the polynomial model
+%   of chromatic aberration was constructed and the image coordinate
+%   system.
+% - Limiting the correction of chromatic aberration to the region in which
+%   the polynomial model is valid.
+% The first variable, 'model_space' is a structure with same form as the
+% `model_space` input argument of 'modelSpaceTransform()'. The second
+% variable, `fill`, can be omitted, in which case it defaults to `false`.
+% `fill` corresponds to the `fill` input argument of
+% 'modelSpaceTransform()'. Refer to the documentation of
+% 'modelSpaceTransform.m' for details.
 %
 % ## Output
 %
 % ### Colour images
 % One of the following types of images is created for each input image. The
 % filename of the input image is represented by '*' below.
+% - '*_roi.tif': A cropped version of the input image, containing the
+%   portion to be corrected. This region of interest was determined using
+%   the `model_space` and `fill` variables saved in the input polynomial
+%   model of chromatic aberration data file (see above). If these variables
+%   were not present, the cropped region is the entire input image. All of
+%   the other output images listed below are limited to the region shown in
+%   '*_roi.tif'.
 % - '*_color_bilinear.tif': A colour image created by bilinear
 %   interpolation of each colour channel using 'bilinearDemosaic()'.
 % - '*_color_demosaic.tif': A colour image created by demosaicing using
@@ -111,8 +127,8 @@ n_images = length(image_filenames);
 %% Load dispersion model
 
 model_variables_required = { 'polyfun_data', 'model_from_reference', 'bands' };
-model_variables_optional = { 'image_params', 'pixel_size' };
-load(polynomial_model_filename, model_variables_required{:}, model_variables_optional{:});
+model_variables_transform = { 'model_space', 'fill' };
+load(polynomial_model_filename, model_variables_required{:}, model_variables_transform{:});
 if ~all(ismember(model_variables_required, who))
     error('One or more of the dispersion model variables is not loaded.')
 end
@@ -120,11 +136,13 @@ if ~model_from_reference
     error('Dispersion model is in the wrong frame of reference.')
 end
 
-if all(ismember(model_variables_optional, who))
-    T = pixelsToWorldTransform(image_params.image_sampling, pixel_size);
-    polyfun = makePolyfun(polyfun_data, T);
+if exist('model_space', 'var')
+    crop_image = true;
+    if ~exist('fill', 'var')
+        fill = false;
+    end
 else
-    polyfun = makePolyfun(polyfun_data);
+    crop_image = false;
 end
 
 %% Process the images
@@ -135,20 +153,27 @@ n_demosaicing_methods = 2;
 for i = 1:n_images
     [~, name] = fileparts(image_filenames{i});
     I_raw = imread(image_filenames{i});
-    if i == 1
-        image_sampling_in = size(I_raw);
-        if length(image_sampling_in) > 2
-            error('Expected a RAW image, represented as a 2D array, not a higher-dimensional array.');
-        end
-        W = polyfunToMatrix(...
-            polyfun, bands, image_sampling_in, image_sampling_in,...
-            [0, 0, image_sampling_in(2),  image_sampling_in(1)], false...
-        );
-    else
-        if any(image_sampling_in ~= size(I_raw))
-            error('Not all images have the same dimensions.');
-        end
+    if ~ismatrix(I_raw)
+        error('Expected a RAW image, represented as a 2D array, not a higher-dimensional array.');
     end
+    
+    if crop_image
+        [roi, T_roi] = modelSpaceTransform(size(I_raw), model_space, fill);
+        polyfun = makePolyfun(polyfun_data, T_roi);
+        I_raw = I_raw(roi(1):roi(2), roi(3):roi(4));
+    else
+        polyfun = makePolyfun(polyfun_data);
+    end
+    
+    I_raw_filename = fullfile(output_directory, [name '_roi' ext]);
+    imwrite(I_raw, I_raw_filename);
+    
+    image_sampling_in = size(I_raw);
+    W = polyfunToMatrix(...
+        polyfun, bands, image_sampling_in, image_sampling_in,...
+        [0, 0, image_sampling_in(2),  image_sampling_in(1)], false...
+    );
+
     for j = 1:n_demosaicing_methods
         if j == 1
             I_color = bilinearDemosaic(I_raw, bayer_pattern);

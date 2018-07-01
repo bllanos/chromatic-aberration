@@ -110,14 +110,13 @@ end
 
 % Resample the data, if necessary
 [C_resampled, R_resampled, lambda] = resampleArrays(...
-    lambda_C, C, lambda_R, R.', 'spline'...
+    lambda_C, C, lambda_R, R, 'spline'...
     );
-R_resampled = R_resampled.';
 
 lambda = reshape(lambda, length(lambda), 1);
 weights = repmat(integrationWeights(lambda, int_method).', size(R, 2), 1);
 
-XYZ = (R_resampled .* weights) * C_resampled;
+XYZ = (R_resampled.' .* weights) * C_resampled;
 XYZ(XYZ < 0) = 0;
 XYZ(XYZ > 1) = 1;
 

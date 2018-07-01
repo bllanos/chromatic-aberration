@@ -44,9 +44,10 @@
 %   following fields:
 %   - 'corners': The first and second rows contain the (x,y) image
 %     coordinates of the top left and bottom right corners of the region,
-%     respectively.
-%   - 'pixel_size': The side length of a pixel in the coordinate frame used
-%     by the 'corners' field (equal to 1).
+%     respectively. Remember that image coordinates are 0.5 units offset
+%     from pixel indices.
+%   - 'image_size': A two-element vector containing the image height and
+%     width in pixels.
 %   - 'system': A character vector, 'image', indicating that the
 %     dispersion model was constructed under image coordinate conventions,
 %     wherein the y-axis is positive downards on the image plane, and the
@@ -226,6 +227,11 @@ for i = 1:n_images
     
     if rgb_mode
         I = imread(filenames{1});
+        if i == 1
+            image_size = size(I);
+        elseif any(image_size ~= size(I))
+            error('Not all images have the same dimensions.');
+        end
         centers_i = findAndFitDisks(...
             I, mask, bayer_pattern, [], cleanup_radius, k0,...
             findAndFitDisks_options, findAndFitDisksVerbose...
@@ -234,6 +240,11 @@ for i = 1:n_images
         centers_i = cell(n_bands, 1);
         for j = 1:n_bands
             I = imread(filenames{j});
+            if i == 1 && j == 1
+                image_size = size(I);
+            elseif any(image_size ~= size(I))
+                error('Not all images have the same dimensions.');
+            end
             centers_i{j} = findAndFitDisks(...
                 I, mask, bayer_pattern, [], cleanup_radius, k0,...
                 findAndFitDisks_options, findAndFitDisksVerbose...
@@ -303,7 +314,7 @@ model_space.corners = [
     min(centers_unpacked(:, 1)), min(centers_unpacked(:, 2));
     max(centers_unpacked(:, 1)), max(centers_unpacked(:, 2))
     ];
-model_space.pixel_size = 1;
+model_space.image_size = image_size;
 model_space.system = 'image';
 
 save_variables_list = [ parameters_list, {...

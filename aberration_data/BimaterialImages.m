@@ -37,26 +37,16 @@
 % #### Polynomial model
 % A '.mat' file containing several variables, which is the output of
 % 'RAWDiskDispersion.m', for example. The following variables are required:
-% - 'polyfun_data': A polynomial model of chromatic aberration, modeling
-%   the warping from the reference wavelength band to the other wavelength
-%   bands. `polyfun_data` can be converted to a function form using
-%   `polyfun = makePolyfun(polyfun_data)`.
+% - 'polyfun_data': A polynomial model of dispersion, modeling the warping
+%   from the reference wavelength band to the other wavelength bands.
+%   `polyfun_data` can be converted to a function form using `polyfun =
+%   makePolyfun(polyfun_data)`.
 % - 'model_from_reference': A parameter of the above scripts, which
 %   determines the frame of reference for the model of chromatic
 %   aberration. It must be set to `false`.
-%
-% The following variables are optional. If they are present, they are
-% assumed to define a conversion between a geometrical optics coordinate
-% system in which the polynomial model of chromatic aberration was
-% constructed, and the image coordinate system:
-% - 'image_params': A structure with an 'image_sampling' field, which is a
-%   two-element vector containing the pixel height and width of the image.
-% - 'pixel_size': A scalar containing the side length of a pixel.
-%
-% #### Function model
-% A function for evaluating a model of dispersion in terms of three
-% variables, X, Y, and lambda (wavelength). The function must have the same
-% usage as the `polyfun` output argument of 'makePolyfun()'.
+% - 'model_space': A structure with same form as the `model_space` input
+%   argument of 'modelSpaceTransform()', required to stretch the valid
+%   domain of the dispersion model to match the output images.
 %
 % ### Colour space conversion data
 % A '.mat' file containing several variables, which is the output of
@@ -70,6 +60,9 @@
 %   version of the variable provided directly in this script (see below).
 %   However, it is still needed from this file to normalize spectral
 %   radiances, even when overridden in its other functions.
+% - 'channel_mode': A Boolean value indicating whether the input colour
+%   space is a set of colour channels (true) or a set of spectral bands
+%   (false). A value of `false` is required.
 %
 % ### Discrete spectral space
 %
@@ -163,6 +156,18 @@
 % - 'sensor_map_resampled': The resampled version of the 'sensor_map'
 %   variable, determined as discussed under the section "Discrete spectral
 %   space" above.
+% - 'polyfun_data': A copy of the same variable from the input polynomial
+%   model of dispersion
+% - 'model_from_reference': A copy of the same variable from the input
+%   polynomial model of dispersion
+% - 'model_space': A copy of the same variable from the input polynomial
+%   model of dispersion
+% - 'fill': A Boolean value of `true` indicating that the valid domain of
+%   the model of dispersion is to be stretched to match the domain of each
+%   output image.
+%
+% The dispersion model variables are needed as input for scripts evaluating
+% different methods for correcting chromatic aberration.
 % 
 % Additionally, the file contains the values of all parameters in the first
 % section of the script below, for reference. (Specifically, those listed
@@ -189,7 +194,6 @@
 parameters_list = {
         'data_dispersion_model',...
         'polynomial_model_filename',...
-        'dispersonFun_name',...
         'color_map_filename',...
         'normalization_channel',...
         'int_method',...
@@ -209,21 +213,13 @@ parameters_list = {
 %% Input data and parameters
 
 % Wildcard for 'ls()' to find the chromaticity maps.
-input_chromaticity_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180605_DescribableTexturesDataset/dtd/images/veined/veined_0148*';
+input_chromaticity_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180629_TestingBimaterialImages/*.jpg';
 
 % Wildcard for 'ls()' to find the illumination maps.
-input_illumination_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180605_DescribableTexturesDataset/dtd/images/veined/veined_0148*';
+input_illumination_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180629_TestingBimaterialImages/*.jpg';
 
-data_dispersion_model = true;
-if data_dispersion_model
-    % Polynomial model of dispersion
-    polynomial_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180524_PolynomialDispersion_AnalyzePSF_accurate/DoubleConvexThickLensDispersionResults_modelFromReference_false.mat';
-    dispersonFun_name = []; % Unused
-else
-    % Function model of dispersion
-    dispersonFun_name = 'sin';
-    polynomial_model_filename = []; % Unused
-end
+% Polynomial model of dispersion
+polynomial_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180524_PolynomialDispersion_AnalyzePSF_accurate/DoubleConvexThickLensDispersionResults_modelFromReference_false.mat';
 
 % Colour space conversion data
 color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180629_TestingBimaterialImages/SonyColorMapData.mat';
@@ -307,44 +303,30 @@ colorChecker_rgb = reflectanceToColor(...
 
 %% Load dispersion model
 
-bands_script = bands;
-bands = [];
-optional_variable = 'bands';
-
-if data_dispersion_model
-    model_variables_required = { 'polyfun_data', 'model_from_reference' };
-    model_variables_transform = { 'image_params', 'pixel_size' };
-    load(...
-        polynomial_model_filename,...
-        model_variables_required{:}, model_variables_transform{:},...
-        optional_variable...
-        );
-    if ~all(ismember(model_variables_required, who))
-        error('One or more of the dispersion model variables is not loaded.')
-    end
-    if model_from_reference
-        error('Dispersion model is in the wrong frame of reference.')
-    end
-
-    if all(ismember(model_variables_transform, who))
-        T = pixelsToWorldTransform(image_params.image_sampling, pixel_size);
-        dispersonFun = makePolyfun(polyfun_data, T);
-    else
-        dispersonFun = makePolyfun(polyfun_data);
-    end
-else
-    dispersonFun = str2func(dispersonFun_name);
+model_variables_required = {...
+    'polyfun_data', 'model_from_reference', 'model_space'...
+};
+load(polynomial_model_filename, model_variables_required{:});
+if ~all(ismember(model_variables_required, who))
+    error('One or more of the dispersion model variables is not loaded.')
 end
-
-bands_polyfun = bands;
-bands = [];
+if model_from_reference
+    error('Dispersion model is in the wrong frame of reference.')
+end
 
 %% Load colour space conversion data
 
-model_variables_required = { 'sensor_map', optional_variable };
+bands_script = bands;
+bands = [];
+
+optional_variable = 'bands';
+model_variables_required = { 'sensor_map', 'channel_mode', optional_variable };
 load(color_map_filename, model_variables_required{:});
 if ~all(ismember(model_variables_required, who))
     error('One or more of the required colour space conversion variables is not loaded.')
+end
+if channel_mode
+    error('The input space of the colour conversion data must be a spectral space, not a space of colour channels.')
 end
 
 bands_color = bands;
@@ -379,8 +361,8 @@ n_bands = length(bands);
 [lambda_Rad, ~, Rad_normalized] = reflectanceToRadiance(...
     lambda_illuminant, spd_illuminant,...
     lambda_colorChecker, reflectances,...
-    bands_color, sensor_map(normalization_channel, :).',...
-    int_method...
+    bands_color, sensor_map.',...
+    normalization_channel, int_method...
 );
 
 % Resample radiances
@@ -416,6 +398,7 @@ end
 n_channels_rgb = 3;
 n_channels_raw = 3;
 ext = '.tif';
+fill = 'true';
 
 for i = 1:n_images
     % Cluster the colours in the chromaticity map
@@ -480,6 +463,10 @@ for i = 1:n_images
     raw_full_3D = reshape(raw_full, image_height, image_width, n_channels_raw);
     
     % Simulate dispersion
+    [~, T_roi] = modelSpaceTransform(...
+        [image_height, image_width], model_space, fill...
+    );
+    dispersonFun = makePolyfun(polyfun_data, T_roi);
     W = polyfunToMatrix(...
             dispersonFun, bands,...
             image_sampling, image_sampling,...
@@ -490,7 +477,7 @@ for i = 1:n_images
     
     % Compute the equivalent sensor response image
     raw_warped = Omega * H_warped;
-    raw_warped_3D = reshape(raw_warped, image_height, image_width, n_bands);
+    raw_warped_3D = reshape(raw_warped, image_height, image_width, n_channels_raw);
     
     % Compute the RAW image
     M = mosaicMatrix(image_sampling, bayer_pattern);
@@ -524,10 +511,13 @@ end
 save_variables_list = [ parameters_list, {...
         'chromaticity_filenames',...
         'illumination_filenames',...
-        'bands_polyfun',...
         'bands_color',...
         'bands',...
-        'sensor_map_resampled'...
+        'sensor_map_resampled',...
+        'polyfun_data',...
+        'model_from_reference',...
+        'model_space',...
+        'fill'...
     } ];
 save_data_filename = fullfile(output_directory, 'BilateralImages.mat');
 save(save_data_filename, save_variables_list{:});

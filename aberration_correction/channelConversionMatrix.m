@@ -105,7 +105,7 @@ columns = repmat(repelem((1:n_px).', c1), c2, 1) +...
 if channel_mode
     weights = ones(size(sensitivity));
 else
-    weights = repmat(integrationWeights(lambda, int_method), 1, c1);
+    weights = repmat(integrationWeights(lambda, int_method), 1, c2);
 end
 elements = repmat((sensitivity.') .* weights, n_px, 1);
 elements = elements(:);

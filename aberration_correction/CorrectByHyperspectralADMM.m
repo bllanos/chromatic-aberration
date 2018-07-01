@@ -18,14 +18,16 @@
 % channels (Red, Green, Blue) (represented in a Bayer pattern as a 2D
 % array). However, the colour channels can correspond to narrowband
 % wavelength ranges - This script will input a mapping from the colour
-% space of the latent images without aberration to the colour space of the
-% RAW images. The images need not have the same pixel dimensions.
+% space of the latent images to the colour space of the RAW images. The
+% images need not have the same pixel dimensions, but they should be
+% compatible with the input model of dispersion described below.
 %
 % ### Polynomial model of dispersion
+%
 % A '.mat' file containing several variables, which is the output of
-% 'DoubleConvexThickLensDiskDispersion.m', 'RAWDiskDispersion.m' or
-% 'DoubleConvexThickLensDispersion.m'. The following variables are
-% required:
+% 'DoubleConvexThickLensDiskDispersion.m', 'RAWDiskDispersion.m',
+% 'DoubleConvexThickLensDispersion.m' or 'BimaterialImages.m', for example.
+% The following variables are required:
 % - 'polyfun_data': A polynomial model of chromatic aberration, modeling the
 %   warping from the reference colour channel or wavelength band to the
 %   other colour channels or wavelength bands. `polyfun_data` can be
@@ -42,13 +44,19 @@
 %   colour space conversion data file, or directly in this script (see
 %   below).
 %
-% The following variables are optional. If they are present, they are
-% assumed to define a conversion between a geometrical optics coordinate
-% system in which the polynomial model of chromatic aberration was
-% constructed, and the image coordinate system:
-% - 'image_params': A structure with an 'image_sampling' field, which is a
-%   two-element vector containing the pixel height and width of the image.
-% - 'pixel_size': A scalar containing the side length of a pixel.
+% The following two additional variables are optional. If they are present,
+% they will be used for the following purposes:
+% - Conversion between the coordinate system in which the polynomial model
+%   of chromatic aberration was constructed and the image coordinate
+%   system.
+% - Limiting the correction of chromatic aberration to the region in which
+%   the polynomial model is valid.
+% The first variable, 'model_space' is a structure with same form as the
+% `model_space` input argument of 'modelSpaceTransform()'. The second
+% variable, `fill`, can be omitted, in which case it defaults to `false`.
+% `fill` corresponds to the `fill` input argument of
+% 'modelSpaceTransform()'. Refer to the documentation of
+% 'modelSpaceTransform.m' for details.
 %
 % ### Colour space conversion data
 % A '.mat' file containing several variables, which is the output of
@@ -111,6 +119,13 @@
 % One of the following types of images is created for each input image,
 % except where specified. The filename of the input image is represented by
 % '*' below.
+% - '*_roi.tif': A cropped version of the input image, containing the
+%   portion used as input for ADMM. This region of interest was determined
+%   using the `model_space` and `fill` variables saved in the input
+%   polynomial model of dispersion data file (see above). If these
+%   variables were not present, the cropped region is the entire input
+%   image. All of the other output images listed below are limited to the
+%   region shown in '*_roi.tif'.
 % - '*_latent.tif': The latent image estimated using ADMM. This image is
 %   only output if `save_latent_image_files` is `true`. An error will be
 %   thrown if the latent images are not greyscale or 3-channel images. In
@@ -286,7 +301,7 @@ bands = [];
 
 optional_variable = 'bands';
 model_variables_required = { 'polyfun_data', 'model_from_reference' };
-model_variables_transform = { 'image_params', 'pixel_size' };
+model_variables_transform = { 'model_space', 'fill' };
 load(...
     polynomial_model_filename,...
     model_variables_required{:}, model_variables_transform{:},...
@@ -299,11 +314,13 @@ if model_from_reference
     error('Dispersion model is in the wrong frame of reference.')
 end
 
-if all(ismember(model_variables_transform, who))
-    T = pixelsToWorldTransform(image_params.image_sampling, pixel_size);
-    polyfun = makePolyfun(polyfun_data, T);
+if exist('model_space', 'var')
+    crop_image = true;
+    if ~exist('fill', 'var')
+        fill = false;
+    end
 else
-    polyfun = makePolyfun(polyfun_data);
+    crop_image = false;
 end
 
 bands_polyfun = bands;
@@ -377,14 +394,23 @@ image_bounds = cell(n_images, 1);
 for i = 1:n_images
     [~, name] = fileparts(image_filenames{i});
     I_raw = imread(image_filenames{i});
+    if ~ismatrix(I_raw)
+        error('Expected a RAW image, represented as a 2D array, not a higher-dimensional array.');
+    end
+    
+    if crop_image
+        [roi, T_roi] = modelSpaceTransform(size(I_raw), model_space, fill);
+        polyfun = makePolyfun(polyfun_data, T_roi);
+        I_raw = I_raw(roi(1):roi(2), roi(3):roi(4));
+    else
+        polyfun = makePolyfun(polyfun_data);
+    end
+    
+    I_raw = im2double(I_raw);
     image_sampling = size(I_raw);
     if ~isempty(downsampling_factor)
         image_sampling = ceil(image_sampling / downsampling_factor);
     end
-    if length(image_sampling) > 2
-        error('Expected a RAW image, represented as a 2D array, not a higher-dimensional array.');
-    end
-    I_raw = im2double(I_raw);
     
     [ I_latent{i}, image_bounds{i}, I_rgb, J_full, J_est ] = baek2017Algorithm2(...
         image_sampling, bayer_pattern, sensor_map_resampled,...
@@ -393,6 +419,8 @@ for i = 1:n_images
     );
             
     % Save the results
+    I_filename = fullfile(output_directory, [name '_roi' ext]);
+    imwrite(I_raw, I_filename);
     if save_latent_image_files
         I_filename = fullfile(output_directory, [name '_latent' ext]);
         imwrite(I_latent{i}, I_filename);
