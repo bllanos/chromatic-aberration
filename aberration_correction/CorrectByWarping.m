@@ -13,12 +13,14 @@
 %
 % Images are expected to have been preprocessed, such as using
 % 'AverageRAWImages.m', so that they do not need to be linearized after
-% being loaded. Images will simply be loaded with the Image Processing
-% Toolbox 'imread()' function. All images are expected to have 3 colour
-% channels (Red, Green, Blue) (represented in a Bayer pattern as a 2D
-% array). However, the colour channels can correspond to narrowband
-% wavelength ranges - This script will input the wavelengths corresponding
-% to the colour channels.
+% being loaded. For image format files, images will simply be loaded with
+% the Image Processing Toolbox 'imread()' function. For '.mat' files, the
+% variable to be loaded must be provided in the script parameters.
+%
+% All images are expected to have 3 colour channels (Red, Green, Blue)
+% (represented in a Bayer pattern as a 2D array). However, the colour
+% channels can correspond to narrowband wavelength ranges - This script
+% will input the wavelengths corresponding to the colour channels.
 %
 % Images may have different pixel dimensions, provided that they are
 % compatible with the input model of chromatic aberration described below.
@@ -59,23 +61,33 @@
 % ### Colour images
 % One of the following types of images is created for each input image. The
 % filename of the input image is represented by '*' below.
-% - '*_roi.tif': A cropped version of the input image, containing the
-%   portion to be corrected. This region of interest was determined using
-%   the `model_space` and `fill` variables saved in the input polynomial
-%   model of chromatic aberration data file (see above). If these variables
-%   were not present, the cropped region is the entire input image. All of
-%   the other output images listed below are limited to the region shown in
+% - '*_roi.tif' and '*_roi.mat': A cropped version of the input image,
+%   (stored in the variable 'I_raw') containing the portion to be
+%   corrected. This region of interest was determined using the
+%   `model_space` and `fill` variables saved in the input polynomial model
+%   of chromatic aberration data file (see above). If these variables were
+%   not present, the cropped region is the entire input image. All of the
+%   other output images listed below are limited to the region shown in
 %   '*_roi.tif'.
-% - '*_color_bilinear.tif': A colour image created by bilinear
+% - '*_color_bilinear.tif' and '*_color_bilinear.mat': A colour image
+%   (stored in the variable 'I_color_bilinear') created by bilinear
 %   interpolation of each colour channel using 'bilinearDemosaic()'.
-% - '*_color_demosaic.tif': A colour image created by demosaicing using
+% - '*_color_demosaic.tif' and '*_color_demosaic.mat': A colour image
+%   (stored in the variable 'I_color_demosaic') created by demosaicing using
 %   MATLAB's 'demosaic()' function.
-% - '*_color_bilinear_warped.tif': A colour image created by bilinear
-%   interpolation of each colour channel using 'bilinearDemosaic()',
-%   followed by warping to correct for chromatic aberration.
-% - '*_color_demosaic_warped.tif': A colour image created by demosaicing using
-%   MATLAB's 'demosaic()' function, followed by warping to correct for
-%   chromatic aberration.
+% - '*_color_bilinear_warped.tif' and '*_color_bilinear_warped.mat': A
+%   colour image (stored in the variable 'I_color_bilinear_warped') created
+%   by bilinear interpolation of each colour channel using
+%   'bilinearDemosaic()', followed by warping to correct for chromatic
+%   aberration.
+% - '*_color_demosaic_warped.tif' and '*_color_demosaic_warped.mat': A
+%   colour image (stored in the variable 'I_color_demosaic_warped') created
+%   by demosaicing using MATLAB's 'demosaic()' function, followed by
+%   warping to correct for chromatic aberration.
+%
+% Both '.mat' and '.tif' files are output, where applicable, for
+% monochromatic or three-channel images, to provide both easy display
+% ('.tif' files) and lossless storage ('.mat' files).
 %
 % ### Parameters
 %
@@ -87,6 +99,9 @@
 % ## Notes
 % - The image colour space is not altered by this script. See 'imreadRAW()'
 %   for code to convert an image to sRGB after demosaicing.
+% - There is some quantization error in the images demosaiced with MATLAB's
+%   'demosaic()' function, because this function only operates on integer
+%   datatypes.
 %
 % ## References
 % - V. Rudakova and P. Monasse. "Precise Correction of Lateral Chromatic
@@ -108,16 +123,18 @@ parameters_list = {
 %% Input data and parameters
 
 % Wildcard for 'ls()' to find the images to process.
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180530_CorrectionMethodsBasicComparison/input_images/*raw*';
+% '.mat' or image files can be loaded
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180703_BimaterialTextures_PSFWarp/chequered/*raw*.mat';
+input_images_variable_name = 'raw_2D'; % Used only when loading '.mat' files
 
 % Colour-filter pattern
 bayer_pattern = 'gbrg';
 
 % Polynomial model of dispersion
-polynomial_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180530_CorrectionMethodsBasicComparison/RAWDiskDispersionResults_true.mat';
+polynomial_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180703_BimaterialTextures_PSFWarp_correctionTest/DoubleConvexThickLensDispersionResults_forCorrectByWarping.mat';
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180530_CorrectionMethodsBasicComparison/output_images_warping';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180703_BimaterialTextures_PSFWarp_correctionTest';
 
 %% Find the images
 
@@ -147,12 +164,28 @@ end
 
 %% Process the images
 
-ext = '.tif';
+img_out_ext = '.tif';
+mat_ext = '.mat';
 
 n_demosaicing_methods = 2;
 for i = 1:n_images
-    [~, name] = fileparts(image_filenames{i});
-    I_raw = imread(image_filenames{i});
+    [~, name, ext] = fileparts(image_filenames{i});
+    if strcmp(ext, mat_ext)
+        if isempty(input_images_variable_name)
+            error('A variable name must be given to load input images from %s files.', mat_ext);
+        end
+        load(image_filenames{i}, input_images_variable_name);
+        if exist(input_images_variable_name,'var')
+            I_raw = eval(input_images_variable_name);
+        else
+            error(...
+                'The input image variable %s was not loaded from %s.',...
+                input_images_variable_name, image_filenames{i}...
+                );
+        end
+    else
+        I_raw = imread(image_filenames{i});
+    end
     if ~ismatrix(I_raw)
         error('Expected a RAW image, represented as a 2D array, not a higher-dimensional array.');
     end
@@ -165,8 +198,9 @@ for i = 1:n_images
         polyfun = makePolyfun(polyfun_data);
     end
     
-    I_raw_filename = fullfile(output_directory, [name '_roi' ext]);
-    imwrite(I_raw, I_raw_filename);
+    I_raw_filename = fullfile(output_directory, [name '_roi']);
+    imwrite(I_raw, [I_raw_filename img_out_ext]);
+    save([I_raw_filename mat_ext], 'I_raw');
     
     image_sampling_in = size(I_raw);
     W = polyfunToMatrix(...
@@ -178,7 +212,12 @@ for i = 1:n_images
         if j == 1
             I_color = bilinearDemosaic(I_raw, bayer_pattern);
         elseif j == 2
-            I_color = im2double(demosaic(I_raw, bayer_pattern));
+            if isa(I_raw, 'double')
+                I_raw_int = im2uint16(I_raw);
+                I_color = im2double(demosaic(I_raw_int, bayer_pattern));
+            else
+                I_color = im2double(demosaic(I_raw, bayer_pattern));
+            end
         else
             error('No demosaicing method associated with index %d.', j);
         end
@@ -186,18 +225,24 @@ for i = 1:n_images
         
         % Save the results
         if j == 1
-            I_color_filename = [name '_color_bilinear' ext];
-            I_color_warped_filename = [name '_color_bilinear_warped' ext];
+            I_color_filename = fullfile(output_directory, [name '_color_bilinear']);
+            I_color_warped_filename = fullfile(output_directory, [name '_color_bilinear_warped']);
+            I_color_bilinear = I_color;
+            save([I_color_filename mat_ext], 'I_color_bilinear');
+            I_color_bilinear_warped = I_color_warped;
+            save([I_color_warped_filename mat_ext], 'I_color_bilinear_warped');
         elseif j == 2
-            I_color_filename = [name '_color_demosaic' ext];
-            I_color_warped_filename = [name '_color_demosaic_warped' ext];
+            I_color_filename = fullfile(output_directory, [name '_color_demosaic']);
+            I_color_warped_filename = fullfile(output_directory, [name '_color_demosaic_warped']);
+            I_color_demosaic = I_color;
+            save([I_color_filename mat_ext], 'I_color_demosaic');
+            I_color_demosaic_warped = I_color_warped;
+            save([I_color_warped_filename mat_ext], 'I_color_demosaic_warped');
         else
             error('No demosaicing method associated with index %d.', j);
         end
-        I_color_filename = fullfile(output_directory, I_color_filename);
-        I_color_warped_filename = fullfile(output_directory, I_color_warped_filename);
-        imwrite(I_color, I_color_filename);
-        imwrite(I_color_warped, I_color_warped_filename);
+        imwrite(I_color, [I_color_filename img_out_ext]);
+        imwrite(I_color_warped, [I_color_warped_filename img_out_ext]);
     end
 end
 

@@ -22,13 +22,15 @@
 % A chromaticity map describes the blending between two different
 % reflectances in the output images.
 %
-% #### Illumination maps
+% #### Shading maps
 % A directory containing either monochromatic or RGB images. Monochromatic
-% images will be used directly as illumination maps, whereas the CIE 1976
-% L*a*b* luminance channels of RGB images will be used as illumination
-% maps.
+% images will be used directly as shading maps, whereas the CIE 1976 L*a*b*
+% luminance channels of RGB images will be used as shading maps.
 %
-% Chromaticity maps and illumination maps will be paired based on filename.
+% Chromaticity maps and shading maps will be paired based on filename.
+%
+% Shading can be disabled, in which case the full power of the illuminant
+% will be applied throughout the image.
 %
 % ### Model of dispersion
 %
@@ -111,24 +113,26 @@
 % ### Simulated images
 %
 % One of the following types of images is created for each chromaticity and
-% illumination map pair. The filename of the input maps is represented by
+% shading map pair. The filename of the input maps is represented by
 % '*' below.
 % - '*_hyperspectral.mat': A hyperspectral image (stored in the variable
 %   'I_hyper') produced by blending two reflectance spectra according to
 %   the per-pixel weights in the soft segmentation of the chromaticity map,
-%   and then by illuminating the spectra according to the illumination
-%   weights in the illumination map. Image values are normalized radiances.
-% - '*_3.tif' and '*_3.mat': A colour image created by converting the
-%   hyperspectral image to the raw colour space of the camera.
+%   and then by illuminating the spectra according to the shading
+%   weights in the shading map. Image values are normalized radiances.
+% - '*_3.tif' and '*_3.mat': A colour image (stored in the variable
+%   'raw_full_3D') created by converting the hyperspectral image to the raw
+%   colour space of the camera.
 % - '*_hyperspectral_warped.mat': A warped version of the hyperspectral
 %   image (stored in the variable 'I_hyper_warped') created by applying the
 %   dispersion model to the image.
-% - '*_3_warped.tif' and '*_3_warped.mat': A colour image created by
-%   converting the warped hyperspectral image to the raw colour space of
-%   the camera.
+% - '*_3_warped.tif' and '*_3_warped.mat': A colour image (stored in the
+%   variable 'raw_warped_3D') created by converting the warped
+%   hyperspectral image to the raw colour space of the camera.
 % - '*_raw_warped.tif' and '*_raw_warped.mat': A colour-filter array image
-%   produced by mosaicing the warped sensor response image according to the
-%   colour-filter pattern of the camera.
+%   (stored in the variable 'raw_2D') produced by mosaicing the warped
+%   sensor response image according to the colour-filter pattern of the
+%   camera.
 %
 % The raw colour space of the camera is determined by the colour space
 % conversion data provided as input to this script. A camera may apply
@@ -150,9 +154,9 @@
 % - 'chromaticity_filenames': A cell vector containing the input
 %   chromaticity map filenames retrieved based on the wildcard provided in
 %   the parameters section of the script.
-% - 'illumination_filenames': A cell vector containing the input
-%   illumination map filenames retrieved based on the wildcard provided in
-%   the parameters section of the script.
+% - 'shading_filenames': A cell vector containing the input shading map
+%   filenames retrieved based on the wildcard provided in the parameters
+%   section of the script.
 % - 'sensor_map_resampled': The resampled version of the 'sensor_map'
 %   variable, determined as discussed under the section "Discrete spectral
 %   space" above.
@@ -167,7 +171,10 @@
 %   output image.
 %
 % The dispersion model variables are needed as input for scripts evaluating
-% different methods for correcting chromatic aberration.
+% different methods for correcting chromatic aberration. However, they
+% could easily be provided in a separate file, by adding a 'fill' variable
+% to the output of a dispersion model fitting script (e.g.
+% 'RAWDiskDispersion.m').
 % 
 % Additionally, the file contains the values of all parameters in the first
 % section of the script below, for reference. (Specifically, those listed
@@ -212,10 +219,11 @@ parameters_list = {
 %% Input data and parameters
 
 % Wildcard for 'ls()' to find the chromaticity maps.
-input_chromaticity_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180629_TestingBimaterialImages/*.jpg';
+input_chromaticity_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180605_DescribableTexturesDataset/dtd/images/chequered/*.jpg';
 
-% Wildcard for 'ls()' to find the illumination maps.
-input_illumination_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180629_TestingBimaterialImages/*.jpg';
+% Wildcard for 'ls()' to find the shading maps.
+% Set to an empty array to use constant shading
+input_shading_maps_wildcard = [];
 
 % Polynomial model of dispersion
 polynomial_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180524_PolynomialDispersion_AnalyzePSF_accurate/DoubleConvexThickLensDispersionResults_modelFromReference_false_withModelSpace.mat';
@@ -261,7 +269,7 @@ n_colors = 2;
 bayer_pattern = 'gbrg';
 
 % Output directory for all images and saved data
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180629_TestingBimaterialImages';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180703_BimaterialTextures_PSFWarp/chequered';
 
 % ## Debugging Flags
 segmentColorsVerbose = false;
@@ -370,25 +378,34 @@ Rad_normalized_resampled = resampleArrays(...
     bands_interp_method...
     );
 
-%% Find the chromaticity and illumination maps
+%% Find the chromaticity and shading maps
 
 chromaticity_filenames = listFiles(input_chromaticity_maps_wildcard);
 n_images = length(chromaticity_filenames);
 
-illumination_filenames = listFiles(input_illumination_maps_wildcard);
-if n_images ~= length(chromaticity_filenames)
-    error('There are different numbers of chromaticity maps and illumination maps.');
+shading_enabled = ~isempty(input_shading_maps_wildcard);
+if shading_enabled
+    shading_filenames = listFiles(input_shading_maps_wildcard);
+    if n_images ~= length(shading_filenames)
+        error('There are different numbers of chromaticity maps and shading maps.');
+    end
+else
+    shading_filenames = [];
 end
 
 % Associate by filename
 chromaticity_names = cell(n_images, 1);
-illumination_names = cell(n_images, 1);
+if shading_enabled
+    shading_names = cell(n_images, 1);
+end
 for i = 1:n_images
     [~, chromaticity_names{i}] = fileparts(chromaticity_filenames{i});
-    [~, illumination_names{i}] = fileparts(illumination_filenames{i});
-    names_match = strcmp(chromaticity_names{i}, illumination_names{i});
-    if ~names_match
-        error('Not all chromaticity map filenames and illumination map filenames match.');
+    if shading_enabled
+        [~, shading_names{i}] = fileparts(shading_filenames{i});
+        names_match = strcmp(chromaticity_names{i}, shading_names{i});
+        if ~names_match
+            error('Not all chromaticity map filenames and shading map filenames match.');
+        end
     end
 end
 
@@ -436,24 +453,28 @@ for i = 1:n_images
         1, n_bands, 1 ...
     ), 3);
     
-    % Load the illumination map
-    I_map = imread(illumination_filenames{i});
-    % Check that image size is compatible
-    if (size(I_map, 1) ~= image_height) || (size(I_map, 2) ~= image_width)
-        error('Illumination map dimensions do not match chromaticity map dimensions, filename "%s".', illumination_filenames{i});
-    end
-    I_map = im2double(I_map);
-    if size(I_map, 3) == n_channels_rgb
-        I_map = rgb2lab(I_map);
-        I_map = I_map(:, :, 1);
-        I_map_min = min(I_map(:));
-        I_map = (I_map - I_map_min) ./ (max(I_map(:)) - I_map_min);
-    elseif size(I_map, 3) ~= 1
-        error('Illumination map does not have one or three colour channels, filename "%s".', illumination_filenames{i});
+    % Load the shading map
+    if shading_enabled
+        S_map = imread(shading_filenames{i});
+        % Check that image size is compatible
+        if (size(S_map, 1) ~= image_height) || (size(S_map, 2) ~= image_width)
+            error('Shading map dimensions do not match chromaticity map dimensions, filename "%s".', shading_filenames{i});
+        end
+        S_map = im2double(S_map);
+        if size(S_map, 3) == n_channels_rgb
+            S_map = rgb2lab(S_map);
+            S_map = S_map(:, :, 1);
+            S_map_min = min(S_map(:));
+            S_map = (S_map - S_map_min) ./ (max(S_map(:)) - S_map_min);
+        elseif size(S_map, 3) ~= 1
+            error('Shading map does not have one or three colour channels, filename "%s".', shading_filenames{i});
+        end
+    else
+        S_map = ones(image_height, image_width);
     end
     
-    % Multiply by the illumination map and reshape into a hyperspectral image
-    H = reshape(Rad_per_pixel .* repmat(reshape(I_map, n_px, 1), 1, n_bands), [], 1);
+    % Multiply by the shading map and reshape into a hyperspectral image
+    H = reshape(Rad_per_pixel .* repmat(reshape(S_map, n_px, 1), 1, n_bands), [], 1);
     I_hyper = reshape(H, image_height, image_width, n_bands);
     
     % Compute the equivalent sensor response image
@@ -509,7 +530,7 @@ end
 %% Save parameters and additional data to a file
 save_variables_list = [ parameters_list, {...
         'chromaticity_filenames',...
-        'illumination_filenames',...
+        'shading_filenames',...
         'bands_color',...
         'bands',...
         'sensor_map_resampled',...
@@ -518,5 +539,5 @@ save_variables_list = [ parameters_list, {...
         'model_space',...
         'fill'...
     } ];
-save_data_filename = fullfile(output_directory, 'BilateralImages.mat');
+save_data_filename = fullfile(output_directory, 'BimaterialImagesData.mat');
 save(save_data_filename, save_variables_list{:});
