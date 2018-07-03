@@ -103,7 +103,7 @@ if strcmp(model_space.system, 'image')
 elseif strcmp(model_space.system, 'geometric')
     T = pixelsToWorldTransform(image_size, model_space.pixel_size);
     corners = [model_space.corners, ones(size(model_space.corners, 1), 1)];
-    corners_image = T \ corners;
+    corners_image = (T \ corners.').';
     corners_image = corners_image(:, 1:2) ./ repmat(corners_image(:, 3), 1, 2);
     roi = [...
         corners_image(1, 2), corners_image(2, 2),...
@@ -113,43 +113,48 @@ else
     error('Unrecognized value of `model_space.system`.')
 end
 
-roi = round(roi + 0.5); % Convert from pixel coordinates to pixel indices
 T_roi = T * [
-    1, 0, roi(1) - 0.5;
-    0, 1, roi(2) - 0.5;
+    1, 0, roi(3);
+    0, 1, roi(1);
     0, 0, 1
 ];
 
 if fill
     T_roi = T_roi * [
-            (roi(4) - roi(3) + 1) / image_size(2), 0, 0;
-            0, (roi(2) - roi(1) + 1) / image_size(1), 0;
+            (roi(4) - roi(3)) / (image_size(2) - 1), 0, 0;
+            0, (roi(2) - roi(1)) / (image_size(1) - 1), 0;
+            0, 0, 1
+        ] * [
+            1, 0, -0.5;
+            0, 1, -0.5;
             0, 0, 1
         ];
     roi = [1, image_size(1), 1, image_size(2)];
 else
-    if roi(1) < 1
+    if roi(3) < 1
         T_roi = T_roi * [
-            1, 0, 1 - roi(1);
+            1, 0, -roi(3);
             0, 1, 0;
             0, 0, 1
         ];
-        roi(1) = 1;
+        roi(3) = 0.5;
     end
-    if roi(3) < 1
+    if roi(1) < 1
         T_roi = T_roi * [
             1, 0, 0;
-            0, 1, 1 - roi(3);
+            0, 1, -roi(1);
             0, 0, 1
         ];
-        roi(3) = 1;
+        roi(1) = 0.5;
     end
     if roi(2) > image_size(1)
-        roi(2) = image_size(1);
+        roi(2) = image_size(1) - 0.5;
     end
     if roi(4) > image_size(2)
-        roi(4) = image_size(2);
+        roi(4) = image_size(2) - 0.5;
     end
+    
+    roi = round(roi + 0.5); % Convert from pixel coordinates to pixel indices
 end
 
 end

@@ -192,7 +192,6 @@
 
 % List of parameters to save with results
 parameters_list = {
-        'data_dispersion_model',...
         'polynomial_model_filename',...
         'color_map_filename',...
         'normalization_channel',...
@@ -219,7 +218,7 @@ input_chromaticity_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data
 input_illumination_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180629_TestingBimaterialImages/*.jpg';
 
 % Polynomial model of dispersion
-polynomial_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180524_PolynomialDispersion_AnalyzePSF_accurate/DoubleConvexThickLensDispersionResults_modelFromReference_false.mat';
+polynomial_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180524_PolynomialDispersion_AnalyzePSF_accurate/DoubleConvexThickLensDispersionResults_modelFromReference_false_withModelSpace.mat';
 
 % Colour space conversion data
 color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180629_TestingBimaterialImages/SonyColorMapData.mat';
