@@ -103,7 +103,7 @@ columns = repmat(repelem((1:n_px).', c1), c2, 1) +...
 
 % Matrix values
 if channel_mode
-    weights = ones(size(sensitivity));
+    weights = ones(flip(size(sensitivity)));
 else
     weights = repmat(integrationWeights(lambda, int_method), 1, c2);
 end

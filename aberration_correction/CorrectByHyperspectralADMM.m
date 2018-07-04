@@ -13,13 +13,17 @@
 %
 % Images are expected to have been preprocessed, such as using
 % 'AverageRAWImages.m', so that they do not need to be linearized after
-% being loaded. Images will simply be loaded with the Image Processing
-% Toolbox 'imread()' function. All images are expected to have 3 colour
-% channels (Red, Green, Blue) (represented in a Bayer pattern as a 2D
-% array). However, the colour channels can correspond to narrowband
-% wavelength ranges - This script will input a mapping from the colour
-% space of the latent images to the colour space of the RAW images. The
-% images need not have the same pixel dimensions, but they should be
+% being loaded.  For image format files, images will simply be loaded with
+% the Image Processing Toolbox 'imread()' function. For '.mat' files, the
+% variable to be loaded must be provided in the script parameters.
+%
+% All images are expected to have 3 colour channels (Red, Green, Blue)
+% (represented in a Bayer pattern as a 2D array). However, the colour
+% channels can correspond to narrowband wavelength ranges - This script
+% will input a mapping from the colour space of the latent images to the
+% colour space of the RAW images.
+%
+% The images need not have the same pixel dimensions, but they should be
 % compatible with the input model of dispersion described below.
 %
 % ### Polynomial model of dispersion
@@ -119,26 +123,29 @@
 % One of the following types of images is created for each input image,
 % except where specified. The filename of the input image is represented by
 % '*' below.
-% - '*_roi.tif': A cropped version of the input image, containing the
-%   portion used as input for ADMM. This region of interest was determined
-%   using the `model_space` and `fill` variables saved in the input
-%   polynomial model of dispersion data file (see above). If these
-%   variables were not present, the cropped region is the entire input
-%   image. All of the other output images listed below are limited to the
-%   region shown in '*_roi.tif'.
-% - '*_latent.tif': The latent image estimated using ADMM. This image is
-%   only output if `save_latent_image_files` is `true`. An error will be
-%   thrown if the latent images are not greyscale or 3-channel images. In
-%   all cases, latent images will be saved to the output '.mat' file.
-% - '*_latent_rgb.tif': A colour image created by converting the latent
-%   image to the RGB colour space of the camera.
-% - '*_latent_warped.tif': A colour image created by warping the latent
-%   image according to the dispersion model, then converting the image to
-%   the RGB colour space of the camera. This output image is, in a sense, a
-%   demosaiced version of the input image.
-% - '*_reestimated.tif': A simulation of the input RAW image from the
-%   latent image, useful for visually evaluating the convergence of the
-%   ADMM algorithm.
+% - '*_roi.tif' and '*_roi.mat': A cropped version of the input image
+%   (stored in the variable 'I_raw'), containing the portion used as input
+%   for ADMM. This region of interest was determined using the
+%   `model_space` and `fill` variables saved in the input polynomial model
+%   of dispersion data file (see above). If these variables were not
+%   present, the cropped region is the entire input image. All of the other
+%   output images listed below are limited to the region shown in
+%   '*_roi.tif'.
+% - '*_latent.tif' and '*_latent.mat': The latent image estimated using
+%   ADMM (stored in the variable 'I_latent'). The '.tif' image is only
+%   output if `save_latent_image_files` is `true`, and an error will be
+%   thrown if the latent images are not greyscale or 3-channel images.
+% - '*_latent_rgb.tif' and '*_latent_rgb.mat': A colour image (stored in
+%   the variable 'I_rgb') created by converting the latent image to the RGB
+%   colour space of the camera.
+% - '*_latent_warped.tif' and '*_latent_warped.mat': A colour image (stored in
+%   the variable 'J_full') created by warping the latent image according to
+%   the dispersion model, then converting the image to the RGB colour space
+%   of the camera. This output image is, in a sense, a demosaiced version
+%   of the input image.
+% - '*_reestimated.tif' and '*_reestimated.mat': A simulation (stored in
+%   the variable 'J_est') of the input RAW image from the latent image,
+%   useful for visually evaluating the convergence of the ADMM algorithm.
 %
 % ### Data file output
 %
@@ -154,10 +161,6 @@
 %   data file, for reference. 'bands_polyfun' is empty if no such variable
 %   was found in the data file, or if the value of the loaded variable was
 %   empty.
-% - 'I_latent': A cell vector, where the i-th cell stores the latent image
-%   estimated for the i-th input image. These are the same images which may
-%   be output as '*_latent.tif' image files, described above. Pixel values
-%   are floating-point values in the range [0, 1].
 % - 'image_bounds': A cell vector, where the i-th cell stores the
 %   coordinates of the i-th latent image in the space of the i-th input
 %   image. This is the 'image_bounds' output argument of
@@ -225,20 +228,22 @@ parameters_list = {
 %% Input data and parameters
 
 % Wildcard for 'ls()' to find the images to process.
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180530_CorrectionMethodsBasicComparison/input_images/*raw*';
+% '.mat' or image files can be loaded
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180703_BimaterialTextures_PSFWarp/chequered/*raw*.mat';
+input_images_variable_name = 'raw_2D'; % Used only when loading '.mat' files
 
 % Colour-filter pattern
 bayer_pattern = 'gbrg';
 
 % Polynomial model of dispersion
-polynomial_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180530_CorrectionMethodsBasicComparison/RAWDiskDispersionResults_false.mat';
+polynomial_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180703_BimaterialTextures_PSFWarp/chequered/BimaterialImagesData.mat';
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180530_CorrectionMethodsBasicComparison/RGBColorMapData.mat';
+color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180629_TestingBimaterialImages/SonyColorMapData.mat';
 
 % Override the wavelengths or colour channel indices at which to evaluate
 % the polynomial model of dispersion, if desired.
-bands = [];
+bands = 430:10:650;
 % Interpolation method used when resampling colour space conversion data
 bands_interp_method = 'linear';
 
@@ -247,11 +252,11 @@ bands_interp_method = 'linear';
 downsampling_factor = 1;
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/Downloads';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180703_BimaterialTextures_PSFWarp_correctionTest/ADMM';
 
 % Whether or not to save the latent images to image files, beyond including
-% them in the output '.mat' file
-save_latent_image_files = true;
+% them in the output '.mat' files
+save_latent_image_files = false;
 
 % ## Options for baek2017Algorithm2() (Alternating Direction Method of Multipliers)
 
@@ -335,9 +340,9 @@ end
 bands_color = bands;
 
 if channel_mode
-    baek2017Algorithm2Options.int_method = int_method;
-else
     baek2017Algorithm2Options.int_method = 'none';
+else
+    baek2017Algorithm2Options.int_method = int_method;
 end
 
 %% Preprocessing input data
@@ -387,13 +392,28 @@ end
 
 %% Process the images
 
-ext = '.tif';
-I_latent = cell(n_images, 1);
+img_ext = '.tif';
+mat_ext = '.mat';
 image_bounds = cell(n_images, 1);
 
 for i = 1:n_images
-    [~, name] = fileparts(image_filenames{i});
-    I_raw = imread(image_filenames{i});
+    [~, name, ext] = fileparts(image_filenames{i});
+    if strcmp(ext, mat_ext)
+        if isempty(input_images_variable_name)
+            error('A variable name must be given to load input images from %s files.', mat_ext);
+        end
+        load(image_filenames{i}, input_images_variable_name);
+        if exist(input_images_variable_name,'var')
+            I_raw = eval(input_images_variable_name);
+        else
+            error(...
+                'The input image variable %s was not loaded from %s.',...
+                input_images_variable_name, image_filenames{i}...
+                );
+        end
+    else
+        I_raw = imread(image_filenames{i});
+    end
     if ~ismatrix(I_raw)
         error('Expected a RAW image, represented as a 2D array, not a higher-dimensional array.');
     end
@@ -412,25 +432,30 @@ for i = 1:n_images
         image_sampling = ceil(image_sampling / downsampling_factor);
     end
     
-    [ I_latent{i}, image_bounds{i}, I_rgb, J_full, J_est ] = baek2017Algorithm2(...
+    [ I_latent, image_bounds{i}, I_rgb, J_full, J_est ] = baek2017Algorithm2(...
         image_sampling, bayer_pattern, sensor_map_resampled,...
         polyfun, bands, I_raw, rho, weights,...
         baek2017Algorithm2Options, baek2017Algorithm2Verbose...
     );
             
     % Save the results
-    I_filename = fullfile(output_directory, [name '_roi' ext]);
-    imwrite(I_raw, I_filename);
+    I_filename = fullfile(output_directory, [name '_roi']);
+    imwrite(I_raw, [I_filename img_ext]);
+    save([I_filename mat_ext], 'I_raw');
+    I_filename = fullfile(output_directory, [name '_latent']);
     if save_latent_image_files
-        I_filename = fullfile(output_directory, [name '_latent' ext]);
-        imwrite(I_latent{i}, I_filename);
+        imwrite(I_latent, [I_filename img_ext]);
     end
-    I_filename = fullfile(output_directory, [name '_latent_rgb' ext]);
-    imwrite(I_rgb, I_filename);
-    I_filename = fullfile(output_directory, [name '_latent_warped' ext]);
-    imwrite(J_full, I_filename);
-    I_filename = fullfile(output_directory, [name '_reestimated' ext]);
-    imwrite(J_est, I_filename);
+    save([I_filename mat_ext], 'I_latent');
+    I_filename = fullfile(output_directory, [name '_latent_rgb']);
+    imwrite(I_rgb, [I_filename img_ext]);
+    save([I_filename mat_ext], 'I_rgb');
+    I_filename = fullfile(output_directory, [name '_latent_warped']);
+    imwrite(J_full, [I_filename img_ext]);
+    save([I_filename mat_ext], 'J_full');
+    I_filename = fullfile(output_directory, [name '_reestimated']);
+    imwrite(J_est, [I_filename img_ext]);
+    save([I_filename mat_ext], 'J_est');
 end
 
 %% Save parameters and additional data to a file
@@ -440,7 +465,6 @@ save_variables_list = [ parameters_list, {...
         'bands_color',...
         'bands',...
         'sensor_map_resampled',...
-        'I_latent',...
         'image_bounds'...
     } ];
 save_data_filename = fullfile(output_directory, 'CorrectByHyperspectralADMM.mat');
