@@ -1,37 +1,37 @@
-function [ W, image_bounds_out ] = polyfunToMatrix(polyfun, lambda, image_sampling_in, varargin)
-% POLYFUNTOMATRIX  Convert a polynomial warp model to a warp matrix
+function [ W, image_bounds_out ] = dispersionfunToMatrix(dispersionfun, lambda, image_sampling_in, varargin)
+% DISPERSIONFUNTOMATRIX  Convert a warp model to a warp matrix
 %
 % ## Syntax
-% W = polyfunToMatrix(...
-%   polyfun, lambda, image_sampling_in [, image_sampling_out, image_bounds, negate]...
+% W = dispersionfunToMatrix(...
+%   dispersionfun, lambda, image_sampling_in [, image_sampling_out, image_bounds, negate]...
 % )
-% [ W, image_bounds ] = polyfunToMatrix(...
-%   polyfun, lambda, image_sampling_in [, image_sampling_out, image_bounds, negate]...
+% [ W, image_bounds ] = dispersionfunToMatrix(...
+%   dispersionfun, lambda, image_sampling_in [, image_sampling_out, image_bounds, negate]...
 % )
 %
 % ## Description
-% W = polyfunToMatrix(...
-%   polyfun, lambda, image_sampling_in [, image_sampling_out, image_bounds, negate]...
+% W = dispersionfunToMatrix(...
+%   dispersionfun, lambda, image_sampling_in [, image_sampling_out, image_bounds, negate]...
 % )
 %   Returns a matrix for distorting a vectorized image.
 %
-% [ W, image_bounds ] = polyfunToMatrix(...
-%   polyfun, lambda, image_sampling_in [, image_sampling_out, image_bounds, negate]...
+% [ W, image_bounds ] = dispersionfunToMatrix(...
+%   dispersionfun, lambda, image_sampling_in [, image_sampling_out, image_bounds, negate]...
 % )
 %   Additionally returns the boundaries of the undistorted image in the
 %   coordinate system of the distorted image.
 %
 % ## Input Arguments
 %
-% polyfun -- Polynomial model of image warp
-%   A function handle, produced by 'makePolyfun()'. `polyfun(X_1)`, where
-%   `X_1` is a three-element row vector (x_1, y_1, lambda), returns the
-%   displacement vector from the distorted position `X_1` to its
-%   undistorted position (x_2, y_2, lambda).
+% dispersionfun -- Model of image warp
+%   A function handle, produced by 'makeDispersionfun()'.
+%   `dispersionfun(X_1)`, where `X_1` is a three-element row vector (x_1,
+%   y_1, lambda), returns the displacement vector from the distorted
+%   position `X_1` to its undistorted position (x_2, y_2, lambda).
 %
 % lambda -- Wavelength bands
 %   A vector of length 'n' containing the wavelengths or colour channel
-%   indices at which to evaluate the polynomial warp model
+%   indices at which to evaluate the warp model
 %
 % image_sampling_in -- Distorted image dimensions
 %   A two-element vector containing the image height, and width,
@@ -68,8 +68,8 @@ function [ W, image_bounds_out ] = polyfunToMatrix(polyfun, lambda, image_sampli
 %   bilinear interpolation will not be all unique.
 %
 % negate -- Warp inversion flag
-%   If `true`, the warp vectors calculated by `polyfun` will be negated
-%   before use. (Defaults to `false` if not passed.)
+%   If `true`, the warp vectors calculated by `dispersionfun` will be
+%   negated before use. (Defaults to `false` if not passed.)
 %
 % ## Output Arguments
 %
@@ -94,7 +94,7 @@ function [ W, image_bounds_out ] = polyfunToMatrix(polyfun, lambda, image_sampli
 % ## Algorithm
 %
 % `W` is created by first finding the undistorted position of each pixel in
-% the distorted image, using `polyfun`. Second, the function determines
+% the distorted image, using `dispersionfun`. Second, the function determines
 % bilinear interpolation weights on the pixels in the undistorted image
 % corresponding to the undistorted position, and enters these weights into
 % `W`. Therefore, `W(j + n_px_in * (k - 1), i + n_px_out * (k - 1))` is the
@@ -120,7 +120,7 @@ function [ W, image_bounds_out ] = polyfunToMatrix(polyfun, lambda, image_sampli
 % - Bilinear interpolation formulae:
 %   https://en.wikipedia.org/wiki/Bilinear_interpolation
 %
-% See also xylambdaPolyfit, makePolyfun
+% See also xylambdaPolyfit, xylambdaSplinefit, makeDispersionfun
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -166,7 +166,7 @@ end
 x_all_bands = repmat(x, n_lambda, 1);
 y_all_bands = repmat(y, n_lambda, 1);
 lambda_all_bands = repelem(lambda, n_px_in);
-disparity = polyfun([ x_all_bands, y_all_bands, lambda_all_bands ]);
+disparity = dispersionfun([ x_all_bands, y_all_bands, lambda_all_bands ]);
 if negate
     disparity = -disparity;
 end

@@ -79,7 +79,7 @@ function [roi, T_roi] = modelSpaceTransform(image_size, model_space, varargin)
 %   to any point within the source image, as the source image is mapped
 %   bijectively onto the model's valid domain.
 %
-% See also pixelsToWorldTransform, makePolyfun
+% See also pixelsToWorldTransform, makeDispersionfun
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang

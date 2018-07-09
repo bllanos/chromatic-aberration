@@ -25,30 +25,29 @@
 % Images may have different pixel dimensions, provided that they are
 % compatible with the input model of chromatic aberration described below.
 %
-% ### Polynomial model of chromatic aberration
+% ### Model of chromatic aberration
 % A '.mat' file containing several variables, which is the output of
 % 'DoubleConvexThickLensDiskDispersion.m', 'RAWDiskDispersion.m',
 % 'DoubleConvexThickLensDispersion.m' or 'BimaterialImages.m', for example.
 % The following variables are required:
-% - 'polyfun_data': A polynomial model of chromatic aberration, modeling the
+% - 'dispersion_data': A model of chromatic aberration, modelling the
 %   warping from the reference colour channel to the other colour channels.
-%   `polyfun_data` can be converted to a function form using `polyfun =
-%   makePolyfun(polyfun_data)`.
+%   `dispersion_data` can be converted to a function form using
+%   `dispersionfun = makeDispersionfun(dispersion_data)`.
 % - 'model_from_reference': A parameter of the above scripts, which
 %   determines the frame of reference for the model of chromatic
 %   aberration. It must be set to `true`.
 % - 'bands': A vector containing the wavelengths or colour channel indices
-%   to use as the `lambda` input argument of 'polyfunToMatrix()'. `bands`
-%   is the wavelength or colour channel information needed to evaluate the
-%   dispersion model.
+%   to use as the `lambda` input argument of 'dispersionfunToMatrix()'.
+%   `bands` is the wavelength or colour channel information needed to
+%   evaluate the dispersion model.
 %
 % The following two additional variables are optional. If they are present,
 % they will be used for the following purposes:
-% - Conversion between the coordinate system in which the polynomial model
-%   of chromatic aberration was constructed and the image coordinate
-%   system.
+% - Conversion between the coordinate system in which the model of chromatic
+%   aberration was constructed and the image coordinate system.
 % - Limiting the correction of chromatic aberration to the region in which
-%   the polynomial model is valid.
+%   the model is valid.
 % The first variable, 'model_space' is a structure with same form as the
 % `model_space` input argument of 'modelSpaceTransform()'. The second
 % variable, `fill`, can be omitted, in which case it defaults to `false`.
@@ -64,10 +63,10 @@
 % - '*_roi.tif' and '*_roi.mat': A cropped version of the input image,
 %   (stored in the variable 'I_raw') containing the portion to be
 %   corrected. This region of interest was determined using the
-%   `model_space` and `fill` variables saved in the input polynomial model
-%   of chromatic aberration data file (see above). If these variables were
-%   not present, the cropped region is the entire input image. All of the
-%   other output images listed below are limited to the region shown in
+%   `model_space` and `fill` variables saved in the input model of
+%   chromatic aberration data file (see above). If these variables were not
+%   present, the cropped region is the entire input image. All of the other
+%   output images listed below are limited to the region shown in
 %   '*_roi.tif'.
 % - '*_color_bilinear.tif' and '*_color_bilinear.mat': A colour image
 %   (stored in the variable 'I_color_bilinear') created by bilinear
@@ -116,7 +115,7 @@
 % List of parameters to save with results
 parameters_list = {
         'bayer_pattern',...
-        'polynomial_model_filename',...
+        'dispersion_model_filename',...
         'output_directory'...
     };
 
@@ -130,8 +129,8 @@ input_images_variable_name = 'raw_2D'; % Used only when loading '.mat' files
 % Colour-filter pattern
 bayer_pattern = 'gbrg';
 
-% Polynomial model of dispersion
-polynomial_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180703_BimaterialTextures_PSFWarp_correctionTest/DoubleConvexThickLensDispersionResults_forCorrectByWarping.mat';
+% Model of dispersion
+dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180703_BimaterialTextures_PSFWarp_correctionTest/DoubleConvexThickLensDispersionResults_forCorrectByWarping.mat';
 
 % Output directory for all images and saved parameters
 output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180703_BimaterialTextures_PSFWarp_correctionTest';
@@ -143,9 +142,9 @@ n_images = length(image_filenames);
 
 %% Load dispersion model
 
-model_variables_required = { 'polyfun_data', 'model_from_reference', 'bands' };
+model_variables_required = { 'dispersion_data', 'model_from_reference', 'bands' };
 model_variables_transform = { 'model_space', 'fill' };
-load(polynomial_model_filename, model_variables_required{:}, model_variables_transform{:});
+load(dispersion_model_filename, model_variables_required{:}, model_variables_transform{:});
 if ~all(ismember(model_variables_required, who))
     error('One or more of the dispersion model variables is not loaded.')
 end
@@ -192,10 +191,10 @@ for i = 1:n_images
     
     if crop_image
         [roi, T_roi] = modelSpaceTransform(size(I_raw), model_space, fill);
-        polyfun = makePolyfun(polyfun_data, T_roi);
+        dispersionfun = makeDispersionfun(dispersion_data, T_roi);
         I_raw = I_raw(roi(1):roi(2), roi(3):roi(4));
     else
-        polyfun = makePolyfun(polyfun_data);
+        dispersionfun = makeDispersionfun(dispersion_data);
     end
     
     I_raw_filename = fullfile(output_directory, [name '_roi']);
@@ -203,8 +202,8 @@ for i = 1:n_images
     save([I_raw_filename mat_ext], 'I_raw');
     
     image_sampling_in = size(I_raw);
-    W = polyfunToMatrix(...
-        polyfun, bands, image_sampling_in, image_sampling_in,...
+    W = dispersionfunToMatrix(...
+        dispersionfun, bands, image_sampling_in, image_sampling_in,...
         [0, 0, image_sampling_in(2),  image_sampling_in(1)], false...
     );
 

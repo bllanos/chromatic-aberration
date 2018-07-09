@@ -21,8 +21,8 @@ function [ J ] = warpImage(I, W, varargin)
 %   rearranged from columnwise order into a column vector. If `W`
 %   represents a warp, `I` and `J` would have the same number of channels,
 %   but `W` can be any matrix with compatible dimensions for multiplication
-%   with `I`. `W` may be the first output argument of 'polyfunToMatrix()',
-%   for example.
+%   with `I`. `W` may be the first output argument of
+%   'dispersionfunToMatrix()', for example.
 %
 % sz -- Image dimensions
 %   A two-element or three element vector containing the image height, and
@@ -38,7 +38,7 @@ function [ J ] = warpImage(I, W, varargin)
 %   The image, of dimensions `sz`, created by applying the matrix
 %   transformation `W` to the input image `I`.
 %
-% See also polyfunToMatrix
+% See also dispersionfunToMatrix
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang

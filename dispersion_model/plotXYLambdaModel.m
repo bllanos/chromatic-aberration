@@ -1,27 +1,27 @@
-function plotXYLambdaPolyfit(X, x_field, disparity, disparity_field, varargin)
-% PLOTXYLAMBDAPOLYFIT  Plot a polynomial model of dispersion in two or three variables
+function plotXYLambdaModel(X, x_field, disparity, disparity_field, varargin)
+% PLOTXYLAMBDAMODEL  Plot a model of dispersion in two or three variables
 %
 % ## Syntax
-% plotXYLambdaPolyfit(...
+% plotXYLambdaModel(...
 %     X, x_field, disparity, disparity_field,...
-%     lambda, lambda_ref, n_lambda_plot, polyfun...
+%     lambda, lambda_ref, n_lambda_plot, dispersionfun...
 % )
-% plotXYLambdaPolyfit(...
+% plotXYLambdaModel(...
 %     X, x_field, disparity, disparity_field,...
-%     channel_ref, polyfun...
+%     channel_ref, dispersionfun...
 % )
 %
 % ## Description
-% plotXYLambdaPolyfit(...
+% plotXYLambdaModel(...
 %     X, x_field, disparity, disparity_field,...
-%     lambda, lambda_ref, n_lambda_plot, polyfun...
+%     lambda, lambda_ref, n_lambda_plot, dispersionfun...
 % )
 %   Creates figures for graphical comparisons of measured dispersion with a
-%   polynomial model of dispersion
+%   model of dispersion
 %
-% plotXYLambdaPolyfit(...
+% plotXYLambdaModel(...
 %     X, x_field, disparity, disparity_field,...
-%     channel_ref, polyfun...
+%     channel_ref, dispersionfun...
 % )
 %   Identical operation, but for dispersion measured between colour
 %   channels instead of wavelength bands
@@ -35,7 +35,7 @@ function plotXYLambdaPolyfit(X, x_field, disparity, disparity_field, varargin)
 %
 % x_field -- First two independent variables field
 %   A character vector containing the fieldname in 'X' of the data to use
-%   for the first two independent variables of the polynomial model.
+%   for the first two independent variables of the model.
 %   `X(i, j, 1).(x_field)` is expected to be a two-element row vector.
 %
 % disparity -- Data for the dependent variables (dispersion vectors)
@@ -45,7 +45,7 @@ function plotXYLambdaPolyfit(X, x_field, disparity, disparity_field, varargin)
 %
 % disparity_field -- Dependent variables field
 %   A character vector containing the fieldname in 'disparity' of the data
-%   to use for the dependent variables of the polynomial model.
+%   to use for the dependent variables of the model.
 %   `disparity.(disparity_field)(i, :, j)` is expected to be a two-element
 %   row vector, containing the values of the two dependent variables.
 %
@@ -68,12 +68,12 @@ function plotXYLambdaPolyfit(X, x_field, disparity, disparity_field, varargin)
 %   colour channel of this index in the series of colour channels. This
 %   input argument is only used for plot annotation.
 %
-% polyfun -- Polynomial model of dispersion
-%   The 'polyfun' output argument of 'xylambdaPolyfit()', which evaluates
-%   polynomials of dispersion in X, Y, and lambda, or which evaluates a
-%   separate set of polynomials in X and Y for each colour channel.
+% dispersionfun -- Model of dispersion
+%   The 'dispersionfun' output argument of 'makeDispersionfun()', which
+%   evaluates models of dispersion in X, Y, and lambda, or which evaluates
+%   a separate set of models in X and Y for each colour channel.
 %
-% See also xylambdaPolyfit, statsToDisparity
+% See also xylambdaPolyfit, xylambdaSplinefit, statsToDisparity
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -90,14 +90,14 @@ sz = size(X);
 channel_mode = (nargin == 6);
 if channel_mode
     index_ref = varargin{1};
-    polyfun = varargin{2};
+    dispersionfun = varargin{2};
     n_plot = sz(2);
     lambda = 1:n_plot;
 else
     lambda = varargin{1};
     index_ref = varargin{2};
     n_plot = varargin{3};
-    polyfun = varargin{4};
+    dispersionfun = varargin{4};
 end
 
 if channel_mode
@@ -125,34 +125,31 @@ for k = 1:n_plot
     % Filter NaN values
     dataset = dataset(all(isfinite(dataset), 2), :);
     
-    % Evaluate the polynomial model
+    % Evaluate the model
     max_x = max(dataset(:, 1));
     max_y = max(dataset(:, 2));
     min_x = min(dataset(:, 1));
     min_y = min(dataset(:, 2));
     [x_grid, y_grid] = meshgrid(linspace(min_x, max_x, xy_sampling(1)), linspace(min_y, max_y, xy_sampling(2)));
     dataset_grid = [x_grid(:), y_grid(:), repmat(lambda_samples(k), numel(x_grid), 1)];
-    disparity_poly_grid = polyfun(dataset_grid);
-    %disparity_poly_grid_x = reshape(disparity_poly_grid(:, 1), size(x_grid));
-    %disparity_poly_grid_y = reshape(disparity_poly_grid(:, 2), size(x_grid));
-    disparity_poly_points = polyfun(dataset(:, 1:3));
+    disparity_grid = dispersionfun(dataset_grid);
+    disparity_points = dispersionfun(dataset(:, 1:3));
     
-    disparity_poly_grid_mag = sqrt(dot(disparity_poly_grid, disparity_poly_grid, 2));
-    disparity_poly_grid_mag_matrix = reshape(disparity_poly_grid_mag, size(x_grid));
-    disparity_poly_points_mag = sqrt(dot(disparity_poly_points, disparity_poly_points, 2));
+    disparity_grid_mag = sqrt(dot(disparity_grid, disparity_grid, 2));
+    disparity_grid_mag_matrix = reshape(disparity_grid_mag, size(x_grid));
+    disparity_points_mag = sqrt(dot(disparity_points, disparity_points, 2));
     
-    disparity_points_mag = sqrt(dot(dataset(:, 4:5), dataset(:, 4:5), 2));
+    disparity_points_mag_dataset = sqrt(dot(dataset(:, 4:5), dataset(:, 4:5), 2));
     
     % Visualization
     figure;
     hold on
-    s = surf(x_grid, y_grid, disparity_poly_grid_mag_matrix);
+    s = surf(x_grid, y_grid, disparity_grid_mag_matrix);
     set(s, 'EdgeColor', 'none', 'FaceAlpha', 0.8);
     c = colorbar;
     c.Label.String = 'Disparity magnitude';
-    %quiver3(x_grid, y_grid, disparity_poly_grid_mag_matrix, disparity_poly_grid_x, disparity_poly_grid_y, zeros(size(x_grid)), 'g');
-    quiver3(dataset(:, 1), dataset(:, 2), disparity_poly_points_mag, disparity_poly_points(:, 1), disparity_poly_points(:, 2), zeros(size(disparity_poly_points_mag)), 'r');
-    quiver3(dataset(:, 1), dataset(:, 2), disparity_points_mag, dataset(:, 4), dataset(:, 5), zeros(size(disparity_points_mag)), 'g');
+    quiver3(dataset(:, 1), dataset(:, 2), disparity_points_mag, disparity_points(:, 1), disparity_points(:, 2), zeros(size(disparity_points_mag)), 'r');
+    quiver3(dataset(:, 1), dataset(:, 2), disparity_points_mag_dataset, dataset(:, 4), dataset(:, 5), zeros(size(disparity_points_mag_dataset)), 'g');
     hold off
     xlabel('Image x-coordinate')
     ylabel('Image y-coordinate')
@@ -161,12 +158,11 @@ for k = 1:n_plot
     else
         zlabel(sprintf('Magnitude of dispersion wrt \\lambda = %g', index_ref))
     end
-    %legend('Polynomial model', 'Polynomial model', 'Polynomial model', 'Measured dispersion');
-    legend('Polynomial model', 'Polynomial model', 'Measured dispersion');
+    legend('Model', 'Model', 'Measured dispersion');
     if channel_mode
-        title(sprintf('Evaluation of the polynomial model of dispersion for Channel %d', lambda_samples(k)));
+        title(sprintf('Evaluation of the model of dispersion for Channel %d', lambda_samples(k)));
     else
-        title(sprintf('Evaluation of the polynomial model of dispersion for \\lambda = %g', lambda_samples(k)));
+        title(sprintf('Evaluation of the model of dispersion for \\lambda = %g', lambda_samples(k)));
     end
 end
 
@@ -182,14 +178,14 @@ dataset = [X_unpacked lambda_unpacked disparity_unpacked];
 % Filter NaN values
 dataset = dataset(all(isfinite(dataset), 2), :);
 
-% Evaluate the polynomial model
-disparity_poly_points = polyfun(dataset(:, 1:3));
+% Evaluate the model
+disparity_points = dispersionfun(dataset(:, 1:3));
 
 % Visualization
 figure;
 hold on
-quiver3(dataset(:, 1), dataset(:, 2), dataset(:, 3), disparity_poly_points(:, 1), disparity_poly_points(:, 2), zeros(size(disparity_poly_points, 1), 1), 'r');
-quiver3(dataset(:, 1), dataset(:, 2), dataset(:, 3), dataset(:, 4), dataset(:, 5), zeros(size(disparity_poly_points, 1), 1), 'g');
+quiver3(dataset(:, 1), dataset(:, 2), dataset(:, 3), disparity_points(:, 1), disparity_points(:, 2), zeros(size(disparity_points, 1), 1), 'r');
+quiver3(dataset(:, 1), dataset(:, 2), dataset(:, 3), dataset(:, 4), dataset(:, 5), zeros(size(disparity_points, 1), 1), 'g');
 hold off
 xlabel('Image x-coordinate')
 ylabel('Image y-coordinate')
@@ -198,7 +194,7 @@ if channel_mode
 else
     zlabel('Wavelength [nm]')
 end
-legend('Polynomial model', 'Measured dispersion');
-title('Evaluation of the polynomial model of dispersion');
+legend('Model', 'Measured dispersion');
+title('Evaluation of the model of dispersion');
     
 end

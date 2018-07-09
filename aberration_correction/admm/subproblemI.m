@@ -33,7 +33,7 @@ function [ b, A ] = subproblemI(M, Omega, Phi, G_xy, G_lambda, J, Z1, Z2, U1, U2
 %   RGB colour space of the camera.
 %
 % Phi -- Dispersion model warp matrix
-%   The `W` output argument of 'polyfunToMatrix()'. An (n_px_J x
+%   The `W` output argument of 'dispersionfunToMatrix()'. An (n_px_J x
 %   c)-by-(n_px_I x c) sparse array.
 %
 % G_xy -- Spatial gradient matrix
@@ -111,7 +111,7 @@ function [ b, A ] = subproblemI(M, Omega, Phi, G_xy, G_lambda, J, Z1, Z2, U1, U2
 %     Trends in Machine Learning, vol. 3, no. 1, pp. 1-122, 2011.
 %     doi:10.1561/2200000016
 %
-% See also mosaicMatrix, channelConversionMatrix, polyfunToMatrix,
+% See also mosaicMatrix, channelConversionMatrix, dispersionfunToMatrix,
 % spatialGradient, spectralGradient
 
 % Bernard Llanos

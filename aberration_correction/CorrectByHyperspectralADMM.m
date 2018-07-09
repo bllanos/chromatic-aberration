@@ -26,35 +26,33 @@
 % The images need not have the same pixel dimensions, but they should be
 % compatible with the input model of dispersion described below.
 %
-% ### Polynomial model of dispersion
+% ### Model of dispersion
 %
 % A '.mat' file containing several variables, which is the output of
 % 'DoubleConvexThickLensDiskDispersion.m', 'RAWDiskDispersion.m',
 % 'DoubleConvexThickLensDispersion.m' or 'BimaterialImages.m', for example.
 % The following variables are required:
-% - 'polyfun_data': A polynomial model of chromatic aberration, modeling the
-%   warping from the reference colour channel or wavelength band to the
-%   other colour channels or wavelength bands. `polyfun_data` can be
-%   converted to a function form using `polyfun =
-%   makePolyfun(polyfun_data)`.
+% - 'dispersion_data': A model of chromatic aberration, modeling the warping
+%   from the reference colour channel or wavelength band to the other
+%   colour channels or wavelength bands. `dispersion_data` can be converted to
+%   a function form using `dispersionfun = makeDispersionfun(dispersion_data)`.
 % - 'model_from_reference': A parameter of the above scripts, which
 %   determines the frame of reference for the model of chromatic
 %   aberration. It must be set to `false`.
 % The following variables are sometimes required:
 % - 'bands': A vector containing the wavelengths or colour channel indices
-%   to use as the `lambda` input argument of 'polyfunToMatrix()'. `bands`
-%   is the wavelength or colour channel information needed to evaluate the
-%   dispersion model. This variable is required only if not provided in the
-%   colour space conversion data file, or directly in this script (see
-%   below).
+%   to use as the `lambda` input argument of 'dispersionfunToMatrix()'.
+%   `bands` is the wavelength or colour channel information needed to
+%   evaluate the dispersion model. This variable is required only if not
+%   provided in the colour space conversion data file, or directly in this
+%   script (see below).
 %
 % The following two additional variables are optional. If they are present,
 % they will be used for the following purposes:
-% - Conversion between the coordinate system in which the polynomial model
-%   of chromatic aberration was constructed and the image coordinate
-%   system.
+% - Conversion between the coordinate system in which the model of chromatic
+%   aberration was constructed and the image coordinate system.
 % - Limiting the correction of chromatic aberration to the region in which
-%   the polynomial model is valid.
+%   the model is valid.
 % The first variable, 'model_space' is a structure with same form as the
 % `model_space` input argument of 'modelSpaceTransform()'. The second
 % variable, `fill`, can be omitted, in which case it defaults to `false`.
@@ -75,7 +73,7 @@
 %   (false).
 % The following variables are sometimes required:
 % - 'bands': A vector containing the wavelengths or colour channel indices
-%   to use as the `lambda` input argument of 'polyfunToMatrix()' when
+%   to use as the `lambda` input argument of 'dispersionfunToMatrix()' when
 %   modelling the chromatic aberration applied to the latent images, in the
 %   forward model of the input images. `bands` is the wavelength or colour
 %   channel information needed to evaluate the dispersion model. This
@@ -92,8 +90,8 @@
 % The final value of 'bands' is determined according to the following list,
 % in order by decreasing priority:
 % - 'bands' defined in this script
-% - 'bands' loaded from with colour space conversion data
-% - 'bands' loaded from with polynomial model of dispersion
+% - 'bands' loaded from colour space conversion data
+% - 'bands' loaded with the model of dispersion
 %
 % This script assumes that all of the above sources are compatible with
 % respect to the semantics of 'bands'. For instance, they are all using
@@ -126,11 +124,10 @@
 % - '*_roi.tif' and '*_roi.mat': A cropped version of the input image
 %   (stored in the variable 'I_raw'), containing the portion used as input
 %   for ADMM. This region of interest was determined using the
-%   `model_space` and `fill` variables saved in the input polynomial model
-%   of dispersion data file (see above). If these variables were not
-%   present, the cropped region is the entire input image. All of the other
-%   output images listed below are limited to the region shown in
-%   '*_roi.tif'.
+%   `model_space` and `fill` variables saved in the input model of
+%   dispersion data file (see above). If these variables were not present,
+%   the cropped region is the entire input image. All of the other output
+%   images listed below are limited to the region shown in '*_roi.tif'.
 % - '*_latent.tif' and '*_latent.mat': The latent image estimated using
 %   ADMM (stored in the variable 'I_latent'). The '.tif' image is only
 %   output if `save_latent_image_files` is `true`, and an error will be
@@ -157,14 +154,14 @@
 %   conversion data file, for reference. 'bands_color' is empty if no
 %   such variable was found in the data file, or if the value of the loaded
 %   variable was empty.
-% - 'bands_polyfun': The 'bands' variable loaded from the dispersion model
-%   data file, for reference. 'bands_polyfun' is empty if no such variable
-%   was found in the data file, or if the value of the loaded variable was
-%   empty.
+% - 'bands_dispersionfun': The 'bands' variable loaded from the dispersion
+%   model data file, for reference. 'bands_dispersionfun' is empty if no
+%   such variable was found in the data file, or if the value of the loaded
+%   variable was empty.
 % - 'image_bounds': A cell vector, where the i-th cell stores the
-%   coordinates of the i-th latent image in the space of the i-th input
-%   image. This is the 'image_bounds' output argument of
-%   'polyfunToMatrix()'.
+%   coordinates of the i-th latent image in the space of the i-th cropped
+%   input image. This is the 'image_bounds' output argument of
+%   'dispersionfunToMatrix()'.
 % - 'image_filenames': A cell vector containing the input image filenames
 %   retrieved based on the wildcard provided in the parameters section of
 %   the script.
@@ -212,7 +209,7 @@
 % List of parameters to save with results
 parameters_list = {
         'bayer_pattern',...
-        'polynomial_model_filename',...
+        'dispersion_model_filename',...
         'color_map_filename',...
         'bands_script',...
         'bands_interp_method',...
@@ -229,21 +226,21 @@ parameters_list = {
 
 % Wildcard for 'ls()' to find the images to process.
 % '.mat' or image files can be loaded
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180703_BimaterialTextures_PSFWarp/chequered/*raw*.mat';
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180703_BimaterialTextures_PSFWarp/chequered/*42*raw*.mat';
 input_images_variable_name = 'raw_2D'; % Used only when loading '.mat' files
 
 % Colour-filter pattern
 bayer_pattern = 'gbrg';
 
-% Polynomial model of dispersion
-polynomial_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180703_BimaterialTextures_PSFWarp/chequered/BimaterialImagesData.mat';
+% Model of dispersion
+dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180703_BimaterialTextures_PSFWarp/chequered/BimaterialImagesData.mat';
 
 % Colour space conversion data
 color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180629_TestingBimaterialImages/SonyColorMapData.mat';
 
 % Override the wavelengths or colour channel indices at which to evaluate
-% the polynomial model of dispersion, if desired.
-bands = 430:10:650;
+% the model of dispersion, if desired.
+bands = linspace(430, 650, 23);
 % Interpolation method used when resampling colour space conversion data
 bands_interp_method = 'linear';
 
@@ -252,7 +249,7 @@ bands_interp_method = 'linear';
 downsampling_factor = 1;
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180703_BimaterialTextures_PSFWarp_correctionTest/ADMM';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180703_BimaterialTextures_PSFWarp_correctionTest/ADMM_23 bands_img42';
 
 % Whether or not to save the latent images to image files, beyond including
 % them in the output '.mat' files
@@ -305,10 +302,10 @@ bands_script = bands;
 bands = [];
 
 optional_variable = 'bands';
-model_variables_required = { 'polyfun_data', 'model_from_reference' };
+model_variables_required = { 'dispersion_data', 'model_from_reference' };
 model_variables_transform = { 'model_space', 'fill' };
 load(...
-    polynomial_model_filename,...
+    dispersion_model_filename,...
     model_variables_required{:}, model_variables_transform{:},...
     optional_variable...
     );
@@ -328,7 +325,7 @@ else
     crop_image = false;
 end
 
-bands_polyfun = bands;
+bands_dispersionfun = bands;
 bands = [];
 
 model_variables_required = { 'sensor_map', 'channel_mode' };
@@ -352,8 +349,8 @@ if ~isempty(bands_script)
     bands = bands_script;
 elseif ~isempty(bands_color)
     bands = bands_color;
-elseif ~isempty(bands_polyfun)
-    bands = bands_polyfun;
+elseif ~isempty(bands_dispersionfun)
+    bands = bands_dispersionfun;
 else
     error('The variable `bands` is not defined, or is empty');
 end
@@ -420,10 +417,10 @@ for i = 1:n_images
     
     if crop_image
         [roi, T_roi] = modelSpaceTransform(size(I_raw), model_space, fill);
-        polyfun = makePolyfun(polyfun_data, T_roi);
+        dispersionfun = makeDispersionfun(dispersion_data, T_roi);
         I_raw = I_raw(roi(1):roi(2), roi(3):roi(4));
     else
-        polyfun = makePolyfun(polyfun_data);
+        dispersionfun = makeDispersionfun(dispersion_data);
     end
     
     I_raw = im2double(I_raw);
@@ -434,7 +431,7 @@ for i = 1:n_images
     
     [ I_latent, image_bounds{i}, I_rgb, J_full, J_est ] = baek2017Algorithm2(...
         image_sampling, bayer_pattern, sensor_map_resampled,...
-        polyfun, bands, I_raw, rho, weights,...
+        dispersionfun, bands, I_raw, rho, weights,...
         baek2017Algorithm2Options, baek2017Algorithm2Verbose...
     );
             
@@ -461,7 +458,7 @@ end
 %% Save parameters and additional data to a file
 save_variables_list = [ parameters_list, {...
         'image_filenames',...
-        'bands_polyfun',...
+        'bands_dispersionfun',...
         'bands_color',...
         'bands',...
         'sensor_map_resampled',...

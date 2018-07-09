@@ -13,38 +13,35 @@
 %
 % ## Output
 %
-% ### Graphical output from 'plotXYLambdaPolyfit()'
-% - Displayed if `plot_polynomial_model` is `true`.
+% ### Graphical output from 'plotXYLambdaModel()'
+% - Displayed if `plot_model` is `true`.
 %
-% ### Polynomial fitting results
+% ### Model fitting results
 %
 % A '.mat' file containing the following variables:
 %
-% - 'centers': The independent variables data used for fitting the
-%   polynomial model of dispersion. `centers` is a structure array, with
-%   one field containing the image positions of the centres of disks fitted
-%   to simulated point spread functions. `centers(i, k)` is the centre of
-%   the point spread function for the i-th light source position, with the
-%   light source emitting light of the k-th wavelength.
+% - 'centers': The independent variables data used for fitting the model of
+%   dispersion. `centers` is a structure array, with one field containing
+%   the image positions of the centres of disks fitted to simulated point
+%   spread functions. `centers(i, k)` is the centre of the point spread
+%   function for the i-th light source position, with the light source
+%   emitting light of the k-th wavelength.
 % - 'disparity': The dependent variables data used for fitting the
-%   polynomial model of dispersion. `disparity` is the first output
-%   argument of 'statsToDisparity()', produced when 'statsToDisparity()'
-%   was called with `centers` as one of its input arguments. The format of
-%   `disparity` is described in the documentation of
-%   'statsToDisparity()'. `disparity` contains the dispersion vectors
-%   between the centres of disks fit to point spread functions for
-%   different wavelengths.
-% - 'polyfun_data': The polynomial model of dispersion, modeling the
-%   mapping from `centers` to `disparity`. `polyfun_data` can be
-%   converted to a function form using `polyfun =
-%   makePolyfun(polyfun_data)`
+%   model of dispersion. `disparity` is the first output argument of
+%   'statsToDisparity()', produced when 'statsToDisparity()' was called
+%   with `centers` as one of its input arguments. The format of `disparity`
+%   is described in the documentation of 'statsToDisparity()'. `disparity`
+%   contains the dispersion vectors between the centres of disks fit to
+%   point spread functions for different wavelengths.
+% - 'dispersion_data': The model of dispersion, modeling the mapping from
+%   `centers` to `disparity`. `dispersion_data` can be converted to a
+%   function form using `dispersionfun = makeDispersionfun(dispersion_data)`
 % - 'bands': A vector containing the wavelengths at which dispersion can be
 %   evaluated to approximate the dispersion between the Red, Green, and
 %   Blue colour channels of the sensor. These are the wavelengths at which
 %   the colour channels reach their peak quantum efficiencies.
 % - 'model_space': A structure describing the range of coordinates over
-%   which the polynomial model of dispersion is valid, having the following
-%   fields:
+%   which the model of dispersion is valid, having the following fields:
 %   - 'corners': The first and second rows contain the (x,y) coordinates of
 %     the top left and bottom right corners of the region, respectively.
 %   - 'pixel_size': The side length of a pixel in the coordinate frame used
@@ -88,7 +85,9 @@ parameters_list = {
         'dispersion_fieldname',...
         'max_degree_xy',...
         'max_degree_lambda',...
-        'model_from_reference'...
+        'spline_smoothing_weight',...
+        'model_from_reference',...
+        'model_type'...
     };
 
 %% Input data and parameters
@@ -160,8 +159,6 @@ findAndFitDisks_options.area_outlier_threshold = 0;
 
 % ## Dispersion model generation
 dispersion_fieldname = 'center';
-max_degree_xy = min(12, min(scene_params.n_lights) - 1);
-max_degree_lambda = min(12, length(lens_params.wavelengths) - 1);
 
 % If `true`, model dispersion between bands (colour channels or spectral
 % bands) as a function of positions in the reference band. If `false`,
@@ -172,6 +169,16 @@ max_degree_lambda = min(12, length(lens_params.wavelengths) - 1);
 % compare it with an observed aberrated image. In both cases, the
 % dispersion vectors point from the reference band to the other bands.
 model_from_reference = true;
+
+% Spline, or global polynomial models can be fitted
+model_type = 'polynomial';
+
+% Parameters for polynomial model fitting
+max_degree_xy = min(12, min(scene_params.n_lights) - 1);
+max_degree_lambda = min(12, length(lens_params.wavelengths) - 1);
+
+% Parameters for spline model fitting
+spline_smoothing_weight = 0;
 
 % ## Debugging Flags
 plot_light_positions = false;
@@ -190,9 +197,9 @@ statsToDisparityVerbose.filter = struct(...
     dispersion_fieldname, true...
 );
 
-xylambdaPolyfitVerbose = true;
-plot_polynomial_model = true;
-if plot_polynomial_model
+xylambdaFitVerbose = true;
+plot_model = true;
+if plot_model
     n_lambda_plot = min(10, length(lens_params.wavelengths));
 end
 
@@ -277,17 +284,27 @@ else
     centers_for_fitting = centers;
 end
 
-[ polyfun, polyfun_data ] = xylambdaPolyfit(...
-    centers_for_fitting, dispersion_fieldname, max_degree_xy, disparity, dispersion_fieldname,...
-    lens_params.wavelengths, max_degree_lambda, xylambdaPolyfitVerbose...
-);
+if strcmp(model_type, 'polynomial')
+    [ dispersionfun, dispersion_data ] = xylambdaPolyfit(...
+        centers_for_fitting, dispersion_fieldname, max_degree_xy, disparity, dispersion_fieldname,...
+        lens_params.wavelengths, max_degree_lambda, xylambdaFitVerbose...
+    );
+elseif strcmp(model_type, 'spline')
+    [ dispersionfun, dispersion_data ] = xylambdaSplinefit(...
+        centers_for_fitting, dispersion_fieldname, disparity, dispersion_fieldname,...
+        spline_smoothing_weight, lens_params.wavelengths...
+    );
+else
+    error('Unrecognized value of the `model_type` paramter.');
+end
+
 
 %% Visualization
 
-if plot_polynomial_model
-    plotXYLambdaPolyfit(...
+if plot_model
+    plotXYLambdaModel(...
         centers_for_fitting, dispersion_fieldname, disparity, dispersion_fieldname,...
-        lens_params.wavelengths, lens_params.wavelengths(ior_lens_reference_index), n_lambda_plot, polyfun...
+        lens_params.wavelengths, lens_params.wavelengths(ior_lens_reference_index), n_lambda_plot, dispersionfun...
     );
 end
 
@@ -309,7 +326,7 @@ model_space.system = 'geometric';
 save_variables_list = [ parameters_list, {...
         'centers',...
         'disparity',...
-        'polyfun_data',...
+        'dispersion_data',...
         'bands',...
         'model_space'...
     } ];

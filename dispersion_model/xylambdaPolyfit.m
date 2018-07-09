@@ -89,15 +89,15 @@ function [ polyfun, polyfun_data ] = xylambdaPolyfit(...
 %   A structure which can be used to obtain a function with the same
 %   behaviour as `polyfun` by calling `polyfun =
 %   makePolyfun(polyfun_data)`. `polyfun_data` has the following fields:
+%   - type: Type of model ('polynomial')
 %   - T_points: The normalization transformation applied to input spatial
-%     coordinates prior to evaluating the polynomial. A 3 x 3 matrix.
+%     coordinates prior to evaluating the model. A 3 x 3 matrix.
 %   - T_lambda: In the case of data for wavelengths, the normalization
-%     transformation applied to wavelengths prior to evaluating the
-%     polynomial. In the case of colour channels, this is the identity
-%     transformation. A 2 x 2 matrix.
+%     transformation applied to wavelengths prior to evaluating the model.
+%     In the case of colour channels, this is the identity transformation.
+%     A 2 x 2 matrix.
 %   - T_disparity_inv: The inverse normalization transformation applied to
-%     the output of the polynomial to obtain disparity values. A 3 x 3
-%     matrix.
+%     the output of the model to obtain disparity values. A 3 x 3 matrix.
 %   - powers: A 3D array where the first dimension is of size one, the
 %     second dimension indexes different powers in the polynomial model,
 %     and the third dimension indexes independent variables (x, y,
@@ -255,6 +255,7 @@ n_points = size(dataset, 1);
 
 % Create one model per colour channel, or one model for all wavelengths
 polyfun_data = struct(...
+    'type', repmat({'polynomial'}, n_models, 1),...
     'T_points', cell(n_models, 1),...
     'T_lambda', cell(n_models, 1),...
     'T_disparity_inv', cell(n_models, 1),...

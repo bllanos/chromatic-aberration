@@ -1,6 +1,6 @@
 function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
     image_sampling, align, sensitivity,...
-    polyfun, lambda, J_2D, rho, weights,...
+    dispersionfun, lambda, J_2D, rho, weights,...
     options, varargin...
     )
 % BAEK2017ALGORITHM2  Run ADMM as in Algorithm 2 of Baek et al. 2017
@@ -8,7 +8,7 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % ## Syntax
 % I = baek2017Algorithm2(...
 %     image_sampling, align, sensitivity,...
-%     polyfun, lambda, J, rho, weights,...
+%     dispersionfun, lambda, J, rho, weights,...
 %     options [, verbose]...
 % )
 % [ I, image_bounds ] = baek2017Algorithm2(___)
@@ -19,7 +19,7 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % ## Description
 % I = baek2017Algorithm2(...
 %     image_sampling, align, sensitivity,...
-%     polyfun, lambda, J, rho, weights,...
+%     dispersionfun, lambda, J, rho, weights,...
 %     options [, verbose]...
 % )
 %   Estimate a latent RGB or hyperspectral image `I` from dispersion in
@@ -57,22 +57,22 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %   band of `I`. `sensitivity` is a matrix mapping colours in `I` to
 %   colours in `J`.
 %
-% polyfun -- Polynomial model of dispersion
-%   A function handle, produced by 'makePolyfun()'. `polyfun(X)`, where `X`
-%   is a three-element row vector (x, y, lambda), returns the dispersion
-%   vector for the position (x, y) in `J` corresponding to light with
-%   wavelength or colour channel index `lambda`. The dispersion vector
+% dispersionfun -- Model of dispersion
+%   A function handle, produced by 'makeDispersionfun()'. `dispersionfun(X)`,
+%   where `X` is a three-element row vector (x, y, lambda), returns the
+%   dispersion vector for the position (x, y) in `J` corresponding to light
+%   with wavelength or colour channel index `lambda`. The dispersion vector
 %   corrects for lateral chromatic aberration by pointing from the
 %   corresponding position in the reference spectral band or colour channel
 %   to position (x, y). This function will negate the dispersion vectors
-%   produced by `polyfun()` in order to create a warp matrix from `I` to
+%   produced by `dispersionfun()` in order to create a warp matrix from `I` to
 %   `J`.
 %
 % lambda -- Wavelength bands
 %   A vector of length 'c' containing the wavelengths or colour channel
-%   indices at which to evaluate the polynomial dispersion model
-%   encapsulated by `polyfun`. 'c' is the desired number of spectral bands
-%   or colour channels in `I`.
+%   indices at which to evaluate the dispersion model encapsulated by
+%   `dispersionfun`. 'c' is the desired number of spectral bands or colour
+%   channels in `I`.
 %
 % J -- Input RAW image
 %   A 2D array containing the raw colour-filter pattern data of an image.
@@ -106,7 +106,7 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % options -- Options and small parameters
 %   A structure with the following fields:
 %   - 'add_border': A Boolean value indicating whether or not the
-%     `image_bounds` input argument of 'polyfunToMatrix()' should be empty.
+%     `image_bounds` input argument of 'dispersionfunToMatrix()' should be empty.
 %     If `true`, the output image `I` will be large enough to contain the
 %     lateral chromatic aberration-corrected coordinates of all pixels in
 %     `J`. If `false`, the output image `I` will be clipped to the region
@@ -147,8 +147,8 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % image_bounds -- Latent image coordinate frame
 %   The boundaries of `I` expressed in the coordinate frame of `J`.
 %   `image_bounds` is an output argument of the same name of
-%   'polyfunToMatrix()'. If `add_border` is `false`, `image_bounds` will be
-%   equal to `[0, 0, size(J, 2), size(J, 1)]`.
+%   'dispersionfunToMatrix()'. If `add_border` is `false`, `image_bounds`
+%   will be equal to `[0, 0, size(J, 2), size(J, 1)]`.
 %
 % I_rgb -- Latent RGB image
 %   The RGB equivalent of the latent image, generated using the colour
@@ -190,7 +190,7 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % - Section 3.4.1 of Boyd et al. 2011, "Varying Penalty Parameter"
 % - Section 4.3.2 of Boyd et al. 2011, "Early Termination"
 %
-% See also mosaicMatrix, channelConversionMatrix, polyfunToMatrix,
+% See also mosaicMatrix, channelConversionMatrix, dispersionfunToMatrix,
 % spatialGradient, spectralGradient, softThreshold, subproblemI, lsqminnorm
 
 % Bernard Llanos
@@ -233,8 +233,8 @@ if options.add_border
 else
     image_bounds = [0, 0, image_sampling_J(2), image_sampling_J(1)];
 end
-[ Phi, image_bounds ] = polyfunToMatrix(...
-   polyfun, lambda, image_sampling_J, image_sampling, image_bounds, true...
+[ Phi, image_bounds ] = dispersionfunToMatrix(...
+   dispersionfun, lambda, image_sampling_J, image_sampling, image_bounds, true...
 );
 
 if all(weights == 0)

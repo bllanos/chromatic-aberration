@@ -77,16 +77,17 @@ function [ splinefun, splinefun_data ] = xylambdaSplinefit(...
 % splinefun_data -- Spline model data
 %   A structure which can be used to obtain a function with the same
 %   behaviour as `splinefun` by calling `splinefun =
-%   makeSplinefun(splinefun_data)`. `splinefun_data` has the following fields:
+%   makeSplinefun(splinefun_data)`. `splinefun_data` has the following
+%   fields:
+%   - type: Type of model ('spline')
 %   - T_points: The normalization transformation applied to input spatial
 %     coordinates prior to evaluating the model. A 3 x 3 matrix.
 %   - T_lambda: In the case of data for wavelengths, the normalization
-%     transformation applied to wavelengths prior to evaluating the
-%     polynomial. In the case of colour channels, this is the identity
-%     transformation. A 2 x 2 matrix.
+%     transformation applied to wavelengths prior to evaluating the model.
+%     In the case of colour channels, this is the identity transformation.
+%     A 2 x 2 matrix.
 %   - T_disparity_inv: The inverse normalization transformation applied to
-%     the output of the polynomial to obtain disparity values. A 3 x 3
-%     matrix.
+%     the output of the model to obtain disparity values. A 3 x 3 matrix.
 %   - xylambda_training: A 2D array, where the three columns contain
 %     the normalized X, Y, and lambda values of the training datapoints.
 %     When 'xylambdaSplinefit()' is modelling colour channels, this array
@@ -98,6 +99,7 @@ function [ splinefun, splinefun_data ] = xylambdaSplinefit(...
 %   - coeff_affine: A matrix containing the coefficients for the affine
 %     terms of the spline model. The columns contain coefficients for the
 %     different dependent variables of the spline model.
+%   - smooth: A copy of the `smooth` input argument
 %
 %   If 'xylambdaSplinefit()' is modelling wavelengths, `splinefun_data` is
 %   a scalar structure. If 'xylambdaSplinefit()' is modelling colour
@@ -204,12 +206,14 @@ n_points = size(dataset, 1);
 
 % Create one model per colour channel, or one model for all wavelengths
 splinefun_data = struct(...
+    'type', repmat({'spline'}, n_models, 1),...
     'T_points', cell(n_models, 1),...
     'T_lambda', cell(n_models, 1),...
     'T_disparity_inv', cell(n_models, 1),...
     'xylambda_training', cell(n_models, 1),...
     'coeff_basis', cell(n_models, 1),...
-    'coeff_affine', cell(n_models, 1)...
+    'coeff_affine', cell(n_models, 1),...
+    'smooth', repmat({smooth}, n_models, 1)...
 );
 if channel_mode
     [splinefun_data.reference_channel] = deal(false);

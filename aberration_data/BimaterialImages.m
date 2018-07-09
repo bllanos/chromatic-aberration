@@ -34,15 +34,12 @@
 %
 % ### Model of dispersion
 %
-% There are several types of data that can be provided:
-%
-% #### Polynomial model
 % A '.mat' file containing several variables, which is the output of
 % 'RAWDiskDispersion.m', for example. The following variables are required:
-% - 'polyfun_data': A polynomial model of dispersion, modeling the warping
-%   from the reference wavelength band to the other wavelength bands.
-%   `polyfun_data` can be converted to a function form using `polyfun =
-%   makePolyfun(polyfun_data)`.
+% - 'dispersion_data': A model of dispersion, modelling the warping from
+%   the reference wavelength band to the other wavelength bands.
+%   `dispersion_data` can be converted to a function form using
+%   `dispersionfun = makeDispersionfun(dispersion_data)`.
 % - 'model_from_reference': A parameter of the above scripts, which
 %   determines the frame of reference for the model of chromatic
 %   aberration. It must be set to `false`.
@@ -57,11 +54,12 @@
 %   of the i-th colour channel of the output sensor response images to the
 %   j-th spectral band of the synthetic hyperspectral images.
 % - 'bands': A vector containing the wavelengths to use as the `lambda`
-%   input argument of 'polyfunToMatrix()' (to evaluate a dispersion model),
-%   and to form hyperspectral images. This variable can be overridden by a
-%   version of the variable provided directly in this script (see below).
-%   However, it is still needed from this file to normalize spectral
-%   radiances, even when overridden in its other functions.
+%   input argument of 'dispersionfunToMatrix()' (to evaluate a dispersion
+%   model), and to form hyperspectral images. This variable can be
+%   overridden by a version of the variable provided directly in this
+%   script (see below). However, it is still needed from this file to
+%   normalize spectral radiances, even when overridden in its other
+%   functions.
 % - 'channel_mode': A Boolean value indicating whether the input colour
 %   space is a set of colour channels (true) or a set of spectral bands
 %   (false). A value of `false` is required.
@@ -160,20 +158,20 @@
 % - 'sensor_map_resampled': The resampled version of the 'sensor_map'
 %   variable, determined as discussed under the section "Discrete spectral
 %   space" above.
-% - 'polyfun_data': A copy of the same variable from the input polynomial
+% - 'dispersion_data': A copy of the same variable from the input
 %   model of dispersion
 % - 'model_from_reference': A copy of the same variable from the input
-%   polynomial model of dispersion
-% - 'model_space': A copy of the same variable from the input polynomial
 %   model of dispersion
+% - 'model_space': A copy of the same variable from the input model of
+%   dispersion
 % - 'fill': A Boolean value of `true` indicating that the valid domain of
 %   the model of dispersion is to be stretched to match the domain of each
 %   output image.
 %
-% The dispersion model variables are needed as input for scripts evaluating
-% different methods for correcting chromatic aberration. However, they
-% could easily be provided in a separate file, by adding a 'fill' variable
-% to the output of a dispersion model fitting script (e.g.
+% The dispersion model variables are needed as input for scripts
+% implementing different methods for correcting chromatic aberration.
+% However, they could easily be provided in a separate file, by adding a
+% 'fill' variable to the output of a dispersion model fitting script (e.g.
 % 'RAWDiskDispersion.m').
 % 
 % Additionally, the file contains the values of all parameters in the first
@@ -199,7 +197,7 @@
 
 % List of parameters to save with results
 parameters_list = {
-        'polynomial_model_filename',...
+        'dispersion_model_filename',...
         'color_map_filename',...
         'normalization_channel',...
         'int_method',...
@@ -225,8 +223,8 @@ input_chromaticity_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data
 % Set to an empty array to use constant shading
 input_shading_maps_wildcard = [];
 
-% Polynomial model of dispersion
-polynomial_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180524_PolynomialDispersion_AnalyzePSF_accurate/DoubleConvexThickLensDispersionResults_modelFromReference_false_withModelSpace.mat';
+% Model of dispersion
+dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180524_PolynomialDispersion_AnalyzePSF_accurate/DoubleConvexThickLensDispersionResults_modelFromReference_false_withModelSpace.mat';
 
 % Colour space conversion data
 color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180629_TestingBimaterialImages/SonyColorMapData.mat';
@@ -311,9 +309,9 @@ colorChecker_rgb = reflectanceToColor(...
 %% Load dispersion model
 
 model_variables_required = {...
-    'polyfun_data', 'model_from_reference', 'model_space'...
+    'dispersion_data', 'model_from_reference', 'model_space'...
 };
-load(polynomial_model_filename, model_variables_required{:});
+load(dispersion_model_filename, model_variables_required{:});
 if ~all(ismember(model_variables_required, who))
     error('One or more of the dispersion model variables is not loaded.')
 end
@@ -486,8 +484,8 @@ for i = 1:n_images
     [~, T_roi] = modelSpaceTransform(...
         [image_height, image_width], model_space, fill...
     );
-    dispersonFun = makePolyfun(polyfun_data, T_roi);
-    W = polyfunToMatrix(...
+    dispersonFun = makeDispersionfun(dispersion_data, T_roi);
+    W = dispersionfunToMatrix(...
             dispersonFun, bands,...
             image_sampling, image_sampling,...
             [0, 0, image_width,  image_height], true...
@@ -534,7 +532,7 @@ save_variables_list = [ parameters_list, {...
         'bands_color',...
         'bands',...
         'sensor_map_resampled',...
-        'polyfun_data',...
+        'dispersion_data',...
         'model_from_reference',...
         'model_space',...
         'fill'...

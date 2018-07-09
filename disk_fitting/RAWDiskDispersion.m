@@ -14,34 +14,32 @@
 %
 % ## Output
 %
-% ### Graphical output from 'plotXYLambdaPolyfit()'
-% - Displayed if `plot_polynomial_model` is `true`.
+% ### Graphical output from 'plotXYLambdaModel()'
+% - Displayed if `plot_model` is `true`.
 %
-% ### Polynomial fitting results
+% ### Model fitting results
 %
 % A '.mat' file containing the following variables:
 %
 % - 'centers': The independent variables data used for fitting the
-%   polynomial model of dispersion. `centers` is a structure array, with
-%   one field containing the image positions of the centres of disks fitted
-%   to image blobs. `centers(i, k)` is the centre of the ellipse fitted to
-%   the i-th image blob, with k representing eitherthe k-th bandpass
-%   filter, or the k-th colour channel (depending on `rgb_mode`).
+%   model of dispersion. `centers` is a structure array, with one field
+%   containing the image positions of the centres of disks fitted to image
+%   blobs. `centers(i, k)` is the centre of the ellipse fitted to the i-th
+%   image blob, with k representing eitherthe k-th bandpass filter, or the
+%   k-th colour channel (depending on `rgb_mode`).
 % - 'disparity': The dependent variables data used for fitting the
-%   polynomial model of dispersion. `disparity` is the first output
-%   argument of 'statsToDisparity()', produced when 'statsToDisparity()'
-%   was called with `centers` as one of its input arguments. The format of
-%   `disparity` is described in the documentation of 'statsToDisparity()'.
-%   `disparity` contains the dispersion vectors between the centres of
-%   disks fit to image blobs for different wavelength bands or colour
-%   channels.
-% - 'polyfun_data': The polynomial model of dispersion, modeling the
-%   mapping from `centers` to `disparity`. `polyfun_data` can be
-%   converted to a function form using `polyfun =
-%   makePolyfun(polyfun_data)`
+%   model of dispersion. `disparity` is the first output argument of
+%   'statsToDisparity()', produced when 'statsToDisparity()' was called
+%   with `centers` as one of its input arguments. The format of `disparity`
+%   is described in the documentation of 'statsToDisparity()'. `disparity`
+%   contains the dispersion vectors between the centres of disks fit to
+%   image blobs for different wavelength bands or colour channels.
+% - 'dispersion_data': The model of dispersion, modeling the mapping from
+%   `centers` to `disparity`. `dispersion_data` can be converted to a
+%   function form using `dispersionfun = makeDispersionfun(dispersion_data)`
 % - 'model_space': A structure describing the range of image coordinates
-%   over which the polynomial model of dispersion is valid, having the
-%   following fields:
+%   over which the model of dispersion is valid, having the following
+%   fields:
 %   - 'corners': The first and second rows contain the (x,y) image
 %     coordinates of the top left and bottom right corners of the region,
 %     respectively. Remember that image coordinates are 0.5 units offset
@@ -91,7 +89,9 @@ parameters_list = {
         'dispersion_fieldname',...
         'max_degree_xy',...
         'max_degree_lambda',...
-        'model_from_reference'...
+        'spline_smoothing_weight',...
+        'model_from_reference',...
+        'model_type'...
     };
 
 %% Input data and parameters
@@ -162,8 +162,6 @@ findAndFitDisks_options.area_outlier_threshold = 2;
 
 % ## Dispersion model generation
 dispersion_fieldname = 'center';
-max_degree_xy = 12;
-max_degree_lambda = 12;
 
 % If `true`, model dispersion between bands (colour channels or spectral
 % bands) as a function of positions in the reference band. If `false`,
@@ -174,6 +172,16 @@ max_degree_lambda = 12;
 % compare it with an observed aberrated image. In both cases, the
 % dispersion vectors point from the reference band to the other bands.
 model_from_reference = true;
+
+% Spline, or global polynomial models can be fitted
+model_type = 'polynomial';
+
+% Parameters for polynomial model fitting
+max_degree_xy = 12;
+max_degree_lambda = 12;
+
+% Parameters for spline model fitting
+spline_smoothing_weight = 0;
 
 % ## Debugging Flags
 findAndFitDisksVerbose.verbose_disk_search = false;
@@ -186,9 +194,9 @@ statsToDisparityVerbose.filter = struct(...
     dispersion_fieldname, true...
 );
 
-xylambdaPolyfitVerbose = true;
-plot_polynomial_model = true;
-if plot_polynomial_model && ~rgb_mode
+xylambdaFitVerbose = true;
+plot_model = true;
+if plot_model && ~rgb_mode
     n_lambda_plot = min(20, length(bands));
 end
 
@@ -278,30 +286,46 @@ else
     centers_for_fitting = centers;
 end
 
-if rgb_mode
-    [ polyfun, polyfun_data ] = xylambdaPolyfit(...
-        centers_for_fitting, dispersion_fieldname, max_degree_xy, disparity,...
-        dispersion_fieldname, xylambdaPolyfitVerbose...
-    );
+if strcmp(model_type, 'polynomial')
+    if rgb_mode
+        [ dispersionfun, dispersion_data ] = xylambdaPolyfit(...
+            centers_for_fitting, dispersion_fieldname, max_degree_xy, disparity,...
+            dispersion_fieldname, xylambdaFitVerbose...
+        );
+    else
+        [ dispersionfun, dispersion_data ] = xylambdaPolyfit(...
+            centers_for_fitting, dispersion_fieldname, max_degree_xy, disparity,...
+            dispersion_fieldname, bands, max_degree_lambda, xylambdaFitVerbose...
+        );
+    end
+elseif strcmp(model_type, 'spline')
+    if rgb_mode
+        [ dispersionfun, dispersion_data ] = xylambdaSplinefit(...
+            centers_for_fitting, dispersion_fieldname, disparity,...
+            dispersion_fieldname, spline_smoothing_weight...
+        );
+    else
+        [ dispersionfun, dispersion_data ] = xylambdaPolyfit(...
+            centers_for_fitting, dispersion_fieldname, disparity,...
+            dispersion_fieldname, spline_smoothing_weight, bands...
+        );
+    end
 else
-    [ polyfun, polyfun_data ] = xylambdaPolyfit(...
-        centers_for_fitting, dispersion_fieldname, max_degree_xy, disparity,...
-        dispersion_fieldname, bands, max_degree_lambda, xylambdaPolyfitVerbose...
-    );
+    error('Unrecognized value of the `model_type` paramter.');
 end
 
 %% Visualization
 
-if plot_polynomial_model
+if plot_model
     if rgb_mode
-        plotXYLambdaPolyfit(...
+        plotXYLambdaModel(...
             centers_for_fitting, dispersion_fieldname, disparity, dispersion_fieldname,...
-            reference_index, polyfun...
+            reference_index, dispersionfun...
         );
     else
-        plotXYLambdaPolyfit(...
+        plotXYLambdaModel(...
             centers_for_fitting, dispersion_fieldname, disparity, dispersion_fieldname,...
-            bands, bands(reference_index), n_lambda_plot, polyfun...
+            bands, bands(reference_index), n_lambda_plot, dispersionfun...
         );
     end
 end
@@ -320,7 +344,7 @@ model_space.system = 'image';
 save_variables_list = [ parameters_list, {...
         'centers',...
         'disparity',...
-        'polyfun_data',...
+        'dispersion_data',...
         'model_space'...
     } ];
 uisave(save_variables_list,'RAWDiskDispersionResults');
