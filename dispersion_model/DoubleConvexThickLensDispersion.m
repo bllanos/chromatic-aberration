@@ -120,7 +120,7 @@ sellmeierConstants.C_1 = 0.00600069867;
 sellmeierConstants.C_2 = 0.0200179144;
 sellmeierConstants.C_3 = 103.560653;
 
-lens_params.wavelengths = linspace(300, 1100, 100);
+lens_params.wavelengths = linspace(300, 1100, 5);
 lens_params.ior_lens = sellmeierDispersion(lens_params.wavelengths, sellmeierConstants);
 
 % Index of the wavelength/index of refraction to be used to position the
@@ -157,7 +157,7 @@ request_spline_smoothing = false;
 % ## Scene setup
 scene_params.theta_min = deg2rad(0);
 scene_params.theta_max = deg2rad(20);
-scene_params.n_lights = [12 12];
+scene_params.n_lights = [5 5];
 scene_params.light_distance_factor_focused = 10;
 scene_params.light_distance_factor_larger = [4, 0];
 scene_params.light_distance_factor_smaller = [1.5, 0];
@@ -174,17 +174,17 @@ dispersion_fieldname = 'mean_position';
 % warping. The second case is useful for warping an "ideal" image to
 % compare it with an observed aberrated image. In both cases, the
 % dispersion vectors point from the reference band to the other bands.
-model_from_reference = true;
+model_from_reference = false;
 
 % Spline, or global polynomial models can be fitted
-model_type = 'polynomial';
+model_type = 'spline';
 
 % Parameters for polynomial model fitting
 max_degree_xy = min(12, min(scene_params.n_lights) - 1);
 max_degree_lambda = min(12, length(lens_params.wavelengths) - 1);
 
 % Parameters for spline model fitting
-spline_smoothing_weight = 0;
+spline_smoothing_weight = 1;
 
 % ## Debugging Flags
 plot_light_positions = true;
@@ -195,9 +195,9 @@ doubleSphericalLensPSFVerbose.verbose_psf_analysis = false;
 doubleSphericalLensPSFVerbose.display_each_psf = false;
 doubleSphericalLensPSFVerbose.display_all_psf_each_ior = false;
 doubleSphericalLensPSFVerbose.display_all_psf_each_depth = false;
-doubleSphericalLensPSFVerbose.display_summary = true;
+doubleSphericalLensPSFVerbose.display_summary = false;
 
-statsToDisparityVerbose.display_raw_values = true;
+statsToDisparityVerbose.display_raw_values = false;
 statsToDisparityVerbose.display_raw_disparity = true;
 statsToDisparityVerbose.filter = struct(...
     'mean_position', true,...

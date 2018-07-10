@@ -102,6 +102,9 @@ if ~isempty(varargin)
     % are vectors, and so cannot be translated.
     T_frame_disparity = [T_frame_disparity(:, 1:(end - 1)), zeros(size(T_frame, 1), 1)];
     for i = 1:n_models
+        if channel_mode && i == reference_channel
+            continue;
+        end
         data(i).T_points = data(i).T_points * T_frame;
         % This next line relies on the assumption that both transformations
         % are affine, such that division by the homogenous coordinate is
@@ -110,27 +113,27 @@ if ~isempty(varargin)
     end
 end
 
-    function disparity_normalized = disparityNormalizedSpline(dataset_d, n_d)
-        xy_normalized = (data(d).T_points * [dataset_d(:, 1:2), ones(n_d, 1)].').';
+    function disparity_normalized = disparityNormalizedSpline(data_d, dataset_d, n_d)
+        xy_normalized = (data_d.T_points * [dataset_d(:, 1:2), ones(n_d, 1)].').';
         if channel_mode
-            xylambda_normalized = xy_normalized;
+            xylambda_normalized = xy_normalized(:, 1:(end - 1));
         else
-            lambda_normalized = (data(d).T_lambda * [dataset_d(:, 3), ones(n_d, 1)].').';
+            lambda_normalized = (data_d.T_lambda * [dataset_d(:, 3), ones(n_d, 1)].').';
             xylambda_normalized = [
                 xy_normalized(:, 1:(end - 1)),...
                 lambda_normalized(:, 1:(end - 1)),...
                 ];
         end
         xylambda_normalized_3d = repmat(...
-            permute(xylambda_normalized, [1 3 2]), 1, size(data(d).coeff_basis, 1)...
+            permute(xylambda_normalized, [1 3 2]), 1, size(data_d.coeff_basis, 1)...
         );
 
-        disparity_normalized = zeros(n_d, n_spatial_dim);
+        disparity_normalized = ones(n_d, n_spatial_dim + 1);
         for dim = 1:n_spatial_dim
-            disparity_normalized(:, dim) = repmat(data(d).coeff_affine(1, dim), n_d, 1) +...
-                dot(repmat(data(d).coeff_affine(2:end, dim), n_d, 1), xylambda_normalized, 2);
+            disparity_normalized(:, dim) = repmat(data_d.coeff_affine(1, dim), n_d, 1) +...
+                dot(repmat(data_d.coeff_affine(2:end, dim).', n_d, 1), xylambda_normalized, 2);
             distances = xylambda_normalized_3d - repmat(...
-                permute(data(d).xylambda_training, [3, 1, 2]), n_d, 1, 1 ...
+                permute(data_d.xylambda_training, [3, 1, 2]), n_d, 1, 1 ...
             );
             distances = sqrt(sum(distances .^ 2, 3));
             if channel_mode
@@ -139,27 +142,27 @@ end
                 G = splineKernel3D(distances);
             end
             disparity_normalized(:, dim) = disparity_normalized(:, dim)  +...
-                sum(repmat(data(d).coeff_basis(:, dim), 1, size(G, 2)) .* G, 2);
+                sum(repmat(data_d.coeff_basis(:, dim).', n_d, 1) .* G, 2);
         end
     end
 
-    function disparity_normalized = disparityNormalizedPoly(dataset_d, n_d)
-        xy_normalized = (data(d).T_points * [dataset_d(:, 1:2), ones(n_d, 1)].').';
-        lambda_normalized = (data(d).T_lambda * [dataset_d(:, 3), ones(n_d, 1)].').';
+    function disparity_normalized = disparityNormalizedPoly(data_d, dataset_d, n_d)
+        xy_normalized = (data_d.T_points * [dataset_d(:, 1:2), ones(n_d, 1)].').';
+        lambda_normalized = (data_d.T_lambda * [dataset_d(:, 3), ones(n_d, 1)].').';
         xylambda_normalized = [
             xy_normalized(:, 1:(end - 1)),...
             lambda_normalized(:, 1:(end - 1)),...
             ];
         xylambda_normalized_3d = permute(xylambda_normalized, [1 3 2]);
         
-        disparity_normalized = ones(n_d, 3);
+        disparity_normalized = ones(n_d, n_spatial_dim + 1);
         for j = 1:n_d
             vandermonde_vector = prod(...
-                repmat(xylambda_normalized_3d(j, :, :), 1, data(d).n_powers, 1)...
-                .^ data(d).powers, 3 ...
+                repmat(xylambda_normalized_3d(j, :, :), 1, data_d.n_powers, 1)...
+                .^ data_d.powers, 3 ...
                 );
-            disparity_normalized(j, 1) = dot(vandermonde_vector, data(d).coeff_x);
-            disparity_normalized(j, 2) = dot(vandermonde_vector, data(d).coeff_y);
+            disparity_normalized(j, 1) = dot(vandermonde_vector, data_d.coeff_x);
+            disparity_normalized(j, 2) = dot(vandermonde_vector, data_d.coeff_y);
         end
     end
 
@@ -177,16 +180,17 @@ end
             end
             dataset_d = xylambda(filter_d, :);
             n_d = size(dataset_d, 1);
+            data_d = data(d);
 
-            if strcmp(data(d).type, 'polynomial')
-                disparity_normalized = disparityNormalizedPoly(dataset_d, n_d);
-            elseif strcmp(data(d).type, 'spline')
-                disparity_normalized = disparityNormalizedSpline(dataset_d, n_d);
+            if strcmp(data_d.type, 'polynomial')
+                disparity_normalized = disparityNormalizedPoly(data_d, dataset_d, n_d);
+            elseif strcmp(data_d.type, 'spline')
+                disparity_normalized = disparityNormalizedSpline(data_d, dataset_d, n_d);
             else
                 error('Unrecognized value of the "type" field.');
             end
             
-            disparity_d = (data(d).T_disparity_inv * disparity_normalized.').';
+            disparity_d = (data_d.T_disparity_inv * disparity_normalized.').';
             disparity(filter_d, :) = disparity_d(:, 1:(end-1));
         end
     end

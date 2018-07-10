@@ -162,7 +162,7 @@ n_models = sz(2);
 
 lambda = (1:n_models).';
 channel_mode = true;
-if length(varargin) > 1
+if ~isempty(varargin)
     lambda = varargin{1};
     n_models = 1;
     channel_mode = false;
@@ -276,10 +276,10 @@ for c = 1:n_models
         % 'Pw'
         Pw = P * dataset_normalized_disparity(:, dim);
 
-        splinefun_data(c).coeff_affine = Q \ Pw;
-        splinefun_data(c).coeff_basis = A \ (dataset_normalized_disparity(:, dim) - B * splinefun_data(c).coeff_affine);
+        splinefun_data(c).coeff_affine(:, dim) = Q \ Pw;
+        splinefun_data(c).coeff_basis(:, dim) = A \ (dataset_normalized_disparity(:, dim) - B * splinefun_data(c).coeff_affine(:, dim));
     end
 end
 
-splinefun = makesplinefun(splinefun_data);
+splinefun = makeDispersionfun(splinefun_data);
 end

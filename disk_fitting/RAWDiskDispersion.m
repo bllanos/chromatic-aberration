@@ -119,11 +119,11 @@ parameters_list = {
 % filepaths. Masks are used to avoid processing irrelevant portions of
 % images.
 partial_filepaths = {
-    '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180530_CorrectionMethodsBasicComparison/input_images/disksBlack_warped_raw'
+    '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20170808_OpticalTableMatrix/averaged/d44_a22_far_disksWhite'
     };
 
 % Filename extension (excluding the leading '.')
-ext = 'tiff';
+ext = 'tif';
 % Mask filename extension
 mask_ext = 'png';
 
@@ -155,7 +155,7 @@ end
 bayer_pattern = 'gbrg'; % Colour-filter pattern
 cleanup_radius = 2; % Morphological operations radius for 'findAndFitDisks()'
 k0 = 0.1; % `k0` argument of 'findAndFitDisks()'
-findAndFitDisks_options.bright_disks = false;
+findAndFitDisks_options.bright_disks = true;
 findAndFitDisks_options.mask_as_threshold = false;
 findAndFitDisks_options.group_channels = ~rgb_mode;
 findAndFitDisks_options.area_outlier_threshold = 2;
@@ -171,17 +171,17 @@ dispersion_fieldname = 'center';
 % warping. The second case is useful for warping an "ideal" image to
 % compare it with an observed aberrated image. In both cases, the
 % dispersion vectors point from the reference band to the other bands.
-model_from_reference = true;
+model_from_reference = false;
 
 % Spline, or global polynomial models can be fitted
 model_type = 'polynomial';
 
 % Parameters for polynomial model fitting
-max_degree_xy = 12;
-max_degree_lambda = 12;
+max_degree_xy = 5;
+max_degree_lambda = 5;
 
 % Parameters for spline model fitting
-spline_smoothing_weight = 0;
+spline_smoothing_weight = 10;
 
 % ## Debugging Flags
 findAndFitDisksVerbose.verbose_disk_search = false;

@@ -47,4 +47,4 @@ narginchk(1, 1);
 y = zeros(size(x));
 filter = x > 0;
 x2 = x(filter) .^ 2;
-y(filter) = x2 * log(x2);
+y(filter) = x2 .* log(x2);

@@ -382,5 +382,5 @@ for c = 1:n_models
     polyfun_data(c).coeff_y = vandermonde_matrix_final \ dataset_normalized(:, 5);
 end
 
-polyfun = makePolyfun(polyfun_data);
+polyfun = makeDispersionfun(polyfun_data);
 end
