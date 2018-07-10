@@ -16,8 +16,10 @@
 % its colours. A monochromatic image will be used directly as the input for
 % clustering, whereas an RGB image will be converted to the CIE 1976 L*a*b*
 % colour space, after which its chromaticity values (a* and b*) will be
-% reduced to a single monochromatic image using principal components
-% analysis.
+% reduced to a monochromatic image using principal components analysis.
+% However, RGB images that are actually greyscale, as detected by their
+% having maximum differences between colour channels less than
+% `grey_difference_threshold`, are used as monochromatic images.
 %
 % A chromaticity map describes the blending between two different
 % reflectances in the output images.
@@ -197,6 +199,7 @@
 
 % List of parameters to save with results
 parameters_list = {
+        'grey_difference_threshold',...
         'dispersion_model_filename',...
         'color_map_filename',...
         'normalization_channel',...
@@ -217,17 +220,20 @@ parameters_list = {
 %% Input data and parameters
 
 % Wildcard for 'ls()' to find the chromaticity maps.
-input_chromaticity_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180605_DescribableTexturesDataset/dtd/images/chequered/*.jpg';
+input_chromaticity_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/swirly*small.jpg';
+
+% Threshold for assuming that an RGB image is actually a greyscale image
+grey_difference_threshold = 1;
 
 % Wildcard for 'ls()' to find the shading maps.
 % Set to an empty array to use constant shading
 input_shading_maps_wildcard = [];
 
 % Model of dispersion
-dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180524_PolynomialDispersion_AnalyzePSF_accurate/DoubleConvexThickLensDispersionResults_modelFromReference_false_withModelSpace.mat';
+dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/DoubleConvexThickLensDispersionResults_spline_modelFromReference_false.mat';
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180629_TestingBimaterialImages/SonyColorMapData.mat';
+color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/SonyColorMapData.mat';
 % Colour channel to use for radiance normalization
 normalization_channel = 2;
 % Integration method to use for colour calculations
@@ -267,7 +273,7 @@ n_colors = 2;
 bayer_pattern = 'gbrg';
 
 % Output directory for all images and saved data
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180703_BimaterialTextures_PSFWarp/chequered';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/ground_truth';
 
 % ## Debugging Flags
 segmentColorsVerbose = false;
@@ -318,6 +324,9 @@ end
 if model_from_reference
     error('Dispersion model is in the wrong frame of reference.')
 end
+if isfield(dispersion_data, 'reference_channel')
+    error('A dispersion model for spectral data, not colour channels, is required.');
+end
 
 %% Load colour space conversion data
 
@@ -348,6 +357,9 @@ end
 % Use the intersection of all values of `bands` corresponding to arrays
 bands = bands(bands >= min(bands_color) & bands <= max(bands_color));
 bands = bands(bands >= min(lambda_colorChecker) & bands <= max(lambda_colorChecker));
+if isempty(bands)
+    error('Cannot find a spectral interval common to all spectral quantities.');
+end
 
 % Resample colour space conversion data if necessary
 if length(bands) ~= length(bands_color) || any(bands ~= bands_color)
@@ -417,6 +429,12 @@ fill = 'true';
 for i = 1:n_images
     % Cluster the colours in the chromaticity map
     C_map = imread(chromaticity_filenames{i});
+    if size(C_map, 3) > 1
+        C_map_max_diff = max(max(max(diff(C_map, 1, 3))));
+        if C_map_max_diff < grey_difference_threshold
+            C_map = mean(C_map, 3);
+        end
+    end
     image_height = size(C_map, 1);
     image_width = size(C_map, 2);
     image_sampling = [image_height, image_width];

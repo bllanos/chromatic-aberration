@@ -124,25 +124,24 @@ end
                 lambda_normalized(:, 1:(end - 1)),...
                 ];
         end
-        xylambda_normalized_3d = repmat(...
-            permute(xylambda_normalized, [1 3 2]), 1, size(data_d.coeff_basis, 1)...
-        );
 
         disparity_normalized = ones(n_d, n_spatial_dim + 1);
         for dim = 1:n_spatial_dim
             disparity_normalized(:, dim) = repmat(data_d.coeff_affine(1, dim), n_d, 1) +...
                 dot(repmat(data_d.coeff_affine(2:end, dim).', n_d, 1), xylambda_normalized, 2);
-            distances = xylambda_normalized_3d - repmat(...
-                permute(data_d.xylambda_training, [3, 1, 2]), n_d, 1, 1 ...
-            );
-            distances = sqrt(sum(distances .^ 2, 3));
-            if channel_mode
-                G = splineKernel2D(distances);
-            else
-                G = splineKernel3D(distances);
+            for j = 1:size(data_d.coeff_basis, 1)
+                distances = xylambda_normalized - repmat(...
+                    data_d.xylambda_training(j, :), n_d, 1 ...
+                );
+                distances = sqrt(dot(distances, distances, 2));
+                if channel_mode
+                    G = splineKernel2D(distances);
+                else
+                    G = splineKernel3D(distances);
+                end
+                disparity_normalized(:, dim) = disparity_normalized(:, dim)  +...
+                    data_d.coeff_basis(j, dim) * G;
             end
-            disparity_normalized(:, dim) = disparity_normalized(:, dim)  +...
-                sum(repmat(data_d.coeff_basis(:, dim).', n_d, 1) .* G, 2);
         end
     end
 

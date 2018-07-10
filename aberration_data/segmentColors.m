@@ -85,6 +85,7 @@ image_width = size(I, 2);
 n_channels = size(I, 3);
 if n_channels == 1
     I_mono = I;
+    I_mono_linear = I_mono(:);
 elseif n_channels == 3
     I_lab = rgb2lab(I);
     I_a = I_lab(:, :, 2);

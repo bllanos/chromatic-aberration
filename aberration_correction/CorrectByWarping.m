@@ -123,17 +123,17 @@ parameters_list = {
 
 % Wildcard for 'ls()' to find the images to process.
 % '.mat' or image files can be loaded
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180703_BimaterialTextures_PSFWarp/chequered/*raw*.mat';
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/ground_truth/splines/swirly_0138_raw_warped.mat';
 input_images_variable_name = 'raw_2D'; % Used only when loading '.mat' files
 
 % Colour-filter pattern
 bayer_pattern = 'gbrg';
 
 % Model of dispersion
-dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180703_BimaterialTextures_PSFWarp_correctionTest/DoubleConvexThickLensDispersionResults_forCorrectByWarping.mat';
+dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/DoubleConvexThickLensDispersionResults_spline_modelFromReference_true_fill.mat';
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180703_BimaterialTextures_PSFWarp_correctionTest';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/warping';
 
 %% Find the images
 

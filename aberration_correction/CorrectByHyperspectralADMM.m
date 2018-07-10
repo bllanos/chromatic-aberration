@@ -226,21 +226,21 @@ parameters_list = {
 
 % Wildcard for 'ls()' to find the images to process.
 % '.mat' or image files can be loaded
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180703_BimaterialTextures_PSFWarp/chequered/*42*raw*.mat';
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/ground_truth/splines/*small*raw*.mat';
 input_images_variable_name = 'raw_2D'; % Used only when loading '.mat' files
 
 % Colour-filter pattern
 bayer_pattern = 'gbrg';
 
 % Model of dispersion
-dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180703_BimaterialTextures_PSFWarp/chequered/BimaterialImagesData.mat';
+dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/ground_truth/splines/BimaterialImagesData_small.mat';
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180629_TestingBimaterialImages/SonyColorMapData.mat';
+color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/SonyColorMapData.mat';
 
 % Override the wavelengths or colour channel indices at which to evaluate
 % the model of dispersion, if desired.
-bands = linspace(430, 650, 23);
+bands = 430:10:650;
 % Interpolation method used when resampling colour space conversion data
 bands_interp_method = 'linear';
 
@@ -249,7 +249,7 @@ bands_interp_method = 'linear';
 downsampling_factor = 1;
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180703_BimaterialTextures_PSFWarp_correctionTest/ADMM_23 bands_img42';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/admm';
 
 % Whether or not to save the latent images to image files, beyond including
 % them in the output '.mat' files
@@ -260,7 +260,7 @@ save_latent_image_files = false;
 % Whether to expand the latent image relative to the input image to cover
 % all undistorted coordinates from the input image. This is the
 % `add_border` input argument.
-baek2017Algorithm2Options.add_border = false;
+baek2017Algorithm2Options.add_border = true;
 
 % Whether to make the spectral gradient the same size as the image. This is
 % the `full_GLambda` input argument.
@@ -272,7 +272,7 @@ baek2017Algorithm2Options.full_GLambda = false;
 rho = [ 1, 1 ];
 
 % Weights on the two prior terms, the `weights` input argument.
-weights = [ 0.001, 0.1 ];
+weights = [ 1, 1 ];
 
 % Convergence tolerances in ADMM, the `tol` input argument.
 %
@@ -281,7 +281,7 @@ weights = [ 0.001, 0.1 ];
 baek2017Algorithm2Options.tol = [ 1e-3, 1e-2, 1e-3 ];
 
 % Maximum number of inner and outer iterations, the `maxit` input argument
-baek2017Algorithm2Options.maxit = [ 20, 500 ];
+baek2017Algorithm2Options.maxit = [ 20, 100 ];
 
 % If the latent space consists of wavelength bands, use this type of
 % numerical integration in 'channelConversionMatrix()'. (Otherwise, a value
