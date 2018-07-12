@@ -1,15 +1,13 @@
 function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
-    image_sampling, align, sensitivity,...
-    dispersionfun, lambda, J_2D, rho, weights,...
-    options, varargin...
+    image_sampling, align, dispersion, sensitivity, lambda, J_2D,...
+    rho, weights, options, varargin...
     )
 % BAEK2017ALGORITHM2  Run ADMM as in Algorithm 2 of Baek et al. 2017
 %
 % ## Syntax
 % I = baek2017Algorithm2(...
-%     image_sampling, align, sensitivity,...
-%     dispersionfun, lambda, J, rho, weights,...
-%     options [, verbose]...
+%   image_sampling, align, dispersion, sensitivity, lambda, J,...
+%   rho, weights, options [, verbose]...
 % )
 % [ I, image_bounds ] = baek2017Algorithm2(___)
 % [ I, image_bounds, I_rgb ] = baek2017Algorithm2(___)
@@ -18,9 +16,8 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %
 % ## Description
 % I = baek2017Algorithm2(...
-%     image_sampling, align, sensitivity,...
-%     dispersionfun, lambda, J, rho, weights,...
-%     options [, verbose]...
+%     image_sampling, align, dispersion, sensitivity,...
+%     lambda, J, rho, weights, options [, verbose]...
 % )
 %   Estimate a latent RGB or hyperspectral image `I` from dispersion in
 %   the input RAW image `J`.
@@ -51,27 +48,35 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %   the input image `J`. For example, 'gbrg'. `align` has the same form
 %   as the `sensorAlignment` input argument of `demosaic()`.
 %
+% dispersion -- Model of dispersion
+%   Two forms of this argument can be passed:
+%
+%   `dispersion` can be a function handle, produced by
+%   'makeDispersionfun()'. `dispersion(X)`, where `X` is a three-element
+%   row vector (x, y, lambda), returns the dispersion vector for the
+%   position (x, y) in `J` corresponding to light with wavelength or colour
+%   channel index `lambda`. The dispersion vector corrects for lateral
+%   chromatic aberration by pointing from the corresponding position in the
+%   reference spectral band or colour channel to position (x, y). This
+%   function will negate the dispersion vectors of `dispersion` in order to
+%   create a warp matrix from `I` to `J`.
+%
+%   `dispersion` can be a matrix for warping `I` to `J`, where the k-th row
+%   contains the weights of pixels in `I` used to re-estimate the k-th
+%   pixel in `J`. With a matrix value for `dispersion`, this function will
+%   not make use of `lambda` or `options.add_border`, which are only needed
+%   for computing a warp matrix.
+%
 % sensitivity -- Spectral band conversion matrix
 %   A 2D array, where `sensitivity(i, j)` is the sensitivity of the i-th
 %   colour channel of `J` to the j-th input colour channel or spectral
 %   band of `I`. `sensitivity` is a matrix mapping colours in `I` to
 %   colours in `J`.
 %
-% dispersionfun -- Model of dispersion
-%   A function handle, produced by 'makeDispersionfun()'. `dispersionfun(X)`,
-%   where `X` is a three-element row vector (x, y, lambda), returns the
-%   dispersion vector for the position (x, y) in `J` corresponding to light
-%   with wavelength or colour channel index `lambda`. The dispersion vector
-%   corrects for lateral chromatic aberration by pointing from the
-%   corresponding position in the reference spectral band or colour channel
-%   to position (x, y). This function will negate the dispersion vectors
-%   produced by `dispersionfun()` in order to create a warp matrix from `I` to
-%   `J`.
-%
 % lambda -- Wavelength bands
 %   A vector of length 'c' containing the wavelengths or colour channel
 %   indices at which to evaluate the dispersion model encapsulated by
-%   `dispersionfun`. 'c' is the desired number of spectral bands or colour
+%   `dispersion`. 'c' is the desired number of spectral bands or colour
 %   channels in `I`.
 %
 % J -- Input RAW image
@@ -110,7 +115,8 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %     If `true`, the output image `I` will be large enough to contain the
 %     lateral chromatic aberration-corrected coordinates of all pixels in
 %     `J`. If `false`, the output image `I` will be clipped to the region
-%     occupied by `J`.
+%     occupied by `J`. If `dispersion` is a matrix, this option is not
+%     used, and an be absent.
 %   - 'full_GLambda': A Boolean value used as the `replicate` input
 %     argument of 'spectralGradient()' when creating the spectral gradient
 %     matrix needed for regularizing `I`. Refer to the documentation of
@@ -147,8 +153,8 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % image_bounds -- Latent image coordinate frame
 %   The boundaries of `I` expressed in the coordinate frame of `J`.
 %   `image_bounds` is an output argument of the same name of
-%   'dispersionfunToMatrix()'. If `add_border` is `false`, `image_bounds`
-%   will be equal to `[0, 0, size(J, 2), size(J, 1)]`.
+%   'dispersionfunToMatrix()'. If `options.add_border` is `false`,
+%   `image_bounds` will be equal to `[0, 0, size(J, 2), size(J, 1)]`.
 %
 % I_rgb -- Latent RGB image
 %   The RGB equivalent of the latent image, generated using the colour
@@ -217,6 +223,16 @@ else
     error('`options.int_method` must be a character vector or a string scalar.');
 end
 
+if ismatrix(dispersion)
+    if size(dispersion, 1) ~= numel(J_2D)
+        error('The `dispersion` matrix must have as many rows as there are pixels in `J`.');
+    elseif size(dispersion, 2) ~= prod(image_sampling)
+        error('The `dispersion` matrix must have as many columns as there are pixels in `I`.');
+    end
+elseif ~isa(dispersion, 'function_handle')
+    error('`dispersion` must be either a matrix, or a function handle.');
+end
+
 J = J_2D(:);
 
 % Create constant matrices
@@ -234,7 +250,7 @@ else
     image_bounds = [0, 0, image_sampling_J(2), image_sampling_J(1)];
 end
 [ Phi, image_bounds ] = dispersionfunToMatrix(...
-   dispersionfun, lambda, image_sampling_J, image_sampling, image_bounds, true...
+   dispersion, lambda, image_sampling_J, image_sampling, image_bounds, true...
 );
 
 if all(weights == 0)

@@ -281,7 +281,7 @@ weights = [ 1, 1 ];
 baek2017Algorithm2Options.tol = [ 1e-3, 1e-2, 1e-3 ];
 
 % Maximum number of inner and outer iterations, the `maxit` input argument
-baek2017Algorithm2Options.maxit = [ 20, 100 ];
+baek2017Algorithm2Options.maxit = [ 500, 100 ];
 
 % If the latent space consists of wavelength bands, use this type of
 % numerical integration in 'channelConversionMatrix()'. (Otherwise, a value
@@ -430,8 +430,8 @@ for i = 1:n_images
     end
     
     [ I_latent, image_bounds{i}, I_rgb, J_full, J_est ] = baek2017Algorithm2(...
-        image_sampling, bayer_pattern, sensor_map_resampled,...
-        dispersionfun, bands, I_raw, rho, weights,...
+        image_sampling, bayer_pattern, dispersionfun, sensor_map_resampled,...
+        bands, I_raw, rho, weights,...
         baek2017Algorithm2Options, baek2017Algorithm2Verbose...
     );
             
