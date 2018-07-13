@@ -119,8 +119,8 @@
 % ### Estimated images
 %
 % One of the following types of images is created for each input image,
-% except where specified. The filename of the input image is represented by
-% '*' below.
+% except where specified. The filename of the input image, concatenated
+% with a string of parameter information, is represented by '*' below.
 % - '*_roi.tif' and '*_roi.mat': A cropped version of the input image
 %   (stored in the variable 'I_raw'), containing the portion used as input
 %   for ADMM. This region of interest was determined using the
@@ -216,10 +216,15 @@ parameters_list = {
         'downsampling_factor',...
         'output_directory',...
         'save_latent_image_files',...
+        'add_border',...
         'baek2017Algorithm2Options',...
         'rho',...
         'weights',...
-        'int_method'...
+        'int_method',...
+        'patch_sizes',...
+        'paddings',...
+        'target_patch',...
+        'run_entire_image'...
     };
 
 %% Input data and parameters
@@ -255,12 +260,12 @@ output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/201
 % them in the output '.mat' files
 save_latent_image_files = false;
 
-% ## Options for baek2017Algorithm2() (Alternating Direction Method of Multipliers)
-
 % Whether to expand the latent image relative to the input image to cover
 % all undistorted coordinates from the input image. This is the
 % `add_border` input argument.
-baek2017Algorithm2Options.add_border = true;
+add_border = true;
+
+% ## Options for baek2017Algorithm2() (Alternating Direction Method of Multipliers)
 
 % Whether to make the spectral gradient the same size as the image. This is
 % the `full_GLambda` input argument.
@@ -287,6 +292,24 @@ baek2017Algorithm2Options.maxit = [ 500, 100 ];
 % numerical integration in 'channelConversionMatrix()'. (Otherwise, a value
 % of 'none' will automatically be used instead.)
 int_method = 'trap';
+
+% ## Options for patch-wise image estimation
+
+% Every combination of rows of `patch_sizes` and elements of `paddings`
+% will be tested
+patch_sizes = [ % Each row contains a (number of rows, number of columns) pair
+    20 30;
+    25 35
+]; 
+paddings = (2:5).';
+
+% Only estimate a single patch, with its top-left corner at the given (row,
+% column) location.
+% If empty (`[]`), the entire image will be estimated.
+target_patch = [0, 0];
+
+% Also compare with whole image estimation
+run_entire_image = true;
 
 % ## Debugging Flags
 baek2017Algorithm2Verbose = true;
@@ -338,8 +361,10 @@ bands_color = bands;
 
 if channel_mode
     baek2017Algorithm2Options.int_method = 'none';
+    solvePatchesOptions.int_method = 'none';
 else
     baek2017Algorithm2Options.int_method = int_method;
+    solvePatchesOptions.int_method = int_method;
 end
 
 %% Preprocessing input data
@@ -392,6 +417,11 @@ end
 img_ext = '.tif';
 mat_ext = '.mat';
 image_bounds = cell(n_images, 1);
+solvePatchesOptions.add_border = add_border;
+if run_entire_image
+    patch_sizes = [nan(1, 2); patch_sizes];
+    paddings = [nan; paddings];
+end
 
 for i = 1:n_images
     [~, name, ext] = fileparts(image_filenames{i});
@@ -429,30 +459,78 @@ for i = 1:n_images
         image_sampling = ceil(image_sampling / downsampling_factor);
     end
     
-    [ I_latent, image_bounds{i}, I_rgb, J_full, J_est ] = baek2017Algorithm2(...
-        image_sampling, bayer_pattern, dispersionfun, sensor_map_resampled,...
-        bands, I_raw, rho, weights,...
-        baek2017Algorithm2Options, baek2017Algorithm2Verbose...
-    );
+    for ps = 1:size(patch_sizes, 1)
+        for pad = 1:length(paddings)
+            if run_entire_image && ps == 1 && pad == 1
+                baek2017Algorithm2Options.add_border = add_border;
+                [ I_latent, image_bounds{i}, I_rgb, J_full, J_est ] = baek2017Algorithm2(...
+                    image_sampling, bayer_pattern, dispersionfun, sensor_map_resampled,...
+                    bands, I_raw, rho, weights,...
+                    baek2017Algorithm2Options, baek2017Algorithm2Verbose...
+                );
+                name_params = [name, '_whole'];
+            elseif ~run_entire_image || pad > 1
+                baek2017Algorithm2Options.add_border = false;
+                solvePatchesOptions.patch_size = patch_sizes(ps, :);
+                solvePatchesOptions.padding = paddings(pad);
+                name_params = [name, sprintf(...
+                    '_patch%dx%d_pad%d',...
+                    patch_sizes(ps, 1), patch_sizes(ps, 2), paddings(pad)...
+                )];
+                if isempty(target_patch)
+                    [...
+                        I_latent, image_bounds{i}, I_rgb, J_full, J_est...
+                    ] = solvePatches(...
+                        image_sampling, I_raw, bayer_pattern, dispersionfun,...
+                        sensor_map_resampled,...
+                        bands, solvePatchesOptions, @baek2017Algorithm2,...
+                        {...
+                            rho, weights,...
+                            baek2017Algorithm2Options, baek2017Algorithm2Verbose...
+                        }...
+                    );
+                    
+                else
+                    [...
+                        I_latent, image_bounds{i}, I_rgb, J_full, J_est...
+                    ] = solvePatches(...
+                        image_sampling, I_raw, bayer_pattern, dispersionfun,...
+                        sensor_map_resampled,...
+                        bands, solvePatchesOptions, @baek2017Algorithm2,...
+                        {...
+                            rho, weights,...
+                            baek2017Algorithm2Options, baek2017Algorithm2Verbose...
+                        }, target_patch...
+                    );
+                    name_params = [name_params, sprintf(...
+                        '_target%dAnd%d',...
+                        target_patch(1), target_patch(2)...
+                    )];
+                end
+            else
+                continue;
+            end
             
-    % Save the results
-    I_filename = fullfile(output_directory, [name '_roi']);
-    imwrite(I_raw, [I_filename img_ext]);
-    save([I_filename mat_ext], 'I_raw');
-    I_filename = fullfile(output_directory, [name '_latent']);
-    if save_latent_image_files
-        imwrite(I_latent, [I_filename img_ext]);
+            % Save the results
+            I_filename = fullfile(output_directory, [name_params '_roi']);
+            imwrite(I_raw, [I_filename img_ext]);
+            save([I_filename mat_ext], 'I_raw');
+            I_filename = fullfile(output_directory, [name_params '_latent']);
+            if save_latent_image_files
+                imwrite(I_latent, [I_filename img_ext]);
+            end
+            save([I_filename mat_ext], 'I_latent');
+            I_filename = fullfile(output_directory, [name_params '_latent_rgb']);
+            imwrite(I_rgb, [I_filename img_ext]);
+            save([I_filename mat_ext], 'I_rgb');
+            I_filename = fullfile(output_directory, [name_params '_latent_warped']);
+            imwrite(J_full, [I_filename img_ext]);
+            save([I_filename mat_ext], 'J_full');
+            I_filename = fullfile(output_directory, [name_params '_reestimated']);
+            imwrite(J_est, [I_filename img_ext]);
+            save([I_filename mat_ext], 'J_est');
+        end
     end
-    save([I_filename mat_ext], 'I_latent');
-    I_filename = fullfile(output_directory, [name '_latent_rgb']);
-    imwrite(I_rgb, [I_filename img_ext]);
-    save([I_filename mat_ext], 'I_rgb');
-    I_filename = fullfile(output_directory, [name '_latent_warped']);
-    imwrite(J_full, [I_filename img_ext]);
-    save([I_filename mat_ext], 'J_full');
-    I_filename = fullfile(output_directory, [name '_reestimated']);
-    imwrite(J_est, [I_filename img_ext]);
-    save([I_filename mat_ext], 'J_est');
 end
 
 %% Save parameters and additional data to a file
