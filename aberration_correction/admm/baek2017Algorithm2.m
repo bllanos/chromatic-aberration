@@ -156,6 +156,9 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %   'dispersionfunToMatrix()'. If `options.add_border` is `false`,
 %   `image_bounds` will be equal to `[0, 0, size(J, 2), size(J, 1)]`.
 %
+%   `image_bounds` is empty if `dispersion` is a matrix, as
+%   'dispersionfunToMatrix()' is not called.
+%
 % I_rgb -- Latent RGB image
 %   The RGB equivalent of the latent image, generated using the colour
 %   space conversion data in `sensitivity`. An image_sampling(1) x
@@ -244,14 +247,17 @@ if do_integration
 else
     Omega = channelConversionMatrix(image_sampling_J, sensitivity);
 end
-if options.add_border
-    image_bounds = [];
+image_bounds = [];
+if ~ismatrix(dispersion)
+    if ~options.add_border
+        image_bounds = [0, 0, image_sampling_J(2), image_sampling_J(1)];
+    end
+    [ Phi, image_bounds ] = dispersionfunToMatrix(...
+       dispersion, lambda, image_sampling_J, image_sampling, image_bounds, true...
+    );
 else
-    image_bounds = [0, 0, image_sampling_J(2), image_sampling_J(1)];
+    Phi = dispersion;
 end
-[ Phi, image_bounds ] = dispersionfunToMatrix(...
-   dispersion, lambda, image_sampling_J, image_sampling, image_bounds, true...
-);
 
 if all(weights == 0)
     A = M * Omega * Phi;

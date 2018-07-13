@@ -56,10 +56,12 @@ switch align
         mask(1:2:end,1:2:end, 3) = true; %b
     case 'grbg'
         mask(1:2:end,2:2:end, 1) = true; %r
-        mask(1:2:end,2:2:end, 3) = true; %b
+        mask(2:2:end,1:2:end, 3) = true; %b
     case 'gbrg'
         mask(2:2:end,1:2:end, 1) = true; %r
         mask(1:2:end,2:2:end, 3) = true; %b
+    otherwise
+        error('Unrecognized Bayer pattern format string.');
 end
 
 mask(:, :, 2) = not(or(mask(:, :, 1), mask(:, :, 3)));
