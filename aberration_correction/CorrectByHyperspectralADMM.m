@@ -231,7 +231,7 @@ parameters_list = {
 
 % Wildcard for 'ls()' to find the images to process.
 % '.mat' or image files can be loaded
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/ground_truth/splines/swirly_0138_small_raw_warped.mat';
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/ground_truth/splines/swirly_0139_raw_warped.mat';
 input_images_variable_name = 'raw_2D'; % Used only when loading '.mat' files
 
 % Colour-filter pattern
