@@ -139,6 +139,14 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %     elements of `tol` are the absolute and relative tolerance values for
 %     the ADMM algorithm, as explained in Section 3.3.1 of Boyd et al.
 %     2011.
+%   - 'varying_penalty_params': If empty, the penalty parameters passed as
+%     `rho` will be fixed for all iterations. Otherwise,
+%     'varying_penalty_params' is a three-element vector containing the
+%     parameters 'tau_incr', 'tau_decr', and 'mu', respectively, in
+%     equation 3.13 of Boyd et al. 2011. In this case, the penalty
+%     parameters in the ADMM iterations will vary so as to help speed up
+%     convergence. Refer to Section 3.4.1 of Boyd et al. 2011 for a full
+%     explanation.
 %
 % verbose -- Verbosity flag
 %   If `true`, console output will be displayed to show the progress of the
@@ -197,6 +205,9 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % There are several modifications and expansions which may improve the
 % performance of ADMM:
 % - Section 3.4.1 of Boyd et al. 2011, "Varying Penalty Parameter"
+%   - Now activated by a non-empty `options.varying_penalty_params` vector.
+%   - Further refinement may be possible by "taking into account the relative
+%    magnitudes of [the primal and dual convergence thresholds]."
 % - Section 4.3.2 of Boyd et al. 2011, "Early Termination"
 %
 % See also mosaicMatrix, channelConversionMatrix, dispersionfunToMatrix,
@@ -206,6 +217,19 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % Supervised by Dr. Y.H. Yang
 % University of Alberta, Department of Computing Science
 % File created May 27, 2018
+
+    % Equation 3.13 in Section 3.4.1 of Boyd et al. 2011
+    function rho = updatePenalties(R1, R2, S1, S2, rho)
+        R = [R1, R2];
+        S = [S1, S2];
+        for p = 1:2
+            if R(p) > mu * S(p)
+                rho(p) = rho(p) * tau_incr;
+            elseif S(p) > mu * R(p)
+                rho(p) = rho(p) / tau_decr;
+            end
+        end
+    end
 
 nargoutchk(1, 5);
 narginchk(9, 10);
@@ -224,6 +248,23 @@ if isStringScalar(options.int_method) || ischar(options.int_method)
     do_integration = ~strcmp(options.int_method, 'none');
 else
     error('`options.int_method` must be a character vector or a string scalar.');
+end
+
+vary_penalty_parameters = false;
+if ~isempty(options.varying_penalty_params)
+    vary_penalty_parameters = true;
+    tau_incr = options.varying_penalty_params(1);
+    if tau_incr <= 1
+        error('The `tau_incr` parameter, `options.varying_penalty_params(1)`, must be greater than one.');
+    end
+    tau_decr = options.varying_penalty_params(2);
+    if tau_decr <= 1
+        error('The `tau_decr` parameter, `options.varying_penalty_params(2)`, must be greater than one.');
+    end
+    mu = options.varying_penalty_params(3);
+    if mu <= 1
+        error('The `mu` parameter, `options.varying_penalty_params(3)`, must be greater than one.');
+    end
 end
 
 n_bands = length(lambda);
@@ -369,7 +410,19 @@ else
             break;
         end
 
-        b = subproblemI(M, Omega, Phi, G_xy, G_lambda, J, Z1, Z2, U1, U2, rho);
+        if vary_penalty_parameters
+            rho = updatePenalties(...
+                R1_norm, R2_norm, S1_norm, S2_norm, rho...
+            );
+            soft_thresholds = weights ./ rho;
+            U1 = Y1 ./ rho(1);
+            U2 = Y2 ./ rho(2);
+            [ b, A ] = subproblemI(...
+                M, Omega, Phi, G_xy, G_lambda, J, Z1, Z2, U1, U2, rho...
+            );
+        else
+            b = subproblemI(M, Omega, Phi, G_xy, G_lambda, J, Z1, Z2, U1, U2, rho);
+        end
     end
 
     if verbose

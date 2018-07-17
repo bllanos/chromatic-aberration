@@ -231,7 +231,7 @@ parameters_list = {
 
 % Wildcard for 'ls()' to find the images to process.
 % '.mat' or image files can be loaded
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/ground_truth/splines/swirly_0139_raw_warped.mat';
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/ground_truth/splines/swirly_0138_small_raw_warped.mat';
 input_images_variable_name = 'raw_2D'; % Used only when loading '.mat' files
 
 % Colour-filter pattern
@@ -288,6 +288,11 @@ baek2017Algorithm2Options.tol = [ 1e-3, 1e-2, 1e-3 ];
 % Maximum number of inner and outer iterations, the `maxit` input argument
 baek2017Algorithm2Options.maxit = [ 500, 100 ];
 
+% Parameters for adaptively changing the penalty parameters for improved
+% convergence speed. (Disable adaptive penalty parameter variation by
+% setting this option to an empty array.)
+baek2017Algorithm2Options.varying_penalty_params = [2, 2, 10];
+
 % If the latent space consists of wavelength bands, use this type of
 % numerical integration in 'channelConversionMatrix()'. (Otherwise, a value
 % of 'none' will automatically be used instead.)
@@ -296,7 +301,8 @@ int_method = 'trap';
 % ## Options for patch-wise image estimation
 
 % Every combination of rows of `patch_sizes` and elements of `paddings`
-% will be tested
+% will be tested.
+% If `patch_sizes` is empty only whole image estimation will be performed
 patch_sizes = [ % Each row contains a (number of rows, number of columns) pair
     25 25;
 ]; 
@@ -307,7 +313,7 @@ paddings = 11;
 % If empty (`[]`), the entire image will be estimated.
 target_patch = [];
 
-% Also compare with whole image estimation
+% Also compare with (or only run) whole image estimation
 run_entire_image = false;
 
 % ## Debugging Flags
@@ -418,6 +424,10 @@ mat_ext = '.mat';
 image_bounds = cell(n_images, 1);
 solvePatchesOptions.add_border = add_border;
 
+if isempty(patch_sizes) && ~run_entire_image
+    error('Neither patch-based image estimation, nor whole image estimation, were requested.');
+end
+
 for i = 1:n_images
     [~, name, ext] = fileparts(image_filenames{i});
     if strcmp(ext, mat_ext)
@@ -454,9 +464,9 @@ for i = 1:n_images
         image_sampling = ceil(image_sampling / downsampling_factor);
     end
     
-    for ps = 1:size(patch_sizes, 1)
+    for ps = 0:size(patch_sizes, 1)
         for pad = 0:length(paddings)
-            if run_entire_image && ps == 1 && pad == 0
+            if run_entire_image && ps == 0 && pad == 0
                 baek2017Algorithm2Options.add_border = add_border;
                 [ I_latent, image_bounds{i}, I_rgb, J_full, J_est ] = baek2017Algorithm2(...
                     image_sampling, bayer_pattern, dispersionfun, sensor_map_resampled,...
@@ -464,7 +474,7 @@ for i = 1:n_images
                     baek2017Algorithm2Options, baek2017Algorithm2Verbose...
                 );
                 name_params = [name, '_whole'];
-            elseif pad > 0
+            elseif ps > 0 && pad > 0
                 baek2017Algorithm2Options.add_border = false;
                 solvePatchesOptions.patch_size = patch_sizes(ps, :);
                 solvePatchesOptions.padding = paddings(pad);
