@@ -226,21 +226,24 @@ else
     error('`options.int_method` must be a character vector or a string scalar.');
 end
 
-if ismatrix(dispersion)
-    if size(dispersion, 1) ~= numel(J_2D)
-        error('The `dispersion` matrix must have as many rows as there are pixels in `J`.');
-    elseif size(dispersion, 2) ~= prod(image_sampling)
-        error('The `dispersion` matrix must have as many columns as there are pixels in `I`.');
+n_bands = length(lambda);
+
+dispersion_is_matrix = false;
+if isfloat(dispersion) && ismatrix(dispersion)
+    dispersion_is_matrix = true;
+    if size(dispersion, 1) ~= (numel(J_2D) * n_bands)
+        error('The `dispersion` matrix must have as many rows as there are pixels in `J` times bands.');
+    elseif size(dispersion, 2) ~= (prod(image_sampling) * n_bands)
+        error('The `dispersion` matrix must have as many columns as there are values in `I`.');
     end
 elseif ~isa(dispersion, 'function_handle')
-    error('`dispersion` must be either a matrix, or a function handle.');
+    error('`dispersion` must be either a floating-point matrix, or a function handle.');
 end
 
 J = J_2D(:);
 
 % Create constant matrices
 image_sampling_J = size(J_2D);
-n_bands = length(lambda);
 M = mosaicMatrix(image_sampling_J, align);
 if do_integration
     Omega = channelConversionMatrix(image_sampling_J, sensitivity, lambda, options.int_method);
@@ -248,15 +251,15 @@ else
     Omega = channelConversionMatrix(image_sampling_J, sensitivity);
 end
 image_bounds = [];
-if ~ismatrix(dispersion)
+if dispersion_is_matrix
+    Phi = dispersion;
+else
     if ~options.add_border
         image_bounds = [0, 0, image_sampling_J(2), image_sampling_J(1)];
     end
     [ Phi, image_bounds ] = dispersionfunToMatrix(...
        dispersion, lambda, image_sampling_J, image_sampling, image_bounds, true...
-    );
-else
-    Phi = dispersion;
+    );    
 end
 
 if all(weights == 0)

@@ -231,7 +231,7 @@ parameters_list = {
 
 % Wildcard for 'ls()' to find the images to process.
 % '.mat' or image files can be loaded
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/ground_truth/splines/*small*raw*.mat';
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/ground_truth/splines/swirly_0139_raw_warped.mat';
 input_images_variable_name = 'raw_2D'; % Used only when loading '.mat' files
 
 % Colour-filter pattern
@@ -298,18 +298,17 @@ int_method = 'trap';
 % Every combination of rows of `patch_sizes` and elements of `paddings`
 % will be tested
 patch_sizes = [ % Each row contains a (number of rows, number of columns) pair
-    20 30;
-    25 35
+    25 25;
 ]; 
-paddings = (2:5).';
+paddings = 11;
 
 % Only estimate a single patch, with its top-left corner at the given (row,
 % column) location.
 % If empty (`[]`), the entire image will be estimated.
-target_patch = [0, 0];
+target_patch = [];
 
 % Also compare with whole image estimation
-run_entire_image = true;
+run_entire_image = false;
 
 % ## Debugging Flags
 baek2017Algorithm2Verbose = true;
@@ -418,10 +417,6 @@ img_ext = '.tif';
 mat_ext = '.mat';
 image_bounds = cell(n_images, 1);
 solvePatchesOptions.add_border = add_border;
-if run_entire_image
-    patch_sizes = [nan(1, 2); patch_sizes];
-    paddings = [nan; paddings];
-end
 
 for i = 1:n_images
     [~, name, ext] = fileparts(image_filenames{i});
@@ -460,8 +455,8 @@ for i = 1:n_images
     end
     
     for ps = 1:size(patch_sizes, 1)
-        for pad = 1:length(paddings)
-            if run_entire_image && ps == 1 && pad == 1
+        for pad = 0:length(paddings)
+            if run_entire_image && ps == 1 && pad == 0
                 baek2017Algorithm2Options.add_border = add_border;
                 [ I_latent, image_bounds{i}, I_rgb, J_full, J_est ] = baek2017Algorithm2(...
                     image_sampling, bayer_pattern, dispersionfun, sensor_map_resampled,...
@@ -469,7 +464,7 @@ for i = 1:n_images
                     baek2017Algorithm2Options, baek2017Algorithm2Verbose...
                 );
                 name_params = [name, '_whole'];
-            elseif ~run_entire_image || pad > 1
+            elseif pad > 0
                 baek2017Algorithm2Options.add_border = false;
                 solvePatchesOptions.patch_size = patch_sizes(ps, :);
                 solvePatchesOptions.padding = paddings(pad);

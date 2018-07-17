@@ -150,9 +150,10 @@ function [ I_3D, image_bounds, varargout ] = solvePatches(...
 %   storing the latent image estimated on a patch-wise basis using the
 %   function `f`.
 %
-%   If `target_patch` is passed, then `I` is an options.patch_size(1) x
-%   options.patch_size(2) x length(lambda) array containing the patch of
-%   the latent image having its top left corner at position `target_patch`.
+%   If `target_patch` is passed, then `I` is at most an
+%   options.patch_size(1) x options.patch_size(2) x length(lambda) array
+%   containing the patch of the latent image having its top left corner at
+%   position `target_patch`.
 %
 % image_bounds -- Latent image coordinate frame
 %   The boundaries of the latent image expressed in the coordinate frame of
@@ -167,18 +168,17 @@ function [ I_3D, image_bounds, varargout ] = solvePatches(...
 %   space conversion data in `sensitivity`. An image_sampling(1) x
 %   image_sampling(2) x 3 array.
 %
-%   If `target_patch` is passed, then `I_rgb` is an options.patch_size(1) x
-%   options.patch_size(2) x length(lambda) array.
+%   If `target_patch` is passed, then `I_rgb` has the same first two
+%   dimensions as `I`, and a length of 3 in its third dimension.
 %
 % J_full -- Warped latent RGB image
 %   An RGB image produced by warping `I` according to the dispersion model,
 %   followed by conversion to the RGB colour space of `J`. An size(J, 1) x
 %   size(J, 2) x 3 array.
 %
-%   If `target_patch` is passed, then `J_full` is close in size to a
-%   options.patch_size(1) x options.patch_size(2) x 3 array, but its exact
-%   spatial dimensions depend on the nature of the warp between `I` and
-%   `J`.
+%   If `target_patch` is passed, then `J_full` has spatial dimensions which
+%   depend on the nature of the warp between `I` and `J`, and on the
+%   padding region surrounding `I`.
 %
 % J_est -- Re-estimated input RAW image
 %   The mosaiced version of `J_full`, representing the result of passing
@@ -213,7 +213,7 @@ function [ I_3D, image_bounds, varargout ] = solvePatches(...
 % University of Alberta, Department of Computing Science
 % File created July 12, 2018
 
-narginchk(11, 12);
+narginchk(9, 10);
 
 single_patch = false;
 if ~isempty(varargin)
@@ -242,94 +242,154 @@ fprintf('Calculating the dispersion matrix...\n');
 [ dispersion_matrix, image_bounds ] = dispersionfunToMatrix(...
    dispersionfun, lambda, image_sampling_J, image_sampling, image_bounds, true...
 );
-fprintf('...done\n');
+fprintf('\t...done\n');
 
-    function align_new = offsetBayerPattern(offset, align)
-        if mod(offset(1), 2) == 0
-            if mod(offset(2), 2) == 0
+    function align_new = offsetBayerPattern(corner, align)
+        if mod(corner(1), 2) == 0
+            if mod(corner(2), 2) == 0
                 align_new = align([4, 3, 2, 1]);
             else
                 align_new = align([3, 4, 1, 2]);
             end
         else
-            if mod(offset(2), 2) == 0
+            if mod(corner(2), 2) == 0
                 align_new = align([2, 1, 4, 3]);
             else
-                align_new = align([4, 3, 2, 1]);
+                align_new = align;
             end
         end
     end
 
-    function [I, image_sampling_J_patch, varargout] = solveOnePatch(...
+    function [I, image_sampling_J_f, dispersion_matrix_patch, varargout] = solveOnePatch(...
             image_sampling, J, align, dispersion_matrix, sensitivity,...
             lambda, patch_size, padding, f, f_args, corner...
     )
         % Find the linear indices of pixels in the output patch
         patch_lim_I = [
             corner(1) - padding, corner(2) - padding;
-            corner(1) + patch_size(1) + padding, corner(2) + patch_size(2) + padding
+            corner(1) + patch_size(1) + padding - 1, corner(2) + patch_size(2) + padding - 1
             ];
-        patch_lim_I(patch_lim_I < 1) = 1;
+        trim = [padding + 1, padding + 1];
+        if patch_lim_I(1, 1) < 1
+            trim(1, 1) = trim(1, 1) + patch_lim_I(1, 1) - 1;
+            patch_lim_I(1, 1) = 1;
+        end
+        if patch_lim_I(1, 2) < 1
+            trim(1, 2) = trim(1, 2) + patch_lim_I(1, 2) - 1;
+            patch_lim_I(1, 2) = 1;
+        end
+        trim = [trim; trim + patch_size - 1];
         if patch_lim_I(2, 1) > image_sampling(1)
+            trim(2, 1) = trim(2, 1) + min(0, image_sampling(1) - patch_lim_I(2, 1) + padding);
             patch_lim_I(2, 1) = image_sampling(1);
         end
         if patch_lim_I(2, 2) > image_sampling(2)
+            trim(2, 2) = trim(2, 2) + min(0, image_sampling(2) - patch_lim_I(2, 2) + padding);
             patch_lim_I(2, 2) = image_sampling(2);
         end
         [patch_subscripts_col_I, patch_subscripts_row_I] = meshgrid(...
             patch_lim_I(1, 2):patch_lim_I(2, 2),...
             patch_lim_I(1, 1):patch_lim_I(2, 1)...
             );
-        patch_ind_I = sub2ind(...
+        patch_subscripts_row_I = reshape(patch_subscripts_row_I, [], 1);
+        patch_subscripts_col_I = reshape(patch_subscripts_col_I, [], 1);
+        patch_ind_I_spatial = sub2ind(...
             image_sampling, patch_subscripts_row_I, patch_subscripts_col_I...
         );
+        n_bands = length(lambda);
+        patch_subscripts_lambda_I = repelem((1:n_bands).', length(patch_ind_I_spatial), 1);
+        patch_ind_I_spectral = repmat(patch_ind_I_spatial, n_bands, 1) +...
+            ((patch_subscripts_lambda_I - 1) * prod(image_sampling));
         
         % Find the pixels mapped to in the input image
-        patch_ind_J = any(dispersion_matrix(:, patch_ind_I), 2);
-        patch_ind_J = find(patch_ind_J);
+        all_mappings_J = logical(dispersion_matrix(:, patch_ind_I_spectral));
+        patch_ind_I_replicates = sum(all_mappings_J, 1);
+        patch_ind_I_spectral = repelem(patch_ind_I_spectral, patch_ind_I_replicates);
+        patch_ind_I_warped = mod(find(all_mappings_J) - 1, size(dispersion_matrix, 1));
+        patch_ind_J = mod(patch_ind_I_warped, numel(J)) + 1;
+        patch_ind_I_warped = patch_ind_I_warped + 1;
         
         % Find a bounding box of those pixels: The input patch
+        image_sampling_J_local = size(J);
         [patch_subscripts_row_J, patch_subscripts_col_J] = ind2sub(...
-            size(J), patch_ind_J...
+            image_sampling_J_local, patch_ind_J...
         );
         patch_lim_J = [
             min(patch_subscripts_row_J), min(patch_subscripts_col_J);
             max(patch_subscripts_row_J), max(patch_subscripts_col_J)
         ];
+    
+        % Construct a direct map between indices in the two patches
+        image_sampling_I_f = [diff(patch_lim_I, 1, 1) + 1, n_bands];
+        patch_ind_I_f = sub2ind(...
+            image_sampling_I_f,...
+            repelem(repmat(patch_subscripts_row_I, n_bands, 1), patch_ind_I_replicates) - patch_lim_I(1, 1) + 1,...
+            repelem(repmat(patch_subscripts_col_I, n_bands, 1), patch_ind_I_replicates) - patch_lim_I(1, 2) + 1,...
+            repelem(patch_subscripts_lambda_I, patch_ind_I_replicates)...
+        );
+        image_sampling_J_f = diff(patch_lim_J, 1, 1) + 1;
+        patch_ind_J_f = sub2ind(...
+            image_sampling_J_f,...
+            patch_subscripts_row_J - patch_lim_J(1, 1) + 1,...
+            patch_subscripts_col_J - patch_lim_J(1, 2) + 1 ...
+        );
+        [...
+            patch_subscripts_row_I_warped,...
+            patch_subscripts_col_I_warped,...
+            patch_subscripts_lambda_I_warped...
+        ] = ind2sub([image_sampling_J_local, n_bands], patch_ind_I_warped);
+        image_sampling_I_warped_f = [image_sampling_J_f, n_bands];
+        patch_ind_I_warped_f = sub2ind(...
+            image_sampling_I_warped_f,...
+            patch_subscripts_row_I_warped - patch_lim_J(1, 1) + 1,...
+            patch_subscripts_col_I_warped - patch_lim_J(1, 2) + 1,...
+            patch_subscripts_lambda_I_warped...
+        );
         
         % Construct arguments for the image estimation algorithm
-        image_sampling_f = diff(patch_lim_I, 1, 1) + 1;
         align_f = offsetBayerPattern(patch_lim_J(1, :), align);
-        dispersion_f = dispersion_matrix(patch_ind_J, patch_ind_I);
-        J_f = J(...
-            patch_lim_J(1, 1):patch_lim_J(2, 1),...
-            patch_lim_J(1, 2):patch_lim_J(2, 2)...
+        dispersion_f = sparse(...
+            patch_ind_I_warped_f, patch_ind_I_f,...
+            dispersion_matrix(...
+                sub2ind(size(dispersion_matrix), patch_ind_I_warped, patch_ind_I_spectral)...
+            ),...
+            prod(image_sampling_I_warped_f), prod(image_sampling_I_f)...
         );
+        J_f = zeros(image_sampling_J_f);
+        J_f(patch_ind_J_f) = J(patch_ind_J);
         
         % Solve for the output patch
-        varargout = cell(nargout - 1, 1);
-        [I, varargout{:}] = f(...
-            image_sampling_f, align_f, dispersion_f, sensitivity, lambda,...
+        varargout = cell(nargout - 3, 1);
+        [I_f, varargout{:}] = f(...
+            image_sampling_I_f(1:2), align_f, dispersion_f, sensitivity, lambda,...
             J_f, f_args{:}...
         );
-        I = I(...
-            (padding + 1):(image_sampling_f(1) - padding),...
-            (padding + 1):(image_sampling_f(2) - padding), : ...
-        );
-        image_sampling_J_patch = diff(patch_lim_J, 1, 1) + 1;
+    
+        % Remove padding
+        padding_filter = false(image_sampling_I_f);
+        padding_filter((trim(1, 1)):(trim(2, 1)), (trim(1, 2)):(trim(2, 2)), :) = true;
+        padding_filter = reshape(padding_filter, [], 1, 1);
+        I = I_f(padding_filter);
+        I = reshape(I, [diff(trim, 1, 1) + 1, n_bands]);
+        dispersion_matrix_patch = dispersion_f(:, padding_filter);
     end
 
 if single_patch
-    [I_3D, image_sampling_J_patch, varargout{4:end}] = solveOnePatch(...
+    [...
+        I_3D, image_sampling_J_patch, dispersion_matrix_patch, varargout{4:end}...
+    ] = solveOnePatch(...
         image_sampling, J_2D, align, dispersion_matrix, sensitivity,...
         lambda, options.patch_size, options.padding, f, f_args, target_patch...
     );
 else
+    I_3D = zeros([image_sampling, length(lambda)]);
     for i = 1:options.patch_size(1):image_sampling(1)
+        end_i = min(i + options.patch_size(1) - 1, image_sampling(1));
         for j = 1:options.patch_size(2):image_sampling(2)
+            end_j = min(j + options.patch_size(2) - 1, image_sampling(2));
             I_3D(...
-                i:(i + options.patch_size(1) - 1),...
-                j:(j + options.patch_size(2) - 1)...
+                i:end_i,...
+                j:end_j, :...
             ) = solveOnePatch(...
                 image_sampling, J_2D, align, dispersion_matrix, sensitivity,...
                 lambda, options.patch_size, options.padding, f, f_args, [i, j]...
@@ -341,10 +401,12 @@ end
 if nargout > 2
     I = I_3D(:);
     if single_patch
-        image_sampling_I_patch = options.patch_size;
+        image_sampling_I_patch = [size(I_3D, 1), size(I_3D, 2)];
     else
         image_sampling_I_patch = image_sampling;
         image_sampling_J_patch = image_sampling_J;
+        dispersion_matrix_patch = dispersion_matrix;
+        target_patch = [1, 1];
     end
     do_integration = ~(...
         isempty(options.int_method) || strcmp(options.int_method, 'none')...
@@ -368,7 +430,7 @@ if nargout > 2
         else
             Omega_J = channelConversionMatrix(image_sampling_J_patch, sensitivity);
         end
-        J_full = Omega_J * dispersion_matrix * I;
+        J_full = Omega_J * dispersion_matrix_patch * I;
         varargout{2} = reshape(...
             J_full,...
             image_sampling_J_patch(1), image_sampling_J_patch(2), n_channels_rgb...
