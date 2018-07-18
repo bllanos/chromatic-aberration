@@ -254,7 +254,7 @@ bands_interp_method = 'linear';
 downsampling_factor = 1;
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/admm';
+output_directory = '/home/llanos/Downloads';
 
 % Whether or not to save the latent images to image files, beyond including
 % them in the output '.mat' files

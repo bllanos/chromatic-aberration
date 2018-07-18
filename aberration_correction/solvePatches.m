@@ -270,7 +270,7 @@ else
                 [i_vector(i), j_vector(j)]...
             );
         end
-        patches{i, :} = patches_i;
+        patches(i, :) = patches_i;
     end
     for i = 1:n_i_vector
         end_i = min(i_vector(i) + options.patch_size(1) - 1, image_sampling(1));
