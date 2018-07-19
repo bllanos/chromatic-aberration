@@ -424,7 +424,7 @@ end
 n_channels_rgb = 3;
 n_channels_raw = 3;
 ext = '.tif';
-fill = 'true';
+fill = true;
 
 for i = 1:n_images
     % Cluster the colours in the chromaticity map

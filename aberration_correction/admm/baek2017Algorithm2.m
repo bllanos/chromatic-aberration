@@ -361,6 +361,14 @@ elseif all(~options.norms)
     end
     G_xy = spatialGradient([image_sampling, n_bands]);
     G_lambda = spectralGradient([image_sampling, n_bands], options.full_GLambda);
+    G_lambda_sz1 = size(G_lambda, 1);
+    G_lambda_sz2 = size(G_lambda, 2);
+    % The product `G_lambda * G_xy` must be defined, so `G_lambda` needs to be
+    % replicated to operate on both the x and y-gradients.
+    G_lambda = [
+        G_lambda, sparse(G_lambda_sz1, G_lambda_sz2);
+        sparse(G_lambda_sz1, G_lambda_sz2), G_lambda
+        ];
     [ b, A ] = subproblemI_L2L2(M, Omega, Phi, G_xy, G_lambda, J, weights(1), weights(2));
     [ I, flag, relres, iter_pcg ] = pcg(...
         A, b, options.tol(1), options.maxit(1), [], [], I...

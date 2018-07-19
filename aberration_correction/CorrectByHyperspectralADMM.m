@@ -231,7 +231,7 @@ parameters_list = {
 
 % Wildcard for 'ls()' to find the images to process.
 % '.mat' or image files can be loaded
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/ground_truth/splines/swirly_0139_raw_warped.mat';
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/ground_truth/splines/swirly_0138_small_raw_warped.mat';
 input_images_variable_name = 'raw_2D'; % Used only when loading '.mat' files
 
 % Colour-filter pattern
@@ -263,7 +263,7 @@ save_latent_image_files = false;
 % Whether to expand the latent image relative to the input image to cover
 % all undistorted coordinates from the input image. This is the
 % `add_border` input argument.
-add_border = true;
+add_border = false;
 
 % ## Options for baek2017Algorithm2() (Alternating Direction Method of Multipliers)
 
@@ -293,6 +293,9 @@ baek2017Algorithm2Options.maxit = [ 500, 100 ];
 % setting this option to an empty array.)
 baek2017Algorithm2Options.varying_penalty_params = [2, 2, 10];
 
+% Types of norms to use on the prior terms
+baek2017Algorithm2Options.norms = [false, true];
+
 % If the latent space consists of wavelength bands, use this type of
 % numerical integration in 'channelConversionMatrix()'. (Otherwise, a value
 % of 'none' will automatically be used instead.)
@@ -304,7 +307,7 @@ int_method = 'trap';
 % will be tested.
 % If `patch_sizes` is empty only whole image estimation will be performed
 patch_sizes = [ % Each row contains a (number of rows, number of columns) pair
-    25 25;
+ %   25 25;
 ]; 
 paddings = 11;
 
@@ -314,7 +317,7 @@ paddings = 11;
 target_patch = [];
 
 % Also compare with (or only run) whole image estimation
-run_entire_image = false;
+run_entire_image = true;
 
 % ## Debugging Flags
 baek2017Algorithm2Verbose = true;
