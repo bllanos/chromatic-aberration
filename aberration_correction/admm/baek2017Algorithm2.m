@@ -102,11 +102,13 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %   underdetermined, the function will find the minimum-norm least squares
 %   solution. If the problem is sufficiently determined, as it may be in
 %   cases where `i` has fewer wavelength bands of colour channels than `j`
-%   has colour channels, then the function will find the exact or
-%   least-squares solution.
+%   has colour channels, then the function will find the iterative
+%   approximation to the exact solution (using MATLAB's 'pcg()' function),
+%   or will find a least-squares solution.
 %
-%   This function will not terminate if `weights` has a mixture of zero and
-%   nonzero elements, because the ADMM algorithm will not converge.
+%   This function will not terminate if only one element of `weights` is
+%   zero, and the corresponding element in `options.norms` is `true`,
+%   because the ADMM algorithm will not converge.
 %
 % options -- Options and small parameters
 %   A structure with the following fields:
@@ -133,12 +135,23 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %     'pcg()' function when solving the I-minimization step of the ADMM
 %     algorithm. The second element of `maxit` contains the maximum number
 %     of ADMM iterations to perform.
+%   - 'norms': Algorithm variants: A two-element logical vector. The first
+%     element specifies whether to use an L1 (`true`) or L2 (`false`) norm
+%     prior on the latent image's spatial gradient. The second element
+%     specifies whether to use an L1 (`true`) or L2 (`false`) norm prior on
+%     the spectral gradient of the latent image's spatial gradient. If both
+%     elements are `true`, the behaviour of the algorithm matches that
+%     described by Baek et al. 2017 (Algorithm 2 in the first set of
+%     supplemental material). If only one element is `true`, the ADMM
+%     iterations are simplified by eliminating one slack variable. If both
+%     elements are `false`, a least-squares solution is obtained
+%     (iteratively, using MATLAB's 'pcg()' function).
 %   - 'tol': Convergence tolerances: The first element of `tol` is the
-%     tolerance value to use with MATLAB's 'pcg()' function when solving
-%     the I-minimization step of the ADMM algorithm. The second and third
-%     elements of `tol` are the absolute and relative tolerance values for
-%     the ADMM algorithm, as explained in Section 3.3.1 of Boyd et al.
-%     2011.
+%     tolerance value to use with MATLAB's 'pcg()' function, such as when
+%     solving the I-minimization step of the ADMM algorithm. The second and
+%     third elements of `tol` are the absolute and relative tolerance
+%     values for the ADMM algorithm, as explained in Section 3.3.1 of Boyd
+%     et al. 2011.
 %   - 'varying_penalty_params': If empty, the penalty parameters passed as
 %     `rho` will be fixed for all iterations. Otherwise,
 %     'varying_penalty_params' is a three-element vector containing the
@@ -211,7 +224,8 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % - Section 4.3.2 of Boyd et al. 2011, "Early Termination"
 %
 % See also mosaicMatrix, channelConversionMatrix, dispersionfunToMatrix,
-% spatialGradient, spectralGradient, softThreshold, subproblemI, lsqminnorm
+% spatialGradient, spectralGradient, softThreshold, subproblemI,
+% subproblemI_L1L2, subproblemI_L2L1, subproblemI_L2L2, lsqminnorm
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -219,15 +233,11 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % File created May 27, 2018
 
     % Equation 3.13 in Section 3.4.1 of Boyd et al. 2011
-    function rho = updatePenalties(R1, R2, S1, S2, rho)
-        R = [R1, R2];
-        S = [S1, S2];
-        for p = 1:2
-            if R(p) > mu * S(p)
-                rho(p) = rho(p) * tau_incr;
-            elseif S(p) > mu * R(p)
-                rho(p) = rho(p) / tau_decr;
-            end
+    function rho = updatePenalty(R, S, rho)
+        if R > mu * S
+            rho = rho * tau_incr;
+        elseif S > mu * R
+            rho = rho / tau_decr;
         end
     end
 
@@ -303,18 +313,70 @@ else
     );    
 end
 
+% Initialization
+J_bilinear = bilinearDemosaic(J_2D, align, [false, true, false]); % Initialize with the Green channel
+if any(image_sampling ~= image_sampling_J)
+    I = imresize(J_bilinear, image_sampling, 'bilinear');
+else
+    I = J_bilinear;
+end
+I = repmat(I(:), n_bands, 1);
+len_I = length(I);
+
+% Select the appropriate algorithm variant
 if all(weights == 0)
     A = M * Omega * Phi;
     if (size(A, 1) < size(A, 2)) || (rank(A) < size(A, 2))
         % Minimum-norm least squares solution to the non-regularized problem
+        if(verbose)
+            fprintf('Computing the minimum-norm least squares solution...\n');
+        end
         I = lsqminnorm(A, J);
+        if(verbose)
+            fprintf('\t...done.\n');
+        end
     else
         % Unique or least-squares solution
-        I = A \ J;
-    end  
+        if(verbose)
+            fprintf(...
+                'Computing a non-regularized least squares solution with tolerance %g for up to %d iterations...\n',...
+                options.tol(1), options.maxit(1)...
+            );
+        end
+        [ I, flag, relres, iter_pcg ] = pcg(...
+            A, J, options.tol(1), options.maxit(1), [], [], I...
+        );
+        if(verbose)
+            fprintf('\tLeast-squares result: PCG (flag = %d, relres = %g, iter = %d)\n',...
+                flag, relres, iter_pcg...
+            );
+        end
+    end
+elseif all(~options.norms)
+    if(verbose)
+        fprintf(...
+            'Computing a regularized least squares solution with tolerance %g for up to %d iterations...\n',...
+            options.tol(1), options.maxit(1)...
+        );
+    end
+    G_xy = spatialGradient([image_sampling, n_bands]);
+    G_lambda = spectralGradient([image_sampling, n_bands], options.full_GLambda);
+    [ b, A ] = subproblemI_L2L2(M, Omega, Phi, G_xy, G_lambda, J, weights(1), weights(2));
+    [ I, flag, relres, iter_pcg ] = pcg(...
+        A, b, options.tol(1), options.maxit(1), [], [], I...
+    );
+    if(verbose)
+        fprintf('\tLeast-squares result: PCG (flag = %d, relres = %g, iter = %d)\n',...
+            flag, relres, iter_pcg...
+        );
+    end
 else
     % Perform ADMM
-    G_xy = spatialGradient([image_sampling, n_bands]);
+    if(verbose)
+        fprintf('Computing an iterative solution using ADMM...\n');
+    end
+    
+    G{1} = spatialGradient([image_sampling, n_bands]);
     G_lambda = spectralGradient([image_sampling, n_bands], options.full_GLambda);
     G_lambda_sz1 = size(G_lambda, 1);
     G_lambda_sz2 = size(G_lambda, 2);
@@ -324,30 +386,46 @@ else
         G_lambda, sparse(G_lambda_sz1, G_lambda_sz2);
         sparse(G_lambda_sz1, G_lambda_sz2), G_lambda
         ];
-
+    
     % Initialization
-    J_bilinear = bilinearDemosaic(J_2D, align, [false, true, false]); % Initialize with the Green channel
-    if any(image_sampling ~= image_sampling_J)
-        I = imresize(J_bilinear, image_sampling, 'bilinear');
-    else
-        I = J_bilinear;
+    Z = cell(2, 1);
+    len_Z = zeros(2, 1);
+    U = cell(2, 1);
+    G_T = cell(2, 1);
+    g = cell(2, 1);
+    Z_prev = cell(2, 1);
+    R = cell(2, 1);
+    R_norm = zeros(2, 1);
+    S = cell(2, 1);
+    S_norm = zeros(2, 1);
+    epsilon_pri = zeros(2, 1);
+    Y = cell(2, 1);
+    epsilon_dual = zeros(2, 1);
+    
+    if options.norms(1)
+        Z{1} = G{1} * I;
+        len_Z(1) = length(Z{1});
+        U{1} = zeros(len_Z(1), 1);
+        G_T{1} = G{1}.';
     end
-    I = repmat(I(:), n_bands, 1);
-    len_I = length(I);
-    Z1 = G_xy * I;
-    G_lambda_xy = G_lambda * G_xy;
-    Z2 = G_lambda_xy * I;
-    len_Z1 = length(Z1);
-    U1 = zeros(len_Z1, 1);
-    len_Z2 = length(Z2);
-    U2 = zeros(len_Z2, 1);
+    if options.norms(2)
+        G{2} = G_lambda * G{1};
+        Z{2} = G{2} * I;
+        len_Z(2) = length(Z{2});
+        U{2} = zeros(len_Z(2), 1);
+        G_T{2} = G{2}.';
+    end
 
     % Iteration
-    [ b, A ] = subproblemI(M, Omega, Phi, G_xy, G_lambda, J, Z1, Z2, U1, U2, rho);
+    if all(options.norms)
+        [ b, A ] = subproblemI(M, Omega, Phi, G{1}, G_lambda, J, Z{1}, Z{2}, U{1}, U{2}, rho);
+    elseif options.norms(1)
+        [ b, A ] = subproblemI_L1L2(M, Omega, Phi, G{1}, G_lambda, J, Z{1}, U{1}, rho(1), weights(2));
+    else
+        [ b, A ] = subproblemI_L2L1(M, Omega, Phi, G{1}, G_lambda, J, Z{2}, U{2}, rho(2), weights(1));
+    end
     soft_thresholds = weights ./ rho;
-    G_xy_T = G_xy.';
-    G_lambda_xy_T = G_lambda_xy.';
-    converged = false;
+
     for iter = 1:options.maxit(2)
         % Optimization
         [ I, flag, relres, iter_pcg ] = pcg(...
@@ -358,70 +436,98 @@ else
                 iter, flag, relres, iter_pcg...
                 );
         end
-        g_xy = G_xy * I;
-        g_lambda_xy = G_lambda_xy * I;
-        Z1_prev = Z1;
-        Z2_prev = Z2;
-        Z1 = softThreshold(g_xy + U1, soft_thresholds(1));
-        Z2 = softThreshold(g_lambda_xy + U2, soft_thresholds(2));
-        R1 = g_xy - Z1;
-        R2 = g_lambda_xy - Z2;
-        U1 = U1 + R1;
-        U2 = U2 + R2;
-
-        % Calculate residuals
-        R1_norm = norm(R1);
-        R2_norm = norm(R2);
-        S1 = rho(1) * G_xy_T * (Z1 - Z1_prev);
-        S2 = rho(2) * G_lambda_xy_T * (Z2 - Z2_prev);
-        S1_norm = norm(S1);
-        S2_norm = norm(S2);
-
-        if(verbose)
-            fprintf(' Residuals (R1_norm = %g, R2_norm = %g, S1_norm = %g, S2_norm = %g)\n',...
-                R1_norm, R2_norm, S1_norm, S2_norm...
-            );
+        
+        converged = true;
+        
+        for p = 1:length(options.norms)
+            if ~options.norms(p)
+                continue;
+            end
+            g{p} = G{p} * I;
+            Z_prev{p} = Z{p};
+            % See Section 6.3 of Boyd et al. 2011.
+            Z{p} = softThreshold(g{p} + U{p}, soft_thresholds(p));
+            % See Section 3.1.1 of Boyd et al. 2011.
+            R{p} = g{p} - Z{p};
+            U{p} = U{p} + R{p};
+            
+            % Calculate residuals
+            R_norm(p) = norm(R{p});
+            S{p} = rho(p) * G_T{p} * (Z{p} - Z_prev{p});
+            S_norm(p) = norm(S{p});
+            
+            % Calculate stopping criteria
+            % See Section 3.3.1 of Boyd et al. 2011.
+            epsilon_pri(p) = sqrt(len_Z(p)) * options.tol(2) +...
+                options.tol(3) * max([norm(g{p}), norm(Z{p})]);
+            Y{p} = rho(p) * U{p};
+            epsilon_dual(p) = sqrt(len_I) * options.tol(2) +...
+                options.tol(3) * norm(G_T{p} * Y{p});
+            converged = converged &&...
+                (R_norm(p) < epsilon_pri(p) && S_norm(p) < epsilon_dual(p));
         end
 
-        % Calculate stopping criteria
-        % See Section 3.3.1 of Boyd et al. 2011.
-        epsilon_pri1 = sqrt(len_Z1) * options.tol(2) +...
-            options.tol(3) * max([norm(g_xy), norm(Z1)]);
-        epsilon_pri2 = sqrt(len_Z2) * options.tol(2) +...
-            options.tol(3) * max([norm(g_lambda_xy), norm(Z2)]);
-
-        Y1 = rho(1) * U1;
-        Y2 = rho(2) * U2;
-        epsilon_dual1 = sqrt(len_I) * options.tol(2) +...
-            options.tol(3) * norm(G_xy_T * Y1);
-        epsilon_dual2 = sqrt(len_I) * options.tol(2) +...
-            options.tol(3) * norm(G_lambda_xy_T * Y2);
-
-        if(verbose)
-            fprintf('Stop Crit. (e_p1 = %g, e_p2 = %g, e_d2 = %g, e_d2 = %g)\n',...
-                epsilon_pri1, epsilon_pri2, epsilon_dual1, epsilon_dual2...
-            );
+        if all(options.norms)
+            if(verbose)
+                fprintf(' Residuals (R1_norm = %g, R2_norm = %g, S1_norm = %g, S2_norm = %g)\n',...
+                    R_norm(1), R_norm(2), S_norm(1), S_norm(2)...
+                    );
+                fprintf('Stop Crit. (e_p1 = %g, e_p2 = %g, e_d1 = %g, e_d2 = %g)\n',...
+                    epsilon_pri(1), epsilon_pri(2), epsilon_dual(1), epsilon_dual(2)...
+                );
+            end
+        elseif options.norms(1)
+            if(verbose)
+                fprintf(' Residuals (R1_norm = %g, S1_norm = %g)\n',...
+                    R_norm(1), S_norm(1)...
+                    );
+                fprintf('Stop Crit. (e_p1 = %g, e_d1 = %g)\n',...
+                    epsilon_pri(1), epsilon_dual(1)...
+                );
+            end
+        else
+            if(verbose)
+                fprintf(' Residuals (R2_norm = %g, S2_norm = %g)\n',...
+                    R_norm(2), S_norm(2)...
+                    );
+                fprintf('Stop Crit. (e_p2 = %g, e_d2 = %g)\n',...
+                    epsilon_pri(2), epsilon_dual(2)...
+                );
+            end
         end
 
         % Check against stopping criteria
-        if (R1_norm < epsilon_pri1  && R2_norm < epsilon_pri2 &&...
-            S1_norm < epsilon_dual1 && S2_norm < epsilon_dual2)
-            converged = true;
+        if converged
             break;
         end
 
         if vary_penalty_parameters
-            rho = updatePenalties(...
-                R1_norm, R2_norm, S1_norm, S2_norm, rho...
-            );
+            for p = 1:length(options.norms)
+                if ~options.norms(p)
+                    continue;
+                end
+                rho(p) = updatePenalty(...
+                    R_norm(p), S_norm(p), rho(p)...
+                );
+                U{p} = Y{p} ./ rho(p);
+            end
             soft_thresholds = weights ./ rho;
-            U1 = Y1 ./ rho(1);
-            U2 = Y2 ./ rho(2);
-            [ b, A ] = subproblemI(...
-                M, Omega, Phi, G_xy, G_lambda, J, Z1, Z2, U1, U2, rho...
-            );
+                            
+            if all(options.norms)
+                [ b, A ] = subproblemI(M, Omega, Phi, G{1}, G_lambda, J, Z{1}, Z{2}, U{1}, U{2}, rho);
+            elseif options.norms(1)
+                [ b, A ] = subproblemI_L1L2(M, Omega, Phi, G{1}, G_lambda, J, Z{1}, U{1}, rho(1), weights(2));
+            else
+                [ b, A ] = subproblemI_L2L1(M, Omega, Phi, G{1}, G_lambda, J, Z{2}, U{2}, rho(2), weights(1));
+            end
         else
-            b = subproblemI(M, Omega, Phi, G_xy, G_lambda, J, Z1, Z2, U1, U2, rho);
+            if all(options.norms)
+                b = subproblemI(M, Omega, Phi, G{1}, G_lambda, J, Z{1}, Z{2}, U{1}, U{2}, rho);
+            elseif options.norms(1)
+                b = subproblemI_L1L2(M, Omega, Phi, G{1}, G_lambda, J, Z{1}, U{1}, rho(1), weights(2));
+            else
+                b = subproblemI_L2L1(M, Omega, Phi, G{1}, G_lambda, J, Z{2}, U{2}, rho(2), weights(1));
+            end
         end
     end
 
