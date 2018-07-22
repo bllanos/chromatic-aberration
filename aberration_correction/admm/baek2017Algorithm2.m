@@ -90,7 +90,7 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % weights -- Regularization weights
 %   `weights(1)` is the 'alpha' weight on the regularization of the spatial
 %   gradient of the image in the ADMM optimization problem. `weights(2)` is
-%   the `beta` weight on the regularization of the spectral gradient of the
+%   the 'beta' weight on the regularization of the spectral gradient of the
 %   spatial gradient of the image in the ADMM optimization problem.
 %
 %   If all elements of `weights` are zero, this function will find a

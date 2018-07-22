@@ -1,15 +1,17 @@
-function [ b, A ] = subproblemI_L1L2(M, Omega, Phi, G_xy, G_lambda, J, Z1, U1, rho_1, beta)
+function f = subproblemI_L1L2(M_Omega_Phi, G_xy, G_lambda_xy, J, beta)
 % SUBPROBLEMIL1L2  I-minimization equation for an L2 prior on the spectral gradient
 %
 % ## Syntax
-% b = subproblemI_L1L2(M, Omega, Phi, G_xy, G_lambda, J, Z1, U1, rho_1, beta)
-% [ b, A ] = subproblemI_L1L2(M, Omega, Phi, G_xy, G_lambda, J, Z1, U1, rho_1, beta)
+% This function generates a function that stores partial computations:
+% f = subproblemI_L1L2(M_Omega_Phi, G_xy, G_lambda_xy, J, beta);
+% b = f(Z, U, rho)
+% [ b, A ] = f(Z, U, rho)
 %
 % ## Description
-% b = subproblemI_L1L2(M, Omega, Phi, G_xy, G_lambda, J, Z1, U1, rho_1, beta)
+% b = f(Z, U, rho)
 %   Returns an updated left-hand side vector.
 %
-% [ b, A ] = subproblemI_L1L2(M, Omega, Phi, G_xy, G_lambda, J, Z1, U1, rho_1, beta)
+% [ b, A ] = f(Z, U, rho)
 %   Additionally returns an updated right-hand side matrix.
 %
 % ## Input Arguments
@@ -23,42 +25,54 @@ function [ b, A ] = subproblemI_L1L2(M, Omega, Phi, G_xy, G_lambda, J, Z1, U1, r
 % - `c_gLambda` is the number of channels in the spectral gradient, as
 %   determined by the `replicate` input argument of 'spectralGradient()'.
 %
-% M -- Mosaicing matrix
-%   The output argument of 'mosaicMatrix()'. An (n_px_J)-by-(n_px_J x 3)
-%   sparse array.
-%
-% Omega -- Colour channel conversion matrix
-%   The output argument of 'channelConversionMatrix()'. An (n_px_J x
-%   3)-by-(n_px_J x c) sparse array which converts the latent image to the
-%   RGB colour space of the camera.
-%
-% Phi -- Dispersion model warp matrix
-%   The `W` output argument of 'dispersionfunToMatrix()'. An (n_px_J x
-%   c)-by-(n_px_I x c) sparse array.
+% M_Omega_Phi -- Reprojection matrix
+%   The product of three sparse matrices, in the following order:
+%   - Mosaicing matrix: M, the output argument of 'mosaicMatrix()'. An
+%     (n_px_J)-by-(n_px_J x 3) sparse array.
+%   - Colour channel conversion matrix: Omega, the output argument of
+%     'channelConversionMatrix()'. An (n_px_J x 3)-by-(n_px_J x c) sparse
+%     array which converts the latent image to the RGB colour space of the
+%     camera.
+%   - Dispersion model warp matrix: Phi, the `W` output argument of
+%     'dispersionfunToMatrix()'. An (n_px_J x c)-by-(n_px_I x c) sparse
+%     array.
 %
 % G_xy -- Spatial gradient matrix
 %   The output argument of 'spatialGradient()'. An (n_px_I x c x
 %   2)-by-(n_px_I x c) sparse array.
 %
-% G_lambda -- Spectral gradient matrix
-%   The output argument of 'spectralGradient()'. An (n_px_I x
-%   c_gLambda)-by-(n_px_I x c) sparse array.
+% G_lambda_xy -- Spectral gradient of the spatial gradient matrix
+%   The product of the output argument of 'spectralGradient()', an (n_px_I
+%   x c_gLambda)-by-(n_px_I x c) sparse array, with each half of `G_xy`.
 %
 % J -- Vectorized input RAW image
 %   A vectorized form of the input RAW image, where pixels are ordered
 %   first by column, then by row. `J` is an n_px_J x 1 vector.
 %
-% Z1 -- Spatial gradient slack variable
-%   The slack variable equal to `G_xy * I` in the ADMM optimization
-%   problem. `Z1` is an (n_px_I x c x 2) x 1 vector.
+% Z -- Slack variables
+%   A one to three-element cell vector:
+%   - The first cell contains the slack variable equal to `G_xy * I` in the
+%     ADMM optimization problem. `Z{1}` is an (n_px_I x c x 2) x 1 vector.
+%   - The second cell is unused.
+%   - The third cell contains the slack variable for the non-negativity
+%     constraint on `I`, which is an addition to the method of Baek et al.
+%     2017. `Z{3}` is an (n_px_I x c) x 1 vector.
 %
-% U1 -- Spatial gradient scaled dual variable
-%   The scaled Lagrange multiplier for the constraint on `Z1` in the ADMM
-%   optimization problem. `U1` is an (n_px_I x c x 2) x 1 vector.
+%  If `Z` does not have three cells, the non-negativity constraint on `I`
+%  will not be applied.
 %
-% rho_1 -- Penalty parameter
-%   A scalar containing the penalty parameter, `rho_1` for the constraint
-%   on `Z1` in the ADMM optimization problem.
+% U -- Scaled dual variables
+%   The scaled Lagrange multipliers for the constraints on the
+%   corresponding cells of `Z` in the ADMM optimization problem. `U{k}` has
+%   the same dimensions as `Z{k}`. `U` must be a cell vector of the same
+%   length as `Z`.
+%
+% rho -- Penalty parameters
+%   A one to three-element vector. The first element contains the penalty
+%   parameter, `rho_1`, for the constraints on `Z{1}` in the ADMM
+%   optimization problem of Baek et al. 2017. The second element is
+%   ignored. The third element, needed if `Z` has three cells, contains the
+%   `rho_3` penalty parameter for the non-negativity constraint.
 %
 % beta -- Spectral gradient regularization weight
 %   The weight on the regularization of the spectral gradient of the
@@ -79,7 +93,7 @@ function [ b, A ] = subproblemI_L1L2(M, Omega, Phi, G_xy, G_lambda, J, Z1, U1, r
 % ## Notes
 % - Requesting `A` as an output argument will trigger more computation than
 %   only requesting `b`.
-% - `A` is a function of the penalty parameter, `rho_1`, and the constant
+% - `A` is a function of the penalty parameters, `rho`, and the constant
 %   matrices `M`, `Omega`, `Phi`, `G_xy`, and `G_lambda`. Therefore, `A`
 %   does not need to be recalculated each iteration of ADMM unless the
 %   penalty parameter is variable.
@@ -99,7 +113,8 @@ function [ b, A ] = subproblemI_L1L2(M, Omega, Phi, G_xy, G_lambda, J, Z1, U1, r
 %     doi:10.1145/3130800.3130896
 %
 % with the variation that there is an L2-norm prior on the spectral
-% gradient of the spatial gradient of `I` instead of an L1-norm prior.
+% gradient of the spatial gradient of `I` instead of an L1-norm prior, and
+% with the optional variation of a non-negativity constraint on `I`.
 %
 % For more information on ADMM (Alternating Direction Method of
 % Multipliers), read:
@@ -117,20 +132,36 @@ function [ b, A ] = subproblemI_L1L2(M, Omega, Phi, G_xy, G_lambda, J, Z1, U1, r
 % File created July 18, 2018
 
 nargoutchk(1, 2);
-narginchk(10, 10);
+narginchk(5, 5);
 
-M_Omega_Phi = M * Omega * Phi;
-G_lambda_xy = G_lambda * G_xy;
+nonneg = (length(Z) > 2);
 
-% Equation 4.1 of Boyd et al. 2011
-b = (M_Omega_Phi.' * J) +...
-    (rho_1 / 2) * G_xy.' * (Z1 - U1);
-
-if nargout > 1
-    A = (M_Omega_Phi.' * M_Omega_Phi) + beta * (G_lambda_xy.' * G_lambda_xy) +...
-        (rho_1 / 2) * (G_xy.' * G_xy);
-else
-    A = [];
+M_Omega_Phi_J = M_Omega_Phi.' * J;
+A_const = (M_Omega_Phi.' * M_Omega_Phi) + beta * (G_lambda_xy.' * G_lambda_xy);
+G_xy_T = G_xy.';
+G_xy2 = G_xy.' * G_xy;
+if nonneg
+    I_A = speye(size(A));
 end
+
+    function [ b, A ] = inner(Z, U, rho)
+        % Equation 4.1 of Boyd et al. 2011
+        b = M_Omega_Phi_J +...
+            (rho(1) / 2) * G_xy_T * (Z{1} - U{1});
+        if nonneg
+            b = b + (rho(3) / 2) * (Z{3} - U{3});
+        end
+        
+        if nargout > 1
+            A = A_const + (rho(1) / 2) * G_xy2;
+            if nonneg
+                A = A + (rho(3) / 2) * I_A;
+            end
+        else
+            A = [];
+        end
+    end
+
+f = @inner;
 
 end
