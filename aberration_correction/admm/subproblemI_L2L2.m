@@ -1,9 +1,9 @@
-function f = subproblemI_L2L2(M_Omega_Phi, G_xy, G_lambda_xy, J, weights)
+function f = subproblemI_L2L2(M_Omega_Phi, G_xy, G_lambda_xy, J, weights, nonneg)
 % SUBPROBLEMIL2L2  I-minimization equation for L2 priors on both gradients
 %
 % ## Syntax
 % This function generates a function that stores partial computations:
-% f = subproblemI_L2L2(M_Omega_Phi, G_xy, G_lambda_xy, J, weights);
+% f = subproblemI_L2L2(M_Omega_Phi, G_xy, G_lambda_xy, J, weights, nonneg);
 % b = f(Z, U, rho)
 % [ b, A ] = f(Z, U, rho)
 %
@@ -49,6 +49,16 @@ function f = subproblemI_L2L2(M_Omega_Phi, G_xy, G_lambda_xy, J, weights)
 %   A vectorized form of the input RAW image, where pixels are ordered
 %   first by column, then by row. `J` is an n_px_J x 1 vector.
 %
+% weights -- Regularization weights
+%   `weights(1)` is the 'alpha' weight on the regularization of the spatial
+%   gradient of the image. `weights(2)` is the 'beta' weight on the
+%   regularization of the spectral gradient of the spatial gradient of the
+%   image.
+%
+% nonneg -- Non-negativity constraint
+%   A logical scalar indicating whether or not there is a non-negativity
+%   constraint on the solution.
+%
 % Z -- Slack variable
 %   A zero to three-element cell vector:
 %   - The first cell is unused.
@@ -57,8 +67,7 @@ function f = subproblemI_L2L2(M_Omega_Phi, G_xy, G_lambda_xy, J, weights)
 %     constraint on `I`, which is an addition to the method of Baek et al.
 %     2017. `Z{3}` is an (n_px_I x c) x 1 vector.
 %
-%  If `Z` does not have three cells, the non-negativity constraint on `I`
-%  will not be applied.
+%  If `nonneg` is `true`, then `Z` must have three cells.
 %
 % U -- Scaled dual variable
 %   The scaled Lagrange multipliers for the constraints on the
@@ -70,12 +79,6 @@ function f = subproblemI_L2L2(M_Omega_Phi, G_xy, G_lambda_xy, J, weights)
 %   A zero to three-element vector. The first and second elements are
 %   ignored. The third element, needed if `Z` has three cells, contains the
 %   `rho_3` penalty parameter for the non-negativity constraint.
-%
-% weights -- Regularization weights
-%   `weights(1)` is the 'alpha' weight on the regularization of the spatial
-%   gradient of the image. `weights(2)` is the 'beta' weight on the
-%   regularization of the spectral gradient of the spatial gradient of the
-%   image.
 %
 % ## Output Arguments
 %
@@ -118,16 +121,14 @@ function f = subproblemI_L2L2(M_Omega_Phi, G_xy, G_lambda_xy, J, weights)
 % File created July 18, 2018
 
 nargoutchk(1, 2);
-narginchk(5, 5);
-
-nonneg = (length(Z) > 2);
+narginchk(6, 6);
 
 b_const = M_Omega_Phi.' * J;
 A_const = (M_Omega_Phi.' * M_Omega_Phi) +...
         weights(1) * (G_xy.' * G_xy) +...
         weights(2) * (G_lambda_xy.' * G_lambda_xy);
 if nonneg
-    I_A = speye(size(A));
+    I_A = speye(size(A_const));
 end
 
     function [ b, A ] = inner(Z, U, rho)

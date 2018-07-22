@@ -1,9 +1,9 @@
-function f = subproblemI_L2L1(M_Omega_Phi, G_xy, G_lambda_xy, J, alpha)
+function f = subproblemI_L2L1(M_Omega_Phi, G_xy, G_lambda_xy, J, alpha, nonneg)
 % SUBPROBLEMIL2L1  I-minimization equation for an L2 prior on the spatial gradient
 %
 % ## Syntax
 % This function generates a function that stores partial computations:
-% f = subproblemI_L2L1(M_Omega_Phi, G_xy, G_lambda_xy, J, alpha);
+% f = subproblemI_L2L1(M_Omega_Phi, G_xy, G_lambda_xy, J, alpha, nonneg);
 % b = f(Z, U, rho)
 % [ b, A ] = f(Z, U, rho)
 %
@@ -49,6 +49,14 @@ function f = subproblemI_L2L1(M_Omega_Phi, G_xy, G_lambda_xy, J, alpha)
 %   A vectorized form of the input RAW image, where pixels are ordered
 %   first by column, then by row. `J` is an n_px_J x 1 vector.
 %
+% alpha -- Spatial gradient regularization weight
+%   The weight on the regularization of the spatial gradient of the image
+%   in the ADMM optimization problem.
+%
+% nonneg -- Non-negativity constraint
+%   A logical scalar indicating whether or not there is a non-negativity
+%   constraint on the solution.
+%
 % Z -- Slack variables
 %   A two to three-element cell vector:
 %   - The first cell is unused.
@@ -59,8 +67,7 @@ function f = subproblemI_L2L1(M_Omega_Phi, G_xy, G_lambda_xy, J, alpha)
 %     constraint on `I`, which is an addition to the method of Baek et al.
 %     2017. `Z{3}` is an (n_px_I x c) x 1 vector.
 %
-%  If `Z` does not have three cells, the non-negativity constraint on `I`
-%  will not be applied.
+%  If `nonneg` is `true`, then `Z` must have three cells.
 %
 % U -- Scaled dual variables
 %   The scaled Lagrange multipliers for the constraints on the
@@ -74,10 +81,6 @@ function f = subproblemI_L2L1(M_Omega_Phi, G_xy, G_lambda_xy, J, alpha)
 %   `Z{2}` in the ADMM optimization problem of Baek et al. 2017. The third
 %   element, needed if `Z` has three cells, contains the `rho_3` penalty
 %   parameter for the non-negativity constraint.
-%
-% alpha -- Spatial gradient regularization weight
-%   The weight on the regularization of the spatial gradient of the image
-%   in the ADMM optimization problem.
 %
 % ## Output Arguments
 %
@@ -133,16 +136,14 @@ function f = subproblemI_L2L1(M_Omega_Phi, G_xy, G_lambda_xy, J, alpha)
 % File created July 18, 2018
 
 nargoutchk(1, 2);
-narginchk(5, 5);
-
-nonneg = (length(Z) > 2);
+narginchk(6, 6);
 
 M_Omega_Phi_J = M_Omega_Phi.' * J;
 A_const = (M_Omega_Phi.' * M_Omega_Phi) + alpha * (G_xy.' * G_xy);
 G_lambda_xy_T = G_lambda_xy.';
 G_lambda_xy2 = G_lambda_xy.' * G_lambda_xy;
 if nonneg
-    I_A = speye(size(A));
+    I_A = speye(size(A_const));
 end
 
     function [ b, A ] = inner(Z, U, rho)

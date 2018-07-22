@@ -95,8 +95,8 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %   the 'beta' weight on the regularization of the spectral gradient of the
 %   spatial gradient of the image in the ADMM optimization problem.
 %
-%   If all elements of `weights` are zero, this function will find a
-%   solution to the simpler problem:
+%   If all elements of `weights` are zero, and `options.nonneg` is `false`,
+%   this function will find a solution to the simpler problem:
 %     argmin_i (||M * Omega * Phi * i - j||_2) ^ 2
 %   where `M` performs mosaicing, `Omega` converts colours to the RGB
 %   colour space of the camera, and `Phi` warps the image according to the
@@ -108,9 +108,9 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %   approximation to the exact solution (using MATLAB's 'pcg()' function),
 %   or will find a least-squares solution.
 %
-%   This function will not terminate if only one element of `weights` is
-%   zero, and the corresponding element in `options.norms` is `true`,
-%   because the ADMM algorithm will not converge.
+%   The ADMM iterations will not converge if an element of `weights` is
+%   zero, but the corresponding element in `options.norms` is `true`, as
+%   ADMM will be trying to optimize a constraint that has no influence.
 %
 % options -- Options and small parameters
 %   A structure with the following fields:
@@ -366,10 +366,10 @@ len_I = length(I);
 J_mean = mean(J);
 J_est = M_Omega_Phi * I;
 J_est_mean = mean(J_est);
-I = I / (J_mean / J_est_mean);
+I = I * (J_mean / J_est_mean);
 
 % Select the appropriate algorithm variant
-if all(weights == 0 && ~options.nonneg)
+if all(weights == 0) && ~options.nonneg
     A = M_Omega_Phi;
     if (size(A, 1) < size(A, 2)) || (rank(A) < size(A, 2))
         % Minimum-norm least squares solution to the non-regularized problem
@@ -404,7 +404,7 @@ elseif all(~options.norms) && ~options.nonneg
             options.tol(1), options.maxit(1)...
         );
     end
-    f_Ab = subproblemI_L2L2(M_Omega_Phi, G_xy, G_lambda_xy, J, weights);
+    f_Ab = subproblemI_L2L2(M_Omega_Phi, G_xy, G_lambda_xy, J, weights, options.nonneg);
     [ b, A ] = f_Ab({}, {}, []);
     [ I, flag, relres, iter_pcg ] = pcg(...
         A, b, options.tol(1), options.maxit(1), [], [], I...
@@ -458,13 +458,13 @@ else
 
     % Iteration
     if all(options.norms)
-        f_Ab = subproblemI(M_Omega_Phi, G_xy, G_lambda_xy, J);
+        f_Ab = subproblemI(M_Omega_Phi, G_xy, G_lambda_xy, J, options.nonneg);
     elseif options.norms(1)
-        f_Ab = subproblemI_L1L2(M_Omega_Phi, G_xy, G_lambda_xy, J, weights(2));
+        f_Ab = subproblemI_L1L2(M_Omega_Phi, G_xy, G_lambda_xy, J, weights(2), options.nonneg);
     elseif options.norms(2)
-        f_Ab = subproblemI_L2L1(M_Omega_Phi, G_xy, G_lambda_xy, J, weights(1));
+        f_Ab = subproblemI_L2L1(M_Omega_Phi, G_xy, G_lambda_xy, J, weights(1), options.nonneg);
     else
-        f_Ab = subproblemI_L2L2(M_Omega_Phi, G_xy, G_lambda_xy, J, weights);
+        f_Ab = subproblemI_L2L2(M_Omega_Phi, G_xy, G_lambda_xy, J, weights, options.nonneg);
     end
     [ b, A ] = f_Ab(Z, U, rho);
     soft_thresholds = weights ./ rho(1:n_priors);
@@ -520,17 +520,22 @@ else
             epsilon_pri(z_ind) = sqrt(len_Z(z_ind)) * options.tol(2) +...
                 options.tol(3) * max([norm(g{z_ind}), norm(Z{z_ind})]);
             Y{z_ind} = rho(z_ind) * U{z_ind};
-            epsilon_dual(z_ind) = sqrt(len_I) * options.tol(2) +...
-                options.tol(3) * norm(G_T{z_ind} * Y{z_ind});
+            if z_ind == nonneg_ind
+                epsilon_dual(z_ind) = sqrt(len_I) * options.tol(2) +...
+                    options.tol(3) * norm(Y{z_ind});
+            else
+                epsilon_dual(z_ind) = sqrt(len_I) * options.tol(2) +...
+                    options.tol(3) * norm(G_T{z_ind} * Y{z_ind});
+            end
             converged = converged &&...
                 (R_norm(z_ind) < epsilon_pri(z_ind) && S_norm(z_ind) < epsilon_dual(z_ind));
             
             if(verbose)
                 fprintf('%d:    Residuals %d (R1_norm = %g, S1_norm = %g)\n',...
-                    z_ind, R_norm(z_ind), S_norm(z_ind)...
+                    iter, z_ind, R_norm(z_ind), S_norm(z_ind)...
                     );
                 fprintf('%d:    Stop Crit. %d (e_p1 = %g, e_d1 = %g)\n',...
-                    z_ind, epsilon_pri(z_ind), epsilon_dual(z_ind)...
+                    iter, z_ind, epsilon_pri(z_ind), epsilon_dual(z_ind)...
                 );
             end
         end
