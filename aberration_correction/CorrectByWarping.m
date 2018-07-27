@@ -37,10 +37,9 @@
 % - 'model_from_reference': A parameter of the above scripts, which
 %   determines the frame of reference for the model of chromatic
 %   aberration. It must be set to `true`.
-% - 'bands': A vector containing the wavelengths or colour channel indices
-%   to use as the `lambda` input argument of 'dispersionfunToMatrix()'.
-%   `bands` is the wavelength or colour channel information needed to
-%   evaluate the dispersion model.
+% - 'bands': A vector containing the colour channel indices to use as the
+%   `lambda` input argument of 'dispersionfunToMatrix()'. `bands` is the
+%   colour channel information needed to evaluate the dispersion model.
 %
 % The following two additional variables are optional. If they are present,
 % they will be used for the following purposes:
@@ -123,17 +122,17 @@ parameters_list = {
 
 % Wildcard for 'ls()' to find the images to process.
 % '.mat' or image files can be loaded
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/ground_truth/splines/swirly_0138_raw_warped.mat';
-input_images_variable_name = 'raw_2D'; % Used only when loading '.mat' files
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180709_TestingSplineModels/ground_truth/splines/swirly_0138_raw_warped.mat';
+input_images_variable_name = 'raw_2D'; % Can be empty unless loading images from '.mat' files
 
 % Colour-filter pattern
 bayer_pattern = 'gbrg';
 
 % Model of dispersion
-dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/DoubleConvexThickLensDispersionResults_spline_modelFromReference_true_fill.mat';
+dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180709_TestingSplineModels/DoubleConvexThickLensDispersionResults_spline_modelFromReference_true_fill.mat';
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/warping';
+output_directory = '/home/llanos/Downloads';
 
 %% Find the images
 
@@ -142,24 +141,9 @@ n_images = length(image_filenames);
 
 %% Load dispersion model
 
-model_variables_required = { 'dispersion_data', 'model_from_reference', 'bands' };
-model_variables_transform = { 'model_space', 'fill' };
-load(dispersion_model_filename, model_variables_required{:}, model_variables_transform{:});
-if ~all(ismember(model_variables_required, who))
-    error('One or more of the dispersion model variables is not loaded.')
-end
-if ~model_from_reference
-    error('Dispersion model is in the wrong frame of reference.')
-end
-
-if exist('model_space', 'var')
-    crop_image = true;
-    if ~exist('fill', 'var')
-        fill = false;
-    end
-else
-    crop_image = false;
-end
+[...
+    dispersion_data, bands, transform_data...
+] = loadDispersionModel(dispersion_model_filename, true);
 
 %% Process the images
 
@@ -168,34 +152,15 @@ mat_ext = '.mat';
 
 n_demosaicing_methods = 2;
 for i = 1:n_images
-    [~, name, ext] = fileparts(image_filenames{i});
-    if strcmp(ext, mat_ext)
-        if isempty(input_images_variable_name)
-            error('A variable name must be given to load input images from %s files.', mat_ext);
-        end
-        load(image_filenames{i}, input_images_variable_name);
-        if exist(input_images_variable_name,'var')
-            I_raw = eval(input_images_variable_name);
-        else
-            error(...
-                'The input image variable %s was not loaded from %s.',...
-                input_images_variable_name, image_filenames{i}...
-                );
-        end
-    else
-        I_raw = imread(image_filenames{i});
-    end
+    [I_raw, name] = loadImage(image_filenames{i}, input_images_variable_name);
+    
     if ~ismatrix(I_raw)
         error('Expected a RAW image, represented as a 2D array, not a higher-dimensional array.');
     end
     
-    if crop_image
-        [roi, T_roi] = modelSpaceTransform(size(I_raw), model_space, fill);
-        dispersionfun = makeDispersionfun(dispersion_data, T_roi);
-        I_raw = I_raw(roi(1):roi(2), roi(3):roi(4));
-    else
-        dispersionfun = makeDispersionfun(dispersion_data);
-    end
+    [dispersionfun, I_raw] = makeDispersionForImage(...
+        dispersion_data, I_raw, transform_data...
+    );
     
     I_raw_filename = fullfile(output_directory, [name '_roi']);
     imwrite(I_raw, [I_raw_filename img_out_ext]);
@@ -209,18 +174,18 @@ for i = 1:n_images
 
     for j = 1:n_demosaicing_methods
         if j == 1
-            I_color = bilinearDemosaic(I_raw, bayer_pattern);
+            I_color_warped = bilinearDemosaic(I_raw, bayer_pattern);
         elseif j == 2
             if isa(I_raw, 'double')
                 I_raw_int = im2uint16(I_raw);
-                I_color = im2double(demosaic(I_raw_int, bayer_pattern));
+                I_color_warped = im2double(demosaic(I_raw_int, bayer_pattern));
             else
-                I_color = im2double(demosaic(I_raw, bayer_pattern));
+                I_color_warped = im2double(demosaic(I_raw, bayer_pattern));
             end
         else
             error('No demosaicing method associated with index %d.', j);
         end
-        I_color_warped = warpImage(I_color, W, image_sampling_in);
+        I_color = warpImage(I_color_warped, W, image_sampling_in);
         
         % Save the results
         if j == 1
