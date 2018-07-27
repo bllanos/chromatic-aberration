@@ -209,20 +209,10 @@
 % List of parameters to save with results
 parameters_list = {
         'bayer_pattern',...
-        'dispersion_model_filename',...
+        'reverse_dispersion_model_filename',...
         'color_map_filename',...
-        'bands_script',...
-        'bands_interp_method',...
-        'downsampling_factor',...
         'output_directory',...
         'save_latent_image_files',...
-        'add_border',...
-        'baek2017Algorithm2Options',...
-        'rho',...
-        'weights',...
-        'int_method',...
-        'patch_sizes',...
-        'paddings',...
         'target_patch',...
         'run_entire_image'...
     };
@@ -231,27 +221,14 @@ parameters_list = {
 
 % Wildcard for 'ls()' to find the images to process.
 % '.mat' or image files can be loaded
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/ground_truth/splines/swirly_0138_small_raw_warped.mat';
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180709_TestingSplineModels/ground_truth/splines/swirly_0138_small_raw_warped.mat';
 input_images_variable_name = 'raw_2D'; % Used only when loading '.mat' files
 
-% Colour-filter pattern
-bayer_pattern = 'gbrg';
-
 % Model of dispersion
-dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/ground_truth/splines/BimaterialImagesData_small.mat';
+reverse_dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180709_TestingSplineModels/ground_truth/splines/BimaterialImagesData_small.mat';
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/SonyColorMapData.mat';
-
-% Override the wavelengths or colour channel indices at which to evaluate
-% the model of dispersion, if desired.
-bands = 430:10:650;
-% Interpolation method used when resampling colour space conversion data
-bands_interp_method = 'linear';
-
-% Downsampling factor to apply to the estimated latent images relative to
-% the input images. If empty (`[]`), downsampling will not occur.
-downsampling_factor = 1;
+color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180709_TestingSplineModels/SonyColorMapData.mat';
 
 % Output directory for all images and saved parameters
 output_directory = '/home/llanos/Downloads';
@@ -260,60 +237,7 @@ output_directory = '/home/llanos/Downloads';
 % them in the output '.mat' files
 save_latent_image_files = false;
 
-% Whether to expand the latent image relative to the input image to cover
-% all undistorted coordinates from the input image. This is the
-% `add_border` input argument.
-add_border = false;
-
-% ## Options for baek2017Algorithm2() (Alternating Direction Method of Multipliers)
-
-% Whether to make the spectral gradient the same size as the image. This is
-% the `full_GLambda` input argument.
-baek2017Algorithm2Options.full_GLambda = false;
-
-% Penalty parameters in ADMM, the `rho` input argument.
-% Sample values seem to be in the range 1-10 (see pages 89, 93, and 95 of
-% Boyd et al. 2011)
-rho = [ 1, 1, 1 ];
-
-% Weights on the two prior terms, the `weights` input argument.
-weights = [ 1, 1 ];
-
-% Convergence tolerances in ADMM, the `tol` input argument.
-%
-% Reasonable values for the third element are 10^-4 to 10^-3 (page 21 of
-% Boyd et al. 2011).
-baek2017Algorithm2Options.tol = [ 1e-3, 1e-2, 1e-3 ];
-
-% Maximum number of inner and outer iterations, the `maxit` input argument
-baek2017Algorithm2Options.maxit = [ 500, 100 ];
-
-% Parameters for adaptively changing the penalty parameters for improved
-% convergence speed. (Disable adaptive penalty parameter variation by
-% setting this option to an empty array.)
-baek2017Algorithm2Options.varying_penalty_params = [2, 2, 10];
-
-% Types of norms to use on the prior terms
-baek2017Algorithm2Options.norms = [true, true];
-
-% Whether to apply a non-negativity constraint (in which case, `rho` must
-% have three elements)
-baek2017Algorithm2Options.nonneg = true;
-
-% If the latent space consists of wavelength bands, use this type of
-% numerical integration in 'channelConversionMatrix()'. (Otherwise, a value
-% of 'none' will automatically be used instead.)
-int_method = 'trap';
-
 % ## Options for patch-wise image estimation
-
-% Every combination of rows of `patch_sizes` and elements of `paddings`
-% will be tested.
-% If `patch_sizes` is empty only whole image estimation will be performed
-patch_sizes = [ % Each row contains a (number of rows, number of columns) pair
- %   25 25;
-]; 
-paddings = 11;
 
 % Only estimate a single patch, with its top-left corner at the given (row,
 % column) location.
@@ -323,8 +247,8 @@ target_patch = [];
 % Also compare with (or only run) whole image estimation
 run_entire_image = true;
 
-% ## Debugging Flags
-baek2017Algorithm2Verbose = true;
+% Parameters which do not usually need to be changed
+run('SetFixedParameters.m')
 
 %% Find the images
 
@@ -335,34 +259,11 @@ n_images = length(image_filenames);
 
 bands_script = bands;
 bands = [];
+[...
+    dispersion_data, bands_dispersionfun, transform_data...
+] = loadDispersionModel(reverse_dispersion_model_filename, false, false);
 
 optional_variable = 'bands';
-model_variables_required = { 'dispersion_data', 'model_from_reference' };
-model_variables_transform = { 'model_space', 'fill' };
-load(...
-    dispersion_model_filename,...
-    model_variables_required{:}, model_variables_transform{:},...
-    optional_variable...
-    );
-if ~all(ismember(model_variables_required, who))
-    error('One or more of the required dispersion model variables is not loaded.')
-end
-if model_from_reference
-    error('Dispersion model is in the wrong frame of reference.')
-end
-
-if exist('model_space', 'var')
-    crop_image = true;
-    if ~exist('fill', 'var')
-        fill = false;
-    end
-else
-    crop_image = false;
-end
-
-bands_dispersionfun = bands;
-bands = [];
-
 model_variables_required = { 'sensor_map', 'channel_mode' };
 load(color_map_filename, model_variables_required{:}, optional_variable);
 if ~all(ismember(model_variables_required, who))
@@ -436,34 +337,15 @@ if isempty(patch_sizes) && ~run_entire_image
 end
 
 for i = 1:n_images
-    [~, name, ext] = fileparts(image_filenames{i});
-    if strcmp(ext, mat_ext)
-        if isempty(input_images_variable_name)
-            error('A variable name must be given to load input images from %s files.', mat_ext);
-        end
-        load(image_filenames{i}, input_images_variable_name);
-        if exist(input_images_variable_name,'var')
-            I_raw = eval(input_images_variable_name);
-        else
-            error(...
-                'The input image variable %s was not loaded from %s.',...
-                input_images_variable_name, image_filenames{i}...
-                );
-        end
-    else
-        I_raw = imread(image_filenames{i});
-    end
+    [I_raw, name] = loadImage(image_filenames{i}, input_images_variable_name);
+
     if ~ismatrix(I_raw)
         error('Expected a RAW image, represented as a 2D array, not a higher-dimensional array.');
     end
     
-    if crop_image
-        [roi, T_roi] = modelSpaceTransform(size(I_raw), model_space, fill);
-        dispersionfun = makeDispersionfun(dispersion_data, T_roi);
-        I_raw = I_raw(roi(1):roi(2), roi(3):roi(4));
-    else
-        dispersionfun = makeDispersionfun(dispersion_data);
-    end
+    [dispersionfun, I_raw] = makeDispersionForImage(...
+        dispersion_data, I_raw, transform_data...
+    );
     
     I_raw = im2double(I_raw);
     image_sampling = size(I_raw);

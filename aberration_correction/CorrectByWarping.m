@@ -113,8 +113,7 @@
 
 % List of parameters to save with results
 parameters_list = {
-        'bayer_pattern',...
-        'dispersion_model_filename',...
+        'forward_dispersion_model_filename',...
         'output_directory'...
     };
 
@@ -125,14 +124,14 @@ parameters_list = {
 input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180709_TestingSplineModels/ground_truth/splines/swirly_0138_raw_warped.mat';
 input_images_variable_name = 'raw_2D'; % Can be empty unless loading images from '.mat' files
 
-% Colour-filter pattern
-bayer_pattern = 'gbrg';
-
 % Model of dispersion
-dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180709_TestingSplineModels/DoubleConvexThickLensDispersionResults_spline_modelFromReference_true_fill.mat';
+forward_dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180709_TestingSplineModels/DoubleConvexThickLensDispersionResults_spline_modelFromReference_true_fill.mat';
 
 % Output directory for all images and saved parameters
 output_directory = '/home/llanos/Downloads';
+
+% Parameters which do not usually need to be changed
+run('SetFixedParameters.m')
 
 %% Find the images
 
@@ -143,7 +142,7 @@ n_images = length(image_filenames);
 
 [...
     dispersion_data, bands, transform_data...
-] = loadDispersionModel(dispersion_model_filename, true);
+] = loadDispersionModel(forward_dispersion_model_filename, true);
 
 %% Process the images
 
