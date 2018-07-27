@@ -46,6 +46,8 @@ bayer_pattern = 'gbrg';
 % Override the wavelengths or colour channel indices at which to evaluate
 % the model of dispersion, if desired.
 bands = 430:10:650;
+bands_script = bands;
+
 % Interpolation method used when resampling colour space conversion data
 bands_interp_method = 'linear';
 
@@ -93,6 +95,8 @@ baek2017Algorithm2Options.norms = [true, true];
 % have three elements)
 baek2017Algorithm2Options.nonneg = true;
 
+% Integration method to use for colour calculations
+%
 % If the latent space consists of wavelength bands, use this type of
 % numerical integration in 'channelConversionMatrix()'. (Otherwise, a value
 % of 'none' will automatically be used instead.)

@@ -63,7 +63,9 @@ else
     end
     I = varargin{1};
     transform_data = varargin{2};
-    [roi, T_roi] = modelSpaceTransform(size(I), transform_data.model_space, transform_data.fill);
+    [roi, T_roi] = modelSpaceTransform(...
+        [size(I, 1), size(I, 2)], transform_data.model_space, transform_data.fill...
+    );
     dispersionfun = makeDispersionfun(dispersion_data, T_roi);
     if nargout > 1
         varargout = {I(roi(1):roi(2), roi(3):roi(4), :)};

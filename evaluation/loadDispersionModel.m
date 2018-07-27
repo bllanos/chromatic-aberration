@@ -65,7 +65,7 @@ function [dispersion_data, bands, transform_data] = loadDispersionModel(filename
 %     resized, so that its domain fills the image.
 %
 %   `transform_data` is empty (`[]`) if the dispersion model file does not
-%   contain a `model_space` variable.
+%   contain a non-empty `model_space` variable.
 %
 % See also makeDispersionfun, modelSpaceTransform
 

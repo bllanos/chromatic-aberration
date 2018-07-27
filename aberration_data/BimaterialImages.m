@@ -200,11 +200,9 @@
 % List of parameters to save with results
 parameters_list = {
         'grey_difference_threshold',...
-        'dispersion_model_filename',...
+        'reverse_dispersion_model_filename',...
         'color_map_filename',...
         'normalization_channel',...
-        'int_method',...
-        'bands_interp_method',...
         'use_cie_illuminant',...
         'illuminant_filename',...
         'illuminant_temperature',...
@@ -213,14 +211,13 @@ parameters_list = {
         'xyzbar_filename',...
         'reflectances_filename',...
         'n_colors',...
-        'bayer_pattern',...
         'output_directory'...
     };
 
 %% Input data and parameters
 
 % Wildcard for 'ls()' to find the chromaticity maps.
-input_chromaticity_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/swirly*small.jpg';
+input_chromaticity_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180709_TestingSplineModels/swirly*39.jpg';
 
 % Threshold for assuming that an RGB image is actually a greyscale image
 grey_difference_threshold = 1;
@@ -230,25 +227,17 @@ grey_difference_threshold = 1;
 input_shading_maps_wildcard = [];
 
 % Model of dispersion
-dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/DoubleConvexThickLensDispersionResults_spline_modelFromReference_false.mat';
+reverse_dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180709_TestingSplineModels/DoubleConvexThickLensDispersionResults_spline_modelFromReference_false.mat';
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/SonyColorMapData.mat';
+color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180709_TestingSplineModels/SonyColorMapData.mat';
 % Colour channel to use for radiance normalization
 normalization_channel = 2;
-% Integration method to use for colour calculations
-int_method = 'trap';
-
-% Override the wavelengths at which to evaluate the model of dispersion, if
-% desired.
-bands = 430:10:650;
-% Interpolation method used when resampling spectral data
-bands_interp_method = 'linear';
 
 use_cie_illuminant = true;
 if use_cie_illuminant
     % CIE D-illuminant
-    illuminant_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180604_Spectral power distributions_BruceLindbloom/DIlluminants.csv';
+    illuminant_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180604_Spectral power distributions_BruceLindbloom/DIlluminants.csv';
     illuminant_temperature = 5003; % From https://en.wikipedia.org/wiki/Standard_illuminant#Illuminant_series_D
     illuminant_name = 'd50';
     illuminant_function_name = []; % Unused
@@ -261,19 +250,16 @@ else
 end
 
 % CIE tristimulus functions
-xyzbar_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180614_ASTM_E308/Table1_CIE1931_2DegStandardObserver.csv';
+xyzbar_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180614_ASTM_E308/Table1_CIE1931_2DegStandardObserver.csv';
 
 % ColorChecker spectral reflectances
-reflectances_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180604_ColorCheckerSpectralData_BabelColor/ColorChecker_spectra_reformatted_llanos.csv';
+reflectances_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180604_ColorCheckerSpectralData_BabelColor/ColorChecker_spectra_reformatted_llanos.csv';
 
 % Number of colours to blend in each output image
 n_colors = 2;
 
-% Colour-filter pattern
-bayer_pattern = 'gbrg';
-
 % Output directory for all images and saved data
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180709_TestingSplineModels/ground_truth';
+output_directory = '/home/llanos/Downloads';
 
 % ## Debugging Flags
 segmentColorsVerbose = false;
@@ -314,15 +300,12 @@ colorChecker_rgb = reflectanceToColor(...
 
 %% Load dispersion model
 
-model_variables_required = {...
-    'dispersion_data', 'model_from_reference', 'model_space'...
-};
-load(dispersion_model_filename, model_variables_required{:});
-if ~all(ismember(model_variables_required, who))
-    error('One or more of the dispersion model variables is not loaded.')
-end
-if model_from_reference
-    error('Dispersion model is in the wrong frame of reference.')
+model_from_reference = false;
+[...
+    dispersion_data, ~, transform_data...
+] = loadDispersionModel(reverse_dispersion_model_filename, model_from_reference, false);
+if isempty(transform_data)
+    error('The dispersion model must be associated with coordinate space information.')
 end
 if isfield(dispersion_data, 'reference_channel')
     error('A dispersion model for spectral data, not colour channels, is required.');
@@ -330,7 +313,6 @@ end
 
 %% Load colour space conversion data
 
-bands_script = bands;
 bands = [];
 
 optional_variable = 'bands';
@@ -499,12 +481,11 @@ for i = 1:n_images
     raw_full_3D = reshape(raw_full, image_height, image_width, n_channels_raw);
     
     % Simulate dispersion
-    [~, T_roi] = modelSpaceTransform(...
-        [image_height, image_width], model_space, fill...
+    dispersionfun = makeDispersionForImage(...
+        dispersion_data, I_hyper, transform_data...
     );
-    dispersonFun = makeDispersionfun(dispersion_data, T_roi);
     W = dispersionfunToMatrix(...
-            dispersonFun, bands,...
+            dispersionfun, bands,...
             image_sampling, image_sampling,...
             [0, 0, image_width,  image_height], true...
         );
@@ -544,6 +525,8 @@ for i = 1:n_images
 end
 
 %% Save parameters and additional data to a file
+model_space = transform_data.model_space;
+fill = transform_data.fill;
 save_variables_list = [ parameters_list, {...
         'chromaticity_filenames',...
         'shading_filenames',...

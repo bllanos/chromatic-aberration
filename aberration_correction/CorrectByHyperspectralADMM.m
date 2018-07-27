@@ -257,7 +257,6 @@ n_images = length(image_filenames);
 
 %% Load calibration data
 
-bands_script = bands;
 bands = [];
 [...
     dispersion_data, bands_dispersionfun, transform_data...
