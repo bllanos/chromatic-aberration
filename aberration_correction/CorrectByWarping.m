@@ -57,8 +57,8 @@
 % ## Output
 %
 % ### Colour images
-% One of the following types of images is created for each input image. The
-% filename of the input image is represented by '*' below.
+% One of each of the following types of images is created for each input
+% image. The filename of the input image is represented by '*' below.
 % - '*_roi.tif' and '*_roi.mat': A cropped version of the input image,
 %   (stored in the variable 'I_raw') containing the portion to be
 %   corrected. This region of interest was determined using the
@@ -146,9 +146,6 @@ n_images = length(image_filenames);
 
 %% Process the images
 
-img_out_ext = '.tif';
-mat_ext = '.mat';
-
 n_demosaicing_methods = 2;
 for i = 1:n_images
     [I_raw, name] = loadImage(image_filenames{i}, input_images_variable_name);
@@ -159,11 +156,11 @@ for i = 1:n_images
     
     [dispersionfun, I_raw] = makeDispersionForImage(...
         dispersion_data, I_raw, transform_data...
+    );    
+    saveImages(...
+        output_directory, name,...
+        I_raw, '_roi', 'I_raw'...
     );
-    
-    I_raw_filename = fullfile(output_directory, [name '_roi']);
-    imwrite(I_raw, [I_raw_filename img_out_ext]);
-    save([I_raw_filename mat_ext], 'I_raw');
     
     image_sampling_in = size(I_raw);
     W = dispersionfunToMatrix(...
@@ -188,24 +185,20 @@ for i = 1:n_images
         
         % Save the results
         if j == 1
-            I_color_filename = fullfile(output_directory, [name '_color_bilinear']);
-            I_color_warped_filename = fullfile(output_directory, [name '_color_bilinear_warped']);
-            I_color_bilinear = I_color;
-            save([I_color_filename mat_ext], 'I_color_bilinear');
-            I_color_bilinear_warped = I_color_warped;
-            save([I_color_warped_filename mat_ext], 'I_color_bilinear_warped');
+            saveImages(...
+                output_directory, name,...
+                I_color, '_color_bilinear', 'I_color_bilinear',...
+                I_color_warped, '_color_bilinear_warped', 'I_color_bilinear_warped'...
+            );
         elseif j == 2
-            I_color_filename = fullfile(output_directory, [name '_color_demosaic']);
-            I_color_warped_filename = fullfile(output_directory, [name '_color_demosaic_warped']);
-            I_color_demosaic = I_color;
-            save([I_color_filename mat_ext], 'I_color_demosaic');
-            I_color_demosaic_warped = I_color_warped;
-            save([I_color_warped_filename mat_ext], 'I_color_demosaic_warped');
+            saveImages(...
+                output_directory, name,...
+                I_color, '_color_demosaic', 'I_color_demosaic',...
+                I_color_warped, '_color_demosaic_warped', 'I_color_demosaic_warped'...
+            );
         else
             error('No demosaicing method associated with index %d.', j);
         end
-        imwrite(I_color, [I_color_filename img_out_ext]);
-        imwrite(I_color_warped, [I_color_warped_filename img_out_ext]);
     end
 end
 

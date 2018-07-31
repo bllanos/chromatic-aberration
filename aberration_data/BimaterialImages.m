@@ -405,7 +405,6 @@ end
 
 n_channels_rgb = 3;
 n_channels_raw = 3;
-ext = '.tif';
 fill = true;
 
 for i = 1:n_images
@@ -502,26 +501,14 @@ for i = 1:n_images
     raw_2D = reshape(raw, image_sampling);
             
     % Save the results
-    output_filename = fullfile(output_directory, [chromaticity_names{i} '_hyperspectral.mat']);
-    save(output_filename, 'I_hyper');
-    
-    output_filename = fullfile(output_directory, [chromaticity_names{i} '_3.mat']);
-    save(output_filename, 'raw_full_3D');
-    output_filename = fullfile(output_directory, [chromaticity_names{i} '_3' ext]);
-    imwrite(raw_full_3D, output_filename);
-    
-    output_filename = fullfile(output_directory, [chromaticity_names{i} '_hyperspectral_warped.mat']);
-    save(output_filename, 'I_hyper_warped');
-    
-    output_filename = fullfile(output_directory, [chromaticity_names{i} '_3_warped.mat']);
-    save(output_filename, 'raw_warped_3D');
-    output_filename = fullfile(output_directory, [chromaticity_names{i} '_3_warped' ext]);
-    imwrite(raw_warped_3D, output_filename);
-    
-    output_filename = fullfile(output_directory, [chromaticity_names{i} '_raw_warped.mat']);
-    save(output_filename, 'raw_2D');
-    output_filename = fullfile(output_directory, [chromaticity_names{i} '_raw_warped' ext]);
-    imwrite(raw_2D, output_filename);
+    saveImages(...
+        output_directory, chromaticity_names{i},...
+        I_hyper, '_hyperspectral', 'I_hyper',...
+        raw_full_3D, '_3', 'raw_full_3D',...
+        I_hyper_warped, '_hyperspectral_warped', 'I_hyper_warped',...
+        raw_warped_3D, '_3_warped', 'raw_warped_3D',...
+        raw_2D, '_raw_warped', 'raw_2D'...
+    );            
 end
 
 %% Save parameters and additional data to a file

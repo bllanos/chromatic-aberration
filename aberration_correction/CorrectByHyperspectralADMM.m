@@ -1,6 +1,6 @@
 %% Demosaicing and hyperspectral ADMM-based correction of chromatic aberration
-% Convert RAW images to colour images, and correct chromatic aberration by
-% estimating a latent hyperspectral or RGB image.
+% Convert RAW images to colour images, and simultaneously correct chromatic
+% aberration, by estimating a latent hyperspectral or RGB image.
 %
 % ## Usage
 % Modify the parameters, the first code section below, then run.
@@ -118,8 +118,8 @@
 %
 % ### Estimated images
 %
-% One of the following types of images is created for each input image,
-% except where specified. The filename of the input image, concatenated
+% One of each of the following types of images is created for each input
+% image, except where specified. The filename of the input image, concatenated
 % with a string of parameter information, is represented by '*' below.
 % - '*_roi.tif' and '*_roi.mat': A cropped version of the input image
 %   (stored in the variable 'I_raw'), containing the portion used as input
@@ -190,6 +190,8 @@
 %   identity mapping of the colours of a latent RGB image into the colours
 %   of the aberrated RGB image. Summation allows multiple sharp bands to
 %   form a blurred colour channel.
+% - This script only uses the first row of `weights` defined in
+%   'SetFixedParameters.m'.
 %
 % ## References
 % - Baek, S.-H., Kim, I., Gutierrez, D., & Kim, M. H. (2017). "Compact
@@ -208,7 +210,6 @@
 
 % List of parameters to save with results
 parameters_list = {
-        'bayer_pattern',...
         'reverse_dispersion_model_filename',...
         'color_map_filename',...
         'output_directory',...
@@ -232,10 +233,6 @@ color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180709_T
 
 % Output directory for all images and saved parameters
 output_directory = '/home/llanos/Downloads';
-
-% Whether or not to save the latent images to image files, beyond including
-% them in the output '.mat' files
-save_latent_image_files = false;
 
 % ## Options for patch-wise image estimation
 
@@ -320,14 +317,8 @@ else
     sensor_map_resampled = sensor_map;
 end
 
-if save_latent_image_files && (n_latent_channels ~= 3 && n_latent_channels ~= 1)
-    error('Cannot save latent images to image files, because they have %d channels.', n_latent_channels);
-end
-
 %% Process the images
 
-img_ext = '.tif';
-mat_ext = '.mat';
 image_bounds = cell(n_images, 1);
 solvePatchesOptions.add_border = add_border;
 
@@ -358,7 +349,7 @@ for i = 1:n_images
                 baek2017Algorithm2Options.add_border = add_border;
                 [ I_latent, image_bounds{i}, I_rgb, J_full, J_est ] = baek2017Algorithm2(...
                     image_sampling, bayer_pattern, dispersionfun, sensor_map_resampled,...
-                    bands, I_raw, rho, weights,...
+                    bands, I_raw, rho, weights(1, :),...
                     baek2017Algorithm2Options, baek2017Algorithm2Verbose...
                 );
                 name_params = [name, '_whole'];
@@ -378,7 +369,7 @@ for i = 1:n_images
                         sensor_map_resampled,...
                         bands, solvePatchesOptions, @baek2017Algorithm2,...
                         {...
-                            rho, weights,...
+                            rho, weights(1, :),...
                             baek2017Algorithm2Options, baek2017Algorithm2Verbose...
                         }...
                     );
@@ -391,7 +382,7 @@ for i = 1:n_images
                         sensor_map_resampled,...
                         bands, solvePatchesOptions, @baek2017Algorithm2,...
                         {...
-                            rho, weights,...
+                            rho, weights(1, :),...
                             baek2017Algorithm2Options, baek2017Algorithm2Verbose...
                         }, target_patch...
                     );
@@ -405,23 +396,14 @@ for i = 1:n_images
             end
             
             % Save the results
-            I_filename = fullfile(output_directory, [name_params '_roi']);
-            imwrite(I_raw, [I_filename img_ext]);
-            save([I_filename mat_ext], 'I_raw');
-            I_filename = fullfile(output_directory, [name_params '_latent']);
-            if save_latent_image_files
-                imwrite(I_latent, [I_filename img_ext]);
-            end
-            save([I_filename mat_ext], 'I_latent');
-            I_filename = fullfile(output_directory, [name_params '_latent_rgb']);
-            imwrite(I_rgb, [I_filename img_ext]);
-            save([I_filename mat_ext], 'I_rgb');
-            I_filename = fullfile(output_directory, [name_params '_latent_warped']);
-            imwrite(J_full, [I_filename img_ext]);
-            save([I_filename mat_ext], 'J_full');
-            I_filename = fullfile(output_directory, [name_params '_reestimated']);
-            imwrite(J_est, [I_filename img_ext]);
-            save([I_filename mat_ext], 'J_est');
+            saveImages(...
+                output_directory, name_params,...
+                I_raw, '_roi', 'I_raw',...
+                I_latent, '_latent', 'I_latent',...
+                I_rgb, '_latent_rgb', 'I_rgb',...
+                J_full, '_latent_warped', 'J_full',...
+                J_est, '_reestimated', 'J_est'...
+            );
         end
     end
 end

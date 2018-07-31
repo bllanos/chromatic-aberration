@@ -6,6 +6,10 @@
 %   Modify the parameters in the code below, as desired. This script exists
 %   just to deduplicate code, and will be called by other scripts.
 %
+%   Some parameters can be given multiple values (indexed by row). Some
+%   scripts will iterate through all rows, whereas others will just use the
+%   first row of a parameter's values.
+%
 % ## Implementation Notes
 % - When modifying this file, remember to update `parameters_list`.
 % - Run this script after setting custom parameters in the calling script,
@@ -72,7 +76,11 @@ baek2017Algorithm2Options.full_GLambda = false;
 rho = [ 1, 1, 1 ];
 
 % Weights on the two prior terms, the `weights` input argument.
-weights = [ 1, 1 ];
+weights = [
+    1, 1;
+    0.1 1;
+    1, 0.1
+    ];
 
 % Convergence tolerances in ADMM, the `tol` input argument.
 %

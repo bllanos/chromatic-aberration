@@ -23,7 +23,7 @@ function [I, name, ext] = loadImage(filename, varargin)
 %
 % variable_name -- Image variable name
 %   The name of the variable to be loaded from the file, should `filename`
-%   refer to a '.mat' file.
+%   refer to a '.mat' file. (Otherwise `variable_name` can be empty.)
 %
 % ## Output Arguments
 %
@@ -38,7 +38,7 @@ function [I, name, ext] = loadImage(filename, varargin)
 % ext -- File format
 %   The extension of the file referred to by `filename`.
 %
-% See also imread, load
+% See also saveImages, imread, load
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
