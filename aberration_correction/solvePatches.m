@@ -1,12 +1,13 @@
 function [ I_3D, image_bounds, varargout ] = solvePatches(...
-    J_2D, align, dispersionfun, sensitivity,...
+    image_sampling, J_2D, align, dispersionfun, sensitivity,...
     lambda, options, f, f_args, varargin...
     )
 % SOLVEPATCHES  Run an image estimation algorithm on image patches
 %
 % ## Syntax
 % I = solvePatches(...
-%   J, align, dispersionfun, sensitivity, lambda, options, f, f_args...
+%   image_sampling, J, align, dispersionfun, sensitivity,...
+%   lambda, options, f, f_args...
 % )
 % [ I, image_bounds ] = solvePatches(___)
 % [ I, image_bounds, I_rgb ] = solvePatches(___)
@@ -18,7 +19,8 @@ function [ I_3D, image_bounds, varargout ] = solvePatches(...
 %
 % ## Description
 % I = solvePatches(...
-%   J, align, dispersionfun, sensitivity, lambda, options, f, f_args...
+%   image_sampling, J, align, dispersionfun, sensitivity,...
+%   lambda, options, f, f_args...
 % )
 %   Run an image estimation algorithm on image patches and stitch together
 %   the results from all patches.
@@ -45,6 +47,10 @@ function [ I_3D, image_bounds, varargout ] = solvePatches(...
 %   its additional output arguments.
 %
 % ## Input Arguments
+%
+% image_sampling -- Image dimensions
+%   A two-element vector containing the height and width, respectively, of
+%   the output image `I`, in pixels.   
 %
 % J -- Input RAW image
 %   A 2D array containing the raw colour-filter pattern data of an image.
@@ -85,6 +91,8 @@ function [ I_3D, image_bounds, varargout ] = solvePatches(...
 %   The first output argument of the function must be the output latent
 %   image to be estimated. The first few input arguments of the function
 %   must be the following:
+%   - image_sampling: A two-element vector containing the height and width,
+%     respectively, of the output image patch.
 %   - align: A four-character character vector, specifying the Bayer tile
 %     pattern of the input image patch from `J`.
 %   - dispersion_matrix: Either a warp matrix from coordinates in the
@@ -143,7 +151,7 @@ function [ I_3D, image_bounds, varargout ] = solvePatches(...
 % ## Output Arguments
 %
 % I -- Latent image
-%   An size(J, 1) x size(J, 2) x length(lambda) array,
+%   An image_sampling(1) x image_sampling(2) x length(lambda) array,
 %   storing the latent image estimated on a patch-wise basis using the
 %   function `f`.
 %
@@ -165,8 +173,8 @@ function [ I_3D, image_bounds, varargout ] = solvePatches(...
 %
 % I_rgb -- Latent RGB image
 %   The RGB equivalent of the latent image, generated using the colour
-%   space conversion data in `sensitivity`. An size(J, 1) x size(J, 2) x 3
-%   array.
+%   space conversion data in `sensitivity`. An image_sampling(1) x
+%   image_sampling(2) x 3 array.
 %
 %   If `target_patch` is passed, then `I_rgb` has the same first two
 %   dimensions as `I`, and a length of 3 in its third dimension.
@@ -213,12 +221,16 @@ function [ I_3D, image_bounds, varargout ] = solvePatches(...
 % University of Alberta, Department of Computing Science
 % File created July 12, 2018
 
-narginchk(8, 9);
+narginchk(9, 10);
 
 single_patch = false;
 if ~isempty(varargin)
     target_patch = varargin{1};
     single_patch = true;
+end
+
+if length(image_sampling) ~= 2
+    error('The `image_sampling` input argument must contain an image height and width only.');
 end
 
 has_dispersion = ~isempty(dispersionfun);
@@ -229,16 +241,16 @@ end
 varargout = cell(nargout - 2, 1);
 
 % Create the dispersion matrix
-image_sampling = size(J_2D);
+image_sampling_J = size(J_2D);
 if options.add_border
     image_bounds = [];
 else
-    image_bounds = [0, 0, image_sampling(2), image_sampling(1)];
+    image_bounds = [0, 0, image_sampling_J(2), image_sampling_J(1)];
 end
 if has_dispersion
     fprintf('Calculating the dispersion matrix...\n');
     [ dispersion_matrix, image_bounds ] = dispersionfunToMatrix(...
-       dispersionfun, lambda, image_sampling, image_sampling, image_bounds, true...
+       dispersionfun, lambda, image_sampling_J, image_sampling, image_bounds, true...
     );
     fprintf('\t...done\n');
 else
@@ -249,7 +261,7 @@ if single_patch
     [...
         I_3D, image_sampling_J_patch, dispersion_matrix_patch, varargout{4:end}...
     ] = solveOnePatch(...
-        J_2D, align, dispersion_matrix, sensitivity,...
+        image_sampling, J_2D, align, dispersion_matrix, sensitivity,...
         lambda, options.patch_size, options.padding, f, f_args, target_patch...
     );
 else
@@ -266,7 +278,7 @@ else
         patches_i = cell(1, n_j_vector);
         for j = 1:n_j_vector
             patches_i{j} = solveOnePatch(...
-                J_2D, align, dispersion_matrix, sensitivity,...
+                image_sampling, J_2D, align, dispersion_matrix, sensitivity,...
                 lambda, options.patch_size, options.padding, f, f_args,...
                 [i_vector(i), j_vector(j)]...
             );
@@ -291,7 +303,7 @@ if nargout > 2
         image_sampling_I_patch = [size(I_3D, 1), size(I_3D, 2)];
     else
         image_sampling_I_patch = image_sampling;
-        image_sampling_J_patch = image_sampling;
+        image_sampling_J_patch = image_sampling_J;
         dispersion_matrix_patch = dispersion_matrix;
         target_patch = [1, 1];
     end

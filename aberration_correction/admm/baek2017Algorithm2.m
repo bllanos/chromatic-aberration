@@ -1,12 +1,12 @@
 function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
-    align, dispersion, sensitivity, lambda, J_2D,...
+    image_sampling, align, dispersion, sensitivity, lambda, J_2D,...
     rho, weights, options, varargin...
     )
 % BAEK2017ALGORITHM2  Run ADMM as in Algorithm 2 of Baek et al. 2017
 %
 % ## Syntax
 % I = baek2017Algorithm2(...
-%   align, dispersion, sensitivity, lambda, J,...
+%   image_sampling, align, dispersion, sensitivity, lambda, J,...
 %   rho, weights, options [, verbose]...
 % )
 % [ I, image_bounds ] = baek2017Algorithm2(___)
@@ -16,7 +16,7 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %
 % ## Description
 % I = baek2017Algorithm2(...
-%     align, dispersion, sensitivity,...
+%     image_sampling, align, dispersion, sensitivity,...
 %     lambda, J, rho, weights, options [, verbose]...
 % )
 %   Estimate a latent RGB or hyperspectral image `I` from dispersion in
@@ -38,6 +38,10 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %   `J`.
 %
 % ## Input Arguments
+%
+% image_sampling -- Image dimensions
+%   A two-element vector containing the height and width, respectively, of
+%   the output image `I`.
 %
 % align -- Bayer pattern description
 %   A four-character character vector, specifying the Bayer tile pattern of
@@ -170,7 +174,7 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % ## Output Arguments
 %
 % I -- Latent image
-%   An size(J, 1) x size(J, 2) x length(lambda) array,
+%   An image_sampling(1) x image_sampling(2) x length(lambda) array,
 %   storing the latent image estimated using the ADMM algorithm.
 %
 % image_bounds -- Latent image coordinate frame
@@ -184,8 +188,8 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %
 % I_rgb -- Latent RGB image
 %   The RGB equivalent of the latent image, generated using the colour
-%   space conversion data in `sensitivity`. An size(J, 1) x size(J, 2) x 3
-%   array.
+%   space conversion data in `sensitivity`. An image_sampling(1) x
+%   image_sampling(2) x 3 array.
 %
 % J_full -- Warped latent RGB image
 %   An RGB image produced by warping `I` according to the dispersion model,
@@ -267,12 +271,16 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
     end
 
 nargoutchk(1, 5);
-narginchk(8, 9);
+narginchk(9, 10);
 
 if ~isempty(varargin)
     verbose = varargin{1};
 else
     verbose = false;
+end
+
+if length(image_sampling) ~= 2
+    error('The `image_sampling` input argument must contain an image height and width only.');
 end
 
 if isStringScalar(options.int_method) || ischar(options.int_method)
@@ -306,7 +314,6 @@ if ~isempty(options.varying_penalty_params)
 end
 
 n_bands = length(lambda);
-image_sampling = size(J_2D);
 
 has_dispersion = ~isempty(dispersion);
 if has_dispersion
@@ -326,11 +333,12 @@ end
 J = J_2D(:);
 
 % Create constant matrices
-M = mosaicMatrix(image_sampling, align);
+image_sampling_J = size(J_2D);
+M = mosaicMatrix(image_sampling_J, align);
 if do_integration
-    Omega = channelConversionMatrix(image_sampling, sensitivity, lambda, options.int_method);
+    Omega = channelConversionMatrix(image_sampling_J, sensitivity, lambda, options.int_method);
 else
-    Omega = channelConversionMatrix(image_sampling, sensitivity);
+    Omega = channelConversionMatrix(image_sampling_J, sensitivity);
 end
 image_bounds = [];
 if has_dispersion
@@ -338,10 +346,10 @@ if has_dispersion
         Phi = dispersion;
     else
         if ~options.add_border
-            image_bounds = [0, 0, image_sampling(2), image_sampling(1)];
+            image_bounds = [0, 0, image_sampling_J(2), image_sampling_J(1)];
         end
         [ Phi, image_bounds ] = dispersionfunToMatrix(...
-           dispersion, lambda, image_sampling, image_sampling, image_bounds, true...
+           dispersion, lambda, image_sampling_J, image_sampling, image_bounds, true...
         );    
     end
     M_Omega_Phi = M * Omega * Phi;
@@ -361,7 +369,12 @@ G_lambda = [
 G_lambda_xy = G_lambda * G_xy;
 
 % Initialization
-I = bilinearDemosaic(J_2D, align, [false, true, false]); % Initialize with the Green channel
+J_bilinear = bilinearDemosaic(J_2D, align, [false, true, false]); % Initialize with the Green channel
+if any(image_sampling ~= image_sampling_J)
+    I = imresize(J_bilinear, image_sampling, 'bilinear');
+else
+    I = J_bilinear;
+end
 I = repmat(I(:), n_bands, 1);
 len_I = length(I);
 % Scale to match the mean intensity
@@ -576,7 +589,12 @@ end
 I_3D = reshape(I, image_sampling(1), image_sampling(2), n_bands);
 
 if nargout > 2
-    I_rgb = Omega * I;
+    if do_integration
+        Omega_I = channelConversionMatrix(image_sampling, sensitivity, lambda, options.int_method);
+    else
+        Omega_I = channelConversionMatrix(image_sampling, sensitivity);
+    end
+    I_rgb = Omega_I * I;
     n_channels_rgb = 3;
     varargout{1} = reshape(I_rgb, image_sampling(1), image_sampling(2), n_channels_rgb);
     
@@ -586,11 +604,11 @@ if nargout > 2
         else
             J_full = Omega * I;
         end
-        varargout{2} = reshape(J_full, image_sampling(1), image_sampling(2), n_channels_rgb);
+        varargout{2} = reshape(J_full, image_sampling_J(1), image_sampling_J(2), n_channels_rgb);
         
         if nargout > 4
             J_est = M * J_full;
-            varargout{3} = reshape(J_est, image_sampling);
+            varargout{3} = reshape(J_est, image_sampling_J);
         end
     end
 end
