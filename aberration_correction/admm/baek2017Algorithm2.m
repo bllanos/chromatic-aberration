@@ -1,12 +1,12 @@
 function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
-    image_sampling, align, dispersion, sensitivity, lambda, J_2D,...
+    align, dispersion, sensitivity, lambda, J_2D,...
     rho, weights, options, varargin...
     )
 % BAEK2017ALGORITHM2  Run ADMM as in Algorithm 2 of Baek et al. 2017
 %
 % ## Syntax
 % I = baek2017Algorithm2(...
-%   image_sampling, align, dispersion, sensitivity, lambda, J,...
+%   align, dispersion, sensitivity, lambda, J,...
 %   rho, weights, options [, verbose]...
 % )
 % [ I, image_bounds ] = baek2017Algorithm2(___)
@@ -16,7 +16,7 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %
 % ## Description
 % I = baek2017Algorithm2(...
-%     image_sampling, align, dispersion, sensitivity,...
+%     align, dispersion, sensitivity,...
 %     lambda, J, rho, weights, options [, verbose]...
 % )
 %   Estimate a latent RGB or hyperspectral image `I` from dispersion in
@@ -39,17 +39,14 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %
 % ## Input Arguments
 %
-% image_sampling -- Image dimensions
-%   A two-element vector containing the height and width, respectively, of
-%   the output image `I`.
-%
 % align -- Bayer pattern description
 %   A four-character character vector, specifying the Bayer tile pattern of
 %   the input image `J`. For example, 'gbrg'. `align` has the same form
 %   as the `sensorAlignment` input argument of `demosaic()`.
 %
 % dispersion -- Model of dispersion
-%   Two forms of this argument can be passed:
+%   `dispersion` can be empty (`[]`), if there is no model of dispersion.
+%   Otherwise, two forms of this argument can be passed:
 %
 %   `dispersion` can be a function handle, produced by
 %   'makeDispersionfun()'. `dispersion(X)`, where `X` is a three-element
@@ -115,12 +112,12 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % options -- Options and small parameters
 %   A structure with the following fields:
 %   - 'add_border': A Boolean value indicating whether or not the
-%     `image_bounds` input argument of 'dispersionfunToMatrix()' should be empty.
-%     If `true`, the output image `I` will be large enough to contain the
-%     lateral chromatic aberration-corrected coordinates of all pixels in
-%     `J`. If `false`, the output image `I` will be clipped to the region
-%     occupied by `J`. If `dispersion` is a matrix, this option is not
-%     used, and an be absent.
+%     `image_bounds` input argument of 'dispersionfunToMatrix()' should be
+%     empty. If `true`, the output image `I` will be large enough to
+%     contain the lateral chromatic aberration-corrected coordinates of all
+%     pixels in `J`. If `false`, the output image `I` will be clipped to
+%     the region occupied by `J`. If `dispersion` is empty, or is a matrix,
+%     this option is not used, and can be absent.
 %   - 'full_GLambda': A Boolean value used as the `replicate` input
 %     argument of 'spectralGradient()' when creating the spectral gradient
 %     matrix needed for regularizing `I`. Refer to the documentation of
@@ -173,7 +170,7 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % ## Output Arguments
 %
 % I -- Latent image
-%   An image_sampling(1) x image_sampling(2) x length(lambda) array,
+%   An size(J, 1) x size(J, 2) x length(lambda) array,
 %   storing the latent image estimated using the ADMM algorithm.
 %
 % image_bounds -- Latent image coordinate frame
@@ -182,13 +179,13 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %   'dispersionfunToMatrix()'. If `options.add_border` is `false`,
 %   `image_bounds` will be equal to `[0, 0, size(J, 2), size(J, 1)]`.
 %
-%   `image_bounds` is empty if `dispersion` is a matrix, as
+%   `image_bounds` is empty if `dispersion` is empty, or is a matrix, as
 %   'dispersionfunToMatrix()' is not called.
 %
 % I_rgb -- Latent RGB image
 %   The RGB equivalent of the latent image, generated using the colour
-%   space conversion data in `sensitivity`. An image_sampling(1) x
-%   image_sampling(2) x 3 array.
+%   space conversion data in `sensitivity`. An size(J, 1) x size(J, 2) x 3
+%   array.
 %
 % J_full -- Warped latent RGB image
 %   An RGB image produced by warping `I` according to the dispersion model,
@@ -218,6 +215,13 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % constrained optimization examples in Boyd et. al. 2011, sections 4.2.5
 % and 5.2, but I think it matches the format given at the start of Chapter
 % 5.
+%
+% A non-negativity constraint was used in (among other works):
+%
+%   Park, J.-I., Lee, M.-H., Grossberg, M. D., & Nayar, S. K. (2007).
+%     "Multispectral Imaging Using Multiplexed Illumination." In 2007 IEEE
+%     International Conference on Computer Vision (ICCV).
+%     doi:10.1109/ICCV.2007.4409090
 %
 % The initialization method is based on Equation 6 of:
 %
@@ -263,16 +267,12 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
     end
 
 nargoutchk(1, 5);
-narginchk(9, 10);
+narginchk(8, 9);
 
 if ~isempty(varargin)
     verbose = varargin{1};
 else
     verbose = false;
-end
-
-if length(image_sampling) ~= 2
-    error('The `image_sampling` input argument must contain an image height and width only.');
 end
 
 if isStringScalar(options.int_method) || ischar(options.int_method)
@@ -306,41 +306,48 @@ if ~isempty(options.varying_penalty_params)
 end
 
 n_bands = length(lambda);
+image_sampling = size(J_2D);
 
-dispersion_is_matrix = false;
-if isfloat(dispersion) && ismatrix(dispersion)
-    dispersion_is_matrix = true;
-    if size(dispersion, 1) ~= (numel(J_2D) * n_bands)
-        error('The `dispersion` matrix must have as many rows as there are pixels in `J` times bands.');
-    elseif size(dispersion, 2) ~= (prod(image_sampling) * n_bands)
-        error('The `dispersion` matrix must have as many columns as there are values in `I`.');
+has_dispersion = ~isempty(dispersion);
+if has_dispersion
+    dispersion_is_matrix = false;
+    if isfloat(dispersion) && ismatrix(dispersion)
+        dispersion_is_matrix = true;
+        if size(dispersion, 1) ~= (numel(J_2D) * n_bands)
+            error('The `dispersion` matrix must have as many rows as there are pixels in `J` times bands.');
+        elseif size(dispersion, 2) ~= (prod(image_sampling) * n_bands)
+            error('The `dispersion` matrix must have as many columns as there are values in `I`.');
+        end
+    elseif ~isa(dispersion, 'function_handle')
+        error('`dispersion` must be either a floating-point matrix, or a function handle.');
     end
-elseif ~isa(dispersion, 'function_handle')
-    error('`dispersion` must be either a floating-point matrix, or a function handle.');
 end
 
 J = J_2D(:);
 
 % Create constant matrices
-image_sampling_J = size(J_2D);
-M = mosaicMatrix(image_sampling_J, align);
+M = mosaicMatrix(image_sampling, align);
 if do_integration
-    Omega = channelConversionMatrix(image_sampling_J, sensitivity, lambda, options.int_method);
+    Omega = channelConversionMatrix(image_sampling, sensitivity, lambda, options.int_method);
 else
-    Omega = channelConversionMatrix(image_sampling_J, sensitivity);
+    Omega = channelConversionMatrix(image_sampling, sensitivity);
 end
 image_bounds = [];
-if dispersion_is_matrix
-    Phi = dispersion;
-else
-    if ~options.add_border
-        image_bounds = [0, 0, image_sampling_J(2), image_sampling_J(1)];
+if has_dispersion
+    if dispersion_is_matrix
+        Phi = dispersion;
+    else
+        if ~options.add_border
+            image_bounds = [0, 0, image_sampling(2), image_sampling(1)];
+        end
+        [ Phi, image_bounds ] = dispersionfunToMatrix(...
+           dispersion, lambda, image_sampling, image_sampling, image_bounds, true...
+        );    
     end
-    [ Phi, image_bounds ] = dispersionfunToMatrix(...
-       dispersion, lambda, image_sampling_J, image_sampling, image_bounds, true...
-    );    
+    M_Omega_Phi = M * Omega * Phi;
+else
+    M_Omega_Phi = M * Omega;
 end
-M_Omega_Phi = M * Omega * Phi;
 G_xy = spatialGradient([image_sampling, n_bands]);
 G_lambda = spectralGradient([image_sampling, n_bands], options.full_GLambda);
 G_lambda_sz1 = size(G_lambda, 1);
@@ -354,12 +361,7 @@ G_lambda = [
 G_lambda_xy = G_lambda * G_xy;
 
 % Initialization
-J_bilinear = bilinearDemosaic(J_2D, align, [false, true, false]); % Initialize with the Green channel
-if any(image_sampling ~= image_sampling_J)
-    I = imresize(J_bilinear, image_sampling, 'bilinear');
-else
-    I = J_bilinear;
-end
+I = bilinearDemosaic(J_2D, align, [false, true, false]); % Initialize with the Green channel
 I = repmat(I(:), n_bands, 1);
 len_I = length(I);
 % Scale to match the mean intensity
@@ -574,22 +576,21 @@ end
 I_3D = reshape(I, image_sampling(1), image_sampling(2), n_bands);
 
 if nargout > 2
-    if do_integration
-        Omega_I = channelConversionMatrix(image_sampling, sensitivity, lambda, options.int_method);
-    else
-        Omega_I = channelConversionMatrix(image_sampling, sensitivity);
-    end
-    I_rgb = Omega_I * I;
+    I_rgb = Omega * I;
     n_channels_rgb = 3;
     varargout{1} = reshape(I_rgb, image_sampling(1), image_sampling(2), n_channels_rgb);
     
     if nargout > 3
-        J_full = Omega * Phi * I;
-        varargout{2} = reshape(J_full, image_sampling_J(1), image_sampling_J(2), n_channels_rgb);
+        if has_dispersion
+            J_full = Omega * Phi * I;
+        else
+            J_full = Omega * I;
+        end
+        varargout{2} = reshape(J_full, image_sampling(1), image_sampling(2), n_channels_rgb);
         
         if nargout > 4
             J_est = M * J_full;
-            varargout{3} = reshape(J_est, image_sampling_J);
+            varargout{3} = reshape(J_est, image_sampling);
         end
     end
 end

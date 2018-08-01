@@ -112,6 +112,13 @@ function f = subproblemI_L2L2(M_Omega_Phi, G_xy, G_lambda_xy, J, weights, nonneg
 % cells, there is a non-negativity constraint on `I`, and so iterative
 % optimization is still required.
 %
+% A non-negativity constraint was used in (among other works):
+%
+%   Park, J.-I., Lee, M.-H., Grossberg, M. D., & Nayar, S. K. (2007).
+%     "Multispectral Imaging Using Multiplexed Illumination." In 2007 IEEE
+%     International Conference on Computer Vision (ICCV).
+%     doi:10.1109/ICCV.2007.4409090
+%
 % See also mosaicMatrix, channelConversionMatrix, dispersionfunToMatrix,
 % spatialGradient, spectralGradient, subproblemI
 

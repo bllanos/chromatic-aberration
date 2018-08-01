@@ -120,6 +120,13 @@ function f = subproblemI_L2L1(M_Omega_Phi, G_xy, G_lambda_xy, J, alpha, nonneg)
 % of `I` instead of an L1-norm prior, and with the optional variation of a
 % non-negativity constraint on `I`.
 %
+% A non-negativity constraint was used in (among other works):
+%
+%   Park, J.-I., Lee, M.-H., Grossberg, M. D., & Nayar, S. K. (2007).
+%     "Multispectral Imaging Using Multiplexed Illumination." In 2007 IEEE
+%     International Conference on Computer Vision (ICCV).
+%     doi:10.1109/ICCV.2007.4409090
+%
 % For more information on ADMM (Alternating Direction Method of
 % Multipliers), read:
 %   Boyd, S, et al.. "Distributed Optimization and Statistical Learning via
