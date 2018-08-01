@@ -213,7 +213,6 @@ parameters_list = {
         'reverse_dispersion_model_filename',...
         'color_map_filename',...
         'output_directory',...
-        'save_latent_image_files',...
         'target_patch',...
         'run_entire_image'...
     };
@@ -222,7 +221,7 @@ parameters_list = {
 
 % Wildcard for 'ls()' to find the images to process.
 % '.mat' or image files can be loaded
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180709_TestingSplineModels/ground_truth/splines/swirly_0138_small_raw_warped.mat';
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180709_TestingSplineModels/ground_truth/splines/swirly_0138_raw_warped.mat';
 input_images_variable_name = 'raw_2D'; % Used only when loading '.mat' files
 
 % Model of dispersion
@@ -242,7 +241,7 @@ output_directory = '/home/llanos/Downloads';
 target_patch = [];
 
 % Also compare with (or only run) whole image estimation
-run_entire_image = true;
+run_entire_image = false;
 
 % Parameters which do not usually need to be changed
 run('SetFixedParameters.m')
