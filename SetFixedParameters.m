@@ -76,10 +76,10 @@ baek2017Algorithm2Options.full_GLambda = false;
 rho = [ 1, 1, 1 ];
 
 % Weights on the two prior terms, the `weights` input argument.
-weights = [
-    1, 1;
-    0.1 1;
-    1, 0.1
+% Baek et al. (2017) used [1e-5, 0.1]
+weights = [ 1, 0.1;
+    10, 0.1;
+    100, 0.1;
     ];
 
 % Convergence tolerances in ADMM, the `tol` input argument.
@@ -118,7 +118,7 @@ int_method = 'trap';
 patch_sizes = [ % Each row contains a (number of rows, number of columns) pair
    25 25;
 ]; 
-paddings = 11;
+paddings = 10;
 
 % ## Debugging Flags
 baek2017Algorithm2Verbose = true;

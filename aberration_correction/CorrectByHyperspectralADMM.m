@@ -336,7 +336,6 @@ for i = 1:n_images
         dispersion_data, I_raw, transform_data...
     );
     
-    I_raw = im2double(I_raw);
     image_sampling = size(I_raw);
     if ~isempty(downsampling_factor)
         image_sampling = ceil(image_sampling / downsampling_factor);

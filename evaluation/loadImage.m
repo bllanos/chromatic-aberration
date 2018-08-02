@@ -19,7 +19,7 @@ function [I, name, ext] = loadImage(filename, varargin)
 %
 % filename -- Dispersion model filename
 %   A character vector containing the filename and path of the '.mat' or
-%   image format file containing the image.
+%   image format file containing the image, including the file extension.
 %
 % variable_name -- Image variable name
 %   The name of the variable to be loaded from the file, should `filename`
@@ -30,7 +30,8 @@ function [I, name, ext] = loadImage(filename, varargin)
 % I -- Image
 %   The result of loading the variable 'variable_name' from the '.mat' file
 %   referred to by `filename`, or the result of calling 'imread()' on the
-%   image file referred to by `filename`.
+%   image file referred to by `filename`. Images loaded with 'imread()' are
+%   converted to double precision using 'im2double()'.
 %
 % name -- Filename excluding path and extension
 %   The name of the file referred to by `filename`.
@@ -38,7 +39,7 @@ function [I, name, ext] = loadImage(filename, varargin)
 % ext -- File format
 %   The extension of the file referred to by `filename`.
 %
-% See also saveImages, imread, load
+% See also saveImages, imread, load, im2double
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -67,7 +68,7 @@ if strcmp(ext, mat_ext)
             );
     end
 else
-    I = imread(filename);
+    I = im2double(imread(filename));
 end
 
 end
