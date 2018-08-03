@@ -83,7 +83,7 @@ if strcmp(name, 'kodak')
     dataset_params.dispersion_rgb_forward = [];
     dataset_params.dispersion_rgb_reverse = [];
     dataset_params.dispersion_spectral_reverse = [];
-    dataset_params.color_map = [];
+    dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180726_Demosaicking_Kodak/NikonD5100ColorMapData.mat';
     dataset_params.wavelengths = [];
 else
     error('Unrecognized dataset name.');
