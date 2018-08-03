@@ -368,6 +368,12 @@ G_lambda = [
     ];
 G_lambda_xy = G_lambda * G_xy;
 
+% Adjust the weights so that they have the same relative importance
+% regardless of the differences in the lengths of the vectors whose norms
+% are being weighted.
+weights(1) = weights(1) * size(M_Omega_Phi, 1) / size(G_xy, 1);
+weights(2) = weights(2) * size(M_Omega_Phi, 1) / size(G_lambda_xy, 1);
+
 % Initialization
 J_bilinear = bilinearDemosaic(J_2D, align, [false, true, false]); % Initialize with the Green channel
 if any(image_sampling ~= image_sampling_J)
