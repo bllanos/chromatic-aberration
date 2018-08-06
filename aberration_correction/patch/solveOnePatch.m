@@ -55,13 +55,14 @@ patch_ind_I_spectral = patch_ind_I_spatial_rep +...
     ((patch_subscripts_lambda_I - 1) * prod(image_sampling));
 
 % Find the pixels mapped to in the input image
+image_sampling_J = [size(J, 1), size(J, 2)];
 has_dispersion = ~isempty(dispersion_matrix);
 if has_dispersion
     all_mappings_J = logical(dispersion_matrix(:, patch_ind_I_spectral));
     patch_ind_I_replicates = sum(all_mappings_J, 1);
     patch_ind_I_spectral = repelem(patch_ind_I_spectral, patch_ind_I_replicates);
     patch_ind_I_warped = mod(find(all_mappings_J) - 1, size(dispersion_matrix, 1));
-    patch_ind_J = mod(patch_ind_I_warped, numel(J)) + 1;
+    patch_ind_J = mod(patch_ind_I_warped, prod(image_sampling_J)) + 1;
     patch_ind_I_warped = patch_ind_I_warped + 1;
 else
     patch_ind_I_replicates = ones(1, length(patch_ind_I_spectral));
@@ -70,9 +71,8 @@ else
 end
 
 % Find a bounding box of those pixels: The input patch
-image_sampling_J_local = size(J);
 [patch_subscripts_row_J, patch_subscripts_col_J] = ind2sub(...
-    image_sampling_J_local, patch_ind_J...
+    image_sampling_J, patch_ind_J...
 );
 patch_lim_J = [
     min(patch_subscripts_row_J), min(patch_subscripts_col_J);
@@ -97,7 +97,7 @@ patch_ind_J_f = sub2ind(...
     patch_subscripts_row_I_warped,...
     patch_subscripts_col_I_warped,...
     patch_subscripts_lambda_I_warped...
-] = ind2sub([image_sampling_J_local, n_bands], patch_ind_I_warped);
+] = ind2sub([image_sampling_J, n_bands], patch_ind_I_warped);
 image_sampling_I_warped_f = [image_sampling_J_f, n_bands];
 patch_ind_I_warped_f = sub2ind(...
     image_sampling_I_warped_f,...
@@ -120,7 +120,10 @@ else
     dispersion_f = [];
 end
 J_f = zeros(image_sampling_J_f);
-J_f(patch_ind_J_f) = J(patch_ind_J);
+J_f(patch_ind_J_f) = J(...
+    repmat(patch_ind_J, size(J, 3), 1) +...
+    (repelem((0:(size(J, 3) - 1)).', length(patch_ind_J), 1) * prod(image_sampling_J))...
+);
 
 % Solve for the output patch
 varargout = cell(nargout - 3, 1);

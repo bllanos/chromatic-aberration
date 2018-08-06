@@ -11,8 +11,9 @@ function align_new = offsetBayerPattern(corner, align)
 % ## Input Arguments
 %
 % corner -- Offset origin location
-%   The `[1, 1]` pixel location of an offset image in the pixel coordinate
-%   space of the current image.
+%   The `[1, 1]` pixel location of an offset image in the pixel index space
+%   of the current image. The first element is the row offset, whereas the
+%   second element is the column offset.
 %
 % align -- Bayer pattern format
 %   A four-character character vector, specifying the Bayer tile pattern of
@@ -25,7 +26,8 @@ function align_new = offsetBayerPattern(corner, align)
 %
 % align -- Bayer pattern format
 %   The Bayer tile pattern of an image taken from the current Bayer pattern
-%   by choosing, as its top left pixel, the location of `corner`.
+%   by choosing, as its top left pixel, the (row, column) indices of
+%   `corner`.
 %
 % See also bayerMask, demosaic
 

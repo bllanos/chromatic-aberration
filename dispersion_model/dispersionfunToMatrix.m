@@ -3,20 +3,24 @@ function [ W, image_bounds_out ] = dispersionfunToMatrix(dispersionfun, lambda, 
 %
 % ## Syntax
 % W = dispersionfunToMatrix(...
-%   dispersionfun, lambda, image_sampling_in [, image_sampling_out, image_bounds, negate]...
+%   dispersionfun, lambda, image_sampling_in [, image_sampling_out,...
+%   image_bounds, negate, offset]...
 % )
 % [ W, image_bounds ] = dispersionfunToMatrix(...
-%   dispersionfun, lambda, image_sampling_in [, image_sampling_out, image_bounds, negate]...
+%   dispersionfun, lambda, image_sampling_in [, image_sampling_out,...
+%   image_bounds, negate, offset]...
 % )
 %
 % ## Description
 % W = dispersionfunToMatrix(...
-%   dispersionfun, lambda, image_sampling_in [, image_sampling_out, image_bounds, negate]...
+%   dispersionfun, lambda, image_sampling_in [, image_sampling_out,...
+%   image_bounds, negate, offset]...
 % )
 %   Returns a matrix for distorting a vectorized image.
 %
 % [ W, image_bounds ] = dispersionfunToMatrix(...
-%   dispersionfun, lambda, image_sampling_in [, image_sampling_out, image_bounds, negate]...
+%   dispersionfun, lambda, image_sampling_in [, image_sampling_out,...
+%   image_bounds, negate, offset]...
 % )
 %   Additionally returns the boundaries of the undistorted image in the
 %   coordinate system of the distorted image.
@@ -51,25 +55,39 @@ function [ W, image_bounds_out ] = dispersionfunToMatrix(dispersionfun, lambda, 
 %   3 - The width of the image (size in the x-dimension)
 %   4 - The height of the image (size in the y-dimension)
 %
-%   `image_bounds` describes the position and size of the undistorted
-%   image in the space of the distorted image. Units are pixels in the
-%   distorted image. Note that the last two elements of `image_bounds` do
-%   not need to be equal to the elements of `image_sampling_out`, as the
-%   two images need not have equal pixel sizes.
+%   `image_bounds` describes the position and size of the undistorted image
+%   in the space of the distorted image. Units are pixels in the distorted
+%   image. Note that the last two elements of `image_bounds` do not need to
+%   be equal to the elements of `image_sampling_out`, as the two images
+%   need not have equal pixel sizes. If the two images are constrained to
+%   overlap exactly, then `image_bounds` should be set as follows:
+%     `image_bounds = [0, 0, image_sampling_in(2), image_sampling_in(1)]`
 %
 %   If `image_bounds` is empty or not passed, it will be set to the
 %   bounding box of the undistorted coordinates of the distorted image.
 %   More precisely, in this case, all pixels in the distorted image will be
 %   generated, as implemented in `W`, by bilinear interpolation of four
-%   different pixels in the undistorted image. Otherwise, there may be pixels
-%   in the distorted image whose undistorted coordinates are on or outside the
-%   border of the undistorted image. In this case, the border pixels of the
-%   undistorted image will be replicated, such that the four pixels used for
-%   bilinear interpolation will not be all unique.
+%   different pixels in the undistorted image.
+%
+%   Otherwise, if `image_bounds` is not empty, and describes a space which
+%   is smaller than the bounding box of the undistorted coordinates of the
+%   distorted image, there may be pixels in the distorted image whose
+%   undistorted coordinates are on or outside the border of the undistorted
+%   image. If so, the border pixels of the undistorted image will be
+%   replicated, such that the four pixels used for bilinear interpolation
+%   will not be all unique.
 %
 % negate -- Warp inversion flag
 %   If `true`, the warp vectors calculated by `dispersionfun` will be
 %   negated before use. (Defaults to `false` if not passed.)
+%
+% offset -- Coordinate offset
+%   A two element vector whose elements are offsets added to the pixel x-
+%   and y-coordinates, respectively, prior to calling `dispersionfun` to
+%   evaluate the undistorted position of the pixel. `offset` is useful for
+%   calculating the warp matrix for a sub-image, without needing to modify
+%   `dispersionfun` to use the local coordinates of the sub-image. Defaults
+%   to `[0, 0]` if not passed.
 %
 % ## Output Arguments
 %
@@ -88,8 +106,9 @@ function [ W, image_bounds_out ] = dispersionfunToMatrix(dispersionfun, lambda, 
 %
 % image_bounds -- Undistorted image coordinate frame
 %   A copy of the `image_bounds` input argument, or its calculated version,
-%   if the `image_bounds` input argument was empty or not passed. Refer to
-%   the documentation of the `image_bounds` input argument above.
+%   if the `image_bounds` input argument was empty, or was not passed.
+%   Refer to the documentation of the `image_bounds` input argument above
+%   for details.
 %
 % ## Algorithm
 %
@@ -128,7 +147,7 @@ function [ W, image_bounds_out ] = dispersionfunToMatrix(dispersionfun, lambda, 
 % File created May 6, 2018
 
 nargoutchk(1, 2);
-narginchk(3, 6);
+narginchk(3, 7);
 
 if ~isempty(varargin)
     image_sampling_out = varargin{1};
@@ -143,6 +162,11 @@ if length(varargin) > 2
     negate = varargin{3};
 else
     negate = false;
+end
+if length(varargin) > 3
+    offset = varargin{4};
+else
+    offset = [0, 0];
 end
 
 if length(image_sampling_in) ~= 2
@@ -166,7 +190,11 @@ end
 x_all_bands = repmat(x, n_lambda, 1);
 y_all_bands = repmat(y, n_lambda, 1);
 lambda_all_bands = repelem(lambda, n_px_in);
-disparity = dispersionfun([ x_all_bands, y_all_bands, lambda_all_bands ]);
+disparity = dispersionfun([...
+    x_all_bands + offset(1),...
+    y_all_bands + offset(2),...
+    lambda_all_bands...
+    ]);
 if negate
     disparity = -disparity;
 end

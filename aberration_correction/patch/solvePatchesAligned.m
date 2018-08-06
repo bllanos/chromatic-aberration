@@ -1,59 +1,80 @@
-function [ I_3D, image_bounds, varargout ] = solvePatches(...
-    image_sampling, J_2D, align, dispersionfun, sensitivity,...
+function [ I_3D, image_bounds, varargout ] = solvePatchesAligned(...
+    J_2D, align, dispersionfun, sensitivity,...
     lambda, options, f, f_args, varargin...
     )
-% SOLVEPATCHES  Run an image estimation algorithm on image patches
+% SOLVEPATCHESALIGNED  Run an image estimation algorithm on image patches
+%
+% ## Usage
+%
+% This function is a faster version of 'solvePatches()', for the case where
+% the output image has the same spatial resolution as the input image, and
+% where the boundaries of the two images are made to coincide in space.
+% Individual image patches are estimated under these same constraints, such
+% that a larger padding parameter (`options.padding`) may be necessary to
+% avoid artifacts from patch-wise image estimation in the presence of large
+% dispersion. Specifically, if the dispersion vectors modelled by
+% `dispersionfun` are large, then an input patch may not contain all the
+% pixels which, because of dispersion, influence the corresponding output
+% patch. By increasing the amount of padding around each output patch,
+% these missing pixels will only have a significant effect within the
+% padding area, which is discarded when assembling the full output image.
+%
+% In contrast with 'solvePatches()', because of the restrictions on the
+% relationship between the input and output images, this function does not
+% use an `add_border` field in its `options` structure. Note that both
+% 'solvePatches()' and 'solvePatchesAligned()' calculate per-patch
+% dispersion matrices as input for the image estimation algorithms that
+% they are managing. Consequently, the algorithms cannot make use of an
+% `add_border` option when called on individual patches, as they are not in
+% control of generating dispersion matrices.
+%
+% 'solvePatchesAligned()' is faster than 'solvePatches()' because all
+% matrices involved in image estimation are estimated per-patch, rather
+% than globally for the whole image.
 %
 % ## Syntax
-% I = solvePatches(...
-%   image_sampling, J, align, dispersionfun, sensitivity,...
-%   lambda, options, f, f_args...
+% I = solvePatchesAligned(...
+%   J, align, dispersionfun, sensitivity, lambda, options, f, f_args...
 % )
-% [ I, image_bounds ] = solvePatches(___)
-% [ I, image_bounds, I_rgb ] = solvePatches(___)
-% [ I, image_bounds, I_rgb, J_full ] = solvePatches(___)
-% [ I, image_bounds, I_rgb, J_full, J_est ] = solvePatches(___)
+% [ I, image_bounds ] = solvePatchesAligned(___)
+% [ I, image_bounds, I_rgb ] = solvePatchesAligned(___)
+% [ I, image_bounds, I_rgb, J_full ] = solvePatchesAligned(___)
+% [ I, image_bounds, I_rgb, J_full, J_est ] = solvePatchesAligned(___)
 % [...
 %   I, image_bounds, I_rgb, J_full, J_est, varargout...
-% ] = solvePatches(___, target_patch)
+% ] = solvePatchesAligned(___, target_patch)
 %
 % ## Description
-% I = solvePatches(...
-%   image_sampling, J, align, dispersionfun, sensitivity,...
-%   lambda, options, f, f_args...
+% I = solvePatchesAligned(...
+%   J, align, dispersionfun, sensitivity, lambda, options, f, f_args...
 % )
 %   Run an image estimation algorithm on image patches and stitch together
 %   the results from all patches.
 %
-% [ I, image_bounds ] = solvePatches(___)
+% [ I, image_bounds ] = solvePatchesAligned(___)
 %   Additionally returns the boundaries of the output image in the
 %   coordinate system of the input image.
 %
-% [ I, image_bounds, I_rgb ] = solvePatches(___)
+% [ I, image_bounds, I_rgb ] = solvePatchesAligned(___)
 %   Additionally returns the RGB equivalent of the output image.
 %
-% [ I, image_bounds, I_rgb, J_full ] = solvePatches(___)
+% [ I, image_bounds, I_rgb, J_full ] = solvePatchesAligned(___)
 %   Additionally returns a version of the RGB equivalent of the latent
 %   image, warped by the dispersion model.
 %
-% [ I, image_bounds, I_rgb, J_full, J_est ] = solvePatches(___)
-%   Additionally returns the forward model estimate of the input RAW image
-%   `J`.
+% [ I, image_bounds, I_rgb, J_full, J_est ] = solvePatchesAligned(___)
+%   Additionally returns the forward model estimate of the RAW image.
 %
 % [...
 %   I, image_bounds, I_rgb, J_full, J_est, varargout...
-% ] = solvePatches(___, target_patch)
+% ] = solvePatchesAligned(___, target_patch)
 %   Run an image estimation algorithm on a single image patch, and return
 %   its additional output arguments.
 %
 % ## Input Arguments
 %
-% image_sampling -- Image dimensions
-%   A two-element vector containing the height and width, respectively, of
-%   the output image `I`, in pixels.   
-%
-% J -- Input RAW image
-%   A 2D array containing the raw colour-filter pattern data of an image.
+% J -- Input image
+%   A 2D or 3D array containing the input image.
 %
 % align -- Bayer pattern description
 %   A four-character character vector, specifying the Bayer tile pattern of
@@ -108,12 +129,6 @@ function [ I_3D, image_bounds, varargout ] = solvePatches(...
 %
 % options -- Options and small parameters
 %   A structure with the following fields:
-%   - 'add_border': A Boolean value indicating whether or not the
-%     `image_bounds` input argument of 'dispersionfunToMatrix()' should be
-%     empty. If `true`, the output image `I` will be large enough to
-%     contain the un-warped coordinates of all pixels in `J`. If `false`,
-%     the output image `I` will be clipped to the region occupied by `J`.
-%     If `dispersionfun` is empty, this option is not used, and can be absent.
 %   - 'int_method': The numerical integration method used for spectral to
 %     colour space conversion. 'int_method' is passed to
 %     'channelConversionMatrix()' as its 'int_method' argument. Refer to
@@ -151,9 +166,8 @@ function [ I_3D, image_bounds, varargout ] = solvePatches(...
 % ## Output Arguments
 %
 % I -- Latent image
-%   An image_sampling(1) x image_sampling(2) x length(lambda) array,
-%   storing the latent image estimated on a patch-wise basis using the
-%   function `f`.
+%   A size(J, 1) x size(J, 2) x length(lambda) array, storing the latent
+%   image estimated on a patch-wise basis using the function `f`.
 %
 %   If `target_patch` is passed, then `I` is at most an
 %   options.patch_size(1) x options.patch_size(2) x length(lambda) array
@@ -163,32 +177,28 @@ function [ I_3D, image_bounds, varargout ] = solvePatches(...
 % image_bounds -- Latent image coordinate frame
 %   The boundaries of the latent image expressed in the coordinate frame of
 %   `J`. `image_bounds` has the form of the output argument of the same
-%   name of 'dispersionfunToMatrix()'. If `options.add_border` is `false`,
-%   `image_bounds` will be equal to `[0, 0, size(J, 2), size(J, 1)]`. Note
-%   that `image_bounds` pertains to the entire latent image, even if only a
-%   patch of the latent image is requested (using `target_patch`).
-%
-%   `image_bounds` is empty if `dispersionfun` is empty, as
-%   'dispersionfunToMatrix()' is not called.
+%   name of 'dispersionfunToMatrix()', and will be equal to `[0, 0, size(J,
+%   2), size(J, 1)]`. Note that `image_bounds` pertains to the entire
+%   latent image, even if only a patch of the latent image is requested
+%   (using `target_patch`).
 %
 % I_rgb -- Latent RGB image
 %   The RGB equivalent of the latent image, generated using the colour
-%   space conversion data in `sensitivity`. An image_sampling(1) x
-%   image_sampling(2) x 3 array.
+%   space conversion data in `sensitivity`. An size(J, 1) x size(J, 2) x 3
+%   array.
 %
 %   If `target_patch` is passed, then `I_rgb` has the same first two
 %   dimensions as `I`, and a length of 3 in its third dimension.
 %
 % J_full -- Warped latent RGB image
 %   An RGB image produced by warping `I` according to the dispersion model,
-%   followed by conversion to the RGB colour space of `J`. An size(J, 1) x
+%   followed by conversion to the RGB colour space of `J`. A size(J, 1) x
 %   size(J, 2) x 3 array.
 %
-%   If `target_patch` is passed, then `J_full` has spatial dimensions which
-%   depend on the nature of the warp between `I` and `J`, and on the
-%   padding region surrounding `I`.
+%   If `target_patch` is passed, then `J_full` has the same spatial
+%   dimensions as `I`.
 %
-% J_est -- Re-estimated input RAW image
+% J_est -- Estimated RAW image
 %   The mosaiced version of `J_full`, representing the result of passing
 %   `I` through the forward model of dispersion and image capture. An array
 %   with the same dimensions as `J`.
@@ -214,14 +224,15 @@ function [ I_3D, image_bounds, varargout ] = solvePatches(...
 %   International Conference on Computer Vision (ICCV) (pp. 3268–3276).
 %   doi:10.1109/ICCV.2017.352
 %
-% See also mosaicMatrix, channelConversionMatrix, dispersionfunToMatrix
+% See also solvePatches, mosaicMatrix, channelConversionMatrix,
+% dispersionfunToMatrix
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
 % University of Alberta, Department of Computing Science
-% File created July 12, 2018
+% File created August 6, 2018
 
-narginchk(9, 10);
+narginchk(8, 9);
 
 single_patch = false;
 if ~isempty(varargin)
@@ -229,61 +240,76 @@ if ~isempty(varargin)
     single_patch = true;
 end
 
-if length(image_sampling) ~= 2
-    error('The `image_sampling` input argument must contain an image height and width only.');
-end
-
-has_dispersion = ~isempty(dispersionfun);
-if has_dispersion && ~isa(dispersionfun, 'function_handle')
+if ~isempty(dispersionfun) && ~isa(dispersionfun, 'function_handle')
     error('`dispersionfun` must be a function handle.');
 end
 
-varargout = cell(nargout - 2, 1);
-
-% Create the dispersion matrix
-image_sampling_J = size(J_2D);
-if options.add_border
-    image_bounds = [];
-else
-    image_bounds = [0, 0, image_sampling_J(2), image_sampling_J(1)];
-end
-if has_dispersion
-    fprintf('Calculating the dispersion matrix...\n');
-    [ dispersion_matrix, image_bounds ] = dispersionfunToMatrix(...
-       dispersionfun, lambda, image_sampling_J, image_sampling, image_bounds, true...
-    );
-    fprintf('\t...done\n');
-else
-    dispersion_matrix = [];
-end
+varargout = cell(1, nargout - 2);
+n_auxiliary_images = min(nargout - 2, 3);
+image_sampling = [size(J_2D, 1), size(J_2D, 2)];
+image_bounds = [0, 0, image_sampling(2), image_sampling(1)];
 
 if single_patch
     [...
-        I_3D, image_sampling_J_patch, dispersion_matrix_patch, varargout{4:end}...
-    ] = solveOnePatch(...
-        image_sampling, J_2D, align, dispersion_matrix, sensitivity,...
+        I_3D, dispersion_matrix_patch, varargout{4:end}...
+    ] = solveOnePatchAligned(...
+        J_2D, align, dispersionfun, sensitivity,...
         lambda, options.patch_size, options.padding, f, f_args, target_patch...
     );
+
+    varargout(1:n_auxiliary_images) = estimateAuxiliaryImages(...
+        I_3D, dispersion_matrix_patch,...
+        sensitivity, lambda, options.int_method,...
+        align, target_patch, n_auxiliary_images...
+    );
+
 else
-    I_3D = zeros([image_sampling, length(lambda)]);
+    n_channels_rgb = 3;
     i_vector = 1:options.patch_size(1):image_sampling(1);
     n_i_vector = length(i_vector);
     j_vector = 1:options.patch_size(2):image_sampling(2);
     n_j_vector = length(j_vector);
     patches = cell(length(i_vector), length(j_vector));
+    patches_auxiliary = cell(length(i_vector), length(j_vector), n_auxiliary_images);
+    
     parfor i = 1:n_i_vector
-        % This line avoids a variable classification error with `patches`;
+        % These lines avoid a variable classification error with `patches*`;
         % "If you use a nested for-loop to index into a sliced array, you
         % cannot use that array elsewhere in the parfor-loop."
         patches_i = cell(1, n_j_vector);
+        patches_auxiliary_i = cell(1, n_j_vector, n_auxiliary_images);
         for j = 1:n_j_vector
-            patches_i{j} = solveOnePatch(...
-                image_sampling, J_2D, align, dispersion_matrix, sensitivity,...
+            corner_ij = [i_vector(i), j_vector(j)];
+            [...
+                patches_i{j}, dispersion_matrix_patch...
+            ] = solveOnePatchAligned(...
+                J_2D, align, dispersionfun, sensitivity,...
                 lambda, options.patch_size, options.padding, f, f_args,...
-                [i_vector(i), j_vector(j)]...
+                corner_ij...
+            );
+        
+            patches_auxiliary_i(1, j, :) = estimateAuxiliaryImages(...
+                patches_i{j}, dispersion_matrix_patch,...
+                sensitivity, lambda, options.int_method,...
+                align, corner_ij, n_auxiliary_images...
             );
         end
         patches(i, :) = patches_i;
+        patches_auxiliary(i, :, :) = patches_auxiliary_i;
+    end
+    
+    I_3D = zeros([image_sampling, length(lambda)]);
+    output_rgb = n_auxiliary_images > 0;
+    if output_rgb
+        I_rgb = zeros([image_sampling, n_channels_rgb]);
+    end
+    output_rgb_warped = n_auxiliary_images > 1;
+    if output_rgb_warped
+        J_full = zeros([image_sampling, n_channels_rgb]);
+    end
+    output_raw = n_auxiliary_images > 2;
+    if output_raw
+        J_est = zeros(image_sampling);
     end
     for i = 1:n_i_vector
         end_i = min(i_vector(i) + options.patch_size(1) - 1, image_sampling(1));
@@ -293,59 +319,24 @@ else
                 i_vector(i):end_i,...
                 j_vector(j):end_j, :...
             ) = patches{i, j};
-        end
-    end
-end
-
-if nargout > 2
-    I = I_3D(:);
-    if single_patch
-        image_sampling_I_patch = [size(I_3D, 1), size(I_3D, 2)];
-    else
-        image_sampling_I_patch = image_sampling;
-        image_sampling_J_patch = image_sampling_J;
-        dispersion_matrix_patch = dispersion_matrix;
-        target_patch = [1, 1];
-    end
-    do_integration = ~(...
-        isempty(options.int_method) || strcmp(options.int_method, 'none')...
-    );
-    if do_integration
-        Omega_I = channelConversionMatrix(...
-            image_sampling_I_patch, sensitivity, lambda, options.int_method...
-        );
-    else
-        Omega_I = channelConversionMatrix(image_sampling_I_patch, sensitivity);
-    end
-    I_rgb = Omega_I * I;
-    n_channels_rgb = 3;
-    varargout{1} = reshape(I_rgb, image_sampling_I_patch(1), image_sampling_I_patch(2), n_channels_rgb);
-    
-    if nargout > 3
-        if do_integration
-            Omega_J = channelConversionMatrix(...
-                image_sampling_J_patch, sensitivity, lambda, options.int_method...
-            );
-        else
-            Omega_J = channelConversionMatrix(image_sampling_J_patch, sensitivity);
-        end
-        if has_dispersion
-            J_full = Omega_J * dispersion_matrix_patch * I;
-        else
-            J_full = Omega_J * I;
-        end
-        varargout{2} = reshape(...
-            J_full,...
-            image_sampling_J_patch(1), image_sampling_J_patch(2), n_channels_rgb...
-        );
-        
-        if nargout > 4
-            M = mosaicMatrix(...
-                image_sampling_J_patch,...
-                offsetBayerPattern(target_patch, align)...
-            );
-            J_est = M * J_full;
-            varargout{3} = reshape(J_est, image_sampling_J_patch);
+            if output_rgb
+                I_rgb(...
+                    i_vector(i):end_i,...
+                    j_vector(j):end_j, :...
+                ) = patches_auxiliary{i, j, 1};
+            end
+            if output_rgb_warped
+                J_full(...
+                    i_vector(i):end_i,...
+                    j_vector(j):end_j, :...
+                ) = patches_auxiliary{i, j, 2};
+            end
+            if output_raw
+                J_est(...
+                    i_vector(i):end_i,...
+                    j_vector(j):end_j, :...
+                ) = patches_auxiliary{i, j, 3};
+            end
         end
     end
 end
