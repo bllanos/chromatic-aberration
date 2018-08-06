@@ -32,10 +32,16 @@ function [dataset_params] = describeDataset(name)
 %   - 'rgb_images_variable': The variable name to use for loading RGB
 %     images from '.mat' files, where applicable.
 %   - 'spectral_images_wildcard': A wildcard for 'ls()' to find the true
-%     spectral images of the dataset. If empty, the database lacks spectral
+%     spectral images of the dataset. If empty, the dataset lacks spectral
 %     images.
 %   - 'spectral_images_variable': The variable name to use for loading
 %     spectral images from '.mat' files, where applicable.
+%   - 'spectral_reflectances': A Boolean field, required only if the
+%     dataset has spectral images. If 'spectral_reflectances' is `true`,
+%     then the spectral images are reflectance images. Otherwise, the
+%     spectral images are radiance images. Reflectance images need to be
+%     preprocessed by multiplying them by the spectral power distribution
+%     of an illuminant.
 %   - 'dispersion_rgb_forward': The filename and path of the model of
 %     dispersion of the RGB channels relative to the reference channel,
 %     stored in a '.mat' file. The dispersion model is a function of
@@ -57,7 +63,8 @@ function [dataset_params] = describeDataset(name)
 %     described in the documentation of 'CorrectByHyperspectralADMM.m'.
 %   - 'wavelengths': The filename and path of a '.mat' file containing a
 %     variable, `bands`, storing the wavelengths which determine the
-%     spectral sampling of spectral images.
+%     spectral sampling of spectral images. This field is required only if
+%     the dataset has spectral images.
 %
 % ## Recognized datasets
 % - 'kodak': The Kodak Lossless True Color Image Suite dataset, often
@@ -83,8 +90,21 @@ if strcmp(name, 'kodak')
     dataset_params.dispersion_rgb_forward = [];
     dataset_params.dispersion_rgb_reverse = [];
     dataset_params.dispersion_spectral_reverse = [];
-    dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180726_Demosaicking_Kodak/NikonD5100ColorMapData.mat';
+    dataset_params.color_map = [];
     dataset_params.wavelengths = [];
+elseif strcmp(name, 'kaist')
+    dataset_params.raw_images_wildcard = [];
+    dataset_params.raw_images_variable = [];
+    dataset_params.rgb_images_wildcard = [];
+    dataset_params.rgb_images_variable = [];
+    dataset_params.spectral_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/*.exr';
+    dataset_params.spectral_images_variable = [];
+    dataset_params.spectral_reflectances = true;
+    dataset_params.dispersion_rgb_forward = [];
+    dataset_params.dispersion_rgb_reverse = [];
+    dataset_params.dispersion_spectral_reverse = [];
+    dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/SonyColorMapData.mat';
+    dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/wavelengths.mat';
 else
     error('Unrecognized dataset name.');
 end

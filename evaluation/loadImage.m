@@ -28,16 +28,30 @@ function [I, name, ext] = loadImage(filename, varargin)
 % ## Output Arguments
 %
 % I -- Image
-%   The result of loading the variable 'variable_name' from the '.mat' file
-%   referred to by `filename`, or the result of calling 'imread()' on the
-%   image file referred to by `filename`. Images loaded with 'imread()' are
-%   converted to double precision using 'im2double()'.
+%   The result of loading, depending on the type of file referred to by `filename`,
+%   - The variable 'variable_name' from a '.mat' file
+%   - The result of calling 'imread()' on an image file.
+%     Images loaded with 'imread()' are converted to double precision using
+%     'im2double()'.
+%   - The non-RGB channels of an OpenEXR format hyperspectral image
+%     ('.exr'), in the order in which they are given in the list of
+%     channels returned by 'exrinfo()'.
 %
 % name -- Filename excluding path and extension
 %   The name of the file referred to by `filename`.
 %
 % ext -- File format
 %   The extension of the file referred to by `filename`.
+%
+% ## References
+% - The 'exr*()' functions are from a GitHub repository of MATLAB bindings
+%   for the OpenEXR file format: https://github.com/KAIST-VCLAB/openexr-matlab
+%   The repository is connected with the following article:
+%
+%   Choi, I., Jeon, D. S., Nam, G., Gutierrez, D., & Kim, M. H. (2017).
+%     "High-Quality Hyperspectral Reconstruction Using a Spectral Prior."
+%     ACM Transactions on Graphics (Proc. SIGGRAPH Asia 2017), 36(6),
+%     218:1–13. doi:10.1145/3130800.3130810
 %
 % See also saveImages, imread, load, im2double
 
@@ -50,6 +64,7 @@ nargoutchk(1, 3);
 narginchk(1, 2);
 
 mat_ext = '.mat';
+exr_ext = '.exr';
 
 [~, name, ext] = fileparts(filename);
 if strcmp(ext, mat_ext)
@@ -66,6 +81,20 @@ if strcmp(ext, mat_ext)
             'The input image variable %s was not loaded from %s.',...
             variable_name, filename...
             );
+    end
+elseif strcmp(ext, exr_ext)
+    info = exrinfo(filename);
+    channel_names = info.channels;
+    channel_names_filter = ~(...
+        strcmp('R',channel_names) |...
+        strcmp('G',channel_names) |...
+        strcmp('B',channel_names)...
+    );
+    channel_names = channel_names(channel_names_filter);
+    I_map = exrreadchannels(filename, channel_names{:});
+    I = zeros([info.size, length(channel_names)]);
+    for i = 1:length(channel_names)
+        I(:, :, i) = I_map(channel_names{i});
     end
 else
     I = im2double(imread(filename));

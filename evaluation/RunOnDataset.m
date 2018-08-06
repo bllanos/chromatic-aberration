@@ -97,7 +97,19 @@ parameters_list = {
 
 %% Input data and parameters
 
-dataset_name = 'kodak';
+dataset_name = 'kaist';
+
+% ## Parameters for creating radiance images
+
+% CIE D-illuminant
+illuminant_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180604_Spectral power distributions_BruceLindbloom/DIlluminants.csv';
+illuminant_temperature = 6504; % From https://en.wikipedia.org/wiki/Standard_illuminant#Illuminant_series_D
+illuminant_name = 'd65';
+
+% Colour channel to use for radiance normalization
+normalization_channel = 2;
+
+% ## Operational parameters
 
 % Output directory for all images and saved parameters
 output_directory = '/home/llanos/Downloads';
@@ -114,6 +126,15 @@ if add_border
     % registered with the ground truth.
     error('Estimating a border around images prevents quantitative evaluation');
 end
+
+%% Load the illuminant
+
+illuminant_data = csvread(illuminant_filename);
+bands_illuminant = illuminant_data(:, 1);
+S_illuminant = illuminant_data(:, 2:end);
+spd_illuminant = ciedIlluminant(...
+    illuminant_temperature, bands_illuminant, S_illuminant, bands_illuminant...
+);
 
 %% Look up the dataset
 
@@ -201,9 +222,9 @@ if has_spectral
         if can_evaluate_spectral
             sensor_map_spectral = sensor_map_resampled;
         else
-            warning(['Quantitative evaluation of latent images is not possible'...
-                'because they will be produced at different wavelengths'...
-                'from the true latent images.']...
+            warning(['Quantitative evaluation of latent images is not possibl'...
+                'e because they will be produced at different wavelength'...
+                's from the true latent images.']...
             );
         
             % Allow for conversion to colour images
@@ -296,6 +317,29 @@ for i = 1:n_images
     % Generate or load input images, and instantiate dispersion information
     if has_spectral
         I_spectral_gt = loadImage(spectral_filenames{i}, dp.spectral_images_variable);
+        
+        % Convert to radiance images, if required
+        if dp.spectral_reflectances
+            original_size = size(I_spectral_gt);
+            reflectances = reshape(I_spectral_gt, [], length(bands_spectral)).';
+            
+            % Resample the illuminant, to avoid resampling the image (which
+            % is computationally more expensive)
+            [spd_illuminant_i, bands_illuminant_i] = resampleArrays(...
+                bands_illuminant, spd_illuminant, bands_spectral,...
+                'spline', 'none'...
+            );
+        
+            [~, ~, rad_normalized] = reflectanceToRadiance(...
+                bands_illuminant_i, spd_illuminant_i,...
+                bands_spectral, reflectances,...
+                bands_color, sensor_map.',...
+                normalization_channel, int_method...
+            );
+            
+            I_spectral_gt = reshape(rad_normalized.', original_size);
+        end
+    
         if has_dispersion_spectral
             [df_spectral_reverse, I_spectral_gt] = makeDispersionForImage(...
                 dd_spectral_reverse, I_spectral_gt, td_spectral_reverse...
