@@ -7,11 +7,15 @@
 % University of Alberta, Department of Computing Science
 % File created August 6, 2018
 
-function images = estimateAuxiliaryImages(...
+function [I_3D_out, images] = estimateAuxiliaryImages(...
         I_3D, dispersion_matrix_patch,...
+        padding_filter, I_size,...
         sensitivity, lambda, int_method,...
         align, target_patch, n_images...
     )
+
+n_bands = length(lambda);
+I_3D_out = reshape(I_3D(repmat(padding_filter, 1, 1, n_bands)), [I_size, n_bands]);
 if n_images > 0
     images = cell(1, n_images);
     do_integration = ~(...
@@ -29,30 +33,23 @@ if n_images > 0
         Omega = channelConversionMatrix(image_sampling_patch, sensitivity);
     end
     I_rgb = Omega * I;
-    images{1} = reshape(...
-        I_rgb,...
-        image_sampling_patch(1), image_sampling_patch(2), n_channels_rgb...
-    );
+    padding_filter_rgb = repmat(padding_filter, 1, 1, n_channels_rgb);
+    images{1} = reshape(I_rgb(padding_filter_rgb), [I_size, n_channels_rgb]);
 
     if n_images > 1
-        if has_dispersion
+        if ~isempty(dispersion_matrix_patch)
             J_full = Omega * dispersion_matrix_patch * I;
         else
             J_full = Omega * I;
         end
-        images{2} = reshape(...
-            J_full,...
-            image_sampling_patch(1), image_sampling_patch(2), n_channels_rgb...
-        );
+        J_full = reshape(J_full(padding_filter_rgb), [I_size, n_channels_rgb]);
+        images{2} = J_full;
 
         if n_images > 2
-            M = mosaicMatrix(...
-                image_sampling_patch,...
-                offsetBayerPattern(target_patch, align)...
-                );
-            J_est = M * J_full;
-            images{3} = reshape(J_est, image_sampling_patch);
+            images{3} = mosaic(J_full, offsetBayerPattern(target_patch, align));
         end
     end
+else
+    images = [];
 end
 end

@@ -7,7 +7,9 @@
 % University of Alberta, Department of Computing Science
 % File created August 6, 2018
 
-function [I, dispersion_matrix_patch, varargout] = solveOnePatchAligned(...
+function [...
+    I, dispersion_f, padding_filter, I_size, varargout...
+] = solveOnePatchAligned(...
         J, align, dispersionfun, sensitivity,...
         lambda, patch_size, padding, f, f_args, corner...
 )
@@ -52,26 +54,14 @@ end
 J_f = J(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :);
 
 % Solve for the output patch
-varargout = cell(nargout - 2, 1);
-[I_f, varargout{:}] = f(...
+varargout = cell(nargout - 4, 1);
+[I, varargout{:}] = f(...
     image_sampling_f, align_f, dispersion_f, sensitivity, lambda,...
     J_f, f_args{:}...
 );
 
-% Remove padding
-n_bands = length(lambda);
-padding_filter_I = false([image_sampling_f, n_bands]);
-padding_filter_I((trim(1, 1)):(trim(2, 1)), (trim(1, 2)):(trim(2, 2)), :) = true;
-padding_filter_I = reshape(padding_filter_I, [], 1, 1);
-I = I_f(padding_filter_I);
-I = reshape(I, [diff(trim, 1, 1) + 1, n_bands]);
-if has_dispersion
-    n_channels_J = size(J, 3);
-    padding_filter_J = false([image_sampling_f, n_channels_J]);
-    padding_filter_J((trim(1, 1)):(trim(2, 1)), (trim(1, 2)):(trim(2, 2)), :) = true;
-    padding_filter_J = reshape(padding_filter_J, [], 1, 1);
-    dispersion_matrix_patch = dispersion_f(padding_filter_J, padding_filter_I);
-else
-    dispersion_matrix_patch = [];
-end
+% Output arguments needed for removing padding
+padding_filter = false(image_sampling_f);
+padding_filter((trim(1, 1)):(trim(2, 1)), (trim(1, 2)):(trim(2, 2))) = true;
+I_size = diff(trim, 1, 1) + 1;
 end
