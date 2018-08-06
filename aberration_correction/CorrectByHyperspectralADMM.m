@@ -192,6 +192,13 @@
 %   form a blurred colour channel.
 % - This script only uses the first row of `weights` defined in
 %   'SetFixedParameters.m'.
+% - This script can estimate downsampled images (configured by adjusting
+%   `downsampling_factor` in 'SetFixedParameters.m'), but relies on
+%   'solvePatches()' in order to provide this functionality during
+%   patch-based image estimation. Consequently, this script cannot process
+%   very large images, except at higher downsampling factors. In contrast,
+%   'solvePatchesAligned()' can process large images, but cannot downsample
+%   images.
 %
 % ## References
 % - Baek, S.-H., Kim, I., Gutierrez, D., & Kim, M. H. (2017). "Compact
@@ -225,7 +232,7 @@ input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/2018070
 input_images_variable_name = 'raw_2D'; % Used only when loading '.mat' files
 
 % Model of dispersion
-reverse_dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180709_TestingSplineModels/ground_truth/splines/BimaterialImagesData_small.mat';
+reverse_dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180709_TestingSplineModels/ground_truth/splines/BimaterialImagesData.mat';
 
 % Colour space conversion data
 color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180709_TestingSplineModels/SonyColorMapData.mat';
@@ -240,7 +247,8 @@ output_directory = '/home/llanos/Downloads';
 % If empty (`[]`), the entire image will be estimated.
 target_patch = [];
 
-% Also compare with (or only run) whole image estimation
+% Also compare with (or only run) whole image estimation.
+% Only enable this for small images.
 run_entire_image = false;
 
 % Parameters which do not usually need to be changed
