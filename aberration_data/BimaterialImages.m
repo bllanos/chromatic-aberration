@@ -115,24 +115,23 @@
 % One of the following types of images is created for each chromaticity and
 % shading map pair. The filename of the input maps is represented by
 % '*' below.
-% - '*_hyperspectral.mat': A hyperspectral image (stored in the variable
-%   'I_hyper') produced by blending two reflectance spectra according to
-%   the per-pixel weights in the soft segmentation of the chromaticity map,
-%   and then by illuminating the spectra according to the shading
-%   weights in the shading map. Image values are normalized radiances.
-% - '*_3.tif' and '*_3.mat': A colour image (stored in the variable
-%   'raw_full_3D') created by converting the hyperspectral image to the raw
-%   colour space of the camera.
-% - '*_hyperspectral_warped.mat': A warped version of the hyperspectral
-%   image (stored in the variable 'I_hyper_warped') created by applying the
-%   dispersion model to the image.
+% - '*_hyper.mat': A hyperspectral image (stored in the variable 'I_hyper')
+%   produced by blending two reflectance spectra according to the per-pixel
+%   weights in the soft segmentation of the chromaticity map, and then by
+%   illuminating the spectra according to the shading weights in the
+%   shading map. Image values are normalized radiances.
+% - '*_3.tif' and '*_3.mat': A colour image (stored in the variable 'I_3')
+%   created by converting the hyperspectral image to the raw colour space
+%   of the camera.
+% - '*_warped.mat': A warped version of the hyperspectral image (stored in
+%   the variable 'I_warped') created by applying the dispersion model to
+%   the image.
 % - '*_3_warped.tif' and '*_3_warped.mat': A colour image (stored in the
-%   variable 'raw_warped_3D') created by converting the warped
-%   hyperspectral image to the raw colour space of the camera.
-% - '*_raw_warped.tif' and '*_raw_warped.mat': A colour-filter array image
-%   (stored in the variable 'raw_2D') produced by mosaicing the warped
-%   sensor response image according to the colour-filter pattern of the
-%   camera.
+%   variable 'I_3_warped') created by converting the warped hyperspectral
+%   image to the raw colour space of the camera.
+% - '*_raw.tif' and '*_raw.mat': A colour-filter array image (stored in the
+%   variable 'I_raw') produced by mosaicing the warped sensor response
+%   image according to the colour-filter pattern of the camera.
 %
 % The raw colour space of the camera is determined by the colour space
 % conversion data provided as input to this script. A camera may apply
@@ -181,6 +180,12 @@
 % in `parameters_list`, which should be updated if the set of parameters is
 % changed.)
 %
+% ## Notes
+% - This script only uses the first row of `patch_sizes`, and the first
+%   element of `paddings`, defined in 'SetFixedParameters.m'.
+% - This script ignores the `downsampling_factor` parameter defined in
+%   'SetFixedParameters.m'.
+%
 % ## References
 % - Foster, D. H. (2018). Tutorial on Transforming Hyperspectral Images to
 %   RGB Colour Images. Retrieved from
@@ -217,7 +222,7 @@ parameters_list = {
 %% Input data and parameters
 
 % Wildcard for 'ls()' to find the chromaticity maps.
-input_chromaticity_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180709_TestingSplineModels/swirly*39.jpg';
+input_chromaticity_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180605_DescribableTexturesDataset/dtd/images/crystalline/*.jpg';
 
 % Threshold for assuming that an RGB image is actually a greyscale image
 grey_difference_threshold = 1;
@@ -238,8 +243,8 @@ use_cie_illuminant = true;
 if use_cie_illuminant
     % CIE D-illuminant
     illuminant_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180604_Spectral power distributions_BruceLindbloom/DIlluminants.csv';
-    illuminant_temperature = 5003; % From https://en.wikipedia.org/wiki/Standard_illuminant#Illuminant_series_D
-    illuminant_name = 'd50';
+    illuminant_temperature = 6504; % From https://en.wikipedia.org/wiki/Standard_illuminant#Illuminant_series_D
+    illuminant_name = 'd65';
     illuminant_function_name = []; % Unused
 else
     % Arbitrary illuminant function
@@ -263,6 +268,9 @@ output_directory = '/home/llanos/Downloads';
 
 % ## Debugging Flags
 segmentColorsVerbose = false;
+
+% Parameters which do not usually need to be changed
+run('SetFixedParameters.m')
 
 %% Load ColorChecker spectral reflectances and calculate their RGB values
 
@@ -474,40 +482,26 @@ for i = 1:n_images
     H = reshape(Rad_per_pixel .* repmat(reshape(S_map, n_px, 1), 1, n_bands), [], 1);
     I_hyper = reshape(H, image_height, image_width, n_bands);
     
-    % Compute the equivalent sensor response image
-    Omega = channelConversionMatrix(image_sampling, sensor_map_resampled, bands, int_method);
-    raw_full = Omega * H;    
-    raw_full_3D = reshape(raw_full, image_height, image_width, n_channels_raw);
-    
-    % Simulate dispersion
+    % Simulate image formation
     dispersionfun = makeDispersionForImage(...
         dispersion_data, I_hyper, transform_data...
     );
-    W = dispersionfunToMatrix(...
-            dispersionfun, bands,...
-            image_sampling, image_sampling,...
-            [0, 0, image_width,  image_height], true...
-        );
-    H_warped = W * H;
-    I_hyper_warped = reshape(H_warped, image_height, image_width, n_bands);
-    
-    % Compute the equivalent sensor response image
-    raw_warped = Omega * H_warped;
-    raw_warped_3D = reshape(raw_warped, image_height, image_width, n_channels_raw);
-    
-    % Compute the RAW image
-    M = mosaicMatrix(image_sampling, bayer_pattern);
-    raw = M * raw_warped;
-    raw_2D = reshape(raw, image_sampling);
+    imageFormationOptions.patch_size = patch_sizes(1, :);
+    imageFormationOptions.padding = paddings(1);
+    imageFormationOptions.int_method = int_method;
+    [I_3, I_3_warped, I_raw, I_warped] = imageFormation(...
+        I_hyper, sensor_map_resampled, bands,...
+        imageFormationOptions, dispersionfun, bayer_pattern...
+    );
             
     % Save the results
     saveImages(...
         output_directory, chromaticity_names{i},...
-        I_hyper, '_hyperspectral', 'I_hyper',...
-        raw_full_3D, '_3', 'raw_full_3D',...
-        I_hyper_warped, '_hyperspectral_warped', 'I_hyper_warped',...
-        raw_warped_3D, '_3_warped', 'raw_warped_3D',...
-        raw_2D, '_raw_warped', 'raw_2D'...
+        I_hyper, '_hyper', 'I_hyper',...
+        I_3, '_3', 'I_3',...
+        I_warped, '_warped', 'I_warped',...
+        I_3_warped, '_3_warped', 'I_3_warped',...
+        I_raw, '_raw', 'I_raw'...
     );            
 end
 

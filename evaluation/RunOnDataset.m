@@ -300,12 +300,15 @@ n_channels_rgb = 3;
 bands_rgb = 1:n_channels_rgb;
 sensor_map_rgb = eye(n_channels_rgb);
 n_weights = size(weights, 1);
+patch_size = patch_sizes(1, :);
+padding = paddings(1);
+imageFormationOptions.patch_size = patch_size;
+imageFormationOptions.padding = padding;
+imageFormationOptions.int_method = int_method;
 
 % Fixed options for ADMM
 solvePatchesOptions.add_border = add_border;
 baek2017Algorithm2Options.add_border = false;
-patch_size = patch_sizes(1, :);
-padding = paddings(1);
 solvePatchesOptions.patch_size = patch_size;
 solvePatchesOptions.padding = padding;
 
@@ -374,9 +377,10 @@ for i = 1:n_images
         end
         I_rgb_lin = reshape(I_rgb_gt, [], 1);
     elseif has_spectral && has_color_map
-        Omega = channelConversionMatrix(image_sampling, sensor_map_spectral, bands_spectral, int_method);
-        I_rgb_lin = Omega * I_spectral_lin;
-        I_rgb_gt = reshape(I_rgb_lin, image_sampling(1), image_sampling(2), n_channels_rgb);
+        [I_rgb_gt, ~, I_raw_gt] = imageFormation(...
+            I_spectral_gt, sensor_map_spectral, bands_spectral,...
+            imageFormationOptions, df_spectral_reverse, bayer_pattern...
+        );
     end
     if ~has_rgb && has_dispersion_rgb
         df_rgb_reverse = makeDispersionForImage(dd_rgb_reverse);
@@ -391,15 +395,17 @@ for i = 1:n_images
         if ~ismatrix(I_raw_gt)
             error('Expected a RAW image, represented as a 2D array, not a higher-dimensional array.');
         end
+        
+        % Crop to the region of valid dispersion
         roi = [];
         if has_spectral && has_dispersion_spectral
             roi = modelSpaceTransform(...
                 [size(I_raw_gt, 1), size(I_raw_gt, 2)], td_spectral_reverse.model_space, td_spectral_reverse.fill...
-            );
+                );
         elseif has_rgb && has_dispersion_rgb
             roi = modelSpaceTransform(...
                 [size(I_raw_gt, 1), size(I_raw_gt, 2)], td_rgb_reverse.model_space, td_rgb_reverse.fill...
-            );
+                );
         end
         if ~isempty(roi)
             I_raw_gt = I_raw_gt(roi(1):roi(2), roi(3):roi(4));
@@ -423,34 +429,14 @@ for i = 1:n_images
                 if verbose
                     fprintf('\t...done\n');
                 end
-                I_rgb_warped_lin = W * I_rgb_lin;
+                I_rgb_warped = warpImage(I_rgb_gt, W, image_sampling);
             else
-                I_rgb_warped_lin = I_rgb_lin;
+                I_rgb_warped = I_rgb_gt;
             end
-        elseif has_spectral && has_color_map
-            if has_dispersion_spectral
-                if verbose
-                    fprintf('[RunOnDataset, image %d] Calculating the spectral dispersion matrix...\n', i);
-                end
-                W = dispersionfunToMatrix(...
-                    df_spectral_reverse, bands_spectral, image_sampling, image_sampling,...
-                    [0, 0, image_sampling(2),  image_sampling(1)], true...
-                    );
-                if verbose
-                    fprintf('\t...done\n');
-                end
-                I_spectral_warped_lin = W * I_spectral_lin;
-            else
-                I_spectral_warped_lin = I_spectral_lin;
-            end
-            I_rgb_warped_lin = Omega * I_spectral_warped_lin;
+            I_raw_gt = mosaic(I_rgb_warped, bayer_pattern);
         end
+    end        
         
-        M = mosaicMatrix(image_sampling, bayer_pattern);
-        I_raw_lin = M * I_rgb_warped_lin;
-        I_raw_gt = reshape(I_raw_lin, image_sampling);
-    end
-    
     saveImages(...
         output_directory, names{i},...
         I_raw_gt, '_roi', 'I_raw'...
@@ -715,7 +701,7 @@ for i = 1:n_images
             fprintf('[RunOnDataset, image %d] Calculating the forward colour dispersion matrix...\n', i);
         end
         W = dispersionfunToMatrix(...
-            df_rgb_reverse, bands_rgb, image_sampling, image_sampling,...
+            df_rgb_forward, bands_rgb, image_sampling, image_sampling,...
             [0, 0, image_sampling(2),  image_sampling(1)], false...
             );
         if verbose

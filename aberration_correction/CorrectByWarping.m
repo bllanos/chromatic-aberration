@@ -122,7 +122,7 @@ parameters_list = {
 % Wildcard for 'ls()' to find the images to process.
 % '.mat' or image files can be loaded
 input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180709_TestingSplineModels/ground_truth/splines/swirly_0138_raw_warped.mat';
-input_images_variable_name = 'raw_2D'; % Can be empty unless loading images from '.mat' files
+input_images_variable_name = 'I_raw'; % Can be empty unless loading images from '.mat' files
 
 % Model of dispersion
 forward_dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180709_TestingSplineModels/DoubleConvexThickLensDispersionResults_spline_modelFromReference_true_fill.mat';
