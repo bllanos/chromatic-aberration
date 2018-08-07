@@ -149,10 +149,10 @@ function [ I_3D, image_bounds, varargout ] = solvePatchesAligned(...
 %     image. The input patch is large enough for estimating a patch of
 %     dimensions `patch_size` in the output image, as well as a border of
 %     width `padding` around the output patch. (Note that the patch of the
-%     input image accommodates for the warping given by `dispersionfun`.)
-%     The final output image, `I`, is assembled from only the central
-%     (non-padding) regions of patches, so this function discards the
-%     padding regions estimated by the algorithm.
+%     input image does not accommodate for the warping given by
+%     `dispersionfun`.) The final output image, `I`, is assembled from only
+%     the central (non-padding) regions of patches, so this function
+%     discards the padding regions estimated by the algorithm.
 %
 % target_patch -- Single patch coordinates
 %   A two-element vector containing the row and column, respectively, of
@@ -161,8 +161,8 @@ function [ I_3D, image_bounds, varargout ] = solvePatchesAligned(...
 %   single image patch, rather than for the entire image. While a border
 %   around `I` will have been estimated, with a width given by
 %   `options.padding`, it will not be included in the output. The border
-%   region will not be used when calculating `I_rgb`, `J_full`, and
-%   `J_est`.
+%   region will be used when calculating `I_rgb`, `J_full`, and `J_est`, to
+%   limit artifacts from image warping, before being stripped off.
 %
 % ## Output Arguments
 %
