@@ -13,6 +13,7 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % [ I, image_bounds, I_rgb ] = baek2017Algorithm2(___)
 % [ I, image_bounds, I_rgb, J_full ] = baek2017Algorithm2(___)
 % [ I, image_bounds, I_rgb, J_full, J_est ] = baek2017Algorithm2(___)
+% [ I, image_bounds, I_rgb, J_full, J_est, I_warped ] = baek2017Algorithm2(___)
 %
 % ## Description
 % I = baek2017Algorithm2(...
@@ -31,11 +32,15 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %
 % [ I, image_bounds, I_rgb, J_full ] = baek2017Algorithm2(___)
 %   Additionally returns a version of the RGB equivalent of the latent
-%   image, warped by the model of chromatic aberration.
+%   image, warped according to the model of chromatic aberration.
 %
 % [ I, image_bounds, I_rgb, J_full, J_est ] = baek2017Algorithm2(___)
 %   Additionally returns the forward model estimate of the input RAW image
 %   `J`.
+%
+% [ I, image_bounds, I_rgb, J_full, J_est, I_warped ] = baek2017Algorithm2(___)
+%   Additionally returns the version of the latent image warped according
+%   to the model of chromatic aberration.
 %
 % ## Input Arguments
 %
@@ -201,6 +206,10 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %   `I` through the forward model of dispersion and image capture. An array
 %   with the same dimensions as `J`.
 %
+% I_warped -- Warped latent image
+%   An size(J, 1) x size(J, 2) x length(lambda) array, storing the latent
+%   image warped according to the dispersion model.
+%
 % ## References
 %
 % This function implements Algorithm 2 in the first set of supplemental
@@ -270,7 +279,7 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
         end
     end
 
-nargoutchk(1, 5);
+nargoutchk(1, 6);
 narginchk(9, 10);
 
 if ~isempty(varargin)
@@ -606,15 +615,20 @@ if nargout > 2
     
     if nargout > 3
         if has_dispersion
-            J_full = Omega * Phi * I;
+            I_warped = Phi * I;
         else
-            J_full = Omega * I;
+            I_warped = I;
         end
+        J_full = Omega * I_warped;
         varargout{2} = reshape(J_full, image_sampling_J(1), image_sampling_J(2), n_channels_rgb);
         
         if nargout > 4
             J_est = M * J_full;
             varargout{3} = reshape(J_est, image_sampling_J);
+            
+            if nargout > 5
+                varargout{4} = reshape(I_warped, image_sampling_J(1), image_sampling_J(2), n_bands);
+            end
         end
     end
 end

@@ -15,6 +15,10 @@ function varargout = imageFormation(...
 %   I_hyper, sensitivity, lambda,...
 %   options, dispersionfun, align [, target_patch]...
 % )
+% [I_rgb, J_full, J_est, I_warped] = imageFormation(...
+%   I_hyper, sensitivity, lambda,...
+%   options, dispersionfun, align [, target_patch]...
+% )
 %
 % ## Description
 % I_rgb = imageFormation(...
@@ -35,6 +39,13 @@ function varargout = imageFormation(...
 % )
 %   Additionally returns RAW image corresponding to the warped colour
 %   image.
+%
+% [I_rgb, J_full, J_est, I_warped] = imageFormation(...
+%   I_hyper, sensitivity, lambda,...
+%   options, dispersionfun, align [, target_patch]...
+% )
+%   Additionally returns a version of the spectral image, warped according
+%   to a dispersion model.
 %
 % ## Input Arguments
 %
@@ -132,6 +143,13 @@ function varargout = imageFormation(...
 %   If `target_patch` is passed, then `J_est` is a 2D array with the same
 %   sizes in its first two dimensions as `I_rgb`.
 %
+% I_warped -- Warped latent image
+%   An size(I_hyper, 1) x size(I_hyper, 2) x length(lambda) array, storing
+%   the latent image warped according to the dispersion model.
+%
+%   If `target_patch` is passed, then `I_warped` has the same spatial
+%   dimensions as `I_rgb`.
+%
 % ## References
 %
 % See also solvePatchesAligned, mosaicMatrix, channelConversionMatrix,
@@ -159,7 +177,7 @@ elseif nargout == 2
         target_patch = varargin{2};
         single_patch = true;
     end
-elseif nargout == 3
+elseif nargout > 2
     narginchk(6, 7);
     dispersionfun = varargin{1};
     align = varargin{2};

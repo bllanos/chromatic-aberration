@@ -41,8 +41,9 @@ function [ I_3D, image_bounds, varargout ] = solvePatchesAligned(...
 % [ I, image_bounds, I_rgb ] = solvePatchesAligned(___)
 % [ I, image_bounds, I_rgb, J_full ] = solvePatchesAligned(___)
 % [ I, image_bounds, I_rgb, J_full, J_est ] = solvePatchesAligned(___)
+% [ I, image_bounds, I_rgb, J_full, J_est, I_warped ] = solvePatchesAligned(___)
 % [...
-%   I, image_bounds, I_rgb, J_full, J_est, varargout...
+%   I, image_bounds, I_rgb, J_full, J_est, I_warped, varargout...
 % ] = solvePatchesAligned(___, target_patch)
 %
 % ## Description
@@ -61,13 +62,17 @@ function [ I_3D, image_bounds, varargout ] = solvePatchesAligned(...
 %
 % [ I, image_bounds, I_rgb, J_full ] = solvePatchesAligned(___)
 %   Additionally returns a version of the RGB equivalent of the latent
-%   image, warped by the dispersion model.
+%   image, warped according to the dispersion model.
 %
 % [ I, image_bounds, I_rgb, J_full, J_est ] = solvePatchesAligned(___)
 %   Additionally returns the forward model estimate of the RAW image.
 %
+% [ I, image_bounds, I_rgb, J_full, J_est, I_warped ] = solvePatchesAligned(___)
+%   Additionally returns a version of the latent image warped according to
+%   the dispersion model.
+%
 % [...
-%   I, image_bounds, I_rgb, J_full, J_est, varargout...
+%   I, image_bounds, I_rgb, J_full, J_est, I_warped, varargout...
 % ] = solvePatchesAligned(___, target_patch)
 %   Run an image estimation algorithm on a single image patch, and return
 %   its additional output arguments.
@@ -207,6 +212,13 @@ function [ I_3D, image_bounds, varargout ] = solvePatchesAligned(...
 %   If `target_patch` is passed, then `J_est` is a 2D array with the same
 %   sizes in its first two dimensions as `J_full`.
 %
+% I_warped -- Warped latent image
+%   An size(J, 1) x size(J, 2) x length(lambda) array, storing the latent
+%   image warped according to the dispersion model.
+%
+%   If `target_patch` is passed, then `I_warped` has the same spatial
+%   dimensions as `I`.
+%
 % varargout -- Additional output arguments of the image estimation algorithm
 %   When `target_patch` is passed, this function can return additional
 %   output arguments from `f`, as there is no concern over how to combine
@@ -246,14 +258,14 @@ if ~isempty(dispersionfun) && ~isa(dispersionfun, 'function_handle')
 end
 
 varargout = cell(1, nargout - 2);
-n_auxiliary_images = min(nargout - 2, 3);
+n_auxiliary_images = min(nargout - 2, 4);
 image_sampling = [size(J_2D, 1), size(J_2D, 2)];
 image_bounds = [0, 0, image_sampling(2), image_sampling(1)];
 
 if single_patch
     [...
         I_3D, dispersion_matrix_patch, padding_filter, I_size,...
-        varargout{4:end}...
+        varargout{(n_auxiliary_images + 1):end}...
     ] = solveOnePatchAligned(...
         J_2D, align, dispersionfun, sensitivity,...
         lambda, options.patch_size, options.padding, f, f_args, target_patch...
@@ -303,7 +315,8 @@ else
         patches_auxiliary(i, :, :) = patches_auxiliary_i;
     end
     
-    I_3D = zeros([image_sampling, length(lambda)]);
+    n_bands = length(lambda);
+    I_3D = zeros([image_sampling, n_bands]);
     output_rgb = n_auxiliary_images > 0;
     if output_rgb
         I_rgb = zeros([image_sampling, n_channels_rgb]);
@@ -315,6 +328,10 @@ else
     output_raw = n_auxiliary_images > 2;
     if output_raw
         J_est = zeros(image_sampling);
+    end
+    output_warped = n_auxiliary_images > 3;
+    if output_warped
+        I_warped = zeros([image_sampling, n_bands]);
     end
     for i = 1:n_i_vector
         end_i = min(i_vector(i) + options.patch_size(1) - 1, image_sampling(1));
@@ -342,6 +359,12 @@ else
                     j_vector(j):end_j, :...
                 ) = patches_auxiliary{i, j, 3};
             end
+            if output_warped
+                I_warped(...
+                    i_vector(i):end_i,...
+                    j_vector(j):end_j, :...
+                ) = patches_auxiliary{i, j, 4};
+            end
         end
     end
     
@@ -354,7 +377,9 @@ else
     if output_raw
         varargout{3} = J_est;
     end
-    
+    if output_warped
+        varargout{4} = I_warped;
+    end
 end
     
 end

@@ -13,8 +13,9 @@ function [ I_3D, image_bounds, varargout ] = solvePatches(...
 % [ I, image_bounds, I_rgb ] = solvePatches(___)
 % [ I, image_bounds, I_rgb, J_full ] = solvePatches(___)
 % [ I, image_bounds, I_rgb, J_full, J_est ] = solvePatches(___)
+% [ I, image_bounds, I_rgb, J_full, J_est, I_warped ] = solvePatches(___)
 % [...
-%   I, image_bounds, I_rgb, J_full, J_est, varargout...
+%   I, image_bounds, I_rgb, J_full, J_est, I_warped, varargout...
 % ] = solvePatches(___, target_patch)
 %
 % ## Description
@@ -33,14 +34,18 @@ function [ I_3D, image_bounds, varargout ] = solvePatches(...
 %   Additionally returns the RGB equivalent of the output image.
 %
 % [ I, image_bounds, I_rgb, J_full ] = solvePatches(___)
-%   Additionally returns a version of the RGB equivalent of the latent
-%   image, warped by the dispersion model.
+%   Additionally returns a version of the RGB equivalent of the output
+%   image, warped according to the dispersion model.
 %
 % [ I, image_bounds, I_rgb, J_full, J_est ] = solvePatches(___)
 %   Additionally returns the forward model estimate of the RAW image.
 %
+% [ I, image_bounds, I_rgb, J_full, J_est, I_warped ] = solvePatches(___)
+%   Additionally returns the version of the output image warped according
+%   to the dispersion model.
+%
 % [...
-%   I, image_bounds, I_rgb, J_full, J_est, varargout...
+%   I, image_bounds, I_rgb, J_full, J_est, I_warped, varargout...
 % ] = solvePatches(___, target_patch)
 %   Run an image estimation algorithm on a single image patch, and return
 %   its additional output arguments.
@@ -195,6 +200,14 @@ function [ I_3D, image_bounds, varargout ] = solvePatches(...
 %   If `target_patch` is passed, then `J_est` is a 2D array with the same
 %   sizes in its first two dimensions as `J_full`.
 %
+% I_warped -- Warped latent image
+%   An size(J, 1) x size(J, 2) x length(lambda) array, storing the image
+%   produced by warping `I` according to the dispersion model
+%
+%   If `target_patch` is passed, then `I_warped` has spatial dimensions
+%   which depend on the nature of the warp between `I` and `J`, and on the
+%   padding region estimated around `I`.
+%
 % varargout -- Additional output arguments of the image estimation algorithm
 %   When `target_patch` is passed, this function can return additional
 %   output arguments from `f`, as there is no concern over how to combine
@@ -257,15 +270,17 @@ else
     dispersion_matrix = [];
 end
 
+n_bands = length(lambda);
+
 if single_patch
     [...
-        I_3D, image_sampling_J_patch, dispersion_matrix_patch, varargout{4:end}...
+        I_3D, image_sampling_J_patch, dispersion_matrix_patch, varargout{5:end}...
     ] = solveOnePatch(...
         image_sampling, J_2D, align, dispersion_matrix, sensitivity,...
         lambda, options.patch_size, options.padding, f, f_args, target_patch...
     );
 else
-    I_3D = zeros([image_sampling, length(lambda)]);
+    I_3D = zeros([image_sampling, n_bands]);
     i_vector = 1:options.patch_size(1):image_sampling(1);
     n_i_vector = length(i_vector);
     j_vector = 1:options.patch_size(2):image_sampling(2);
@@ -330,10 +345,11 @@ if nargout > 2
             Omega_J = channelConversionMatrix(image_sampling_J_patch, sensitivity);
         end
         if has_dispersion
-            J_full = Omega_J * dispersion_matrix_patch * I;
+            I_warped = dispersion_matrix_patch * I;
         else
-            J_full = Omega_J * I;
+            I_warped = I;
         end
+        J_full = Omega_J * I_warped;
         varargout{2} = reshape(...
             J_full,...
             image_sampling_J_patch(1), image_sampling_J_patch(2), n_channels_rgb...
@@ -346,6 +362,10 @@ if nargout > 2
             );
             J_est = M * J_full;
             varargout{3} = reshape(J_est, image_sampling_J_patch);
+            
+            if nargout > 5
+                varargout{4} = reshape(I_warped, image_sampling_J_patch(1), image_sampling_J_patch(2), n_bands);
+            end
         end
     end
 end
