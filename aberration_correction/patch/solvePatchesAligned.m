@@ -269,10 +269,12 @@ n_auxiliary_images = min(nargout - 2, 4);
 image_sampling = [size(J, 1), size(J, 2)];
 image_bounds = [0, 0, image_sampling(2), image_sampling(1)];
 int_method = options.int_method;
+patch_size = options.patch_size;
+n_bands = length(lambda);
 
 if single_patch
     [ patch_lim, trim ] = patchBoundaries(...
-        image_sampling, options.patch_size, options.padding, target_patch...
+        image_sampling, patch_size, options.padding, target_patch...
     );
 
     % Construct arguments for the image estimation algorithm
@@ -306,13 +308,13 @@ else
     if verbose
         disp('Splitting the input image into patches...');
     end
-    i_vector = 1:options.patch_size(1):image_sampling(1);
+    i_vector = 1:patch_size(1):image_sampling(1);
     n_i_vector = length(i_vector);
-    j_vector = 1:options.patch_size(2):image_sampling(2);
+    j_vector = 1:patch_size(2):image_sampling(2);
     n_j_vector = length(j_vector);
     n_patches = n_i_vector * n_j_vector;
-    patches_J = cell(n_i_vector, n_j_vector);
-    patches_I = cell(n_i_vector, n_j_vector);
+    patches_J = cell(1, n_j_vector);
+    patches_I = cell(1, n_j_vector);
     patches_auxiliary = cell(n_i_vector, n_j_vector, n_auxiliary_images);
     patch_limits = zeros(n_i_vector, n_j_vector, 4);
     patch_trim = zeros(n_i_vector, n_j_vector, 4);
@@ -324,11 +326,14 @@ else
         for i = 1:n_i_vector
             corners(i, j, :) = [i_vector(i), j_vector(j)];
             [ patch_lim, trim ] = patchBoundaries(...
-                image_sampling, options.patch_size, options.padding, corners(i, j, :)...
+                image_sampling, patch_size, options.padding, corners(i, j, :)...
             );
             patch_trim(i, j, :) = reshape(trim, 1, 1, 4);
-            patches_J{i, j} = J(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :);
             patch_limits(i, j, :) = reshape(patch_lim, 1, 1, 4);
+            
+            if i == 1
+                patches_J{j} = J(:, patch_lim(1, 2):patch_lim(2, 2), :);
+            end
         end
     end
     
@@ -339,12 +344,16 @@ else
     
     % Process each patch
     parfor j = 1:n_j_vector
-        patches_J_j = patches_J(:, j);
-        patches_I_j = cell(n_i_vector, 1);
-        patches_auxiliary_j = cell(n_i_vector, 1, n_auxiliary_images);
         patch_limits_j = patch_limits(:, j, :);
         patch_trim_j = patch_trim(:, j, :);
         corners_j = corners(:, j, :);
+        patches_J_j = patches_J{j};
+        patches_I_j = zeros(...
+            size(patches_J_j, 1),...
+            patch_trim_j(1, 1, 4) - patch_trim_j(1, 1, 3) + 1,...
+            n_bands...
+        );
+        patches_auxiliary_j = cell(n_i_vector, 1, n_auxiliary_images);
         for i = 1:n_i_vector
             patch_lim = reshape(patch_limits_j(i, 1, :), 2, 2);
             align_f = offsetBayerPattern(patch_lim(1, :), align);
@@ -361,25 +370,29 @@ else
             end
 
             % Solve for the output patch
-            patches_I_j{i} = f(...
+            patches_I_ij = f(...
                 image_sampling_f, align_f, dispersion_matrix_patch, sensitivity, lambda,...
-                patches_J_j{i}, f_args{:}...
+                patches_J_j(patch_lim(1, 1):patch_lim(2, 1), :, :), f_args{:}...
             );
 
             padding_filter = false(image_sampling_f);
             padding_filter((trim(1, 1)):(trim(2, 1)), (trim(1, 2)):(trim(2, 2))) = true;
             patch_trimmed_size = diff(trim, 1, 1) + 1;
-            [patches_I_j{i}, patches_auxiliary_j(i, 1, :)] = estimateAuxiliaryImages(...
-                    patches_I_j{i}, dispersion_matrix_patch, padding_filter,...
+            [patches_I_ij, patches_auxiliary_j(i, 1, :)] = estimateAuxiliaryImages(...
+                    patches_I_ij, dispersion_matrix_patch, padding_filter,...
                     patch_trimmed_size,...
                     sensitivity, lambda, int_method,...
                     align_f, n_auxiliary_images...
             );
+            patches_I_j(...
+                    ((i - 1) * patch_size(1) + 1):((i - 1) * patch_size(1) + patch_trimmed_size(1)),...
+                    :, :...
+                ) = patches_I_ij;
             if verbose
                 fprintf('\tProcessed patch %d of %d\n', i + (j-1) * n_i_vector, n_patches);
             end
         end
-        patches_I(:, j) = patches_I_j;
+        patches_I{j} = patches_I_j;
         patches_auxiliary(:, j, :) = patches_auxiliary_j;
     end
     
