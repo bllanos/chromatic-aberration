@@ -249,6 +249,9 @@ function [ I_3D, image_bounds, varargout ] = solvePatchesAligned(...
 narginchk(8, 9);
 
 verbose = true;
+if verbose
+    tic
+end
 
 single_patch = false;
 if ~isempty(varargin)
@@ -307,27 +310,24 @@ else
     n_i_vector = length(i_vector);
     j_vector = 1:options.patch_size(2):image_sampling(2);
     n_j_vector = length(j_vector);
-    n_patches = n_i_vector * n_j_vector;
-    patches_J = cell(n_patches, 1);
-    patches_I = cell(n_patches, 1);
-    patches_auxiliary = cell(n_patches, n_auxiliary_images);
-    patch_limits = zeros(n_patches, 4);
-    patch_trim = zeros(n_patches, 4);
-    corners = zeros(n_patches, 2);
+    patches_J = cell(n_i_vector, n_j_vector);
+    patches_I = cell(n_i_vector, n_j_vector);
+    patches_auxiliary = cell(n_i_vector, n_j_vector, n_auxiliary_images);
+    patch_limits = zeros(n_i_vector, n_j_vector, 4);
+    patch_trim = zeros(n_i_vector, n_j_vector, 4);
+    corners = zeros(n_i_vector, n_j_vector, 2);
     
     % Divide the input image into patches to be sent to individual parallel
     % workers
-    k = 1;
     for j = 1:n_j_vector
         for i = 1:n_i_vector
-            corners(k, :) = [i_vector(i), j_vector(j)];
+            corners(i, j, :) = [i_vector(i), j_vector(j)];
             [ patch_lim, trim ] = patchBoundaries(...
-                image_sampling, options.patch_size, options.padding, corners(k, :)...
+                image_sampling, options.patch_size, options.padding, corners(i, j, :)...
             );
-            patch_trim(k, :) = reshape(trim, 1, []);
-            patches_J{k} = J(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :);
-            patch_limits(k, :) = reshape(patch_lim, 1, []);
-            k = k + 1;
+            patch_trim(i, j, :) = reshape(trim, 1, 1, 4);
+            patches_J{i, j} = J(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :);
+            patch_limits(i, j, :) = reshape(patch_lim, 1, 1, 4);
         end
     end
     
@@ -337,36 +337,47 @@ else
     end
     
     % Process each patch
-    parfor k = 1:n_patches
-        patch_lim = reshape(patch_limits(k, :), 2, 2);
-        align_f = offsetBayerPattern(patch_lim(1, :), align);
-        image_sampling_f = diff(patch_lim, 1, 1) + 1
-        trim = reshape(patch_trim(k, :), 2, 2);
-        if has_dispersion
-            dispersion_matrix_patch = dispersionfunToMatrix(...
-                dispersionfun, lambda, image_sampling_f, image_sampling_f,...
-                [0, 0, image_sampling_f(2), image_sampling_f(1)], true,...
-                flip(corners(k, :)) - 1 ...
+    parfor j = 1:n_j_vector
+        patches_J_j = patches_J(:, j);
+        patches_I_j = cell(n_i_vector, 1);
+        patches_auxiliary_j = cell(n_i_vector, 1, n_auxiliary_images);
+        patch_limits_j = patch_limits(:, j, :);
+        patch_trim_j = patch_trim(:, j, :);
+        corners_j = corners(:, j, :);
+        for i = 1:n_i_vector
+            patch_lim = reshape(patch_limits_j(i, 1, :), 2, 2);
+            align_f = offsetBayerPattern(patch_lim(1, :), align);
+            image_sampling_f = diff(patch_lim, 1, 1) + 1
+            trim = reshape(patch_trim_j(i, 1, :), 2, 2);
+            if has_dispersion
+                dispersion_matrix_patch = dispersionfunToMatrix(...
+                    dispersionfun, lambda, image_sampling_f, image_sampling_f,...
+                    [0, 0, image_sampling_f(2), image_sampling_f(1)], true,...
+                    [corners_j(i, 1, 2), corners_j(i, 1, 1)] - 1 ...
+                );
+            else
+                dispersion_matrix_patch = [];
+            end
+
+            % Solve for the output patch
+            patches_I_j{i} = f(...
+                image_sampling_f, align_f, dispersion_matrix_patch, sensitivity, lambda,...
+                patches_J_j{i}, f_args{:}...
             );
-        else
-            dispersion_matrix_patch = [];
+
+            padding_filter = false(image_sampling_f);
+            padding_filter((trim(1, 1)):(trim(2, 1)), (trim(1, 2)):(trim(2, 2))) = true;
+            patch_trimmed_size = diff(trim, 1, 1) + 1;
+            [patches_I_j{i}, patches_auxiliary_j(i, 1, :)] = estimateAuxiliaryImages(...
+                    patches_I_j{i}, dispersion_matrix_patch, padding_filter,...
+                    patch_trimmed_size,...
+                    sensitivity, lambda, int_method,...
+                    align_f, n_auxiliary_images...
+            );
+            fprintf('\tProcessed patch %d\n', i + j * n_i_vector);
         end
-
-        % Solve for the output patch
-        patches_I{k} = f(...
-            image_sampling_f, align_f, dispersion_matrix_patch, sensitivity, lambda,...
-            patches_J{k}, f_args{:}...
-        );
-
-        padding_filter = false(image_sampling_f);
-        padding_filter((trim(1, 1)):(trim(2, 1)), (trim(1, 2)):(trim(2, 2))) = true;
-        patch_trimmed_size = diff(trim, 1, 1) + 1;
-        [patches_I{k}, patches_auxiliary(k, :)] = estimateAuxiliaryImages(...
-                patches_I{k}, dispersion_matrix_patch, padding_filter,...
-                patch_trimmed_size,...
-                sensitivity, lambda, int_method,...
-                align_f, n_auxiliary_images...
-        );
+        patches_I(:, j) = patches_I_j;
+        patches_auxiliary(:, j, :) = patches_auxiliary_j;
     end
     
     if verbose
@@ -375,15 +386,14 @@ else
     end
     
     % Recombine patches
-    I_3D = cell2mat(reshape(patches_I, n_i_vector, n_j_vector));
+    I_3D = cell2mat(patches_I);
     for im = 1:n_auxiliary_images
-        varargout{im} = cell2mat(reshape(...
-            patches_auxiliary(:, im), n_i_vector, n_j_vector...
-        ));
+        varargout{im} = cell2mat(patches_auxiliary(:, :, im));
     end
     
     if verbose
         fprintf('\tDone.\n');
+        toc
     end
 end
     

@@ -83,6 +83,7 @@ if strcmp(ext, mat_ext)
             );
     end
 elseif strcmp(ext, exr_ext)
+    disp('Loading an OpenEXR image...');
     info = exrinfo(filename);
     channel_names = info.channels;
     channel_names_filter = ~(...
@@ -96,6 +97,7 @@ elseif strcmp(ext, exr_ext)
     for i = 1:length(channel_names)
         I(:, :, i) = I_map(channel_names{i});
     end
+    fprintf('\tDone\n');
 else
     I = im2double(imread(filename));
 end
