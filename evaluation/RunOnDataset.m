@@ -347,6 +347,8 @@ for i = 1:n_images
             [df_spectral_reverse, I_spectral_gt] = makeDispersionForImage(...
                 dd_spectral_reverse, I_spectral_gt, td_spectral_reverse...
             );
+        else
+            df_spectral_reverse = [];
         end
         image_sampling = [size(I_spectral_gt, 1), size(I_spectral_gt, 2)];
         I_spectral_lin = reshape(I_spectral_gt, [], 1);
@@ -365,6 +367,9 @@ for i = 1:n_images
             df_rgb_forward = makeDispersionForImage(...
                     dd_rgb_forward, I_rgb_gt, td_rgb_forward...
                 );
+        else
+            df_rgb_reverse = [];
+            df_rgb_forward = [];
         end
         if has_spectral
             if any([size(I_rgb_gt, 1), size(I_rgb_gt, 2)] ~= image_sampling)

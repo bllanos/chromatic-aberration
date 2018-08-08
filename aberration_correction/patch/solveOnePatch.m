@@ -16,29 +16,11 @@ function [I, image_sampling_J_f, dispersion_matrix_patch, varargout] = solveOneP
         lambda, patch_size, padding, f, f_args, corner...
 )
 
+[ patch_lim_I, trim ] = patchBoundaries(...
+    image_sampling, patch_size, padding, corner...
+);
+
 % Find the linear indices of pixels in the output patch
-patch_lim_I = [
-    corner(1) - padding, corner(2) - padding;
-    corner(1) + patch_size(1) + padding - 1, corner(2) + patch_size(2) + padding - 1
-    ];
-trim = [padding + 1, padding + 1];
-if patch_lim_I(1, 1) < 1
-    trim(1, 1) = trim(1, 1) + patch_lim_I(1, 1) - 1;
-    patch_lim_I(1, 1) = 1;
-end
-if patch_lim_I(1, 2) < 1
-    trim(1, 2) = trim(1, 2) + patch_lim_I(1, 2) - 1;
-    patch_lim_I(1, 2) = 1;
-end
-trim = [trim; trim + patch_size - 1];
-if patch_lim_I(2, 1) > image_sampling(1)
-    trim(2, 1) = trim(2, 1) + min(0, image_sampling(1) - patch_lim_I(2, 1) + padding);
-    patch_lim_I(2, 1) = image_sampling(1);
-end
-if patch_lim_I(2, 2) > image_sampling(2)
-    trim(2, 2) = trim(2, 2) + min(0, image_sampling(2) - patch_lim_I(2, 2) + padding);
-    patch_lim_I(2, 2) = image_sampling(2);
-end
 [patch_subscripts_col_I, patch_subscripts_row_I] = meshgrid(...
     patch_lim_I(1, 2):patch_lim_I(2, 2),...
     patch_lim_I(1, 1):patch_lim_I(2, 1)...

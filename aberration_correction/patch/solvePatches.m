@@ -4,6 +4,11 @@ function [ I_3D, image_bounds, varargout ] = solvePatches(...
     )
 % SOLVEPATCHES  Run an image estimation algorithm on image patches
 %
+% ## Usage
+% While this function can speed up processing of moderately-sized images,
+% it cannot be used on large images because of its high memory
+% requirements. For large images, use 'solvePatchesAligned()' instead.
+%
 % ## Syntax
 % I = solvePatches(...
 %   image_sampling, J, align, dispersionfun, sensitivity,...
