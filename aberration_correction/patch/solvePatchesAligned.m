@@ -248,6 +248,8 @@ function [ I_3D, image_bounds, varargout ] = solvePatchesAligned(...
 
 narginchk(8, 9);
 
+verbose = true;
+
 single_patch = false;
 if ~isempty(varargin)
     target_patch = varargin{1};
@@ -298,6 +300,9 @@ if single_patch
         );
 
 else
+    if verbose
+        disp('Splitting the input image into patches...');
+    end
     i_vector = 1:options.patch_size(1):image_sampling(1);
     n_i_vector = length(i_vector);
     j_vector = 1:options.patch_size(2):image_sampling(2);
@@ -313,8 +318,8 @@ else
     % Divide the input image into patches to be sent to individual parallel
     % workers
     k = 1;
-    for i = 1:n_i_vector
-        for j = 1:n_j_vector
+    for j = 1:n_j_vector
+        for i = 1:n_i_vector
             corners(k, :) = [i_vector(i), j_vector(j)];
             [ patch_lim, trim ] = patchBoundaries(...
                 image_sampling, options.patch_size, options.padding, corners(k, :)...
@@ -324,6 +329,11 @@ else
             patch_limits(k, :) = reshape(patch_lim, 1, []);
             k = k + 1;
         end
+    end
+    
+    if verbose
+        fprintf('\tDone.\n');
+        disp('Parallel processing of patches...');
     end
     
     % Process each patch
@@ -359,12 +369,21 @@ else
         );
     end
     
+    if verbose
+        fprintf('\tDone.\n');
+        disp('Recombining results from patches...');
+    end
+    
     % Recombine patches
     I_3D = cell2mat(reshape(patches_I, n_i_vector, n_j_vector));
     for im = 1:n_auxiliary_images
         varargout{im} = cell2mat(reshape(...
             patches_auxiliary(:, im), n_i_vector, n_j_vector...
         ));
+    end
+    
+    if verbose
+        fprintf('\tDone.\n');
     end
 end
     

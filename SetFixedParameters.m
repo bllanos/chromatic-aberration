@@ -113,7 +113,7 @@ int_method = 'trap';
 % will be tested.
 % If `patch_sizes` is empty only whole image estimation may be performed
 patch_sizes = [ % Each row contains a (number of rows, number of columns) pair
-   100 100;
+   30 30;
 ]; 
 paddings = 10;
 
