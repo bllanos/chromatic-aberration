@@ -310,6 +310,7 @@ else
     n_i_vector = length(i_vector);
     j_vector = 1:options.patch_size(2):image_sampling(2);
     n_j_vector = length(j_vector);
+    n_patches = n_i_vector * n_j_vector;
     patches_J = cell(n_i_vector, n_j_vector);
     patches_I = cell(n_i_vector, n_j_vector);
     patches_auxiliary = cell(n_i_vector, n_j_vector, n_auxiliary_images);
@@ -347,7 +348,7 @@ else
         for i = 1:n_i_vector
             patch_lim = reshape(patch_limits_j(i, 1, :), 2, 2);
             align_f = offsetBayerPattern(patch_lim(1, :), align);
-            image_sampling_f = diff(patch_lim, 1, 1) + 1
+            image_sampling_f = diff(patch_lim, 1, 1) + 1;
             trim = reshape(patch_trim_j(i, 1, :), 2, 2);
             if has_dispersion
                 dispersion_matrix_patch = dispersionfunToMatrix(...
@@ -374,7 +375,9 @@ else
                     sensitivity, lambda, int_method,...
                     align_f, n_auxiliary_images...
             );
-            fprintf('\tProcessed patch %d\n', i + j * n_i_vector);
+            if verbose
+                fprintf('\tProcessed patch %d of %d\n', i + (j-1) * n_i_vector, n_patches);
+            end
         end
         patches_I(:, j) = patches_I_j;
         patches_auxiliary(:, j, :) = patches_auxiliary_j;
