@@ -1,12 +1,16 @@
-function [ G_xy ] = spatialGradient(image_sampling)
+function [ G_xy, G_diag ] = spatialGradient(image_sampling)
 % SPATIALGRADIENT  Create a sparse matrix acting as an image spatial gradient operator
 %
 % ## Syntax
 % G_xy = spatialGradient(image_sampling)
+% [G_xy, G_diag] = spatialGradient(image_sampling)
 %
 % ## Description
 % G_xy = spatialGradient(image_sampling)
 %   Returns a matrix representing the spatial gradient operator.
+% [G_xy, G_diag] = spatialGradient(image_sampling)
+%   Additionally returns a matrix representing the diagonal spatial
+%   gradient operators
 %
 % ## Input Arguments
 %
@@ -28,6 +32,17 @@ function [ G_xy ] = spatialGradient(image_sampling)
 %   by colour channel.
 %   `gradient_xy` has twice the number of elements as `I` because it contains
 %   the x-gradient at each pixel, followed by the y-gradient at each pixel.
+%
+% G_diag -- Spatial gradient matrix for diagonal directions
+%   A matrix similar to `G_xy`, except that it produces gradients taken
+%   along the diagonal directions in the image. The result of multiplying a
+%   vectorized image with this matrix is a vector containing the gradient
+%   in the top right direction for every pixel, followed by the gradient in
+%   the bottom right direction for every pixel.
+%
+%   Note that the derivative in the diagonal directions is computed from
+%   pixel differences, rather than derived from the image x- and
+%   y-gradients.
 %
 % ## Algorithm
 %
@@ -61,7 +76,7 @@ n_px_c = prod(image_sampling);
 % Each element of the intermediate difference gradient is calculated from
 % two pixels
 n_offsets = 2;
-% x-gradients, and y-gradients
+% x-gradients, and y-gradients, or two diagonal gradients
 n_gradients = 2;
 
 % Create filters to enforce the boundary conditions
@@ -120,4 +135,65 @@ G_xy = sparse(...
     elements,...
     n_px_c * n_gradients, n_px_c...
 );
+
+% Compute diagonal gradients
+if nargout > 1
+    % Create filters to enforce the boundary conditions
+    % - Omit the last column and first row for the up-right-gradient, and
+    %   the last column and last row for the down-right-gradient, as these
+    %   pixels get zero values from the intermediate difference formula,
+    %   according to the boundary conditions (pixel replication).
+    nonzero_g1 = sub2ind(...
+        image_sampling,...
+        repmat((2:image_height).', (image_width - 1) * c, 1),...
+        repmat(repelem((1:(image_width - 1)).', (image_height - 1)), c, 1),...
+        repelem((1:c).', (image_height - 1) * (image_width - 1))...
+        );
+    nonzero_g2 = sub2ind(...
+        image_sampling,...
+        repmat((1:(image_height - 1)).', (image_width - 1) * c, 1),...
+        repmat(repelem((1:(image_width - 1)).', (image_height - 1)), c, 1),...
+        repelem((1:c).', (image_height - 1) * (image_width - 1))...
+        );
+
+    % Row indices
+    rows = repelem([
+        nonzero_g1;
+        nonzero_g2 + n_px_c
+        ], n_offsets);
+
+    % Column indices
+    col_neighbour_g1 = sub2ind(...
+        image_sampling,...
+        repmat((1:(image_height-1)).', (image_width - 1) * c, 1),...
+        repmat(repelem((2:image_width).', (image_height - 1)), c, 1),...
+        repelem((1:c).', (image_height - 1) * (image_width - 1))...
+        );
+    col_neighbour_g2 = sub2ind(...
+        image_sampling,...
+        repmat((2:image_height).', (image_width - 1) * c, 1),...
+        repmat(repelem((2:image_width).', (image_height - 1)), c, 1),...
+        repelem((1:c).', (image_height - 1) * (image_width - 1))...
+        );
+
+    n_px_1 = length(col_neighbour_g1);
+    n_px_2 = length(col_neighbour_g2);
+    cols = zeros((n_px_1 + n_px_2) * n_offsets, 1);
+    cols(1:2:(n_px_1 * 2)) = nonzero_g1;
+    cols(2:2:(n_px_1 * 2)) = col_neighbour_g1;
+    cols(((n_px_1 * 2) + 1):2:end) = nonzero_g2;
+    cols(((n_px_1 * 2) + 2):2:end) = col_neighbour_g2;
+
+    % Matrix values
+    % Divide by `sqrt(2)` to account for the larger diagonal step size.
+    elements = repmat([-1; 1] ./ sqrt(2), n_px_1 + n_px_2, 1);
+
+    % Assemble the sparse matrix
+    G_diag = sparse(...
+        rows,...
+        cols,...
+        elements,...
+        n_px_c * n_gradients, n_px_c...
+    );
+end
 end
