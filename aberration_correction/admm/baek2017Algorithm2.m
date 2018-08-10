@@ -114,10 +114,6 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %   approximation to the exact solution (using MATLAB's 'pcg()' function),
 %   or will find a least-squares solution.
 %
-%   The ADMM iterations will not converge if an element of `weights` is
-%   zero, but the corresponding element in `options.norms` is `true`, as
-%   ADMM will be trying to optimize a constraint that has no influence.
-%
 % options -- Options and small parameters
 %   A structure with the following fields:
 %   - 'add_border': A Boolean value indicating whether or not the
@@ -263,7 +259,7 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %
 % See also mosaicMatrix, channelConversionMatrix, dispersionfunToMatrix,
 % spatialGradient, spectralGradient, softThreshold, subproblemI,
-% subproblemI_L1L2, subproblemI_L2L1, subproblemI_L2L2, lsqminnorm
+% lsqminnorm
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -383,6 +379,10 @@ G_lambda_xy = G_lambda * G_xy;
 weights(1) = weights(1) * size(M_Omega_Phi, 1) / size(G_xy, 1);
 weights(2) = weights(2) * size(M_Omega_Phi, 1) / size(G_lambda_xy, 1);
 
+% Don't use ADMM to optimize priors given zero weight
+norms = options.norms;
+norms(weights == 0) = false;
+
 % Initialization
 J_bilinear = bilinearDemosaic(J_2D, align, [false, true, false]); % Initialize with the Green channel
 if any(image_sampling ~= image_sampling_J)
@@ -427,14 +427,16 @@ if all(weights == 0) && ~options.nonneg
             );
         end
     end
-elseif all(~options.norms) && ~options.nonneg
+elseif all(~norms) && ~options.nonneg
     if(verbose)
         fprintf(...
             'Computing a regularized least squares solution with tolerance %g for up to %d iterations...\n',...
             options.tol(1), options.maxit(1)...
         );
     end
-    f_Ab = subproblemI_L2L2(M_Omega_Phi, G_xy, G_lambda_xy, J, weights, options.nonneg);
+    f_Ab = subproblemI(...
+        M_Omega_Phi, G_xy, G_lambda_xy, J, norms, weights, options.nonneg...
+    );
     [ b, A ] = f_Ab({}, {}, []);
     [ I, flag, relres, iter_pcg ] = pcg(...
         A, b, options.tol(1), options.maxit(1), [], [], I...
@@ -453,7 +455,7 @@ else
     G{1} = G_xy;
     G{2} = G_lambda_xy;
     
-    active_constraints = [options.norms, options.nonneg];
+    active_constraints = [norms, options.nonneg];
     n_priors = 2;
     n_Z = find(active_constraints, 1, 'last');
     nonneg_ind = 3;
@@ -487,15 +489,9 @@ else
     end
 
     % Iteration
-    if all(options.norms)
-        f_Ab = subproblemI(M_Omega_Phi, G_xy, G_lambda_xy, J, options.nonneg);
-    elseif options.norms(1)
-        f_Ab = subproblemI_L1L2(M_Omega_Phi, G_xy, G_lambda_xy, J, weights(2), options.nonneg);
-    elseif options.norms(2)
-        f_Ab = subproblemI_L2L1(M_Omega_Phi, G_xy, G_lambda_xy, J, weights(1), options.nonneg);
-    else
-        f_Ab = subproblemI_L2L2(M_Omega_Phi, G_xy, G_lambda_xy, J, weights, options.nonneg);
-    end
+    f_Ab = subproblemI(...
+        M_Omega_Phi, G_xy, G_lambda_xy, J, norms, weights, options.nonneg...
+    );
     [ b, A ] = f_Ab(Z, U, rho);
     soft_thresholds = weights ./ rho(1:n_priors);
 
