@@ -1,5 +1,5 @@
 function [ G_xy, G_diag ] = spatialGradient(image_sampling)
-% SPATIALGRADIENT  Create a sparse matrix acting as an image spatial gradient operator
+% SPATIALGRADIENT  Create sparse matrices acting as image spatial gradient operators
 %
 % ## Syntax
 % G_xy = spatialGradient(image_sampling)
@@ -7,7 +7,7 @@ function [ G_xy, G_diag ] = spatialGradient(image_sampling)
 %
 % ## Description
 % G_xy = spatialGradient(image_sampling)
-%   Returns a matrix representing the spatial gradient operator.
+%   Returns a matrix representing the spatial gradient operators.
 % [G_xy, G_diag] = spatialGradient(image_sampling)
 %   Additionally returns a matrix representing the diagonal spatial
 %   gradient operators
@@ -40,14 +40,14 @@ function [ G_xy, G_diag ] = spatialGradient(image_sampling)
 %   in the top right direction for every pixel, followed by the gradient in
 %   the bottom right direction for every pixel.
 %
-%   Note that the derivative in the diagonal directions is computed from
+%   Note that the derivatives in the diagonal directions are computed from
 %   pixel differences, rather than derived from the image x- and
 %   y-gradients.
 %
 % ## Algorithm
 %
 % The intermediate difference formula is used to produce the image
-% gradient. Boundary pixels are replicated to allow the formula to be
+% gradients. Boundary pixels are replicated to allow the formula to be
 % applied at the image boundaries.
 %
 % ## References
@@ -55,14 +55,14 @@ function [ G_xy, G_diag ] = spatialGradient(image_sampling)
 %   the MATLAB help page for the 'imgradientxy()' function.
 %   (https://www.mathworks.com/help/images/ref/imgradientxy.html)
 %
-% See also spectralGradient
+% See also spatialGradient2, spectralGradient
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
 % University of Alberta, Department of Computing Science
 % File created May 24, 2018
 
-nargoutchk(1, 1);
+nargoutchk(1, 2);
 narginchk(1, 1);
 
 if length(image_sampling) ~= 3

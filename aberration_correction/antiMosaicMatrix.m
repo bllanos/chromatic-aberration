@@ -22,7 +22,7 @@ function [ M ] = antiMosaicMatrix(image_sampling, align)
 % ## Output Arguments
 %
 % M -- Penalty matrix
-%   A (n_px x 10) x (n_px * 3) array, where `n_px = prod(image_sampling)`.
+%   A (n_px x 3) x (n_px * 3) array, where `n_px = prod(image_sampling)`.
 %   `M` produces penalty values for each pixel in a 3-channel (RGB) image
 %   that is not measured in the corresponding RAW (color-filter array)
 %   image:
@@ -46,7 +46,7 @@ function [ M ] = antiMosaicMatrix(image_sampling, align)
 %
 % This function produces a matrix which measures second-order image
 % gradients, but which only measures gradients between the appropriate
-% colour channel values of the appropriate pixels. The following ten
+% colour channel values of the appropriate pixels. The following twelve
 % gradients are measured, and are output as `P` in the the order given:
 % - Red channel gradients:
 %   - At pixels corresponding to Green filters in the colour-filter array:
@@ -74,7 +74,7 @@ function [ M ] = antiMosaicMatrix(image_sampling, align)
 %     - Second order derivative in the horizontal or vertical direction,
 %       depending on the location of the pixel. (Given a double weight.)
 %
-% See also mosaic, mosaicMatrix, bayerMask, spatialGradient
+% See also mosaic, mosaicMatrix, bayerMask, spatialGradient2
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -86,6 +86,8 @@ narginchk(2, 2);
 
 if length(image_sampling) ~= 2
     error('The `image_sampling` input argument must contain an image height and width only.');
+elseif any(mod(image_sampling, 2) ~= 0)
+    error('The image dimensions must be even integers in order for the image to be a valid color filter array.');
 end
 
 % Does the first Red value at the first Green pixel use a horizontal or
@@ -135,42 +137,39 @@ end
 n_channels = 3;
 image_sampling3 = [image_sampling n_channels];
 n_px = prod(image_sampling);
+n_px_c = n_px * n_channels;
 n_px_div4 = n_px / 4;
 red_at_first_green = sub2ind(...
-    image_sampling3, rows_full{2}, cols_full{2}, repelem(1, n_px_div4)...
+    image_sampling3, rows_full{2}, cols_full{2}, repelem(1, n_px_div4, 1)...
 );
 red_at_second_green = sub2ind(...
-    image_sampling3, rows_full{3}, cols_full{3}, repelem(1, n_px_div4)...
+    image_sampling3, rows_full{3}, cols_full{3}, repelem(1, n_px_div4, 1)...
 );
 red_at_blue = sub2ind(...
-    image_sampling3, rows_full{4}, cols_full{4}, repelem(1, n_px_div4)...
+    image_sampling3, rows_full{4}, cols_full{4}, repelem(1, n_px_div4, 1)...
 );
 green_at_red = sub2ind(...
-    image_sampling3, rows_full{1}, cols_full{1}, repelem(2, n_px_div4)...
+    image_sampling3, rows_full{1}, cols_full{1}, repelem(2, n_px_div4, 1)...
 );
 green_at_blue = sub2ind(...
-    image_sampling3, rows_full{4}, cols_full{4}, repelem(2, n_px_div4)...
+    image_sampling3, rows_full{4}, cols_full{4}, repelem(2, n_px_div4, 1)...
 );
 blue_at_red = sub2ind(...
-    image_sampling3, rows_full{1}, cols_full{1}, repelem(3, n_px_div4)...
+    image_sampling3, rows_full{1}, cols_full{1}, repelem(3, n_px_div4, 1)...
 );
 blue_at_first_green = sub2ind(...
-    image_sampling3, rows_full{2}, cols_full{2}, repelem(3, n_px_div4)...
+    image_sampling3, rows_full{2}, cols_full{2}, repelem(3, n_px_div4, 1)...
 );
 blue_at_second_green = sub2ind(...
-    image_sampling3, rows_full{3}, cols_full{3}, repelem(3, n_px_div4)...
+    image_sampling3, rows_full{3}, cols_full{3}, repelem(3, n_px_div4, 1)...
 );
 
 % Compute the image second order derivatives
-[ G_xy, G_diag ] = spatialGradient(image_sampling);
-G_x = G_xy(1:n_px, :);
-G_y = G_xy((n_px + 1):end, :);
-G_1 = G_diag(1:n_px, :);
-G_2 = G_diag((n_px + 1):end, :);
-G_x2 = G_x * G_x;
-G_y2 = G_y * G_y;
-G_12 = G_1 * G_1;
-G_22 = G_2 * G_2;
+[ G_xy2, G_diag2 ] = spatialGradient2(image_sampling3);
+G_x2 = G_xy2(1:n_px_c, :);
+G_y2 = G_xy2((n_px_c + 1):end, :);
+G_12 = G_diag2(1:n_px_c, :);
+G_22 = G_diag2((n_px_c + 1):end, :);
 
 % Select the appropriate second order derivatives for the penalty
 % generation matrix
