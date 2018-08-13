@@ -2,7 +2,7 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
     image_sampling, align, dispersion, sensitivity, lambda, J_2D,...
     rho, weights, options, varargin...
     )
-% BAEK2017ALGORITHM2  Run ADMM as in Algorithm 2 of Baek et al. 2017
+% BAEK2017ALGORITHM2  Run ADMM (loosely) as in Algorithm 2 of Baek et al. 2017
 %
 % ## Syntax
 % I = baek2017Algorithm2(...
@@ -89,17 +89,21 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %   A 2D array containing the raw colour-filter pattern data of an image.
 %
 % rho -- Penalty parameters
-%   A two or three-element vector containing the penalty parameters,
+%   A three or four-element vector containing the penalty parameters,
 %   `rho_1` and `rho_2` for the constraints on `Z1` and `Z2`, respectively,
-%   in the ADMM optimization problem. The third element is a `rho_3`
-%   penalty parameter for a non-negativity constraint on the solution, and
-%   is only required if `options.nonneg` is `true`.
+%   in the ADMM optimization problem of Baek et al. 2017. The third element
+%   is a penalty parameter corresponding to the anti-colour filter array
+%   prior. The last element is a penalty parameter for a non-negativity
+%   constraint on the solution, and is only required if `options.nonneg` is
+%   `true`.
 %
 % weights -- Regularization weights
 %   `weights(1)` is the 'alpha' weight on the regularization of the spatial
 %   gradient of the image in the ADMM optimization problem. `weights(2)` is
 %   the 'beta' weight on the regularization of the spectral gradient of the
 %   spatial gradient of the image in the ADMM optimization problem.
+%   `weights(3)` is a weight on the second-order gradient prior designed to
+%   penalize colour-filter array artifacts.
 %
 %   If all elements of `weights` are zero, and `options.nonneg` is `false`,
 %   this function will find a solution to the simpler problem:
@@ -139,20 +143,22 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %     'pcg()' function when solving the I-minimization step of the ADMM
 %     algorithm. The second element of `maxit` contains the maximum number
 %     of ADMM iterations to perform.
-%   - 'norms': Algorithm variants: A two-element logical vector. The first
+%   - 'norms': Algorithm variants: A three-element logical vector. The first
 %     element specifies whether to use an L1 (`true`) or L2 (`false`) norm
 %     prior on the latent image's spatial gradient. The second element
 %     specifies whether to use an L1 (`true`) or L2 (`false`) norm prior on
-%     the spectral gradient of the latent image's spatial gradient. If both
-%     elements are `true`, the behaviour of the algorithm matches that
-%     described by Baek et al. 2017 (Algorithm 2 in the first set of
-%     supplemental material). If only one element is `true`, the ADMM
-%     iterations are simplified by eliminating one slack variable. If both
-%     elements are `false`, a least-squares solution is obtained
-%     (iteratively, using MATLAB's 'pcg()' function).
+%     the spectral gradient of the latent image's spatial gradient.
+%     Likewise, the third element corresponds to the prior penalizing
+%     colour-filter array artifacts. If the first two elements are `true`,
+%     and there is zero weight on the third prior, the behaviour of the
+%     algorithm matches that described by Baek et al. 2017 (Algorithm 2 in
+%     the first set of supplemental material). If some elements are
+%     `false`, the ADMM iterations are simplified by eliminating slack
+%     variables. If all elements are `false`, a least-squares solution is
+%     obtained (iteratively, using MATLAB's 'pcg()' function).
 %   - 'nonneg': A Boolean scalar specifying whether or not to enable a
 %     non-negativity constraint on the output latent image. If `true`,
-%     `rho` must have three elements.
+%     `rho` must have four elements.
 %   - 'tol': Convergence tolerances: The first element of `tol` is the
 %     tolerance value to use with MATLAB's 'pcg()' function, such as when
 %     solving the I-minimization step of the ADMM algorithm. The second and
@@ -217,13 +223,13 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %     doi:10.1145/3130800.3130896
 %
 % Depending on the options passed, this function also implements variants
-% of the algorithm: L2 priors instead of L1 priors, and a non-negativity
-% constraint. I implemented the non-negativity constraint by adding an
-% extra term to the ADMM x-minimization step, and an additional
-% z-minimization and dual update step. This is different from the
-% constrained optimization examples in Boyd et. al. 2011, sections 4.2.5
-% and 5.2, but I think it matches the format given at the start of Chapter
-% 5.
+% of the algorithm: L2 priors instead of L1 priors, an extra prior designed
+% to remove colour-filter array artifacts, and a non-negativity constraint.
+% I implemented the non-negativity constraint by adding an extra term to
+% the ADMM x-minimization step, and an additional z-minimization and dual
+% update step. This is different from the constrained optimization examples
+% in Boyd et. al. 2011, sections 4.2.5 and 5.2, but I think it matches the
+% format given at the start of Chapter 5.
 %
 % A non-negativity constraint was used in (among other works):
 %
@@ -257,9 +263,9 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %    magnitudes of [the primal and dual convergence thresholds]."
 % - Section 4.3.2 of Boyd et al. 2011, "Early Termination"
 %
-% See also mosaicMatrix, channelConversionMatrix, dispersionfunToMatrix,
-% spatialGradient, spectralGradient, softThreshold, subproblemI,
-% lsqminnorm
+% See also mosaicMatrix, antiMosaicMatrix, channelConversionMatrix,
+% dispersionfunToMatrix, spatialGradient, spectralGradient, softThreshold,
+% subproblemI, lsqminnorm
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -284,6 +290,8 @@ else
     verbose = false;
 end
 
+% Validate and parse input arguments
+
 if length(image_sampling) ~= 2
     error('The `image_sampling` input argument must contain an image height and width only.');
 end
@@ -294,11 +302,30 @@ else
     error('`options.int_method` must be a character vector or a string scalar.');
 end
 
+n_priors = 3;
+nonneg_ind = 4;
+
+if length(weights) ~= n_priors
+    error('Expected `weights` to have length %d for the %d prior terms.', n_priors, n_priors);
+end
+if any(weights < 0)
+    error('All elements of `weights` must be non-negative numbers.');
+end
+norms = options.norms;
+if length(norms) ~= n_priors
+    error('Expected `options.norms` to have length %d for the %d prior terms.', n_priors, n_priors);
+end
+
+% Don't use ADMM to optimize priors given zero weight
+norms(weights == 0) = false;
+
+if options.nonneg && length(rho) < nonneg_ind
+    error('A %d-th penalty parameter must be provided in `rho` when `options.nonneg` is `true`.', nonneg_ind);
+elseif length(rho) < n_priors
+    error('Expected `rho` to have length at least %d for the %d prior terms.', n_priors, n_priors);
+end
 if any(rho <= 0)
     error('The penalty parameters, `rho`, must be positive numbers.');
-end
-if options.nonneg && length(rho) < 3
-    error('A third penalty parameter must be provided in `rho` when `options.nonneg` is `true`.');
 end
 
 vary_penalty_parameters = false;
@@ -357,31 +384,41 @@ if has_dispersion
            dispersion, lambda, image_sampling_J, image_sampling, image_bounds, true...
         );    
     end
-    M_Omega_Phi = M * Omega * Phi;
+    Omega_Phi = Omega * Phi;
 else
-    M_Omega_Phi = M * Omega;
+    Omega_Phi = Omega;
 end
-G_xy = spatialGradient([image_sampling, n_bands]);
-G_lambda = spectralGradient([image_sampling, n_bands], options.full_GLambda);
-G_lambda_sz1 = size(G_lambda, 1);
-G_lambda_sz2 = size(G_lambda, 2);
-% The product `G_lambda * G_xy` must be defined, so `G_lambda` needs to be
-% replicated to operate on both the x and y-gradients.
-G_lambda = [
-    G_lambda, sparse(G_lambda_sz1, G_lambda_sz2);
-    sparse(G_lambda_sz1, G_lambda_sz2), G_lambda
-    ];
-G_lambda_xy = G_lambda * G_xy;
+M_Omega_Phi = M * Omega_Phi;
+if weights(1) ~= 0 || weights(2) ~= 0
+    G_xy = spatialGradient([image_sampling, n_bands]);
+    G_lambda = spectralGradient([image_sampling, n_bands], options.full_GLambda);
+    G_lambda_sz1 = size(G_lambda, 1);
+    G_lambda_sz2 = size(G_lambda, 2);
+    % The product `G_lambda * G_xy` must be defined, so `G_lambda` needs to be
+    % replicated to operate on both the x and y-gradients.
+    G_lambda = [
+        G_lambda, sparse(G_lambda_sz1, G_lambda_sz2);
+        sparse(G_lambda_sz1, G_lambda_sz2), G_lambda
+        ];
+    G_lambda_xy = G_lambda * G_xy;
+    
+    % Adjust the weights so that they have the same relative importance
+    % regardless of the differences in the lengths of the vectors whose norms
+    % are being weighted.
+    weights(1) = weights(1) * size(M_Omega_Phi, 1) / size(G_xy, 1);
+    weights(2) = weights(2) * size(M_Omega_Phi, 1) / size(G_lambda_xy, 1);
+else
+    G_xy = [];
+    G_lambda_xy = [];
+end
 
-% Adjust the weights so that they have the same relative importance
-% regardless of the differences in the lengths of the vectors whose norms
-% are being weighted.
-weights(1) = weights(1) * size(M_Omega_Phi, 1) / size(G_xy, 1);
-weights(2) = weights(2) * size(M_Omega_Phi, 1) / size(G_lambda_xy, 1);
-
-% Don't use ADMM to optimize priors given zero weight
-norms = options.norms;
-norms(weights == 0) = false;
+if weights(3) ~= 0
+    B = antiMosaicMatrix(image_sampling, align);
+    B_Omega_Phi = B * Omega_Phi;
+    weights(3) = weights(3) * size(M_Omega_Phi, 1) / size(B_Omega_Phi, 1);
+else
+    B_Omega_Phi = [];
+end
 
 % Initialization
 J_bilinear = bilinearDemosaic(J_2D, align, [false, true, false]); % Initialize with the Green channel
@@ -390,7 +427,7 @@ if any(image_sampling ~= image_sampling_J)
 else
     I = J_bilinear;
 end
-I = repmat(I(:), n_bands, 1);
+I = repmat(reshape(I, [], 1), n_bands, 1);
 len_I = length(I);
 % Scale to match the mean intensity
 J_mean = mean(J);
@@ -435,7 +472,7 @@ elseif all(~norms) && ~options.nonneg
         );
     end
     f_Ab = subproblemI(...
-        M_Omega_Phi, G_xy, G_lambda_xy, J, norms, weights, options.nonneg...
+        M_Omega_Phi, G_xy, G_lambda_xy, B_Omega_Phi, J, norms, weights, options.nonneg...
     );
     [ b, A ] = f_Ab({}, {}, []);
     [ I, flag, relres, iter_pcg ] = pcg(...
@@ -454,11 +491,10 @@ else
     
     G{1} = G_xy;
     G{2} = G_lambda_xy;
+    G{3} = B_Omega_Phi;
     
     active_constraints = [norms, options.nonneg];
-    n_priors = 2;
     n_Z = find(active_constraints, 1, 'last');
-    nonneg_ind = 3;
     
     % Initialization
     Z = cell(n_Z, 1);
@@ -490,7 +526,7 @@ else
 
     % Iteration
     f_Ab = subproblemI(...
-        M_Omega_Phi, G_xy, G_lambda_xy, J, norms, weights, options.nonneg...
+        M_Omega_Phi, G_xy, G_lambda_xy, B_Omega_Phi, J, norms, weights, options.nonneg...
     );
     [ b, A ] = f_Ab(Z, U, rho);
     soft_thresholds = weights ./ rho(1:n_priors);
