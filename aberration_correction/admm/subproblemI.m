@@ -183,7 +183,7 @@ function f = subproblemI(...
 % File created May 27, 2018
 
 nargoutchk(1, 2);
-narginchk(7, 7);
+narginchk(8, 8);
 
 M_Omega_Phi_J = M_Omega_Phi.' * J;
 n_priors = length(weights);
@@ -217,7 +217,7 @@ end
         end
             
         if nonneg
-            b = b + (rho(end) / 2) * (Z{3} - U{3});
+            b = b + (rho(end) / 2) * (Z{end} - U{end});
         end
         
         if nargout > 1

@@ -73,11 +73,13 @@ baek2017Algorithm2Options.full_GLambda = false;
 % Penalty parameters in ADMM, the `rho` input argument.
 % Sample values seem to be in the range 1-10 (see pages 89, 93, and 95 of
 % Boyd et al. 2011)
-rho = [ 1, 1, 1 ];
+rho = [ 1, 1, 1, 1 ];
 
 % Weights on the two prior terms, the `weights` input argument.
 % Baek et al. (2017) used [1e-5, 0.1]
-weights = [ 0.1, 0.1 ];
+weights = [
+    0.1, 0.1, 0.1
+];
 
 % Convergence tolerances in ADMM, the `tol` input argument.
 %
@@ -94,7 +96,7 @@ baek2017Algorithm2Options.maxit = [ 500, 100 ];
 baek2017Algorithm2Options.varying_penalty_params = [2, 2, 10];
 
 % Types of norms to use on the prior terms
-baek2017Algorithm2Options.norms = [true, true];
+baek2017Algorithm2Options.norms = [true, true, true];
 
 % Whether to apply a non-negativity constraint (in which case, `rho` must
 % have three elements)
