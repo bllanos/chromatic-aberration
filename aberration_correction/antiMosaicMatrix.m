@@ -173,27 +173,28 @@ G_22 = G_diag2((n_px_c + 1):end, :);
 
 % Select the appropriate second order derivatives for the penalty
 % generation matrix
+RB_weight = 2;
 if horizontal_red
     M_RG = [
-        2 * G_x2(red_at_first_green, :);
-        2 * G_y2(red_at_second_green, :)
+        G_x2(red_at_first_green, :);
+        G_y2(red_at_second_green, :)
     ];
     M_BG = [
-        2 * G_y2(blue_at_first_green, :);
-        2 * G_x2(blue_at_second_green, :)
+        G_y2(blue_at_first_green, :);
+        G_x2(blue_at_second_green, :)
     ];
 else
     M_RG = [
-        2 * G_y2(red_at_first_green, :);
-        2 * G_x2(red_at_second_green, :)
+        G_y2(red_at_first_green, :);
+        G_x2(red_at_second_green, :)
     ];
     M_BG = [
-        2 * G_x2(blue_at_first_green, :);
-        2 * G_y2(blue_at_second_green, :)
+        G_x2(blue_at_first_green, :);
+        G_y2(blue_at_second_green, :)
     ];
 end
 M = [
-    M_RG;
+    RB_weight * M_RG;
     G_12(red_at_blue, :);
     G_22(red_at_blue, :);
     G_x2(green_at_red, :);
@@ -202,7 +203,7 @@ M = [
     G_y2(green_at_blue, :);
     G_12(blue_at_red, :);
     G_22(blue_at_red, :);
-    M_BG
+    RB_weight * M_BG
 ];
 
 end

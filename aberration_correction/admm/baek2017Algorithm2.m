@@ -413,7 +413,7 @@ else
 end
 
 if weights(3) ~= 0
-    B = antiMosaicMatrix(image_sampling, align);
+    B = antiMosaicMatrix(image_sampling_J, align);
     B_Omega_Phi = B * Omega_Phi;
     weights(3) = weights(3) * size(M_Omega_Phi, 1) / size(B_Omega_Phi, 1);
 else
