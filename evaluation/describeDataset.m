@@ -65,12 +65,44 @@ function [dataset_params] = describeDataset(name)
 %     variable, `bands`, storing the wavelengths which determine the
 %     spectral sampling of spectral images. This field is required only if
 %     the dataset has spectral images.
+%   - 'evaluation': Evaluation parameters, a structure with the following
+%     fields:
+%     - 'global_rgb': A structure of the form of the `options` input
+%       argument of 'evaluateRGB()', describing default evaluation options
+%       for all RGB images.
+%     - 'custom_rgb': A structure, where the value of each field is of the
+%       form of the `options` input argument of 'evaluateRGB()', and
+%       describes custom evaluation options for an RGB image. The
+%       fieldnames of 'custom_rgb' are the filenames (excluding file
+%       extensions) of the RGB image files that will be loaded, or of the
+%       spectral images that will be converted to RGB images. Fields not
+%       present in the structures should default to the values given by
+%       'global_rgb'.
+%     - 'global_spectral': A structure of the form of the `options` input
+%       argument of 'evaluateSpectral()', describing default evaluation
+%       options for all spectral images.
+%     - 'custom_spectral': A structure, where the value of each field is
+%       of the form of the `options` input argument of
+%       'evaluateSpectral()', and describes custom evaluation options for a
+%       spectral image. The fieldnames of 'custom_spectral' are the
+%       filenames (excluding file extensions) of the spectral image files
+%       that will be loaded. Fields not present in the structures should
+%       default to the values given by 'global_spectral'.
 %
 % ## Recognized datasets
 % - 'kodak': The Kodak Lossless True Color Image Suite dataset, often
 %   used to evaluate demosaicking algorithms.
 %   - Source: http://r0k.us/graphics/kodak/
 %   - Maintainer: Richard W Franzen
+% - 'kaist': The KAIST Dataset of Hyperspectral Reflectance Images
+%   - Source: http://vclab.kaist.ac.kr/siggraphasia2017p1/kaistdataset.html
+%   - Reference:
+%     Choi, I., Jeon, D. S., Nam, G., Gutierrez, D., & Kim, M. H. (2017).
+%       "High-Quality Hyperspectral Reconstruction Using a Spectral Prior."
+%       ACM Transactions on Graphics (Proc. SIGGRAPH Asia 2017), 36(6),
+%       218:1–13. doi:10.1145/3130800.3130810
+%
+% See also evaluateRGB, evaluateSpectral
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -92,6 +124,11 @@ if strcmp(name, 'kodak')
     dataset_params.dispersion_spectral_reverse = [];
     dataset_params.color_map = [];
     dataset_params.wavelengths = [];
+    dataset_params.evaluation = struct(...
+        'global_rgb', struct,...
+        'custom_rgb', struct(...
+            'kodim05', struct('error_map', true))...
+        );
 elseif strcmp(name, 'kaist')
     dataset_params.raw_images_wildcard = [];
     dataset_params.raw_images_variable = [];
