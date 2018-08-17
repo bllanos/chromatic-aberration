@@ -18,10 +18,10 @@ function e_rgb_table = evaluateAndSaveRGB(...
 % ## Input Arguments
 %
 % I_rgb -- Estimated colour image
-%   An h1 x w1 x 3 array containing an estimated colour image.
+%   An h x w x 3 array containing an estimated colour image.
 %
 % R_rgb -- Reference colour image
-%   An h1 x w1 x 3 array containing the ideal/true colour image.
+%   An h x w x 3 array containing the ideal/true colour image.
 %
 % dp -- Dataset description
 %   A structure output by 'describeDataset()' providing information about
@@ -47,12 +47,12 @@ function e_rgb_table = evaluateAndSaveRGB(...
 %
 % e_rgb_table -- Colour error statistics
 %   A table form of the `e_rgb` structure returned by 'evaluateRGB()' when
-%   invoked on the estimated and reference image.
+%   invoked on the estimated and reference images.
 %
 % ## Side Effects
 % - The figures created by 'evaluateRGB()' are closed.
 %
-% See also evaluateRGB, describeDataset, writetable
+% See also evaluateRGB, evaluateAndSaveSpectral, describeDataset, writetable
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
