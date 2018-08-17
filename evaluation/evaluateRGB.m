@@ -20,10 +20,10 @@ function [e_rgb, varargout] = evaluateRGB(...
 % ## Input Arguments
 %
 % I_rgb -- Test colour image
-%   An h1 x w1 x 3 array containing an estimated colour image.
+%   An h x w x 3 array containing an estimated colour image.
 %
 % R_rgb -- Reference colour image
-%   An h1 x w1 x 3 array containing the ideal/true colour image.
+%   An h x w x 3 array containing the ideal/true colour image.
 %
 % options -- Graphical output options for colour images
 %   A structure which enables or disables graphical output to figures
@@ -145,13 +145,15 @@ e_rgb.ssim(end) = mean(e_rgb.ssim(1:(end - 1)));
 mi_class = 'uint8';
 if ~isa(I_rgb, mi_class)
     peak_int = double(intmax(mi_class));
-    I_rgb_clipped_int = uint8(I_rgb_clipped * peak_int);
-    R_rgb_clipped_int = uint8(R_rgb_clipped * peak_int);
+    I_rgb_clipped_int = uint8(I_rgb_clipped * peak_int / peak_rgb);
+    R_rgb_clipped_int = uint8(R_rgb_clipped * peak_int / peak_rgb);
 else
     I_rgb_clipped_int = I_rgb_clipped;
     R_rgb_clipped_int = R_rgb_clipped;
 end
 
+e_rgb.mi_within = zeros(n_channels_rgb, 2);
+e_rgb.mi_between = zeros(n_channels_rgb, 1);
 for c = 1:n_channels_rgb
     e_rgb.mi_within(c, 1) = MI_GG(...
         R_rgb_clipped_int(:, :, c),...
