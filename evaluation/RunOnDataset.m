@@ -97,7 +97,7 @@ parameters_list = {
 
 %% Input data and parameters
 
-dataset_name = 'kodak';
+dataset_name = '20180817_TestSpectralDataset';
 
 % ADMM family algorithms to run
 admm_algorithms.spectralL1L1 = struct(...
@@ -612,7 +612,8 @@ for i = 1:n_images
         I_raw_gt, '_roi', 'I_raw'...
     );
     
-    % Run the algorithms
+    % Compare the aberrated images to the original
+    
     if isempty(I_rgb_gt_warped)
         e_rgb_table = [];
     else
@@ -622,10 +623,29 @@ for i = 1:n_images
             fullfile(output_directory, [names{i} '_aberrated'])...
         );
     end
+    
+    admm_algorithm_fields = fieldnames(admm_algorithms);
+    n_admm_algorithms = length(admm_algorithm_fields);
+    n_spectral_evaluations = 0;
+    if can_evaluate_spectral
+        n_spectral_evaluations = n_admm_algorithms;
+    end
+    if ~isempty(I_spectral_gt_warped)
+        n_spectral_evaluations = n_spectral_evaluations + 1;
+    end
+    if n_spectral_evaluations > 0
+        evaluation_plot_colors = jet(n_spectral_evaluations);
+        if isempty(I_spectral_gt_warped)
+            evaluation_plot_colors_admm = evaluation_plot_colors;
+        else
+            evaluation_plot_colors = evaluation_plot_colors(2:end, :);
+        end
+    end
     if isempty(I_spectral_gt_warped)
         e_spectral_table = [];
         fg_spectral = struct;
     else
+        dp.evaluation.global_spectral.plot_color = evaluation_plot_colors(1, :);
         [e_spectral_table, fg_spectral] = evaluateAndSaveSpectral(...
             I_spectral_gt_warped, I_spectral_gt, bands_spectral,...
             dp, names{i}, 'Aberrated',...
@@ -633,10 +653,11 @@ for i = 1:n_images
         );
     end
     
+    % Run the algorithms
+    
     % ADMM
-    admm_algorithm_fields = fieldnames(admm_algorithms);
     for w = 1:n_weights
-        for f = 1:length(admm_algorithm_fields)
+        for f = 1:n_admm_algorithms
             algorithm = admm_algorithms.(admm_algorithm_fields{f});
             if ~algorithm.enabled
                 continue;
@@ -702,6 +723,8 @@ for i = 1:n_images
             
                 % Spectral evaluation
                 if can_evaluate_spectral
+                    dp.evaluation.global_spectral.plot_color =...
+                        evaluation_plot_colors_admm(f, :);
                     e_spectral_table_current = evaluateAndSaveSpectral(...
                         I_latent, I_spectral_gt, bands, dp, names{i},...
                         alg_name_params,...

@@ -222,20 +222,20 @@ parameters_list = {
 %% Input data and parameters
 
 % Wildcard for 'ls()' to find the chromaticity maps.
-input_chromaticity_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180605_DescribableTexturesDataset/dtd/images/crystalline/*.jpg';
+input_chromaticity_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dtd_images/*.jpg';
 
 % Threshold for assuming that an RGB image is actually a greyscale image
 grey_difference_threshold = 1;
 
 % Wildcard for 'ls()' to find the shading maps.
 % Set to an empty array to use constant shading
-input_shading_maps_wildcard = [];
+input_shading_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dtd_images/*.jpg';
 
 % Model of dispersion
 reverse_dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180709_TestingSplineModels/DoubleConvexThickLensDispersionResults_spline_modelFromReference_false.mat';
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180709_TestingSplineModels/SonyColorMapData.mat';
+color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/NikonD5100ColorMapData.mat';
 % Colour channel to use for radiance normalization
 normalization_channel = 2;
 
@@ -264,7 +264,7 @@ reflectances_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180604_C
 n_colors = 2;
 
 % Output directory for all images and saved data
-output_directory = '/home/llanos/Downloads';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset';
 
 % ## Debugging Flags
 segmentColorsVerbose = false;

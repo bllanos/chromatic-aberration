@@ -80,16 +80,20 @@ function [dataset_params] = describeDataset(name)
 %       'global_rgb'.
 %     - 'global_spectral': A structure of the form of the `options` input
 %       argument of 'evaluateSpectral()', describing default evaluation
-%       options for all spectral images.
+%       options for all spectral images. Fields for storing figure handles
+%       should not be included. The field 'plot_color' should also be
+%       omitted.
 %     - 'custom_spectral': A structure, where the value of each field is
 %       of the form of the `options` input argument of
 %       'evaluateSpectral()', and describes custom evaluation options for a
 %       spectral image. The fieldnames of 'custom_spectral' are the
 %       filenames (excluding file extensions) of the spectral image files
 %       that will be loaded. Fields not present in the structures should
-%       default to the values given by 'global_spectral'.
+%       default to the values given by 'global_spectral'. Fields for
+%       storing figure handles should not be included. The field
+%       'plot_color' should also be omitted.
 %
-% ## Recognized datasets
+% ## Recognized (high-quality) datasets
 % - 'kodak': The Kodak Lossless True Color Image Suite dataset, often
 %   used to evaluate demosaicking algorithms.
 %   - Source: http://r0k.us/graphics/kodak/
@@ -101,6 +105,9 @@ function [dataset_params] = describeDataset(name)
 %       "High-Quality Hyperspectral Reconstruction Using a Spectral Prior."
 %       ACM Transactions on Graphics (Proc. SIGGRAPH Asia 2017), 36(6),
 %       218:1–13. doi:10.1145/3130800.3130810
+%
+% There are some datasets defined in the code used for preliminary testing
+% only.
 %
 % See also evaluateRGB, evaluateSpectral
 
@@ -127,7 +134,7 @@ if strcmp(name, 'kodak')
     dataset_params.evaluation = struct(...
         'global_rgb', struct,...
         'custom_rgb', struct(...
-            'kodim05', struct('error_map', true))...
+            'kodim01', struct('error_map', true))...
         );
 elseif strcmp(name, 'kaist')
     dataset_params.raw_images_wildcard = [];
@@ -142,6 +149,38 @@ elseif strcmp(name, 'kaist')
     dataset_params.dispersion_spectral_reverse = [];
     dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/SonyColorMapData.mat';
     dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/wavelengths.mat';
+elseif strcmp(name, '20180817_TestSpectralDataset')
+    dataset_params.raw_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/*raw.mat';
+    dataset_params.raw_images_variable = 'I_raw';
+    dataset_params.rgb_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/*3.mat';
+    dataset_params.rgb_images_variable = 'I_3';
+    dataset_params.spectral_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/*hyper.mat';
+    dataset_params.spectral_images_variable = 'I_hyper';
+    dataset_params.spectral_reflectances = false;
+    dataset_params.dispersion_rgb_forward = [];
+    dataset_params.dispersion_rgb_reverse = [];
+    dataset_params.dispersion_spectral_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/BimaterialImagesData.mat';
+    dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/NikonD5100ColorMapData.mat';
+    dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/BimaterialImagesData.mat';
+    dataset_params.evaluation = struct(...
+        'global_rgb', struct('error_map', true),...
+        'custom_rgb', struct,...
+        'global_spectral', struct(...
+            'error_map', true,...
+            'mi_bands', [1, 23],...
+            'bands_diff', [1, 23]...
+            ),...
+        'custom_spectral', struct(...
+            'lacelike_0016_hyper', struct(...
+                'radiance', [181, 75, 10, 10; 195, 397, 10, 10],...
+                'scanlines', [124, 214, 273, 380; 266, 371, 50, 435]...
+            ),...
+            'wrinkled_0143_grey_hyper', struct(...
+                'radiance', [129, 121, 15, 15; 155, 317, 5, 5],...
+                'scanlines', [66, 172, 270, 186]...
+            )...
+        )...
+    );
 else
     error('Unrecognized dataset name.');
 end
