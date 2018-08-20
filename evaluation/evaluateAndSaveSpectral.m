@@ -10,7 +10,7 @@ function varargout = evaluateAndSaveSpectral(varargin)
 %     I_spectral, R_spectral, lambda,...
 %     dp, I_name, alg_name, name_params [, fg_spectral]...
 % )
-% evaluateAndSaveSpectral(directory, I_name, fg_spectral)
+% evaluateAndSaveSpectral(directory, dp, I_name, all_alg_names, fg_spectral)
 %
 % ## Description
 % e_spectral_table = evaluateAndSaveSpectral(...
@@ -29,9 +29,12 @@ function varargout = evaluateAndSaveSpectral(varargin)
 %   are those which can be augmented with results for additional test
 %   images.
 %
-% evaluateAndSaveSpectral(directory, I_name, fg_spectral)
+% evaluateAndSaveSpectral(directory, dp, I_name, all_alg_names, fg_spectral)
 %   Saves the graphical comparisons that can contain results for multiple
-%   test images to files, and closes all of the corresponding figures.
+%   test images to files, and closes all of the corresponding figures. The
+%   advantage of using this syntax over the first syntax is that
+%   `all_alg_names` allows this function to add legends to the saved
+%   figures.
 %
 % ## Input Arguments
 %
@@ -59,6 +62,11 @@ function varargout = evaluateAndSaveSpectral(varargin)
 % alg_name -- Algorithm name
 %   A character vector describing the image estimation algorithm and its
 %   parameters, used to label the output in `e_spectral_table`.
+%
+% all_alg_names -- All algorithm names
+%   A cell vector of character vectors to be used for legends in figures
+%   which contain plotlines for multiple test images. `all_alg_names` does
+%   not include an entry for the reference image.
 %
 % name_params -- Image partial filename
 %   A character vector containing the base path and filename (excluding the
@@ -115,17 +123,21 @@ function varargout = evaluateAndSaveSpectral(varargin)
 % University of Alberta, Department of Computing Science
 % File created August 17, 2018
 
-if nargin == 2
+short_call = (nargin == 5);
+if short_call
     nargoutchk(0, 0);
     directory = varargin{1};
-    I_name = varargin{2};
-    fg_spectral = varargin{3};
+    dp = varargin{2};
+    I_name = varargin{3};
+    all_alg_names = varargin{4};
+    fg_spectral = varargin{5};
     save_multi_comparisons = true;
     I_filename = fullfile(directory, I_name);
 else
     narginchk(7, 8);
     nargoutchk(0, 2);
     save_multi_comparisons = (nargout < 2);
+    all_alg_names = [];
     
     I_spectral = varargin{1};
     R_spectral = varargin{2};
@@ -139,18 +151,21 @@ else
     else
         fg_spectral = struct;
     end
+end
+
+options = dp.evaluation.global_spectral;
+if isfield(dp.evaluation.custom_spectral, I_name)
+    options = mergeStructs(...
+        dp.evaluation.global_spectral,...
+        dp.evaluation.custom_spectral.(I_name), false, true...
+    );
+end
     
+if ~short_call
     filepath = fileparts(name_params);
     I_filename = fullfile(filepath, I_name);
 
     % Perform the image comparisons
-    options = dp.evaluation.global_spectral;
-    if isfield(dp.evaluation.custom_spectral, I_name)
-        options = mergeStructs(...
-            dp.evaluation.global_spectral,...
-            dp.evaluation.custom_spectral.(I_name), false, true...
-        );
-    end
     if isfield(fg_spectral, 'radiance')
         options.radiance_fg = fg_spectral.radiance;
     end
@@ -252,13 +267,27 @@ else
     for c = 1:n_bands
         e_spectral_formatted.(sprintf('MI_band%d', c)) = e_spectral.mi_between(c);
     end
+    if isfield(e_spectral, 'radiance')
+        for i = 1:length(e_spectral.radiance)
+            e_spectral_formatted.(sprintf('Patch%d_RMSE', i)) = e_spectral.radiance(i).rmse;
+            e_spectral_formatted.(sprintf('Patch%d_GOF', i)) = e_spectral.radiance(i).gof;
+        end
+    end
     varargout{1} = struct2table(e_spectral_formatted, 'RowNames', {alg_name});
 end
 
 % Save figures for all algorithms to files
 if save_multi_comparisons
+    add_legend = ~isempty(all_alg_names);
+    if add_legend
+        all_alg_names = [{'Ground truth'}; reshape(all_alg_names, [], 1)];
+    end
     if isfield(fg_spectral, 'radiance')
         for i = 1:length(fg_spectral.radiance)
+            figure(fg_spectral.radiance(i));
+            if add_legend
+                legend(all_alg_names{:});
+            end
             savefig(...
                 fg_spectral.radiance(i),...
                 [...
@@ -277,6 +306,10 @@ if save_multi_comparisons
     end
     if isfield(fg_spectral, 'scanlines')
         for i = 1:length(fg_spectral.scanlines)
+            figure(fg_spectral.scanlines(i).rmse);
+            if add_legend
+                legend(all_alg_names{2:end});
+            end
             savefig(...
                 fg_spectral.scanlines(i).rmse,...
                 [...
@@ -292,6 +325,10 @@ if save_multi_comparisons
             );
             close(fg_spectral.scanlines(i).rmse);
             
+            figure(fg_spectral.scanlines(i).gof);
+            if add_legend
+                legend(all_alg_names{2:end});
+            end
             savefig(...
                 fg_spectral.scanlines(i).gof,...
                 [...

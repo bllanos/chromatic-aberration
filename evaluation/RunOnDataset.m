@@ -359,10 +359,7 @@ if has_spectral
     spectral_filenames = listFiles(dp.spectral_images_wildcard);
     n_images_spectral = length(spectral_filenames);
     n_images = n_images_spectral;
-    names = cell(n_images, 1);
-    for i = 1:n_images
-        [~, names{i}] = fileparts(spectral_filenames{i});
-    end
+    names = trimCommon(spectral_filenames);
     
     bands = [];
     load(dp.wavelengths, optional_variable);
@@ -397,10 +394,7 @@ end
 if has_rgb
     rgb_filenames = listFiles(dp.rgb_images_wildcard);
     n_images_rgb = length(rgb_filenames);
-    rgb_names = cell(n_images_rgb, 1);
-    for i = 1:n_images_rgb
-        [~, rgb_names{i}] = fileparts(rgb_filenames{i});
-    end
+    rgb_names = trimCommon(rgb_filenames);
     if has_spectral
         if (n_images_spectral ~= n_images_rgb)
             error('Mismatched number of spectral and colour images.');
@@ -417,10 +411,7 @@ end
 if has_raw
     raw_filenames = listFiles(dp.raw_images_wildcard);
     n_images_raw = length(raw_filenames);
-    raw_names = cell(n_images, 1);
-    for i = 1:n_images
-        [~, raw_names{i}] = fileparts(raw_filenames{i});
-    end
+    raw_names = trimCommon(raw_filenames);
     if (n_images ~= n_images_raw)
         error('Mismatched number of spectral/colour and RAW images.');
     end
@@ -612,7 +603,7 @@ for i = 1:n_images
         I_raw_gt, '_roi', 'I_raw'...
     );
     
-    % Compare the aberrated images to the original
+    % Compare the aberrated image to the original
     
     if isempty(I_rgb_gt_warped)
         e_rgb_table = [];
@@ -628,7 +619,13 @@ for i = 1:n_images
     n_admm_algorithms = length(admm_algorithm_fields);
     n_spectral_evaluations = 0;
     if can_evaluate_spectral
-        n_spectral_evaluations = n_admm_algorithms;
+        for f = 1:n_admm_algorithms
+            algorithm = admm_algorithms.(admm_algorithm_fields{f});
+            if algorithm.enabled && algorithm.spectral
+                n_spectral_evaluations = n_spectral_evaluations + 1;
+            end
+        end
+        n_spectral_evaluations = n_spectral_evaluations * n_weights;
     end
     if ~isempty(I_spectral_gt_warped)
         n_spectral_evaluations = n_spectral_evaluations + 1;
@@ -638,17 +635,19 @@ for i = 1:n_images
         if isempty(I_spectral_gt_warped)
             evaluation_plot_colors_admm = evaluation_plot_colors;
         else
-            evaluation_plot_colors = evaluation_plot_colors(2:end, :);
+            evaluation_plot_colors_admm = evaluation_plot_colors(2:end, :);
         end
     end
     if isempty(I_spectral_gt_warped)
         e_spectral_table = [];
         fg_spectral = struct;
+        all_alg_names = {};
     else
         dp.evaluation.global_spectral.plot_color = evaluation_plot_colors(1, :);
+        all_alg_names = {'Aberrated'};
         [e_spectral_table, fg_spectral] = evaluateAndSaveSpectral(...
             I_spectral_gt_warped, I_spectral_gt, bands_spectral,...
-            dp, names{i}, 'Aberrated',...
+            dp, names{i}, all_alg_names{1},...
             fullfile(output_directory, [names{i} '_aberrated'])...
         );
     end
@@ -656,6 +655,7 @@ for i = 1:n_images
     % Run the algorithms
     
     % ADMM
+    color_ind = 1;
     for w = 1:n_weights
         for f = 1:n_admm_algorithms
             algorithm = admm_algorithms.(admm_algorithm_fields{f});
@@ -724,8 +724,10 @@ for i = 1:n_images
                 % Spectral evaluation
                 if can_evaluate_spectral
                     dp.evaluation.global_spectral.plot_color =...
-                        evaluation_plot_colors_admm(f, :);
-                    e_spectral_table_current = evaluateAndSaveSpectral(...
+                        evaluation_plot_colors_admm(color_ind, :);
+                    color_ind = color_ind + 1;
+                    all_alg_names{end + 1} = algorithm.name;
+                    [e_spectral_table_current, fg_spectral] = evaluateAndSaveSpectral(...
                         I_latent, I_spectral_gt, bands, dp, names{i},...
                         alg_name_params,...
                         fullfile(output_directory, name_params(1:(end-1))),...
@@ -861,7 +863,7 @@ for i = 1:n_images
             'WriteRowNames', true...
         );
         % Also save completed figures
-        evaluateAndSaveSpectral(output_directory, names{i}, fg_spectral)
+        evaluateAndSaveSpectral(output_directory, dp, names{i}, all_alg_names, fg_spectral)
     end
 
     if verbose

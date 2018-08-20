@@ -207,6 +207,14 @@ function [e_spectral, varargout] = evaluateSpectral(...
         psnr = 10 * log10((peak ^ 2) / mse);
     end
 
+    function gof = goodnessOfFit(rad_1, rad_2, varargin)
+        gof = abs(dot(rad_1, rad_2, 2)) ./...
+            sqrt(dot(rad_1, rad_1, 2) .* dot(rad_2, rad_2, 2));
+        if isempty(varargin) || varargin{1}
+            gof = gof(isfinite(gof));
+        end
+    end
+
 narginchk(4, 4);
 nargoutchk(1, 2);
 
@@ -238,13 +246,13 @@ for c = 1:n_bands
 end
 e_spectral.mse.max = max(e_spectral.mse.raw);
 e_spectral.mse.mean = mean(e_spectral.mse.raw);
-e_spectral.mse.median = median(e_spectral.mse.median);
+e_spectral.mse.median = median(e_spectral.mse.raw);
 e_spectral.psnr.min = min(e_spectral.psnr.raw);
 e_spectral.psnr.mean = mean(e_spectral.psnr.raw);
-e_spectral.psnr.median = median(e_spectral.psnr.median);
+e_spectral.psnr.median = median(e_spectral.psnr.raw);
 e_spectral.ssim.min = min(e_spectral.ssim.raw);
 e_spectral.ssim.mean = mean(e_spectral.ssim.raw);
-e_spectral.ssim.median = median(e_spectral.ssim.median);
+e_spectral.ssim.median = median(e_spectral.ssim.raw);
 
 mi_class = 'uint8';
 if ~isa(I_spectral, mi_class)
@@ -285,8 +293,7 @@ e_spectral.rmse = struct(...
 	'median', median(rmse_per_pixel)...
 );
 
-gof_per_pixel = abs(dot(I_clipped_lin, R_clipped_lin, 2)) ./...
-    sqrt(dot(I_clipped_lin, I_clipped_lin, 2) .* dot(R_clipped_lin, R_clipped_lin, 2));
+gof_per_pixel = goodnessOfFit(I_clipped_lin, R_clipped_lin);
 e_spectral.gof = struct(...
     'min', min(gof_per_pixel),...
 	'mean', mean(gof_per_pixel),...
@@ -311,12 +318,12 @@ if isfield(options, 'radiance')
         radiance_average_I = squeeze(mean(mean(I_spectral(...
             max(1, bounds(2) - heightDiv2):min(image_height, bounds(2) + heightDiv2),...
             max(1, bounds(1) - widthDiv2):min(image_width, bounds(1) + widthDiv2), :...
-            ), 1), 2));
+            ), 1), 2)).';
 
-        radiance_average_R = squeeze(mean(mean(I_spectral(...
+        radiance_average_R = squeeze(mean(mean(R_spectral(...
             max(1, bounds(2) - heightDiv2):min(image_height, bounds(2) + heightDiv2),...
             max(1, bounds(1) - widthDiv2):min(image_width, bounds(1) + widthDiv2), :...
-            ), 1), 2));
+            ), 1), 2)).';
         
         radiance_averages_I(i, :) = radiance_average_I;
         radiance_averages_R(i, :) = radiance_average_R;
@@ -324,8 +331,9 @@ if isfield(options, 'radiance')
         se = radiance_average_I - radiance_average_R;
         e_spectral.radiance(i).rmse = sqrt(dot(se, se) / n_bands);
 
-        e_spectral.radiance(i).gof = abs(dot(radiance_average_I, radiance_average_R)) ./...
-            sqrt(dot(radiance_average_I, radiance_average_I) .* dot(radiance_average_R, radiance_average_R));
+        e_spectral.radiance(i).gof = goodnessOfFit(...
+            radiance_average_I, radiance_average_R, false...
+        );
     end
 end
 
@@ -353,7 +361,7 @@ if isfield(options, 'radiance')
             fg_spectral.radiance(i) = figure;
             hold on
             plot(...
-                lambda, radiance_averages_R(i),...
+                lambda, radiance_averages_R(i, :),...
                 'Color', 'k', 'LineWidth', 2, 'Marker', 'none'...
             );
             xlabel('Wavelength [nm]');
@@ -381,7 +389,7 @@ if isfield(options, 'radiance')
         end
         figure_image = insertObjectAnnotation(...
             background, 'rectangle', options.radiance, labels,...
-            'TextBoxOpacity', 0.9, 'FontSize', 18, 'LineWidth', 2,...
+            'TextBoxOpacity', 0.9, 'FontSize', 12, 'LineWidth', 2,...
             'Color', jet(n_patches)...
         );
         imshow(figure_image);
@@ -393,7 +401,7 @@ if isfield(options, 'scanlines')
     n_lines = size(options.scanlines, 1);
     
     % Find pixels along the lines
-    lines_ordering_filter = options.scanlines(:, 1) < options.scanlines(:, 3);
+    lines_ordering_filter = options.scanlines(:, 1) > options.scanlines(:, 3);
     lines_endpoints = options.scanlines;
     lines_endpoints(lines_ordering_filter, :) = options.scanlines(lines_ordering_filter, [3, 4, 1, 2]);
     lines_pixels_indices = cell(n_lines, 1);
@@ -418,6 +426,7 @@ if isfield(options, 'scanlines')
     end
     
     % Plot spectral radiance error
+    fg_spectral.scanlines = struct('rmse', cell(n_lines, 1), 'gof', cell(n_lines, 1));
     for i = 1:n_lines
         n_px_line = length(lines_pixels_indices{i});
         lines_pixels_indices_spectral =...
@@ -430,10 +439,8 @@ if isfield(options, 'scanlines')
         se = radiance_I - radiance_R;
         rmse = sqrt(dot(se, se, 2) / n_bands);
 
-        gof = abs(dot(radiance_I, radiance_R, 2)) ./...
-            sqrt(dot(radiance_I, radiance_I, 2) .* dot(radiance_R, radiance_R, 2));
+        gof = goodnessOfFit(radiance_I, radiance_R, false);
         
-        fg_spectral.scanlines = struct;
         if isfield(options, 'scanlines_fg')
             fg_spectral.scanlines(i).rmse = options.scanlines_fg(i).rmse;
             figure(fg_spectral.scanlines(i).rmse);
@@ -487,11 +494,13 @@ if isfield(options, 'scanlines')
             lines_pixels_indices_rgb =...
                 repmat(lines_pixels_indices{i}, n_channels, 1) +...
                 repelem((0:(n_channels - 1)).' * (image_width * image_height), n_px_line, 1);
-            figure_image(lines_pixels_indices_rgb) = colors(i, :);
+            figure_image(lines_pixels_indices_rgb) = reshape(...
+                repmat(colors(i, :), n_px_line, 1), [], 1 ...
+            );
         end
         figure_image = insertText(...
             figure_image, lines_endpoints(:, 1:2), 1:n_lines,...
-            'FontSize', 18, 'BoxColor', colors, 'BoxOpacity', 0.9,...
+            'FontSize', 12, 'BoxColor', colors, 'BoxOpacity', 0.9,...
             'AnchorPoint', 'LeftTop'...
         );
         imshow(figure_image);
@@ -511,7 +520,7 @@ if isfield(options, 'bands_diff')
     fg_spectral.bands_diff(2) = figure;
     imagesc(diff_band);
     colorbar;
-    title(sprintf('Difference image between band %g and band %g in the reference image',...
+    title(sprintf('Difference image between band %g and band %g in the test image',...
         lambda(options.bands_diff(1)), lambda(options.bands_diff(2))));
 end
 
