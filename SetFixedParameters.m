@@ -78,17 +78,17 @@ rho = [ 1, 1, 1, 1 ];
 % Weights on the two prior terms, the `weights` input argument.
 % Baek et al. (2017) used [1e-5, 0.1]
 weights = [
-    0.1, 0.1, 0.1
+    0.01, 0.01, 0
 ];
 
 % Convergence tolerances in ADMM, the `tol` input argument.
 %
 % Reasonable values for the third element are 10^-4 to 10^-3 (page 21 of
 % Boyd et al. 2011).
-baek2017Algorithm2Options.tol = [ 1e-3, 1e-2, 1e-3 ];
+baek2017Algorithm2Options.tol = [ 1e-5, 1e-5, 1e-5 ];
 
 % Maximum number of inner and outer iterations, the `maxit` input argument
-baek2017Algorithm2Options.maxit = [ 500, 100 ];
+baek2017Algorithm2Options.maxit = [ 500, 500 ];
 
 % Parameters for adaptively changing the penalty parameters for improved
 % convergence speed. (Disable adaptive penalty parameter variation by
