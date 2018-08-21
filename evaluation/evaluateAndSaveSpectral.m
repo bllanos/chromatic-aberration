@@ -243,6 +243,7 @@ if ~short_call
 
     % Produce table output
     e_spectral_formatted = struct(...
+        'Algorithm', string(alg_name),...
         'MSE_max', e_spectral.mse.max,...
         'MSE_mean', e_spectral.mse.mean,...
         'MSE_median', e_spectral.mse.median,...
@@ -273,7 +274,7 @@ if ~short_call
             e_spectral_formatted.(sprintf('Patch%d_GOF', i)) = e_spectral.radiance(i).gof;
         end
     end
-    varargout{1} = struct2table(e_spectral_formatted, 'RowNames', {alg_name});
+    varargout{1} = struct2table(e_spectral_formatted);
 end
 
 % Save figures for all algorithms to files

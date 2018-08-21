@@ -109,7 +109,15 @@ function [dataset_params] = describeDataset(name)
 % There are some datasets defined in the code used for preliminary testing
 % only.
 %
-% See also evaluateRGB, evaluateSpectral
+% ## Notes
+% - In order to compare results across images, the 'mi_bands' field of the
+%   `options` input argument of 'evaluateSpectral()' should be set globally
+%   for the dataset. In other words, it should not be a field of any of the
+%   values of `dataset_params.evaluation.custom_spectral`. This will affect
+%   how 'mergeSpectralTables()' aggregates evaluation results across
+%   images.
+%
+% See also evaluateRGB, evaluateSpectral, mergeSpectralTables
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang

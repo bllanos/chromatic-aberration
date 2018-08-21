@@ -418,6 +418,14 @@ fill = true;
 for i = 1:n_images
     % Cluster the colours in the chromaticity map
     C_map = imread(chromaticity_filenames{i});
+    trim_odd_width = (mod(size(C_map, 2), 2) ~= 0);
+    if trim_odd_width
+        C_map = C_map(:, 1:(end - 1), :);
+    end
+    trim_odd_height = (mod(size(C_map, 1), 2) ~= 0);
+    if trim_odd_height
+        C_map = C_map(1:(end - 1), :, :);
+    end
     if size(C_map, 3) > 1
         C_map_max_diff = max(max(max(diff(C_map, 1, 3))));
         if C_map_max_diff < grey_difference_threshold
@@ -461,6 +469,12 @@ for i = 1:n_images
     % Load the shading map
     if shading_enabled
         S_map = imread(shading_filenames{i});
+        if trim_odd_width
+            S_map = S_map(:, 1:(end - 1), :);
+        end
+        if trim_odd_height
+            S_map = S_map(1:(end - 1), :, :);
+        end
         % Check that image size is compatible
         if (size(S_map, 1) ~= image_height) || (size(S_map, 2) ~= image_width)
             error('Shading map dimensions do not match chromaticity map dimensions, filename "%s".', shading_filenames{i});

@@ -22,7 +22,7 @@
 % In contrast with 'CorrectByHyperspectralADMM.m', the wavelengths at which
 % hyperspectral images are to be sampled are either determined from ground
 % truth hyperspectral data, or are otherwise set by 'SetFixedParameters.m',
-% but are not loaded from colour space conversion data or dispersion model
+% but are not loaded from colour space conversion data, or dispersion model
 % data.
 %
 % ## Output
@@ -48,22 +48,41 @@
 %
 % ### Data file output
 %
-% #### Evaluation and algorithm parameters
-% A '.mat' file containing the following variables:
-%
-% - 'dataset': A character vector containing the name of the dataset used
-%   for evaluation
-% - 'wavelengths': A vector containing the wavelengths of the spectral
+% #### Intermediate data and parameters
+% A '.mat' file containing the following variables, as appropriate:
+% - 'bands': A vector containing the wavelengths of the spectral
 %   bands used in hyperspectral image estimation.
+% - 'bands_spectral': A vector containing the wavelengths of the spectral
+%   bands associated with ground truth hyperspectral images.
 % - 'sensor_map_resampled': A resampled version of the 'sensor_map'
-%   variable loaded from colour space conversion data.
-%   'sensor_map_resampled' is the spectral response functions of the camera
-%   (or, more generally, of the output 3-channel colour space) approximated
-%   at the wavelengths in `wavelengths`.
+%   variable loaded from colour space conversion data, used for
+%   hyperspectral image estimation. 'sensor_map_resampled' is the spectral
+%   response functions of the camera (or, more generally, of the output
+%   3-channel colour space) approximated at the wavelengths in `bands`.
+% - 'sensor_map_spectral': A resampled version of the 'sensor_map'
+%   variable loaded from colour space conversion data, used to convert
+%   ground truth spectral images to color. 'sensor_map_spectral' is the
+%   spectral response functions of the camera (or, more generally, of the
+%   output 3-channel colour space) approximated at the wavelengths in
+%   `bands_spectral`.
 % 
 % Additionally, the file contains the values of all parameters listed in
 % `parameters_list`, which is initialized in this file, and then augmented
 % by 'SetFixedParameters.m'.
+%
+% The file is saved as 'RunOnDataset_${dataset_name}_evaluateSpectral.mat'.
+%
+% #### Evaluation results
+%
+% For each image, RGB error metrics and (if applicable) spectral error
+% metrics are output in the form of CSV files. Each CSV file contains
+% results for all algorithms tested. The RGB error metrics are saved as
+% '*_evaluateRGB.csv', whereas the spectral error metrics are saved as
+% '*_evaluateSpectral.csv'.
+%
+% Error metrics are also aggregated across images, and saved as
+% '${dataset_name}_evaluateRGB.csv' and
+% '${dataset_name}_evaluateSpectral.csv'.
 %
 % ## Notes
 % - This script only uses the first row of `patch_sizes`, and the first
@@ -111,7 +130,7 @@ admm_algorithms.spectralL1L1 = struct(...
 admm_algorithms.spectralL1L1NonNeg = struct(...
     'name', 'Spectral L1L1NonNeg',...
     'file', 'L1L1NonNeg',...
-    'enabled', true,...
+    'enabled', false,...
     'spectral', true,...
     'priors', [true, true, false],...
     'options', struct('norms', [true, true, false], 'nonneg', true)...
@@ -176,7 +195,7 @@ admm_algorithms.colorL1L1 = struct(...
 admm_algorithms.colorL1L1NonNeg = struct(...
     'name', 'Color L1L1NonNeg',...
     'file', 'L1L1NonNeg',...
-    'enabled', true,...
+    'enabled', false,...
     'spectral', false,...
     'priors', [true, true, false],...
     'options', struct('norms', [true, true, false], 'nonneg', true)...
@@ -450,6 +469,9 @@ n_weights = size(weights, 1);
 patch_size = patch_sizes(1, :);
 padding = paddings(1);
 imageFormationOptions.int_method = int_method;
+
+e_rgb_tables = cell(n_images, 1);
+e_spectral_tables = cell(n_images, 1);
 
 % Fixed options for ADMM
 solvePatchesOptions.add_border = add_border;
@@ -852,18 +874,18 @@ for i = 1:n_images
     if ~isempty(e_rgb_table)
         writetable(...
             e_rgb_table,...
-            fullfile(output_directory, [names{i}, '_evaluateRGB.csv']),...
-            'WriteRowNames', true...
+            fullfile(output_directory, [names{i}, '_evaluateRGB.csv'])...
         );
+        e_rgb_tables{i} = e_rgb_table;
     end
     if ~isempty(e_spectral_table)
         writetable(...
             e_spectral_table,...
-            fullfile(output_directory, [names{i}, '_evaluateSpectral.csv']),...
-            'WriteRowNames', true...
+            fullfile(output_directory, [names{i}, '_evaluateSpectral.csv'])...
         );
         % Also save completed figures
-        evaluateAndSaveSpectral(output_directory, dp, names{i}, all_alg_names, fg_spectral)
+        evaluateAndSaveSpectral(output_directory, dp, names{i}, all_alg_names, fg_spectral);
+        e_spectral_tables{i} = e_spectral_table;
     end
 
     if verbose
@@ -871,13 +893,36 @@ for i = 1:n_images
     end
 end
 
+%% Save results for all images
+
+e_rgb_tables = e_rgb_tables(~cellfun(@isempty, e_rgb_tables, 'UniformOutput', true));
+if ~isempty(e_rgb_tables)
+    e_rgb_summary_table = mergeRGBTables(e_rgb_tables);
+    writetable(...
+        e_rgb_summary_table,...
+        fullfile(output_directory, [dataset_name, '_evaluateRGB.csv'])...
+    );
+end
+
+e_spectral_tables = e_spectral_tables(~cellfun(@isempty, e_spectral_tables, 'UniformOutput', true));
+if ~isempty(e_spectral_tables)
+    e_spectral_summary_table = mergeSpectralTables(e_spectral_tables);
+    writetable(...
+        e_spectral_summary_table,...
+        fullfile(output_directory, [dataset_name, '_evaluateSpectral.csv'])...
+    );
+end
+
 %% Save parameters and additional data to a file
-save_variables_list = [ parameters_list, {...
-        'bands_spectral',...
-        'bands_color',...
-        'bands',...
-        'sensor_map_resampled',...
-        'sensor_map_spectral'...
-    } ];
+save_variables_list = [ parameters_list, {'bands'} ];
+if has_spectral
+    save_variables_list = [save_variables_list, {'bands_spectral'}];
+end
+if has_color_map
+    save_variables_list = [save_variables_list, {'sensor_map_resampled'}];
+    if has_spectral
+        save_variables_list = [save_variables_list, {'sensor_map_spectral'}];
+    end
+end
 save_data_filename = fullfile(output_directory, ['RunOnDataset_' dataset_name '.mat']);
 save(save_data_filename, save_variables_list{:});
