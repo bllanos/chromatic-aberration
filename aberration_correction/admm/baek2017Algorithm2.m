@@ -273,11 +273,14 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % File created May 27, 2018
 
     % Equation 3.13 in Section 3.4.1 of Boyd et al. 2011
-    function rho = updatePenalty(R, S, rho)
+    function [rho, changed] = updatePenalty(R, S, rho)
+        changed = false;
         if R > mu * S
             rho = rho * tau_incr;
+            changed = true;
         elseif S > mu * R
             rho = rho / tau_decr;
+            changed = true;
         end
     end
 
@@ -608,17 +611,24 @@ else
         end
 
         if vary_penalty_parameters
+            changed = false(n_Z, 1);
             for z_ind = 1:n_Z
                 if ~active_constraints(z_ind)
                     continue;
                 end
-                rho(z_ind) = updatePenalty(...
+                [rho(z_ind), changed(z_ind)] = updatePenalty(...
                     R_norm(z_ind), S_norm(z_ind), rho(z_ind)...
                 );
-                U{z_ind} = Y{z_ind} ./ rho(z_ind);
+                if changed(z_ind)
+                    U{z_ind} = Y{z_ind} ./ rho(z_ind);
+                end
             end
             soft_thresholds = weights ./ rho(1:n_priors);
-            [ b, A ] = f_Ab(Z, U, rho);
+            if any(changed)
+                [ b, A ] = f_Ab(Z, U, rho);
+            else
+                b = f_Ab(Z, U, rho);
+            end
         else
             b = f_Ab(Z, U, rho);
         end
