@@ -1,13 +1,13 @@
 function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
     image_sampling, align, dispersion, sensitivity, lambda, J_2D,...
-    rho, weights, options, varargin...
+    weights, rho, options, varargin...
     )
 % BAEK2017ALGORITHM2  Run ADMM (loosely) as in Algorithm 2 of Baek et al. 2017
 %
 % ## Syntax
 % I = baek2017Algorithm2(...
 %   image_sampling, align, dispersion, sensitivity, lambda, J,...
-%   rho, weights, options [, verbose]...
+%   weights, rho, options [, verbose]...
 % )
 % [ I, image_bounds ] = baek2017Algorithm2(___)
 % [ I, image_bounds, I_rgb ] = baek2017Algorithm2(___)
@@ -18,7 +18,7 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % ## Description
 % I = baek2017Algorithm2(...
 %     image_sampling, align, dispersion, sensitivity,...
-%     lambda, J, rho, weights, options [, verbose]...
+%     lambda, J, weights, rho, options [, verbose]...
 % )
 %   Estimate a latent RGB or hyperspectral image `I` from dispersion in
 %   the input RAW image `J`.
@@ -88,15 +88,6 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % J -- Input RAW image
 %   A 2D array containing the raw colour-filter pattern data of an image.
 %
-% rho -- Penalty parameters
-%   A three or four-element vector containing the penalty parameters,
-%   `rho_1` and `rho_2` for the constraints on `Z1` and `Z2`, respectively,
-%   in the ADMM optimization problem of Baek et al. 2017. The third element
-%   is a penalty parameter corresponding to the anti-colour filter array
-%   prior. The last element is a penalty parameter for a non-negativity
-%   constraint on the solution, and is only required if `options.nonneg` is
-%   `true`.
-%
 % weights -- Regularization weights
 %   `weights(1)` is the 'alpha' weight on the regularization of the spatial
 %   gradient of the image in the ADMM optimization problem. `weights(2)` is
@@ -117,6 +108,15 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %   has colour channels, then the function will find the iterative
 %   approximation to the exact solution (using MATLAB's 'pcg()' function),
 %   or will find a least-squares solution.
+%
+% rho -- Penalty parameters
+%   A three or four-element vector containing the penalty parameters,
+%   `rho_1` and `rho_2` for the constraints on `Z1` and `Z2`, respectively,
+%   in the ADMM optimization problem of Baek et al. 2017. The third element
+%   is a penalty parameter corresponding to the anti-colour filter array
+%   prior. The last element is a penalty parameter for a non-negativity
+%   constraint on the solution, and is only required if `options.nonneg` is
+%   `true`.
 %
 % options -- Options and small parameters
 %   A structure with the following fields:
