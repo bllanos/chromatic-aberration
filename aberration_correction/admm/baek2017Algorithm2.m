@@ -1,4 +1,4 @@
-function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
+function [ I_3D, varargout ] = baek2017Algorithm2(...
     image_sampling, align, dispersion, sensitivity, lambda, J_2D,...
     weights, rho, options, varargin...
     )
@@ -14,6 +14,7 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % [ I, image_bounds, I_rgb, J_full ] = baek2017Algorithm2(___)
 % [ I, image_bounds, I_rgb, J_full, J_est ] = baek2017Algorithm2(___)
 % [ I, image_bounds, I_rgb, J_full, J_est, I_warped ] = baek2017Algorithm2(___)
+% [ I, err ] = baek2017Algorithm2(___)
 %
 % ## Description
 % I = baek2017Algorithm2(...
@@ -41,6 +42,10 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 % [ I, image_bounds, I_rgb, J_full, J_est, I_warped ] = baek2017Algorithm2(___)
 %   Additionally returns the version of the latent image warped according
 %   to the model of chromatic aberration.
+%
+% [ I, err ] = baek2017Algorithm2(___)
+%   Returns the data fitting and regularization errors corresponding to the
+%   latent image. This syntax is activated by `options.l_surface`.
 %
 % ## Input Arguments
 %
@@ -138,6 +143,18 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %     'int_method' is 'none', as should be the case when colour conversion
 %     is from a set of colour channels, not a spectral space, numerical
 %     integration will not be performed.
+%   - 'l_surface': An optional field, which, if `true`, allows this
+%     function to be used with an L-curve or L-hypersurface method for
+%     selecting regularization weights. This fields activates an alternate
+%     syntax in which the the data fitting and regularization errors are
+%     returned instead of additional output images.
+%   - 'l_err_border': A field required if 'l_surface' is `true`.
+%     'l_err_border' is a two-element vector, containing the widths of the
+%     border regions to exclude when calculating the values in the `err`
+%     output argument. The first element is the width of the border to
+%     exclude in the space of the input image `J`, whereas the second
+%     element is the width of the border to exclude in the space of the
+%     output image `I`.
 %   - 'maxit': Maximum number of iterations: The first element of `maxit`
 %     contains the maximum number of iterations to use with MATLAB's
 %     'pcg()' function when solving the I-minimization step of the ADMM
@@ -212,6 +229,27 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %   An size(J, 1) x size(J, 2) x length(lambda) array, storing the latent
 %   image warped according to the dispersion model.
 %
+% err -- Errors for L-curve or L-hypersurface analysis
+%   A vector of length `length(weights) + 1`, where the first element
+%   contains the mean-square error between `J_est` and `J`. The remaining
+%   elements contain the regularization terms evaluated at the latent image
+%   `I` (normalized by the numbers of elements in the vectors whose norms
+%   are the regularization terms). In the call syntax where `err` is an
+%   output argument, this function can be used to construct an L-curve or
+%   L-hypersurface to search for good regularization parameters in
+%   `weights`. The elements `err(2:end)` are in the same order as the
+%   elements of `weights`, in that `err(i+1)` relates to the regularization
+%   term given weight `weights(i)`.
+%
+%   Elements of `err` corresponding to zero values in `weights` are set to
+%   `NaN`.
+%
+%   The latent and input images are cropped, to exclude borders of widths
+%   given by `options.l_err_border`, prior to calculating the elements of
+%   `err`, to provide some robustness against edge artifacts. This cropping
+%   is intended to be helpful for patch-wise image estimation, as
+%   patch-wise image estimation would discard patch borders.
+%
 % ## References
 %
 % This function implements Algorithm 2 in the first set of supplemental
@@ -284,7 +322,16 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
         end
     end
 
-nargoutchk(1, 6);
+output_err = false;
+if isfield(options, 'l_surface')
+    output_err = options.l_surface;
+end
+
+if output_err
+    nargoutchk(1, 2);
+else
+    nargoutchk(1, 6);
+end
 narginchk(9, 10);
 
 if ~isempty(varargin)
@@ -349,6 +396,9 @@ end
     image_sampling, align, dispersion, sensitivity, lambda,...
     image_sampling_J, options.int_method, add_border...
 );
+if ~output_err
+    varargout{1} = image_bounds;
+end
 
 if weights(1) ~= 0 || weights(2) ~= 0
     G_xy = spatialGradient([image_sampling, n_bands]);
@@ -604,15 +654,16 @@ end
 
 I_3D = reshape(I, image_sampling(1), image_sampling(2), n_bands);
 
-if nargout > 2
+n_channels_rgb = 3;
+    
+if ~output_err && nargout > 2
     if do_integration
         Omega_I = channelConversionMatrix(image_sampling, sensitivity, lambda, options.int_method);
     else
         Omega_I = channelConversionMatrix(image_sampling, sensitivity);
     end
     I_rgb = Omega_I * I;
-    n_channels_rgb = 3;
-    varargout{1} = reshape(I_rgb, image_sampling(1), image_sampling(2), n_channels_rgb);
+    varargout{2} = reshape(I_rgb, image_sampling(1), image_sampling(2), n_channels_rgb);
     
     if nargout > 3
         if ~isempty(dispersion)
@@ -621,16 +672,68 @@ if nargout > 2
             I_warped = I;
         end
         J_full = Omega * I_warped;
-        varargout{2} = reshape(J_full, image_sampling_J(1), image_sampling_J(2), n_channels_rgb);
+        varargout{3} = reshape(J_full, image_sampling_J(1), image_sampling_J(2), n_channels_rgb);
         
         if nargout > 4
             J_est = M * J_full;
-            varargout{3} = reshape(J_est, image_sampling_J);
+            varargout{4} = reshape(J_est, image_sampling_J);
             
             if nargout > 5
-                varargout{4} = reshape(I_warped, image_sampling_J(1), image_sampling_J(2), n_bands);
+                varargout{5} = reshape(I_warped, image_sampling_J(1), image_sampling_J(2), n_bands);
             end
         end
     end
+elseif output_err && nargout > 1
+    err = nan(n_priors + 1, 1);
+    border_J = options.l_err_border(1);
+    
+    J_est_2D = reshape(M_Omega_Phi * I, image_sampling_J);
+    J_est_2D_cropped = J_est_2D(border_J:(end - border_J), border_J:(end - border_J), :);
+    err(1) = immse(...
+        J_2D(border_J:(end - border_J), border_J:(end - border_J), :),...
+        J_est_2D_cropped...
+    );
+
+    border_I = options.l_err_border(2);
+    I_cropped_3D = I_3D(border_I:(end - border_I), border_I:(end - border_I), :);
+    image_sampling_I_cropped = size(I_cropped_3D);
+    I_cropped = reshape(I_cropped_3D, [], 1);
+    for z_ind = 1:n_priors
+        if weights(z_ind) ~= 0
+            if z_ind == 1 || z_ind == 2
+                G_z_ind = spatialGradient(image_sampling_I_cropped);
+            end
+            if z_ind == 2
+                G_lambda_cropped = spectralGradient(image_sampling_I_cropped, options.full_GLambda);
+                G_lambda_sz1 = size(G_lambda_cropped, 1);
+                G_lambda_sz2 = size(G_lambda_cropped, 2);
+                % The product `G_lambda * G_xy` must be defined, so `G_lambda` needs to be
+                % replicated to operate on both the x and y-gradients.
+                G_lambda_cropped = [
+                    G_lambda_cropped, sparse(G_lambda_sz1, G_lambda_sz2);
+                    sparse(G_lambda_sz1, G_lambda_sz2), G_lambda_cropped
+                    ]; %#ok<AGROW>
+                G_z_ind = G_lambda_cropped * G_z_ind;
+            end
+            if z_ind == 1 || z_ind == 2
+                err_vector = G_z_ind * I_cropped;
+            end
+            if z_ind == 3
+                B = antiMosaicMatrix([size(J_est_2D_cropped, 1), size(J_est_2D_cropped, 2)], align);
+                err_vector = reshape(Omega * Phi * I, image_sampling_J(1), image_sampling_J(2), n_channels_rgb);
+                err_vector = err_vector(border_J:(end - border_J), border_J:(end - border_J), :);
+                err_vector = reshape(err_vector, [], 1);
+                err_vector = B * err_vector;
+            end
+            
+            if norms(z_ind)
+                err(z_ind + 1) = mean(abs(err_vector));
+            else
+                err(z_ind + 1) = norm(err_vector) / length(err_vector);
+            end 
+        end
+    end
+    varargout{1} = err;
 end
+
 end
