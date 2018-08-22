@@ -123,10 +123,10 @@ function [ I_3D, image_bounds, varargout ] = baek2017Algorithm2(...
 %   - 'add_border': A Boolean value indicating whether or not the
 %     `image_bounds` input argument of 'dispersionfunToMatrix()' should be
 %     empty. If `true`, the output image `I` will be large enough to
-%     contain the lateral chromatic aberration-corrected coordinates of all
-%     pixels in `J`. If `false`, the output image `I` will be clipped to
-%     the region occupied by `J`. If `dispersion` is empty, or is a matrix,
-%     this option is not used, and can be absent.
+%     contain the dispersion-corrected coordinates of all pixels in `J`. If
+%     `false`, the output image `I` will be clipped to the region occupied
+%     by `J`. If `dispersion` is empty, or is a matrix, this option is not
+%     used, and can be absent.
 %   - 'full_GLambda': A Boolean value used as the `replicate` input
 %     argument of 'spectralGradient()' when creating the spectral gradient
 %     matrix needed for regularizing `I`. Refer to the documentation of
@@ -294,17 +294,6 @@ else
 end
 
 % Validate and parse input arguments
-
-if length(image_sampling) ~= 2
-    error('The `image_sampling` input argument must contain an image height and width only.');
-end
-
-if isStringScalar(options.int_method) || ischar(options.int_method)
-    do_integration = ~strcmp(options.int_method, 'none');
-else
-    error('`options.int_method` must be a character vector or a string scalar.');
-end
-
 n_priors = 3;
 nonneg_ind = 4;
 
@@ -348,50 +337,19 @@ if ~isempty(options.varying_penalty_params)
     end
 end
 
-n_bands = length(lambda);
-
-has_dispersion = ~isempty(dispersion);
-if has_dispersion
-    dispersion_is_matrix = false;
-    if isfloat(dispersion) && ismatrix(dispersion)
-        dispersion_is_matrix = true;
-        if size(dispersion, 1) ~= (numel(J_2D) * n_bands)
-            error('The `dispersion` matrix must have as many rows as there are pixels in `J` times bands.');
-        elseif size(dispersion, 2) ~= (prod(image_sampling) * n_bands)
-            error('The `dispersion` matrix must have as many columns as there are values in `I`.');
-        end
-    elseif ~isa(dispersion, 'function_handle')
-        error('`dispersion` must be either a floating-point matrix, or a function handle.');
-    end
-end
-
-J = J_2D(:);
-
 % Create constant matrices
+n_bands = length(lambda);
 image_sampling_J = size(J_2D);
-M = mosaicMatrix(image_sampling_J, align);
-if do_integration
-    Omega = channelConversionMatrix(image_sampling_J, sensitivity, lambda, options.int_method);
+if isfield(options, 'add_border')
+    add_border = options.add_border;
 else
-    Omega = channelConversionMatrix(image_sampling_J, sensitivity);
+    add_border = [];
 end
-image_bounds = [];
-if has_dispersion
-    if dispersion_is_matrix
-        Phi = dispersion;
-    else
-        if ~options.add_border
-            image_bounds = [0, 0, image_sampling_J(2), image_sampling_J(1)];
-        end
-        [ Phi, image_bounds ] = dispersionfunToMatrix(...
-           dispersion, lambda, image_sampling_J, image_sampling, image_bounds, true...
-        );    
-    end
-    Omega_Phi = Omega * Phi;
-else
-    Omega_Phi = Omega;
-end
-M_Omega_Phi = M * Omega_Phi;
+[M_Omega_Phi, image_bounds, Phi, Omega, M] = projectionMatrix(...
+    image_sampling, align, dispersion, sensitivity, lambda,...
+    image_sampling_J, options.int_method, add_border...
+);
+
 if weights(1) ~= 0 || weights(2) ~= 0
     G_xy = spatialGradient([image_sampling, n_bands]);
     G_lambda = spectralGradient([image_sampling, n_bands], options.full_GLambda);
@@ -417,7 +375,7 @@ end
 
 if weights(3) ~= 0
     B = antiMosaicMatrix(image_sampling_J, align);
-    B_Omega_Phi = B * Omega_Phi;
+    B_Omega_Phi = B * Omega * Phi;
     weights(3) = weights(3) * size(M_Omega_Phi, 1) / size(B_Omega_Phi, 1);
 else
     B_Omega_Phi = [];
@@ -433,6 +391,7 @@ end
 I = repmat(reshape(I, [], 1), n_bands, 1);
 len_I = length(I);
 % Scale to match the mean intensity
+J = J_2D(:);
 J_mean = mean(J);
 J_est = M_Omega_Phi * I;
 J_est_mean = mean(J_est);
@@ -656,7 +615,7 @@ if nargout > 2
     varargout{1} = reshape(I_rgb, image_sampling(1), image_sampling(2), n_channels_rgb);
     
     if nargout > 3
-        if has_dispersion
+        if ~isempty(dispersion)
             I_warped = Phi * I;
         else
             I_warped = I;
