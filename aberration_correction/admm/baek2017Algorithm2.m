@@ -729,7 +729,7 @@ elseif output_err && nargout > 1
             if norms(z_ind)
                 err(z_ind + 1) = mean(abs(err_vector));
             else
-                err(z_ind + 1) = norm(err_vector) / length(err_vector);
+                err(z_ind + 1) = dot(err_vector, err_vector) / length(err_vector);
             end 
         end
     end
