@@ -302,7 +302,8 @@ H = projectionMatrix(...
 );
 s = svd(H, 'econ');
 rank_H = length(s);
-if rank_H < size(H, 2)
+H_is_singular = (rank_H < size(H, 2));
+if H_is_singular
     % Matrix is singular
     origin_min_weights = reshape(options.minimum_weights(enabled_weights), 1, n_active_weights);
 else
@@ -345,7 +346,13 @@ if verbose
             fprintf(', ');
         end
     end
-    fprintf(')\n\tmaximum weights (');
+    fprintf(')\n\t');
+    if H_is_singular
+        fprintf('(from `options.minimum_weights`)');
+    else
+        fprintf('(from smallest matrix singular value)');
+    end
+    fprintf('\n\tmaximum weights (');
     for aw = 1:n_weights
         if enabled_weights(aw)
             fprintf('%d', origin_max_weights(to_active_weights(aw)));

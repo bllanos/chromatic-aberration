@@ -83,9 +83,9 @@
 %
 % ### Latent colour space
 %
-% The 'bands' variable defined in the parameters section of the code below
-% can be empty (`[]`), in which case it is loaded from the dispersion model
-% data or from the colour space conversion data (see above).
+% The 'bands' variable defined in 'SetFixedParameters.m' can be empty
+% (`[]`), in which case 'bands' is obtained from the dispersion model data
+% or from the colour space conversion data (see above).
 %
 % The final value of 'bands' is determined according to the following list,
 % in order by decreasing priority:
@@ -196,12 +196,13 @@
 %   of the aberrated RGB image. Summation allows multiple sharp bands to
 %   form a blurred colour channel.
 % - This script only uses the first row of `weights` defined in
-%   'SetFixedParameters.m'.
-% - This script can estimate downsampled images (configured by adjusting
-%   `downsampling_factor` in 'SetFixedParameters.m'), but relies on
-%   'solvePatches()' in order to provide this functionality during
-%   patch-based image estimation. Consequently, this script cannot process
-%   very large images, except at higher downsampling factors. In contrast,
+%   'SetFixedParameters.m'. It does not adapt the regularization weights to
+%   the image, as done in 'ValidateLHypersurface.m'.
+% - This script could estimate downsampled images (configured by adjusting
+%   `downsampling_factor` in 'SetFixedParameters.m'), if it were to use
+%   'solvePatches()' instead of 'solvePatchesAligned()' for patch-based
+%   image estimation. In that case, however, this script could not process
+%   very large images, except at higher downsampling factors.
 %   'solvePatchesAligned()' can process large images, but cannot downsample
 %   images.
 %
@@ -332,7 +333,7 @@ end
 %% Process the images
 
 image_bounds = cell(n_images, 1);
-solvePatchesOptions.add_border = add_border;
+solvePatchesOptions.add_border = add_border; % Not used by solvePatchesAligned()
 
 if isempty(patch_sizes) && ~run_entire_image
     error('Neither patch-based image estimation, nor whole image estimation, were requested.');
@@ -351,7 +352,13 @@ for i = 1:n_images
     
     image_sampling = size(I_raw);
     if ~isempty(downsampling_factor)
-        image_sampling = ceil(image_sampling / downsampling_factor);
+        if downsampling_factor ~= 1
+            warning([...
+                '`downsampling_factor` is ignored, because solvePatchesAligned(',...
+                ') will be used instead of solvePatches().'...
+            ]);
+        end
+        % image_sampling = ceil(image_sampling / downsampling_factor);
     end
     
     for ps = 0:size(patch_sizes, 1)

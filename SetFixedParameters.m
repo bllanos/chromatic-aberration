@@ -37,7 +37,8 @@ parameters_list = [parameters_list, {
     'weights',...
     'int_method',...
     'patch_sizes',...
-    'paddings'...
+    'paddings',...
+    'selectWeightsOptions'...
     }];
 
 %% Image parameters
@@ -119,5 +120,25 @@ patch_sizes = [ % Each row contains a (number of rows, number of columns) pair
 ]; 
 paddings = 10;
 
+% ## Options for selecting regularization weights
+
+selectWeightsOptions.patch_size = patch_sizes(1, :);
+
+selectWeightsOptions.enabled_weights = logical(weights(1, :));
+
+% Maximum number of fixed-point iterations
+selectWeightsOptions.maxit = 100;
+
+% Minimum values to use for regularization weights in case the data fitting
+% matrix is singular
+selectWeightsOptions.minimum_weights = 1e-10 * ones(1, size(weights, 2));
+
+% Relative convergence criteria for the fixed-point iterative algorithm
+selectWeightsOptions.tol = 1e-4;
+
+% Border to exclude from image patches before calculating error
+baek2017Algorithm2Options.l_err_border = paddings(1);
+
 % ## Debugging Flags
 baek2017Algorithm2Verbose = true;
+selectWeightsVerbose = true;
