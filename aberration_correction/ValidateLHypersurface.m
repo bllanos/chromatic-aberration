@@ -30,12 +30,12 @@
 % using the L-hypersurface with the weights giving the lowest error
 % relative to the true image.
 %
-% The true image must be associated with a '.mat' file containing a
-% vector with the variable 'bands'. 'bands' must have the same length as
-% the third dimension of the true image, and must contain the colour
-% channel indices or wavelengths corresponding to the true image. 'bands'
-% is used to evaluate the dispersion model. Note that 'bands' takes
-% precedence over the same variable defined in 'SetFixedParameters.m'.
+% The true image must be associated with a '.mat' file containing a vector
+% with the variable 'bands'. 'bands' must have the same length as the third
+% dimension of the true image, and must contain the colour channel indices
+% or wavelengths corresponding to the true image. 'bands' is used to
+% evaluate the dispersion model. Note that 'bands' takes precedence over
+% the variable of the same name defined in 'SetFixedParameters.m'.
 %
 % ### Model of dispersion
 %
@@ -87,14 +87,15 @@
 % Figures are opened showing the search path taken by the fixed-point
 % iterative method of Belge et al. 2002 for selecting regularization
 % weights. The search path can be shown on plots of the L-hypersurface, and
-% of the data fitting error hypersurface, depending on the amount of
-% graphical output requested. (Sampling these surfaces is
-% computationally-expensive.) Lastly, an additional figure will show the
-% location of the image patch used for selecting the regularization
-% weights.
+% of the true error hypersurface, depending on the amount of graphical
+% output requested. (Sampling these surfaces is computationally-expensive.)
+% Lastly, additional figures will show the location of the image patch used
+% for selecting the regularization weights, and will compare the true and
+% estimated patches.
 %
-% Graphical output will not be produced if there are more than three
-% regularization weights to be chosen.
+% Graphical output relating to the fixed-point iterative method will not be
+% produced if there are more than three regularization weights to be
+% chosen.
 %
 % ### Estimated images
 %
@@ -112,13 +113,11 @@
 %   images listed below are limited to the region shown in '*_roi.tif'.
 % - '*_latent.tif' and '*_latent.mat': The latent image estimated using
 %   ADMM (stored in the variable 'I_latent'). The '.tif' image is only
-%   output if `save_latent_image_files` is `true`, and an error will be
-%   thrown if the latent images are not greyscale or 3-channel images.
+%   output if the latent image is a greyscale or 3-channel image.
 % - '*_warped.tif' and '*_warped.mat': A version of the latent image
 %   (stored in the variable 'I_warped') created by warping the latent image
 %   according to the dispersion model. The '.tif' image is only output if
-%   `save_latent_image_files` is `true`, and an error will be thrown if the
-%   latent images are not greyscale or 3-channel images.
+%   if the latent image is a greyscale or 3-channel image.
 % - '*_rgb.tif' and '*_rgb.mat': A colour image (stored in the variable
 %   'I_rgb') created by converting the latent image to the RGB colour space
 %   of the camera.
@@ -138,15 +137,13 @@
 % - 'bands': The value of the 'bands' variable loaded with the true latent
 %   image.
 % - 'bands_color': The 'bands' variable loaded from the colour space
-%   conversion data file, for reference. 'bands_color' is empty if no
-%   such variable was found in the data file, or if the value of the loaded
-%   variable was empty.
+%   conversion data file, for reference.
 % - 'image_bounds': The coordinates of the latent image in the space of the
 %   cropped input image. This is the 'image_bounds' output argument of
 %   'dispersionfunToMatrix()'.
 % - 'input_image_filename': The input image filename found using the
 %   wildcard provided in the parameters section of the script.
-% - 'true_image_filename': The latent image filename found using the
+% - 'true_image_filename': The true latent image filename found using the
 %   wildcard provided in the parameters section of the script.
 % - 'sensor_map_resampled': The resampled version of the 'sensor_map'
 %   variable, generated for compatibility with the true latent image.
@@ -187,7 +184,7 @@
 %   'solvePatchesAligned()' can process large images, but cannot downsample
 %   images.
 % - This script only uses the first row of `patch_sizes`, and the first
-%   element of `paddings`, defined in 'SetFixedParameters.m'.
+%   element of `paddings`, both defined in 'SetFixedParameters.m'.
 %
 % ## References
 % - Baek, S.-H., Kim, I., Gutierrez, D., & Kim, M. H. (2017). "Compact
@@ -210,11 +207,13 @@
 
 % List of parameters to save with results
 parameters_list = {
-        'reverse_dispersion_model_filename',...
-        'color_map_filename',...
-        'output_directory',...
-        'target_patch'...
-    };
+    'true_image_bands_filename',...
+    'reverse_dispersion_model_filename',...
+    'color_map_filename',...
+    'output_directory',...
+    'target_patch',...
+    'n_samples'...
+};
 
 %% Input data and parameters
 
@@ -248,10 +247,27 @@ output_directory = '/home/llanos/Downloads';
 % selected by the user.
 target_patch = [];
 
+% ## Parameters controlling graphical output
+
+plot_image_patch = true;
+plot_search_path = true;
+plot_hypersurfaces = true;
+
+% Number of values of each regularization weight to sample when
+% constructing the L-hypersurface
+% This can be a scalar, or a vector with a length equal to the number of
+% weights (not only the number of active weights)
+n_samples = [5, 3, 2];
+
 % Parameters which do not usually need to be changed
 run('SetFixedParameters.m')
 
 %% Load the images
+
+n_weights = length(selectWeightsOptions.enabled_weights);
+if isvector(n_samples) && length(n_samples) ~= n_weights
+    error('If `n_samples is a vector, it must have as many elements as there are weights, %d.', n_weights);
+end
 
 input_image_filename = listFiles(input_image_wildcard);
 [I_raw, name] = loadImage(input_image_filename{1}, input_image_variable_name);
@@ -294,13 +310,18 @@ if channel_mode
     baek2017Algorithm2Options.int_method = 'none';
     solvePatchesOptions.int_method = 'none';
     selectWeightsOptions.int_method = 'none';
+    imageFormationOptions.int_method = 'none';
 else
     baek2017Algorithm2Options.int_method = int_method;
     solvePatchesOptions.int_method = int_method;
     selectWeightsOptions.int_method = int_method;
+    imageFormationOptions.int_method = int_method;
 end
 
-%% Preprocessing input data
+imageFormationOptions.patch_size = [100, 100];
+imageFormationOptions.padding = 10;
+
+%% Preprocess input data
 
 n_bands = length(bands);
 % Resample colour space conversion data if necessary
@@ -337,15 +358,288 @@ if any([size(I_gt, 1), size(I_gt, 2)] ~= image_sampling)
     ]);
 end
 
-%% Process the image
+%% L-hypersurface method for regularization weight selection
 
-solvePatchesOptions.add_border = add_border; % Not used by solvePatchesAligned()
 baek2017Algorithm2Options.add_border = false;
+baek2017Algorithm2Options.l_surface = true;
 patch_size = patch_sizes(1, :);
 padding = paddings(1);
+
+% Most of the options to selectWeights() are set in 'SetFixedParameters.m'
+selectWeightsOptions.initial_weights = weights(1, :);
+
+[ weights, patch_lim, I_patch, weights_search ] = selectWeights(...
+    I_raw, bayer_pattern, dispersionfun, sensor_map_resampled, bands,...
+    selectWeightsOptions,...
+    @baek2017Algorithm2, {...
+        rho, baek2017Algorithm2Options, false...
+    }, target_patch, selectWeightsVerbose...
+);
+
+%% Visualize the L-hypersurface method
+
+% Display the target patch
+if plot_image_patch
+    [...
+        I_rgb_gt, I_rgb_gt_warped,...
+    ] = imageFormation(...
+        I_gt, sensor_map_resampled, bands,...
+        imageFormationOptions, dispersionfun, bayer_pattern...
+    );
+    image_sampling_patch = diff(patch_lim, 1, 1) + 1;
+    I_raw_annotated = insertShape(...
+        I_rgb_gt_warped, 'Rectangle',...
+        [patch_lim(2), patch_lim(1), image_sampling_patch(2), image_sampling_patch(1)],...
+        'LineWidth', 2 ...
+    );
+
+    figure;
+    imshow(I_raw_annotated);
+    title('Image patch used for weights estimation');
+    
+    % Compare the input and output patches
+    I_patch_rgb_gt = I_rgb_gt(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :);
+    
+    figure;
+    imshowpair(I_patch_rgb_gt, I_patch, 'montage');
+    title('True image patch vs. estimated image patch');
+end
+
+
+n_active_weights = sum(selectWeightsOptions.enabled_weights);
+if n_active_weights < 4
+    
+    to_all_weights = find(enabled_weights);
+    n_iter = size(weights_search.weights, 1);
+    
+    % Display the search path for the chosen weights
+    if plot_search_path
+        log_weights = log(weights_search.weights);
+        log_weights(:, ~selectWeightsOptions.enabled_weights) = 0;
+        log_weights_diff = [diff(log_weights, 1, 1); zeros(1, n_weights)];
+        log_err = log(weights_search.err);
+        log_err(2:end, ~selectWeightsOptions.enabled_weights) = 0;
+        log_err_diff = [diff(log_err, 1, 1); zeros(1, size(log_err, 2))];
+        
+        figure;
+        if n_active_weights == 1
+            iter_index = (1:n_iter) - 1;
+            plot(iter_index, log_weights);
+            xlabel('Iteration number')
+            ylabel(sprintf('log(weight %d)', to_all_weights(1)))
+        elseif n_active_weights == 2
+            quiver(...
+                log_weights(:, 1), log_weights(:, 2),...
+                log_weights_diff(:, 1), log_weights_diff(:, 2)...
+            );
+            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
+            ylabel(sprintf('log(weight %d)', to_all_weights(2)))
+        elseif n_active_weights == 3
+            quiver3(...
+                log_weights(:, 1), log_weights(:, 2), log_weights(:, 3),...
+                log_weights_diff(:, 1), log_weights_diff(:, 2), log_weights_diff(:, 3)...
+            );
+            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
+            ylabel(sprintf('log(weight %d)', to_all_weights(2)))
+            zlabel(sprintf('log(weight %d)', to_all_weights(3)))
+        else
+            error('Unexpected number of active weights.');
+        end
+        title('Search path for the selected weights, in weights space')
+        
+        figure;
+        if n_active_weights == 1
+            quiver(...
+                log_err(:, 2), log_err(:, 1),...
+                log_err_diff(:, 2), log_err_diff(:, 1)...
+            );
+            xlabel(sprintf('log(regularization norm %d)', to_all_weights(1)))
+            ylabel('log(residual)')
+        elseif n_active_weights == 2
+            quiver3(...
+                log_err(:, 2), log_err(:, 3), log_err(:, 1),...
+                log_err_diff(:, 2), log_err_diff(:, 3), log_err_diff(:, 1)...
+            );
+            xlabel(sprintf('log(regularization norm %d)', to_all_weights(1)))
+            ylabel(sprintf('log(regularization norm %d)', to_all_weights(2)))
+            zlabel('log(residual)')
+        elseif n_active_weights == 3
+            quiver3(...
+                log_err(:, 2), log_err(:, 3), log_err(:, 4),...
+                log_err_diff(:, 2), log_err_diff(:, 3), log_err_diff(:, 4)...
+            );
+            scatter3(...
+                log_err(:, 2), log_err(:, 3), log_err(:, 4), [],...
+                log_err(:, 1), 'filled'...
+            );
+            xlabel(sprintf('log(regularization norm %d)', to_all_weights(1)))
+            ylabel(sprintf('log(regularization norm %d)', to_all_weights(2)))
+            zlabel(sprintf('log(regularization norm %d)', to_all_weights(3)))
+            c_bar = colorbar;
+            c_bar.Label.String = 'log(residual)';
+        else
+            error('Unexpected number of active weights.');
+        end
+        title('Search path for the selected weights, in error space')
+    end
+    
+    % Sample the L-hypersurface and the true error hypersurface
+    if plot_hypersurfaces && n_active_weights < 3
+        
+        % Generate combinations of weights to test
+        to_all_weights = find(enabled_weights);
+        if isscalar(n_samples)
+            n_samples_full = repmat(n_samples, n_active_weights, 1);
+        else
+            n_samples_full = n_samples(enabled_weights);
+        end
+        active_weights_samples = cell(n_active_weights, 1);
+        for w = 1:n_active_weights
+            active_weights_samples{w} = logspace(...
+                log(weights_search.origin_min_weights(to_all_weights(w))),...
+                log(weights_search.origin_max_weights(to_all_weights(w))),...
+                n_samples_full(w)...
+            ).';
+        end
+        n_samples_all = prod(n_samples_full);
+        all_weights_samples = zeros(n_samples_all, n_weights);
+        for w = 1:n_active_weights
+            all_weights_samples(:, to_all_weights(w)) = repmat(...
+                repelem(active_weights_samples{w}, prod(n_samples_full((w + 1):end))),...
+                prod(n_samples_full(1:(w-1))), 1 ...
+            );
+        end
+        log_all_weights_samples = log(all_weights_samples);
+        log_all_weights_samples(:, ~selectWeightsOptions.enabled_weights) = 0;
+        
+        % Construct arguments for the image estimation algorithm
+        align_f = offsetBayerPattern(patch_lim(1, :), bayer_pattern);
+        image_sampling_f = diff(patch_lim, 1, 1) + 1;
+        if has_dispersion
+            dispersion_f = dispersionfunToMatrix(...
+                dispersionfun, bands, image_sampling_f, image_sampling_f,...
+                [0, 0, image_sampling_f(2), image_sampling_f(1)], true, flip(target_patch) - 1 ...
+                );
+        else
+            dispersion_f = [];
+        end
+        I_raw_f = I_raw(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :);
+        
+        % Test the combinations of weights
+        all_err_samples = zeros(n_samples_all, n_weights + 1);
+        all_mse_samples = zeros(n_samples_all, 1);
+        I_patch_gt = I_gt(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :);
+        border = baek2017Algorithm2Options.l_err_border;
+        I_patch_gt_clipped = I_patch_gt(border:(end - border), border:(end - border), :);
+        for s = 1:n_samples_all
+            [I_patch_s, all_err_samples(s, :)] = baek2017Algorithm2(...
+                image_sampling_f, align_f, dispersion_f, sensor_map_resampled, bands,...
+                I_raw_f, all_weights_samples(s, :), rho,...
+                baek2017Algorithm2Options, baek2017Algorithm2Verbose...
+            );
+            mse = I_patch_s(border:(end - border), border:(end - border), :) - I_patch_gt_clipped;
+            all_mse_samples(s) = mean(mean(mean(mse.^2)));
+        end
+        log_all_err_samples = log(all_err_samples);
+        log_all_err_samples(2:end, ~selectWeightsOptions.enabled_weights) = 0;
+        
+        % Also obtain mean-square-error values for the search path
+        path_mse_samples = zeros(n_iter, 1);
+        for s = 1:n_iter
+            I_patch_s = baek2017Algorithm2(...
+                image_sampling_f, align_f, dispersion_f, sensor_map_resampled, bands,...
+                I_raw_f, weights_search.weights(s, :), rho,...
+                baek2017Algorithm2Options, baek2017Algorithm2Verbose...
+            );
+            mse = I_patch_s(border:(end - border), border:(end - border), :) - I_patch_gt_clipped;
+            path_mse_samples(s) = mean(mean(mean(mse.^2)));
+        end
+        path_mse_samples_diff = [diff(path_mse_samples, 1); 0];
+        
+        figure;
+        if n_active_weights == 1
+            quiver(...
+                log_err(:, 2), log_err(:, 1),...
+                log_err_diff(:, 2), log_err_diff(:, 1)...
+            );
+            xlabel(sprintf('log(regularization norm %d)', to_all_weights(1)))
+            ylabel('log(residual)')
+        elseif n_active_weights == 2
+            quiver3(...
+                log_err(:, 2), log_err(:, 3), log_err(:, 1),...
+                log_err_diff(:, 2), log_err_diff(:, 3), log_err_diff(:, 1)...
+            );
+            xlabel(sprintf('log(regularization norm %d)', to_all_weights(1)))
+            ylabel(sprintf('log(regularization norm %d)', to_all_weights(2)))
+            zlabel('log(residual)')
+        else
+            error('Unexpected number of active weights.');
+        end
+        title('L-hypersurface with search path for the selected weights')
+        hold on
+        if n_active_weights == 1
+            plot(...
+                log_all_err_samples(:, 2), log_all_err_samples(:, 1)...
+            );
+            plot(weights_search.origin(2), weights_search.origin(1), 'ko');
+        elseif n_active_weights == 2
+            tri = delaunay(log_all_err_samples(:, 2), log_all_err_samples(:, 3));
+            trisurf(tri, log_all_err_samples(:, 2), log_all_err_samples(:, 3), log_all_err_samples(:, 1));
+            plot3(weights_search.origin(2), weights_search.origin(3), weights_search.origin(1), 'ko');
+        else
+            error('Unexpected number of active weights.');
+        end
+        hold off
+        legend('Search path', 'L-hypersurface', 'MDF origin');
+        
+        figure;
+        if n_active_weights == 1
+            quiver(...
+                log_weights(:, 1), path_mse_samples,...
+                log_weights_diff(:, 1), path_mse_samples_diff...
+            );
+            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
+            ylabel('Mean square error wrt ground truth patch')
+        elseif n_active_weights == 2
+            quiver3(...
+                log_weights(:, 1), log_weights(:, 2), path_mse_samples,...
+                log_weights_diff(:, 1), log_weights_diff(:, 2), path_mse_samples_diff...
+            );
+            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
+            ylabel(sprintf('log(weight %d)', to_all_weights(2)))
+            zlabel('Mean square error wrt ground truth patch')
+        else
+            error('Unexpected number of active weights.');
+        end
+        title('Patch MSE surface with search path for the selected weights')
+        hold on
+        if n_active_weights == 1
+            plot(...
+                log_all_weights_samples(:, 1), all_mse_samples...
+            );
+        elseif n_active_weights == 2
+            tri = delaunay(log_all_weights_samples(:, 1), log_all_weights_samples(:, 2));
+            trisurf(tri, log_all_weights_samples(:, 1), log_all_weights_samples(:, 2), all_mse_samples);
+        else
+            error('Unexpected number of active weights.');
+        end
+        hold off
+        legend('Search path', 'Patch MSE surface');
+        
+    elseif plot_hypersurfaces
+        warning('The L-hypersurface and the MSE hypersurface cannot be plotted when there are more than two active regularization terms.');
+    end
+
+elseif plot_search_path || plot_hypersurfaces
+    warning('Graphical output cannot be generated when there are more than four active regularization terms.');
+end
+
+%% Estimate the entire latent image
+
+baek2017Algorithm2Options.l_surface = false;
+solvePatchesOptions.add_border = add_border; % Not used by solvePatchesAligned()
 solvePatchesOptions.patch_size = patch_size;
 solvePatchesOptions.padding = padding;
-weights = weights(1, :);
 
 if ~isempty(downsampling_factor)
     if downsampling_factor ~= 1

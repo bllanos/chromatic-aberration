@@ -209,6 +209,20 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeights(...
 %     containing the second output argument of `f` at each iteration.
 %     `err(i)` is the second output argument of `f` when called using
 %     `search.weights(i, :)` as the `weights` input argument of `f`.
+%   - 'origin': The origin point of the minimum distance function used for
+%     the fixed-point algorithm. A vector of length
+%     (length(options.enabled_weights) + 1), where the first element
+%     corresponds to the residual, and the remaining elements correspond to
+%     the regularization terms. The elements corresponding to disabled
+%     regularization terms are set to zero.
+%   - 'origin_min_weights': The minimum regularization weight values,
+%     corresponding to the first element of 'origin'. A vector with the
+%     same length as `options.enabled_weights`, with the elements
+%     corresponding to disabled regularization terms set to zero.
+%   - 'origin_max_weights': The maximum regularization weight values,
+%     corresponding to the subsequent elements of 'origin'. A vector with
+%     the same length as `options.enabled_weights`, with the elements
+%     corresponding to disabled regularization terms set to zero.
 %
 % ## References
 %
@@ -264,8 +278,8 @@ if isempty(target_patch)
     imshow(J);
     [x,y] = ginput(1);
     target_patch = [
-        max(1, y - floor(options.patch_size(1))),...
-        max(1, x - floor(options.patch_size(2)))...
+        max(1, y - floor(options.patch_size(1) / 2)),...
+        max(1, x - floor(options.patch_size(2) / 2))...
     ];
     close(fg);
 end
@@ -305,11 +319,12 @@ rank_H = length(s);
 H_is_singular = (rank_H < size(H, 2));
 if H_is_singular
     % Matrix is singular
-    origin_min_weights = reshape(options.minimum_weights(enabled_weights), 1, n_active_weights);
+    origin_min_weights = reshape(options.minimum_weights, 1, n_weights);
 else
     % Select the smallest singular value
-    origin_min_weights = repmat(s(end) ^ 2, 1, n_active_weights);
+    origin_min_weights = repmat(s(end) ^ 2, 1, n_weights);
 end
+origin_min_weights(~enabled_weights) = 0;
 origin_max_weights = repmat(s(1) ^ 2, 1, n_active_weights);
 
 [~, err] = f(...
@@ -338,7 +353,7 @@ if verbose
     fprintf('), corresponding to:\n\tminimum weights (');
     for aw = 1:n_weights
         if enabled_weights(aw)
-            fprintf('%d', origin_min_weights(to_active_weights(aw)));
+            fprintf('%d', origin_min_weights(aw));
         else
             fprintf('_');
         end
@@ -366,20 +381,29 @@ if verbose
     fprintf(')\n');
 end
 
+output_path = (nargout > 3);
+if output_path
+    search.origin = zeros(1, n_weights);
+    search.origin(enabled_weights) = origin;
+    search.origin_min_weights = origin_min_weights;
+    search.origin_max_weights = zeros(1, n_weights);
+    search.origin(enabled_weights) = origin_max_weights;
+end
 
 % Fixed-point iteration
-if any(options.initial_weights < origin_min_weights | options.initial_weights > origin_max_weights)
+if any(...
+        options.initial_weights < origin_min_weights |...
+        options.initial_weights(enabled_weights) > origin_max_weights...
+    )
     error('The initial weights are outside the bounds defining the origin of the minimum distance function.');
 end
 
-output_path = (nargout > 3);
 if output_path
-    search = struct(...
-        'weights', zeros(options.maxit + 1, n_weights),...
-        'err', zeros(options.maxit + 1, n_err)...
-    );
+    search.weights = zeros(options.maxit + 1, n_weights);
+    search.err = zeros(options.maxit + 1, n_err);
 end
 weights_prev = options.initial_weights;
+weights_prev(~enabled_weights) = 0;
 weights = zeros(1, n_weights);
 changes = zeros(1, n_weights);
 converged = false;

@@ -130,13 +130,11 @@
 %   images listed below are limited to the region shown in '*_roi.tif'.
 % - '*_latent.tif' and '*_latent.mat': The latent image estimated using
 %   ADMM (stored in the variable 'I_latent'). The '.tif' image is only
-%   output if `save_latent_image_files` is `true`, and an error will be
-%   thrown if the latent images are not greyscale or 3-channel images.
+%   output if the latent images are greyscale or 3-channel images.
 % - '*_warped.tif' and '*_warped.mat': A version of the latent image
 %   (stored in the variable 'I_warped') created by warping the latent image
 %   according to the dispersion model. The '.tif' image is only output if
-%   `save_latent_image_files` is `true`, and an error will be thrown if the
-%   latent images are not greyscale or 3-channel images.
+%   the latent images are greyscale or 3-channel images.
 % - '*_rgb.tif' and '*_rgb.mat': A colour image (stored in the variable
 %   'I_rgb') created by converting the latent image to the RGB colour space
 %   of the camera.
