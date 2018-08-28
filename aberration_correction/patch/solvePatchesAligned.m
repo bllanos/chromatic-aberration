@@ -86,7 +86,8 @@ function [ I_3D, image_bounds, varargout ] = solvePatchesAligned(...
 % align -- Bayer pattern description
 %   A four-character character vector, specifying the Bayer tile pattern of
 %   the input image `J`. For example, 'gbrg'. `align` has the same form
-%   as the `sensorAlignment` input argument of `demosaic()`.
+%   as the `sensorAlignment` input argument of `demosaic()`. `align` can
+%   also be empty, indicating that the input image is not mosaiced.
 %
 % dispersionfun -- Model of dispersion
 %   A function handle, produced by 'makeDispersionfun()'.
@@ -278,7 +279,11 @@ if single_patch
     );
 
     % Construct arguments for the image estimation algorithm
-    align_f = offsetBayerPattern(patch_lim(1, :), align);
+    if isempty(align)
+        align_f = [];
+    else
+        align_f = offsetBayerPattern(patch_lim(1, :), align);
+    end
     image_sampling_f = diff(patch_lim, 1, 1) + 1;
     if has_dispersion
         dispersion_matrix_patch = dispersionfunToMatrix(...
@@ -356,7 +361,11 @@ else
         patches_auxiliary_j = cell(n_i_vector, 1, n_auxiliary_images);
         for i = 1:n_i_vector
             patch_lim = reshape(patch_limits_j(i, 1, :), 2, 2);
-            align_f = offsetBayerPattern(patch_lim(1, :), align);
+            if isempty(align)
+                align_f = [];
+            else
+                align_f = offsetBayerPattern(patch_lim(1, :), align);
+            end
             image_sampling_f = diff(patch_lim, 1, 1) + 1;
             trim = reshape(patch_trim_j(i, 1, :), 2, 2);
             if has_dispersion

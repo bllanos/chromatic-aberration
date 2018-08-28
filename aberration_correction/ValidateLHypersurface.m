@@ -264,7 +264,8 @@ run('SetFixedParameters.m')
 
 %% Load the images
 
-n_weights = length(selectWeightsOptions.enabled_weights);
+enabled_weights = selectWeightsOptions.enabled_weights;
+n_weights = length(enabled_weights);
 if isvector(n_samples) && length(n_samples) ~= n_weights
     error('If `n_samples is a vector, it must have as many elements as there are weights, %d.', n_weights);
 end
@@ -384,29 +385,33 @@ if plot_image_patch
         I_rgb_gt, I_rgb_gt_warped,...
     ] = imageFormation(...
         I_gt, sensor_map_resampled, bands,...
-        imageFormationOptions, dispersionfun, bayer_pattern...
+        imageFormationOptions, dispersionfun...
     );
     image_sampling_patch = diff(patch_lim, 1, 1) + 1;
-    I_raw_annotated = insertShape(...
+    I_annotated = insertShape(...
         I_rgb_gt_warped, 'Rectangle',...
-        [patch_lim(2), patch_lim(1), image_sampling_patch(2), image_sampling_patch(1)],...
+        [patch_lim(1, 2), patch_lim(1, 1), image_sampling_patch(2), image_sampling_patch(1)],...
         'LineWidth', 2 ...
     );
 
     figure;
-    imshow(I_raw_annotated);
+    imshow(I_annotated);
     title('Image patch used for weights estimation');
     
     % Compare the input and output patches
     I_patch_rgb_gt = I_rgb_gt(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :);
+    I_patch_rgb = imageFormation(...
+        I_patch, sensor_map_resampled, bands,...
+        imageFormationOptions...
+    );
     
     figure;
-    imshowpair(I_patch_rgb_gt, I_patch, 'montage');
+    imshowpair(I_patch_rgb_gt, I_patch_rgb, 'montage');
     title('True image patch vs. estimated image patch');
 end
 
 
-n_active_weights = sum(selectWeightsOptions.enabled_weights);
+n_active_weights = sum(enabled_weights);
 if n_active_weights < 4
     
     to_all_weights = find(enabled_weights);
@@ -415,10 +420,10 @@ if n_active_weights < 4
     % Display the search path for the chosen weights
     if plot_search_path
         log_weights = log(weights_search.weights);
-        log_weights(:, ~selectWeightsOptions.enabled_weights) = 0;
+        log_weights(:, ~enabled_weights) = 0;
         log_weights_diff = [diff(log_weights, 1, 1); zeros(1, n_weights)];
         log_err = log(weights_search.err);
-        log_err(2:end, ~selectWeightsOptions.enabled_weights) = 0;
+        log_err(2:end, ~enabled_weights) = 0;
         log_err_diff = [diff(log_err, 1, 1); zeros(1, size(log_err, 2))];
         
         figure;
@@ -510,15 +515,20 @@ if n_active_weights < 4
             );
         end
         log_all_weights_samples = log(all_weights_samples);
-        log_all_weights_samples(:, ~selectWeightsOptions.enabled_weights) = 0;
+        log_all_weights_samples(:, ~enabled_weights) = 0;
         
         % Construct arguments for the image estimation algorithm
-        align_f = offsetBayerPattern(patch_lim(1, :), bayer_pattern);
+        if isempty(bayer_pattern)
+            align_f = [];
+        else
+            align_f = offsetBayerPattern(patch_lim(1, :), bayer_pattern);
+        end
         image_sampling_f = diff(patch_lim, 1, 1) + 1;
-        if has_dispersion
+        if ~isempty(dispersionfun)
             dispersion_f = dispersionfunToMatrix(...
                 dispersionfun, bands, image_sampling_f, image_sampling_f,...
-                [0, 0, image_sampling_f(2), image_sampling_f(1)], true, flip(target_patch) - 1 ...
+                [0, 0, image_sampling_f(2), image_sampling_f(1)], true,...
+                [patch_lim(2, 1), patch_lim(1, 1)] - 1 ...
                 );
         else
             dispersion_f = [];
@@ -529,7 +539,7 @@ if n_active_weights < 4
         all_err_samples = zeros(n_samples_all, n_weights + 1);
         all_mse_samples = zeros(n_samples_all, 1);
         I_patch_gt = I_gt(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :);
-        border = baek2017Algorithm2Options.l_err_border;
+        border = baek2017Algorithm2Options.l_err_border(2);
         I_patch_gt_clipped = I_patch_gt(border:(end - border), border:(end - border), :);
         for s = 1:n_samples_all
             [I_patch_s, all_err_samples(s, :)] = baek2017Algorithm2(...
@@ -541,7 +551,7 @@ if n_active_weights < 4
             all_mse_samples(s) = mean(mean(mean(mse.^2)));
         end
         log_all_err_samples = log(all_err_samples);
-        log_all_err_samples(2:end, ~selectWeightsOptions.enabled_weights) = 0;
+        log_all_err_samples(:, [false, ~enabled_weights]) = 0;
         
         % Also obtain mean-square-error values for the search path
         path_mse_samples = zeros(n_iter, 1);

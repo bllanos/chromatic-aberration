@@ -137,7 +137,7 @@ selectWeightsOptions.minimum_weights = 1e-10 * ones(1, size(weights, 2));
 selectWeightsOptions.tol = 1e-4;
 
 % Border to exclude from image patches before calculating error
-baek2017Algorithm2Options.l_err_border = paddings(1);
+baek2017Algorithm2Options.l_err_border = [paddings(1), paddings(1)];
 
 % ## Debugging Flags
 baek2017Algorithm2Verbose = true;

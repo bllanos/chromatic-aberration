@@ -42,7 +42,8 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeights(...
 % align -- Bayer pattern description
 %   A four-character character vector, specifying the Bayer tile pattern of
 %   the input image `J`. For example, 'gbrg'. `align` has the same form
-%   as the `sensorAlignment` input argument of `demosaic()`.
+%   as the `sensorAlignment` input argument of `demosaic()`. `align` can
+%   also be empty, indicating that the input image is not mosaiced.
 %
 % dispersionfun -- Model of dispersion
 %   A function handle, produced by 'makeDispersionfun()'.
@@ -253,10 +254,10 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeights(...
 % University of Alberta, Department of Computing Science
 % File created August 22, 2018
 
-nargoutchk(1, 3);
+nargoutchk(1, 4);
 narginchk(8, 10);
 
-if any(options.initial_weights <= 0)
+if any(options.initial_weights(options.enabled_weights) <= 0)
     error('All initial guesses for regularization weights must be greater than zero.');
 end
 if any(options.minimum_weights <= 0)
@@ -276,10 +277,11 @@ end
 if isempty(target_patch)
     fg = figure;
     imshow(J);
+    title('Choose the center of the image patch')
     [x,y] = ginput(1);
     target_patch = [
-        max(1, y - floor(options.patch_size(1) / 2)),...
-        max(1, x - floor(options.patch_size(2) / 2))...
+        max(1, round(y) - floor(options.patch_size(1) / 2)),...
+        max(1, round(x) - floor(options.patch_size(2) / 2))...
     ];
     close(fg);
 end
@@ -289,9 +291,13 @@ image_sampling = [size(J, 1), size(J, 2)];
 );
 
 % Construct arguments for the image estimation algorithm
-align_f = offsetBayerPattern(patch_lim(1, :), align);
+if isempty(align)
+    align_f = [];
+else
+    align_f = offsetBayerPattern(patch_lim(1, :), align);
+end
 image_sampling_f = diff(patch_lim, 1, 1) + 1;
-if has_dispersion
+if ~isempty(dispersionfun)
     dispersion_f = dispersionfunToMatrix(...
         dispersionfun, lambda, image_sampling_f, image_sampling_f,...
         [0, 0, image_sampling_f(2), image_sampling_f(1)], true, flip(target_patch) - 1 ...
@@ -314,18 +320,17 @@ H = projectionMatrix(...
     image_sampling_f, align_f, dispersion_f, sensitivity, lambda,...
     image_sampling_f, options.int_method, []...
 );
-s = svd(H, 'econ');
-rank_H = length(s);
-H_is_singular = (rank_H < size(H, 2));
+s_min = svds(H, 1, 'smallest');
+H_is_singular = size(H, 1) < size(H, 2) || s_min < eps;
 if H_is_singular
     % Matrix is singular
     origin_min_weights = reshape(options.minimum_weights, 1, n_weights);
 else
     % Select the smallest singular value
-    origin_min_weights = repmat(s(end) ^ 2, 1, n_weights);
+    origin_min_weights = repmat(s_min ^ 2, 1, n_weights);
 end
 origin_min_weights(~enabled_weights) = 0;
-origin_max_weights = repmat(s(1) ^ 2, 1, n_active_weights);
+origin_max_weights = repmat(svds(H, 1) ^ 2, 1, n_active_weights);
 
 [~, err] = f(...
     image_sampling_f, align_f, dispersion_f, sensitivity, lambda,...
@@ -383,18 +388,16 @@ end
 
 output_path = (nargout > 3);
 if output_path
-    search.origin = zeros(1, n_weights);
-    search.origin(enabled_weights) = origin;
+    search.origin = zeros(1, n_weights + 1);
+    search.origin([false, enabled_weights]) = origin(2:end);
     search.origin_min_weights = origin_min_weights;
     search.origin_max_weights = zeros(1, n_weights);
-    search.origin(enabled_weights) = origin_max_weights;
+    search.origin_max_weights(enabled_weights) = origin_max_weights;
 end
 
 % Fixed-point iteration
-if any(...
-        options.initial_weights < origin_min_weights |...
-        options.initial_weights(enabled_weights) > origin_max_weights...
-    )
+if any(options.initial_weights < origin_min_weights) ||...
+   any(options.initial_weights(enabled_weights) > origin_max_weights)
     error('The initial weights are outside the bounds defining the origin of the minimum distance function.');
 end
 
@@ -405,7 +408,7 @@ end
 weights_prev = options.initial_weights;
 weights_prev(~enabled_weights) = 0;
 weights = zeros(1, n_weights);
-changes = zeros(1, n_weights);
+changes = Inf(1, n_weights);
 converged = false;
 for iter = 1:options.maxit
     [~, err] = f(...
@@ -430,12 +433,16 @@ for iter = 1:options.maxit
     % Check for convergence (Equation 31 of Belge et al. 2002.)
     for w = 1:n_active_weights
         aw = to_all_weights(w);
-        changes(aw) = (weights(aw) - weights_prev(aw)) / weights_prev(aw);
+        changes(aw) = abs(weights(aw) - weights_prev(aw)) / abs(weights_prev(aw));
     end
     if verbose
         fprintf('%d: err = ( %g', iter, err(1));
         for e = 2:n_err
-            fprintf(', %g', err(e));
+            if enabled_weights(e - 1)
+                fprintf(', %g', err(e));
+            else
+                fprintf(', _');
+            end
         end
         fprintf(')\n%d:   weights = (', iter);
         for aw = 1:n_weights

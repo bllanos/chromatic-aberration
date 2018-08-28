@@ -89,7 +89,11 @@ patch_ind_I_warped_f = sub2ind(...
 );
 
 % Construct arguments for the image estimation algorithm
-align_f = offsetBayerPattern(patch_lim_J(1, :), align);
+if isempty(align)
+    align_f = [];
+else
+    align_f = offsetBayerPattern(patch_lim_J(1, :), align);
+end
 if has_dispersion
     dispersion_f = sparse(...
         patch_ind_I_warped_f, patch_ind_I_f,...

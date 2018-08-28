@@ -67,7 +67,8 @@ function [ I_3D, image_bounds, varargout ] = solvePatches(...
 % align -- Bayer pattern description
 %   A four-character character vector, specifying the Bayer tile pattern of
 %   the input image `J`. For example, 'gbrg'. `align` has the same form
-%   as the `sensorAlignment` input argument of `demosaic()`.
+%   as the `sensorAlignment` input argument of `demosaic()`. `align` can
+%   also be empty, indicating that the input image is not mosaiced.
 %
 % dispersionfun -- Model of dispersion
 %   A function handle, produced by 'makeDispersionfun()'.

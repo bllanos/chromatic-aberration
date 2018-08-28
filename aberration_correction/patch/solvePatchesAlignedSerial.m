@@ -49,7 +49,11 @@ if single_patch
     );
 
     % Construct arguments for the image estimation algorithm
-    align_f = offsetBayerPattern(patch_lim(1, :), align);
+    if isempty(align)
+        align_f = [];
+    else
+        align_f = offsetBayerPattern(patch_lim(1, :), align);
+    end
     image_sampling_f = diff(patch_lim, 1, 1) + 1;
     if has_dispersion
         dispersion_matrix_patch = dispersionfunToMatrix(...
@@ -96,7 +100,11 @@ else
             );
             patch_J = J(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :);
             
-            align_f = offsetBayerPattern(patch_lim(1, :), align);
+            if isempty(align)
+                align_f = [];
+            else
+                align_f = offsetBayerPattern(patch_lim(1, :), align);
+            end
             image_sampling_f = diff(patch_lim, 1, 1) + 1;
             if has_dispersion
                 dispersion_matrix_patch = dispersionfunToMatrix(...
