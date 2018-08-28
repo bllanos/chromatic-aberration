@@ -388,7 +388,7 @@ end
 
 output_path = (nargout > 3);
 if output_path
-    search.origin = zeros(1, n_weights + 1);
+    search.origin = [origin(1), zeros(1, n_weights)];
     search.origin([false, enabled_weights]) = origin(2:end);
     search.origin_min_weights = origin_min_weights;
     search.origin_max_weights = zeros(1, n_weights);
@@ -420,21 +420,22 @@ for iter = 1:options.maxit
         search.err(iter, :) = err;
     end
     
-    % Equation 21 of Belge et al. 2002.
     for w = 1:n_active_weights
         aw = to_all_weights(w);
+        % Equation 21 of Belge et al. 2002.
         weights(aw) = (err(1) * (log(err(aw + 1)) - origin(w + 1))) / ...
             (err(aw + 1) * (log(err(1)) - origin(1)));
+        
+        % Check for convergence (Equation 31 of Belge et al. 2002.)
+        changes(aw) = abs(weights(aw) - weights_prev(aw)) / abs(weights_prev(aw));
         if weights(aw) < 0
-            warning('Negative iterate encountered in selectWeights(): weights(%d) = %g', aw, weights(aw));
+            warning('Negative iterate encountered in selectWeights(): weights(%d) = %g', aw, weights(aw));            
+            % Go back
+            weights(aw) = options.initial_weights(aw);
+            changes(aw) = options.tol;
         end
     end
     
-    % Check for convergence (Equation 31 of Belge et al. 2002.)
-    for w = 1:n_active_weights
-        aw = to_all_weights(w);
-        changes(aw) = abs(weights(aw) - weights_prev(aw)) / abs(weights_prev(aw));
-    end
     if verbose
         fprintf('%d: err = ( %g', iter, err(1));
         for e = 2:n_err
@@ -469,7 +470,7 @@ for iter = 1:options.maxit
         fprintf(')\n');
     end
     
-    converged = all(changes <= options.tol);
+    converged = all(changes < options.tol);
     if converged
         break;
     end

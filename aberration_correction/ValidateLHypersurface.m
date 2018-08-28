@@ -219,23 +219,24 @@ parameters_list = {
 
 % Wildcard for 'ls()' to find the image to process.
 % '.mat' or image files can be loaded
-input_image_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/lacelike*raw.tif';
+input_image_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180828_Kodak_TestingLHypersurface/kodim19raw.mat';
 input_image_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % Wildcard for 'ls()' to find the true image.
 % '.mat' or image files can be loaded
-true_image_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/lacelike*hyper.mat';
+true_image_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180726_Demosaicking_Kodak/PNG_Richard W Franzen/kodim19.png';
 true_image_variable_name = 'I_hyper'; % Used only when loading '.mat' files
 
 % Data file containing the colour channels or wavelengths associated with
 % the true image
-true_image_bands_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/BimaterialImagesData.mat';
+true_image_bands_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180828_Kodak_TestingLHypersurface/RGBColorMapData.mat';
 
 % Model of dispersion
-reverse_dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/BimaterialImagesData.mat';
+% Can be empty
+reverse_dispersion_model_filename = [];
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/NikonD5100ColorMapData.mat';
+color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180828_Kodak_TestingLHypersurface/RGBColorMapData.mat';
 
 % Output directory for all images and saved parameters
 output_directory = '/home/llanos/Downloads';
@@ -245,7 +246,7 @@ output_directory = '/home/llanos/Downloads';
 % The top-left corner (row, column) of the image patch to use for
 % regularization weights selection. If empty (`[]`), the patch will be
 % selected by the user.
-target_patch = [];
+target_patch = []; %[478, 328];
 
 % ## Parameters controlling graphical output
 
@@ -257,7 +258,7 @@ plot_hypersurfaces = true;
 % constructing the L-hypersurface
 % This can be a scalar, or a vector with a length equal to the number of
 % weights (not only the number of active weights)
-n_samples = [5, 3, 2];
+n_samples = 10;
 
 % Parameters which do not usually need to be changed
 run('SetFixedParameters.m')
@@ -266,7 +267,7 @@ run('SetFixedParameters.m')
 
 enabled_weights = selectWeightsOptions.enabled_weights;
 n_weights = length(enabled_weights);
-if isvector(n_samples) && length(n_samples) ~= n_weights
+if ~isscalar(n_samples) && isvector(n_samples) && length(n_samples) ~= n_weights
     error('If `n_samples is a vector, it must have as many elements as there are weights, %d.', n_weights);
 end
 
@@ -290,9 +291,12 @@ bands_gt = bands;
 
 %% Load calibration data
 
-[...
-    dispersion_data, ~, transform_data...
-] = loadDispersionModel(reverse_dispersion_model_filename, false, false);
+has_dispersion = ~isempty(reverse_dispersion_model_filename);
+if has_dispersion
+    [...
+        dispersion_data, ~, transform_data...
+    ] = loadDispersionModel(reverse_dispersion_model_filename, false, false);
+end
 
 bands = [];
 model_variables_required = { 'sensor_map', 'channel_mode' };
@@ -340,17 +344,23 @@ else
 end
 
 % Crop images to the region of valid dispersion
-[dispersionfun, I_raw] = makeDispersionForImage(...
-    dispersion_data, I_raw, transform_data...
-);
+if has_dispersion
+    [dispersionfun, I_raw] = makeDispersionForImage(...
+        dispersion_data, I_raw, transform_data...
+    );
+else
+    dispersionfun = [];
+end
 image_sampling = size(I_raw);
 
-roi = modelSpaceTransform(...
-    [size(I_gt, 1), size(I_gt, 2)],...
-    transform_data.model_space, transform_data.fill...
-);
-if ~isempty(roi)
-    I_gt = I_gt(roi(1):roi(2), roi(3):roi(4), :);
+if has_dispersion
+    roi = modelSpaceTransform(...
+        [size(I_gt, 1), size(I_gt, 2)],...
+        transform_data.model_space, transform_data.fill...
+    );
+    if ~isempty(roi)
+        I_gt = I_gt(roi(1):roi(2), roi(3):roi(4), :);
+    end
 end
 if any([size(I_gt, 1), size(I_gt, 2)] ~= image_sampling)
     error([
@@ -423,7 +433,7 @@ if n_active_weights < 4
         log_weights(:, ~enabled_weights) = 0;
         log_weights_diff = [diff(log_weights, 1, 1); zeros(1, n_weights)];
         log_err = log(weights_search.err);
-        log_err(2:end, ~enabled_weights) = 0;
+        log_err(:, [false, ~enabled_weights]) = 0;
         log_err_diff = [diff(log_err, 1, 1); zeros(1, size(log_err, 2))];
         
         figure;
@@ -435,14 +445,16 @@ if n_active_weights < 4
         elseif n_active_weights == 2
             quiver(...
                 log_weights(:, 1), log_weights(:, 2),...
-                log_weights_diff(:, 1), log_weights_diff(:, 2)...
+                log_weights_diff(:, 1), log_weights_diff(:, 2),...
+                'AutoScale', 'off'...
             );
             xlabel(sprintf('log(weight %d)', to_all_weights(1)))
             ylabel(sprintf('log(weight %d)', to_all_weights(2)))
         elseif n_active_weights == 3
             quiver3(...
                 log_weights(:, 1), log_weights(:, 2), log_weights(:, 3),...
-                log_weights_diff(:, 1), log_weights_diff(:, 2), log_weights_diff(:, 3)...
+                log_weights_diff(:, 1), log_weights_diff(:, 2), log_weights_diff(:, 3),...
+                'AutoScale', 'off'...
             );
             xlabel(sprintf('log(weight %d)', to_all_weights(1)))
             ylabel(sprintf('log(weight %d)', to_all_weights(2)))
@@ -456,14 +468,16 @@ if n_active_weights < 4
         if n_active_weights == 1
             quiver(...
                 log_err(:, 2), log_err(:, 1),...
-                log_err_diff(:, 2), log_err_diff(:, 1)...
+                log_err_diff(:, 2), log_err_diff(:, 1),...
+                'AutoScale', 'off'...
             );
             xlabel(sprintf('log(regularization norm %d)', to_all_weights(1)))
             ylabel('log(residual)')
         elseif n_active_weights == 2
             quiver3(...
                 log_err(:, 2), log_err(:, 3), log_err(:, 1),...
-                log_err_diff(:, 2), log_err_diff(:, 3), log_err_diff(:, 1)...
+                log_err_diff(:, 2), log_err_diff(:, 3), log_err_diff(:, 1),...
+                'AutoScale', 'off'...
             );
             xlabel(sprintf('log(regularization norm %d)', to_all_weights(1)))
             ylabel(sprintf('log(regularization norm %d)', to_all_weights(2)))
@@ -471,7 +485,8 @@ if n_active_weights < 4
         elseif n_active_weights == 3
             quiver3(...
                 log_err(:, 2), log_err(:, 3), log_err(:, 4),...
-                log_err_diff(:, 2), log_err_diff(:, 3), log_err_diff(:, 4)...
+                log_err_diff(:, 2), log_err_diff(:, 3), log_err_diff(:, 4),...
+                'AutoScale', 'off'...
             );
             scatter3(...
                 log_err(:, 2), log_err(:, 3), log_err(:, 4), [],...
@@ -501,8 +516,8 @@ if n_active_weights < 4
         active_weights_samples = cell(n_active_weights, 1);
         for w = 1:n_active_weights
             active_weights_samples{w} = logspace(...
-                log(weights_search.origin_min_weights(to_all_weights(w))),...
-                log(weights_search.origin_max_weights(to_all_weights(w))),...
+                log10(weights_search.origin_min_weights(to_all_weights(w))),...
+                log10(weights_search.origin_max_weights(to_all_weights(w))),...
                 n_samples_full(w)...
             ).';
         end
@@ -524,7 +539,7 @@ if n_active_weights < 4
             align_f = offsetBayerPattern(patch_lim(1, :), bayer_pattern);
         end
         image_sampling_f = diff(patch_lim, 1, 1) + 1;
-        if ~isempty(dispersionfun)
+        if has_dispersion
             dispersion_f = dispersionfunToMatrix(...
                 dispersionfun, bands, image_sampling_f, image_sampling_f,...
                 [0, 0, image_sampling_f(2), image_sampling_f(1)], true,...
@@ -552,6 +567,7 @@ if n_active_weights < 4
         end
         log_all_err_samples = log(all_err_samples);
         log_all_err_samples(:, [false, ~enabled_weights]) = 0;
+        log_all_mse_samples = log(all_mse_samples);
         
         % Also obtain mean-square-error values for the search path
         path_mse_samples = zeros(n_iter, 1);
@@ -564,20 +580,23 @@ if n_active_weights < 4
             mse = I_patch_s((border + 1):(end - border), (border + 1):(end - border), :) - I_patch_gt_clipped;
             path_mse_samples(s) = mean(mean(mean(mse.^2)));
         end
-        path_mse_samples_diff = [diff(path_mse_samples, 1); 0];
+        log_path_mse_samples = log(path_mse_samples);
+        log_path_mse_samples_diff = [diff(log_path_mse_samples, 1); 0];
         
         figure;
         if n_active_weights == 1
             quiver(...
                 log_err(:, 2), log_err(:, 1),...
-                log_err_diff(:, 2), log_err_diff(:, 1)...
+                log_err_diff(:, 2), log_err_diff(:, 1),...
+                'AutoScale', 'off'...
             );
             xlabel(sprintf('log(regularization norm %d)', to_all_weights(1)))
             ylabel('log(residual)')
         elseif n_active_weights == 2
             quiver3(...
                 log_err(:, 2), log_err(:, 3), log_err(:, 1),...
-                log_err_diff(:, 2), log_err_diff(:, 3), log_err_diff(:, 1)...
+                log_err_diff(:, 2), log_err_diff(:, 3), log_err_diff(:, 1),...
+                'AutoScale', 'off'...
             );
             xlabel(sprintf('log(regularization norm %d)', to_all_weights(1)))
             ylabel(sprintf('log(regularization norm %d)', to_all_weights(2)))
@@ -605,36 +624,38 @@ if n_active_weights < 4
         figure;
         if n_active_weights == 1
             quiver(...
-                log_weights(:, 1), path_mse_samples,...
-                log_weights_diff(:, 1), path_mse_samples_diff...
+                log_weights(:, 1), log_path_mse_samples,...
+                log_weights_diff(:, 1), log_path_mse_samples_diff,...
+                'AutoScale', 'off'...
             );
             xlabel(sprintf('log(weight %d)', to_all_weights(1)))
-            ylabel('Mean square error wrt ground truth patch')
+            ylabel('log(Mean square error) wrt ground truth patch')
         elseif n_active_weights == 2
             quiver3(...
-                log_weights(:, 1), log_weights(:, 2), path_mse_samples,...
-                log_weights_diff(:, 1), log_weights_diff(:, 2), path_mse_samples_diff...
+                log_weights(:, 1), log_weights(:, 2), log_path_mse_samples,...
+                log_weights_diff(:, 1), log_weights_diff(:, 2), log_path_mse_samples_diff,...
+                'AutoScale', 'off'...
             );
             xlabel(sprintf('log(weight %d)', to_all_weights(1)))
             ylabel(sprintf('log(weight %d)', to_all_weights(2)))
-            zlabel('Mean square error wrt ground truth patch')
+            zlabel('log(Mean square error) wrt ground truth patch')
         else
             error('Unexpected number of active weights.');
         end
-        title('Patch MSE surface with search path for the selected weights')
+        title('Patch log(MSE) surface with search path for the selected weights')
         hold on
         if n_active_weights == 1
             plot(...
-                log_all_weights_samples(:, 1), all_mse_samples...
+                log_all_weights_samples(:, 1), log_all_mse_samples...
             );
         elseif n_active_weights == 2
             tri = delaunay(log_all_weights_samples(:, 1), log_all_weights_samples(:, 2));
-            trisurf(tri, log_all_weights_samples(:, 1), log_all_weights_samples(:, 2), all_mse_samples);
+            trisurf(tri, log_all_weights_samples(:, 1), log_all_weights_samples(:, 2), log_all_mse_samples);
         else
             error('Unexpected number of active weights.');
         end
         hold off
-        legend('Search path', 'Patch MSE surface');
+        legend('Search path', 'Patch log(MSE) surface');
         
     elseif plot_hypersurfaces
         warning('The L-hypersurface and the MSE hypersurface cannot be plotted when there are more than two active regularization terms.');

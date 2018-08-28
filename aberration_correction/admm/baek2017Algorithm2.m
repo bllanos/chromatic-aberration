@@ -392,6 +392,7 @@ if isfield(options, 'add_border')
 else
     add_border = [];
 end
+has_dispersion = ~isempty(dispersion);
 [M_Omega_Phi, image_bounds, Phi, Omega, M] = projectionMatrix(...
     image_sampling, align, dispersion, sensitivity, lambda,...
     image_sampling_J, options.int_method, add_border...
@@ -425,7 +426,11 @@ end
 
 if weights(3) ~= 0
     B = antiMosaicMatrix(image_sampling_J, align);
-    B_Omega_Phi = B * Omega * Phi;
+    if has_dispersion
+        B_Omega_Phi = B * Omega * Phi;
+    else
+        B_Omega_Phi = B * Omega;
+    end
     weights(3) = weights(3) * size(M_Omega_Phi, 1) / size(B_Omega_Phi, 1);
 else
     B_Omega_Phi = [];
@@ -666,7 +671,7 @@ if ~output_err && nargout > 2
     varargout{2} = reshape(I_rgb, image_sampling(1), image_sampling(2), n_channels_rgb);
     
     if nargout > 3
-        if ~isempty(dispersion)
+        if has_dispersion
             I_warped = Phi * I;
         else
             I_warped = I;
@@ -720,7 +725,12 @@ elseif output_err && nargout > 1
             end
             if z_ind == 3
                 B = antiMosaicMatrix([size(J_est_2D_cropped, 1), size(J_est_2D_cropped, 2)], align);
-                err_vector = reshape(Omega * Phi * I, image_sampling_J(1), image_sampling_J(2), n_channels_rgb);
+                if has_dispersion
+                    err_vector = Omega * Phi * I;
+                else
+                    err_vector = Omega * I;
+                end
+                err_vector = reshape(err_vector, image_sampling_J(1), image_sampling_J(2), n_channels_rgb);
                 err_vector = err_vector((border_J + 1):(end - border_J), (border_J + 1):(end - border_J), :);
                 err_vector = reshape(err_vector, [], 1);
                 err_vector = B * err_vector;

@@ -117,7 +117,8 @@ function [M_Omega_Phi, image_bounds, Phi, Omega, M] = projectionMatrix(...
 %
 % Phi -- Dispersion model warp matrix
 %   The `W` output argument of 'dispersionfunToMatrix()'. An (n_px_J x
-%   c)-by-(n_px_I x c) sparse array.
+%   c)-by-(n_px_I x c) sparse array. `Phi` is empty if there is no model of
+%   dispersion.
 %
 % See also mosaicMatrix, channelConversionMatrix, dispersionfunToMatrix
 
@@ -176,6 +177,7 @@ if has_dispersion
     end
     Omega_Phi = Omega * Phi;
 else
+    Phi = [];
     Omega_Phi = Omega;
 end
 M_Omega_Phi = M * Omega_Phi;
