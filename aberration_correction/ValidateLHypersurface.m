@@ -429,11 +429,9 @@ if n_active_weights < 4
     
     % Display the search path for the chosen weights
     if plot_search_path
-        log_weights = log(weights_search.weights);
-        log_weights(:, ~enabled_weights) = 0;
-        log_weights_diff = [diff(log_weights, 1, 1); zeros(1, n_weights)];
-        log_err = log(weights_search.err);
-        log_err(:, [false, ~enabled_weights]) = 0;
+        log_weights = log(weights_search.weights(:, enabled_weights));
+        log_weights_diff = [diff(log_weights, 1, 1); zeros(1, n_active_weights)];
+        log_err = log(weights_search.err(:, [true, enabled_weights]));
         log_err_diff = [diff(log_err, 1, 1); zeros(1, size(log_err, 2))];
         
         figure;
@@ -507,7 +505,6 @@ if n_active_weights < 4
     if plot_hypersurfaces && n_active_weights < 3
         
         % Generate combinations of weights to test
-        to_all_weights = find(enabled_weights);
         if isscalar(n_samples)
             n_samples_full = repmat(n_samples, n_active_weights, 1);
         else
@@ -529,8 +526,7 @@ if n_active_weights < 4
                 prod(n_samples_full(1:(w-1))), 1 ...
             );
         end
-        log_all_weights_samples = log(all_weights_samples);
-        log_all_weights_samples(:, ~enabled_weights) = 0;
+        log_all_weights_samples = log(all_weights_samples(:, enabled_weights));
         
         % Construct arguments for the image estimation algorithm
         if isempty(bayer_pattern)
@@ -565,8 +561,7 @@ if n_active_weights < 4
             mse = I_patch_s((border + 1):(end - border), (border + 1):(end - border), :) - I_patch_gt_clipped;
             all_mse_samples(s) = mean(mean(mean(mse.^2)));
         end
-        log_all_err_samples = log(all_err_samples);
-        log_all_err_samples(:, [false, ~enabled_weights]) = 0;
+        log_all_err_samples = log(all_err_samples(:, [true, enabled_weights]));
         log_all_mse_samples = log(all_mse_samples);
         
         % Also obtain mean-square-error values for the search path
