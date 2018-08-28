@@ -232,8 +232,8 @@ else
     error('The two images are of an unexpected datatype.')
 end
 
-I_clipped = I_spectral(border:(end - border), border:(end - border), :);
-R_clipped = R_spectral(border:(end - border), border:(end - border), :);
+I_clipped = I_spectral((border + 1):(end - border), (border + 1):(end - border), :);
+R_clipped = R_spectral((border + 1):(end - border), (border + 1):(end - border), :);
 
 n_bands = length(lambda);
 e_spectral.mse = struct('raw', zeros(n_bands, 1));

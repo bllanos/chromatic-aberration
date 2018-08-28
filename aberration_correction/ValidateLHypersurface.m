@@ -540,14 +540,14 @@ if n_active_weights < 4
         all_mse_samples = zeros(n_samples_all, 1);
         I_patch_gt = I_gt(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :);
         border = baek2017Algorithm2Options.l_err_border(2);
-        I_patch_gt_clipped = I_patch_gt(border:(end - border), border:(end - border), :);
+        I_patch_gt_clipped = I_patch_gt((border + 1):(end - border), (border + 1):(end - border), :);
         for s = 1:n_samples_all
             [I_patch_s, all_err_samples(s, :)] = baek2017Algorithm2(...
                 image_sampling_f, align_f, dispersion_f, sensor_map_resampled, bands,...
                 I_raw_f, all_weights_samples(s, :), rho,...
                 baek2017Algorithm2Options, baek2017Algorithm2Verbose...
             );
-            mse = I_patch_s(border:(end - border), border:(end - border), :) - I_patch_gt_clipped;
+            mse = I_patch_s((border + 1):(end - border), (border + 1):(end - border), :) - I_patch_gt_clipped;
             all_mse_samples(s) = mean(mean(mean(mse.^2)));
         end
         log_all_err_samples = log(all_err_samples);
@@ -561,7 +561,7 @@ if n_active_weights < 4
                 I_raw_f, weights_search.weights(s, :), rho,...
                 baek2017Algorithm2Options, baek2017Algorithm2Verbose...
             );
-            mse = I_patch_s(border:(end - border), border:(end - border), :) - I_patch_gt_clipped;
+            mse = I_patch_s((border + 1):(end - border), (border + 1):(end - border), :) - I_patch_gt_clipped;
             path_mse_samples(s) = mean(mean(mean(mse.^2)));
         end
         path_mse_samples_diff = [diff(path_mse_samples, 1); 0];

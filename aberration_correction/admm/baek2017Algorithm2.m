@@ -688,14 +688,14 @@ elseif output_err && nargout > 1
     border_J = options.l_err_border(1);
     
     J_est_2D = reshape(M_Omega_Phi * I, image_sampling_J);
-    J_est_2D_cropped = J_est_2D(border_J:(end - border_J), border_J:(end - border_J), :);
+    J_est_2D_cropped = J_est_2D((border_J + 1):(end - border_J), (border_J + 1):(end - border_J), :);
     err(1) = immse(...
-        J_2D(border_J:(end - border_J), border_J:(end - border_J), :),...
+        J_2D((border_J + 1):(end - border_J), (border_J + 1):(end - border_J), :),...
         J_est_2D_cropped...
     );
 
     border_I = options.l_err_border(2);
-    I_cropped_3D = I_3D(border_I:(end - border_I), border_I:(end - border_I), :);
+    I_cropped_3D = I_3D((border_I + 1):(end - border_I), (border_I + 1):(end - border_I), :);
     image_sampling_I_cropped = size(I_cropped_3D);
     I_cropped = reshape(I_cropped_3D, [], 1);
     for z_ind = 1:n_priors
@@ -721,7 +721,7 @@ elseif output_err && nargout > 1
             if z_ind == 3
                 B = antiMosaicMatrix([size(J_est_2D_cropped, 1), size(J_est_2D_cropped, 2)], align);
                 err_vector = reshape(Omega * Phi * I, image_sampling_J(1), image_sampling_J(2), n_channels_rgb);
-                err_vector = err_vector(border_J:(end - border_J), border_J:(end - border_J), :);
+                err_vector = err_vector((border_J + 1):(end - border_J), (border_J + 1):(end - border_J), :);
                 err_vector = reshape(err_vector, [], 1);
                 err_vector = B * err_vector;
             end

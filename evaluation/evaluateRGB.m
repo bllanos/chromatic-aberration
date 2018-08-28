@@ -127,8 +127,8 @@ else
     error('The two colour images are of an unexpected datatype.')
 end
 
-I_rgb_clipped = I_rgb(border:(end - border), border:(end - border), :);
-R_rgb_clipped = R_rgb(border:(end - border), border:(end - border), :);
+I_rgb_clipped = I_rgb((border + 1):(end - border), (border + 1):(end - border), :);
+R_rgb_clipped = R_rgb((border + 1):(end - border), (border + 1):(end - border), :);
 
 n_channels_rgb = 3;
 e_rgb.mse = zeros(n_channels_rgb, 1);
