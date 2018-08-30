@@ -52,16 +52,16 @@ nargoutchk(1, 2);
 narginchk(3, 3);
 
 direction = l_end - l_start;
-direction_length = sqrt(dot(direction, direction));
+direction_length_sq = dot(direction, direction);
 
 n = size(p, 1);
 l_start_rep = repmat(l_start, n, 1);
 direction_rep = repmat(direction, n, 1);
 start_to_p = p - l_start_rep;
-t = dot(start_to_p, direction_rep, 2) / direction_length;
+t = dot(start_to_p, direction_rep, 2) / direction_length_sq;
 
 if nargout > 1
-    lp = l_start_rep + (t * direction_rep) / direction_length;
+    lp = l_start_rep + (t * direction_rep);
 end
 
 end
