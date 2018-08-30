@@ -129,6 +129,13 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeights(...
 %     'none', as should be the case when colour conversion is from a set of
 %     colour channels, not a spectral space, numerical integration will not
 %     be performed.
+%   - 'method': A character vector, having one of the following values
+%     - 'fixed-point': The original fixed-point iterative method of Belge
+%       et al. 2002.
+%     - 'fixed-point-safe': A modification of the method of Belge et al.
+%       2002, in which the step size is reduced, depending on the location
+%       of the point, on the line connecting two iterations, closest to the
+%       origin of the minimum distance function.
 %   - 'patch_size': A two-element vector containing the height and width,
 %     respectively, of the image patch to be estimated. `patch_size`
 %     includes any padding used to eliminate border artifacts, although
@@ -141,8 +148,11 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeights(...
 %     be included in the L-hypersurface method. If `enabled_weights(i)` is
 %     `false`, the weight for the i-th regularization term will be set to
 %     zero, rather than set using the L-hypersurface method.
-%   - 'maxit': Maximum number of fixed-point iterations to perform in the
-%     L-hypersurface method of Belge et al. 2002.
+%   - 'maxit': A two-element vector. The first element is the maximum
+%     number of fixed-point iterations to perform in the L-hypersurface
+%     method of Belge et al. 2002. The second element is the maximum number
+%     of line search iterations to perform within each fixed-point
+%     iteration.
 %   - 'minimum_weights': A vector of the same length as 'enabled_weights'
 %     specifying minimum values for the regularization weights. The
 %     elements of 'minimum_weights' will only be used if the matrix
@@ -155,11 +165,15 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeights(...
 %   - 'initial_weights': A vector the same length as 'enabled_weights',
 %     giving an initial guesses for the regularization weights.
 %     'initial_weights' is used to initialize the fixed-point algorithm.
-%   - 'tol': The threshold value of the relative change in any
-%     regularization weight from one iteration to the next. When all
-%     weights change less than this threshold, iteration terminates. Refer
-%     to equation 31 of Belge et al. 2002. (Belge et al. set a value of
-%     10^-4, but suggest that larger tolerances should be acceptable.)
+%   - 'tol': The first element is the threshold value of the relative
+%     change in any regularization weight from one iteration to the next.
+%     When all weights change less than this threshold, iteration
+%     terminates. Refer to equation 31 of Belge et al. 2002. (Belge et al.
+%     set a value of 10^-4, but suggest that larger tolerances should be
+%     acceptable.) The second element, needed if 'method' is
+%     'fixed-point-safe', is the threshold value of the relative change in
+%     any regularization weight that determines when the line search
+%     terminates during each iteration.
 %
 % verbose -- Verbosity flag
 %   If `true`, console output will be displayed to show the progress of the
@@ -256,6 +270,13 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeights(...
 
 nargoutchk(1, 4);
 narginchk(8, 10);
+
+use_line_search = false;
+if strcmp(options.method, 'fixed-point-safe')
+    use_line_search = true;
+elseif ~strcmp(options.method, 'fixed-point')
+    error('Unrecognized algorithm name %s in `options.method`.', options.method);
+end
 
 if any(options.initial_weights(options.enabled_weights) <= 0)
     error('All initial guesses for regularization weights must be greater than zero.');
@@ -401,24 +422,33 @@ if any(options.initial_weights < origin_min_weights) ||...
     error('The initial weights are outside the bounds defining the origin of the minimum distance function.');
 end
 
-if output_path
-    search.weights = zeros(options.maxit + 1, n_weights);
-    search.err = zeros(options.maxit + 1, n_err);
-end
 weights_prev = options.initial_weights;
 weights_prev(~enabled_weights) = 0;
+[~, err_prev] = f(...
+    image_sampling_f, align_f, dispersion_f, sensitivity, lambda,...
+    J_f, weights_prev, f_args{:}...
+);
+
+if output_path
+    search.weights = [
+        options.initial_weights;
+        zeros(prod(options.maxit), n_weights)
+    ];
+    search.err = [
+        err_prev;
+        zeros(prod(options.maxit), n_err)
+    ];
+    search.iter = [
+        0;
+        zeros(prod(options.maxit), 1)
+    ];
+    output_index = 2;
+end
+
 weights = zeros(1, n_weights);
-changes = Inf(1, n_weights);
-converged = false;
-for iter = 1:options.maxit
-    [~, err] = f(...
-        image_sampling_f, align_f, dispersion_f, sensitivity, lambda,...
-        J_f, weights_prev, f_args{:}...
-    );
-    if output_path
-        search.weights(iter, :) = weights_prev;
-        search.err(iter, :) = err;
-    end
+changes_outer = Inf(1, n_weights);
+converged_outer = false;
+for iter_outer = 1:options.maxit(1)
     
     for w = 1:n_active_weights
         aw = to_all_weights(w);
@@ -427,17 +457,130 @@ for iter = 1:options.maxit
             (err(aw + 1) * (log(err(1)) - origin(1)));
         
         % Check for convergence (Equation 31 of Belge et al. 2002.)
-        changes(aw) = abs(weights(aw) - weights_prev(aw)) / abs(weights_prev(aw));
+        changes_outer(aw) = abs(weights(aw) - weights_prev(aw)) / abs(weights_prev(aw));
         if weights(aw) < 0
-            warning('Negative iterate encountered in selectWeights(): weights(%d) = %g', aw, weights(aw));            
+            warning('Negative iterate #%d encountered in selectWeights(): weights(%d) = %g', iter_outer, aw, weights(aw));
             % Go back
             weights(aw) = options.initial_weights(aw);
-            changes(aw) = options.tol;
+            changes_outer(aw) = options.tol(1);
+        end
+    end
+    
+    [~, err] = f(...
+        image_sampling_f, align_f, dispersion_f, sensitivity, lambda,...
+        J_f, weights, f_args{:}...
+    );
+    
+    if output_path
+        search.weights(output_index, :) = weights;
+        search.err(output_index, :) = err;
+        search.iter(output_index) = iter_outer;
+        output_index = output_index + 1;
+    end
+    
+    if use_line_search
+        t = closestPointToLine(origin, err_prev, err);
+        if t < 0
+            warning('Negative line search parameter encountered in selectWeights(), iteration %d, inner iteration 0.', iter_outer);
+        elseif t < 1
+            % The current step has probably overshot the optimum
+            weights_start = weights_prev;
+            weights_end = weights;
+            err_start = err_prev;
+            err_end = err;
+            distance_start = sum((err_start - origin).^2);
+            distance_end = sum((err_end - origin).^2);
+            
+            % Use one less iteration than `options.maxit(2)`  to account
+            % for the final comparison of the endpoints of the search
+            % region
+            for iter_inner = 1:(options.maxit(2) - 1)
+
+                % As the L-hypersurface is in a log-space, select the next
+                % guess using geometric interpolation
+                weights_new = (weights_start .^ (1 - t)) .* (weights_end .^ t);
+                
+                if any(weights_new) < 0
+                    warning('Negative inner iterate #%d-%d encountered in selectWeights().', iter_outer, iter_inner);
+                    break;
+                end
+                
+                [~, err_new] = f(...
+                    image_sampling_f, align_f, dispersion_f, sensitivity, lambda,...
+                    J_f, weights, f_args{:}...
+                );
+                
+                distance_new = sum((err_new - origin).^2);
+                
+                if distance_start > distance_end
+                    if distance_new < distance_start
+                        changes_inner = abs(weights_new - weights_start) ./ abs(weights_start);
+                        weights_start = weights_new;
+                        err_start = err_new;
+                        distance_start = distance_new;
+                    else
+                        warning('Inner iterate #%d-%d is larger than the line start encountered in selectWeights().', iter_outer, iter_inner);
+                        break;
+                    end
+                else
+                    if distance_new < distance_end
+                        changes_inner = abs(weights_new - weights_end) ./ abs(weights_end);
+                        weights_end = weights_new;
+                        err_end = err_new;
+                        distance_end = distance_new;
+                    else
+                        warning('Inner iterate #%d-%d is larger than the line end encountered in selectWeights().', iter_outer, iter_inner);
+                        break;
+                    end
+                end
+                
+                if output_path
+                    search.weights(output_index, :) = weights_new;
+                    search.err(output_index, :) = err_new;
+                    search.iter(output_index) = iter_outer;
+                    output_index = output_index + 1;
+                end
+
+                % Check for convergence
+                converged_inner = all(changes_inner < options.tol(2));
+                if converged_inner
+                    break;
+                end
+                t = closestPointToLine(origin, err_start, err_end);
+                if t < 0 || t > 1
+                    warning('Line search parameter outside [0, 1] encountered in selectWeights(), iteration %d, inner iteration %d.', iter_outer, iter_inner);
+                    break;
+                end
+            end
+            
+            if distance_start > distance_end
+                err = err_end;
+                weights = weights_end;
+            else
+                err = err_start;
+                weights = weights_start;
+            end
+            
+            if output_path
+                search.weights(output_index, :) = weights;
+                search.err(output_index, :) = err;
+                search.iter(output_index) = iter_outer;
+                output_index = output_index + 1;
+            end
+            
+            if verbose
+                iter_inner = iter_inner + 1;
+                if converged_inner
+                    fprintf('\tConvergence of line search after %d inner iterations.\n', iter_inner);
+                else
+                    fprintf('\tMaximum number of line search iterations, %d, reached without convergence.\n', iter_inner);
+                end
+            end
         end
     end
     
     if verbose
-        fprintf('%d: err = ( %g', iter, err(1));
+        fprintf('%d: err = ( %g', iter_outer, err(1));
         for e = 2:n_err
             if enabled_weights(e - 1)
                 fprintf(', %g', err(e));
@@ -445,7 +588,7 @@ for iter = 1:options.maxit
                 fprintf(', _');
             end
         end
-        fprintf(')\n%d:   weights = (', iter);
+        fprintf(')\n%d:   weights = (', iter_outer);
         for aw = 1:n_weights
             if enabled_weights(aw)
                 fprintf('%d', weights(aw));
@@ -456,10 +599,10 @@ for iter = 1:options.maxit
                 fprintf(', ');
             end
         end
-        fprintf(')\n%d:   changes = (', iter);
+        fprintf(')\n%d:   changes = (', iter_outer);
         for aw = 1:n_weights
             if enabled_weights(aw)
-                fprintf('%d', changes(aw));
+                fprintf('%d', changes_outer(aw));
             else
                 fprintf('_');
             end
@@ -470,19 +613,18 @@ for iter = 1:options.maxit
         fprintf(')\n');
     end
     
-    converged = all(changes < options.tol);
-    if converged
+    converged_outer = all(changes_outer < options.tol(1));
+    if converged_outer
         break;
     end
     weights_prev = weights;
 end
 
-
 if verbose
-    if converged
-        fprintf('Convergence after %d iterations.\n', iter);
+    if converged_outer
+        fprintf('Convergence after %d iterations.\n', iter_outer);
     else
-        fprintf('Maximum number of iterations, %d, reached without convergence.\n', iter);
+        fprintf('Maximum number of iterations, %d, reached without convergence.\n', iter_outer);
     end
 end
 
@@ -491,10 +633,12 @@ end
     J_f, weights, f_args{:}...
 );
 if output_path
-    search.weights(iter + 1, :) = weights;
-    search.weights = search.weights(1:(iter + 1), :);
-    search.err(iter + 1, :) = err;
-    search.err = search.err(1:(iter + 1), :);
+    search.weights(output_index, :) = weights;
+    search.weights = search.weights(1:output_index, :);
+    search.err(output_index, :) = err;
+    search.err = search.err(1:output_index, :);
+    search.iter(output_index) = iter_outer;
+    search.iter = search.iter(1:output_index);
     varargout{1} = search;
 end
 
