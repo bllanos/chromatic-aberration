@@ -89,9 +89,11 @@
 % weights. The search path can be shown on plots of the L-hypersurface, and
 % of the true error hypersurface, depending on the amount of graphical
 % output requested. (Sampling these surfaces is computationally-expensive.)
-% Lastly, additional figures will show the location of the image patch used
-% for selecting the regularization weights, and will compare the true and
-% estimated patches.
+% After sampling the L-hypersurface, further figures give insight into the
+% convergence properties of the fixed-point iterative method. Lastly,
+% additional figures show the location of the image patch used for
+% selecting the regularization weights, and compare the true and estimated
+% patches.
 %
 % Graphical output relating to the fixed-point iterative method will not be
 % produced if there are more than three regularization weights to be
@@ -447,7 +449,7 @@ if n_active_weights < 4
                 plot(...
                     iter_index(outer_it_start(io):outer_it_end(io)),...
                     log_weights(outer_it_start(io):outer_it_end(io)),...
-                    'Color', iteration_colors(io, :)...
+                    'Marker', 'o', 'Color', iteration_colors(io, :)...
                 );
             end
             xlabel('Iteration number')
@@ -685,6 +687,77 @@ if n_active_weights < 4
         end
         hold off
         legend('Search path', 'Patch log(MSE) surface');
+        
+        % Look at the behaviour of the fixed-point method
+        next_weights = all_err_samples(:, 1) .* (...
+            log_all_err_samples(:, (1:n_active_weights) + 1) - repmat(weights_search.origin(to_all_weights + 1), n_samples_all, 1)...
+        ) ./ (...
+            all_err_samples(:, to_all_weights + 1) .* (log_all_err_samples(:, 1) - repmat(weights_search.origin(1), n_samples_all, 1))...
+        );
+        next_weights(next_weights < 0) = nan;
+        next_weights(~isfinite(next_weights)) = nan;
+        log_next_weights = log(next_weights);
+        log_next_weights_diff = log_next_weights - log_all_weights_samples;
+        figure;
+        hold on
+        if n_active_weights == 1
+            plot(...
+                log_all_weights_samples,...
+                log_next_weights...
+            );
+            plot(log_all_weights_samples, log_all_weights_samples);
+            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
+            ylabel(sprintf('Next value of log(weight %d)', to_all_weights(1)))
+            legend('Fixed point formula result', 'y = x');
+        elseif n_active_weights == 2
+            quiver(...
+                log_all_weights_samples(:, 1), log_all_weights_samples(:, 2),...
+                log_next_weights_diff(:, 1), log_next_weights_diff(:, 2),...
+                'AutoScale', 'on'...
+            );
+            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
+            ylabel(sprintf('log(weight %d)', to_all_weights(2)))
+        elseif n_active_weights == 3
+            quiver3(...
+                log_all_weights_samples(:, 1), log_all_weights_samples(:, 2), log_all_weights_samples(:, 3),...
+                log_next_weights_diff(:, 1), log_next_weights_diff(:, 2), log_next_weights_diff(:, 3),...
+                'AutoScale', 'on'...
+            );
+            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
+            ylabel(sprintf('log(weight %d)', to_all_weights(2)))
+            zlabel(sprintf('log(weight %d)', to_all_weights(3)))
+        else
+            error('Unexpected number of active weights.');
+        end
+        title('Fixed-point formula for the next weights evaluated at the current weights')
+        hold off
+        
+        % Look at the minimum distance function of Belge et al. 2002.
+        mdf_all_weights = sqrt(sum(...
+            (log_all_err_samples - ...
+            repmat(weights_search.origin([true, enabled_weights]), n_samples_all, 1)).^2, 2 ...
+        ));
+        figure;
+        hold on
+        if n_active_weights == 1
+            plot(...
+                log_all_weights_samples,...
+                mdf_all_weights...
+            );
+            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
+            ylabel('Distance to origin')
+        elseif n_active_weights == 2
+            trisurf(...
+                tri, log_all_weights_samples(:, 1), log_all_weights_samples(:, 2), mdf_all_weights...
+            );
+            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
+            ylabel(sprintf('log(weight %d)', to_all_weights(2)))
+            zlabel('Distance to origin');
+        else
+            error('Unexpected number of active weights.');
+        end
+        title('Distance to the origin of the minimum distance function')
+        hold off
         
     elseif plot_hypersurfaces
         warning('The L-hypersurface and the MSE hypersurface cannot be plotted when there are more than two active regularization terms.');

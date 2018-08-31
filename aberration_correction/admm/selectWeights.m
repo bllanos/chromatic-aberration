@@ -481,6 +481,9 @@ for iter_outer = 1:options.maxit(1)
         t = closestPointToLine(origin, log_err_prev(err_filter), log_err(err_filter));
         if t < 0
             warning('Negative line search parameter encountered in selectWeights(), iteration %d, inner iteration 0.', iter_outer);
+            % Abort fixed-point iteration
+            weights = weights_prev;
+            break;
         elseif t < 1
             % The current step has probably overshot the optimum
             weights_start = weights_prev;
@@ -491,7 +494,7 @@ for iter_outer = 1:options.maxit(1)
             log_err_end = log_err;
             distance_start = sum((log_err_start(err_filter) - origin).^2);
             distance_end = sum((log_err_end(err_filter) - origin).^2);
-            
+
             % Use one less iteration than `options.maxit(2)`  to account
             % for the final comparison of the endpoints of the search
             % region
@@ -500,16 +503,18 @@ for iter_outer = 1:options.maxit(1)
                 % As the L-hypersurface is in a log-space, select the next
                 % guess using geometric interpolation
                 weights_new = (weights_start .^ (1 - t)) .* (weights_end .^ t);
-                                
-                if any(weights_new) < 0
+                weights_new(~enabled_weights) = 0;
+                %weights_new = (weights_start * (1 - t)) + (weights_end * t);
+
+                if any(weights_new < 0)
                     warning('Negative inner iterate #%d-%d encountered in selectWeights().', iter_outer, iter_inner);
                     break;
                 end
-                
+
                 [log_err_new, err_new] = fLogErr(weights_new);
-                
+
                 distance_new = sum((log_err_new(err_filter) - origin).^2);
-                
+
                 if distance_start > distance_end
                     if distance_new < distance_start
                         changes_inner = abs(weights_new - weights_start) ./ abs(weights_start);
@@ -533,7 +538,7 @@ for iter_outer = 1:options.maxit(1)
                         break;
                     end
                 end
-                
+
                 if output_path
                     search.weights(output_index, :) = weights_new;
                     search.err(output_index, :) = err_new;
@@ -552,7 +557,7 @@ for iter_outer = 1:options.maxit(1)
                     break;
                 end
             end
-            
+
             if distance_start > distance_end
                 err = err_end;
                 log_err = log_err_end;
@@ -562,20 +567,20 @@ for iter_outer = 1:options.maxit(1)
                 log_err = log_err_start;
                 weights = weights_start;
             end
-            
+
             if output_path
                 search.weights(output_index, :) = weights;
                 search.err(output_index, :) = err;
                 search.iter(output_index) = iter_outer;
                 output_index = output_index + 1;
             end
-            
+
             if verbose
                 iter_inner = iter_inner + 1;
                 if converged_inner
                     fprintf('\tConvergence of line search after %d inner iterations.\n', iter_inner);
                 else
-                    fprintf('\tMaximum number of line search iterations, %d, reached without convergence.\n', iter_inner);
+                    fprintf('\t%d line search iterations performed without convergence.\n', iter_inner);
                 end
             end
         end
