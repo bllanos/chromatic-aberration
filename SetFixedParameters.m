@@ -79,7 +79,7 @@ rho = [ 1, 1, 1, 1 ];
 % Weights on the two prior terms, the `weights` input argument.
 % Baek et al. (2017) used [1e-5, 0.1]
 weights = [
-    1e-12, 0, 0
+    1e-2, 0, 0
 ];
 
 % Convergence tolerances in ADMM, the `tol` input argument.
@@ -131,9 +131,17 @@ selectWeightsOptions.method = 'fixed-point-safe';
 % Maximum number of fixed-point (1) and line search (2) iterations
 selectWeightsOptions.maxit = [100, 100];
 
-% Minimum values to use for regularization weights in case the data fitting
-% matrix is singular
-selectWeightsOptions.minimum_weights = eps * ones(1, size(weights, 2));
+% Whether or not to enforce 'minimum_weights' and 'maximum_weights' given
+% in this same options structure
+selectWeightsOptions.clip_weights = true;
+
+% Minimum values to use for regularization weights (or to use to set the
+% origin of the minimum distance function in case the data fitting matrix
+% is singular)
+selectWeightsOptions.minimum_weights = 1e-8 * ones(1, size(weights, 2));
+
+% Maximum values to use for regularization weights
+selectWeightsOptions.maximum_weights = 10 * ones(1, size(weights, 2));
 
 % Relative convergence criteria for the fixed-point iterative algorithm and
 % for the inner line search

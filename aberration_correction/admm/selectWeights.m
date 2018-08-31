@@ -153,15 +153,24 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeights(...
 %     method of Belge et al. 2002. The second element is the maximum number
 %     of line search iterations to perform within each fixed-point
 %     iteration.
-%   - 'minimum_weights': A vector of the same length as 'enabled_weights'
+%   - 'clip_weights': If `true`, the origin of the minimum distance
+%     function will be set based on 'minimum_weights' and
+%     'maximum_weights', rather than chosen semi-automatically, and the
+%     output weights will be constrained to lie between the minimum and
+%     maximum weights.
+%   - 'minimum_weights': A vector, of the same length as 'enabled_weights',
 %     specifying minimum values for the regularization weights. The
-%     elements of 'minimum_weights' will only be used if the matrix
-%     operator of the data-fitting term in the image estimation problem is
-%     singular. Otherwise, the smallest singular value of the data fitting
-%     matrix operator, "H", will be used. Refer to section 3.4 of Belge et
-%     al. 2002 for details: "An appropriate multiple of machine precision"
-%     is suggested, or a value "just large enough so that the
-%     regularization problem is well defined."
+%     elements of 'minimum_weights' will be used if the matrix operator of
+%     the data-fitting term in the image estimation problem is singular.
+%     They will also be used if 'clip_weights' is `true`. Refer to section
+%     3.4 of Belge et al. 2002 for details: If the matrix is singular, "an
+%     appropriate multiple of machine precision" is suggested, or a value
+%     "just large enough so that the regularization problem is well
+%     defined."
+%   - 'maximum_weights': A vector, of the same length as 'enabled_weights',
+%     specifying maximum values for the regularization weights. These
+%     values will be used if 'clip_weights' is `true`, and otherwise this
+%     field is optional.
 %   - 'initial_weights': A vector the same length as 'enabled_weights',
 %     giving an initial guesses for the regularization weights.
 %     'initial_weights' is used to initialize the fixed-point algorithm.
@@ -177,7 +186,8 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeights(...
 %
 % verbose -- Verbosity flag
 %   If `true`, console output will be displayed to show the progress of the
-%   iterative search for `weights`.
+%   iterative search for `weights`, as well as warnings when the search
+%   behaves in unexpected ways.
 %
 % ## Output Arguments
 %
@@ -348,21 +358,24 @@ n_err = n_weights + 1;
 to_active_weights = double(enabled_weights);
 to_active_weights(enabled_weights) = 1:n_active_weights;
 to_all_weights = find(enabled_weights);
-H = projectionMatrix(...
-    image_sampling_f, align_f, dispersion_f, sensitivity, lambda,...
-    image_sampling_f, options.int_method, []...
-);
-s_min = svds(H, 1, 'smallest');
-H_is_singular = size(H, 1) < size(H, 2) || s_min < eps;
-if H_is_singular
-    % Matrix is singular
-    origin_min_weights = reshape(options.minimum_weights, 1, n_weights);
+
+origin_min_weights = reshape(options.minimum_weights, 1, n_weights);
+if options.clip_weights
+    origin_max_weights = reshape(options.maximum_weights(enabled_weights), 1, n_active_weights);
 else
-    % Select the smallest singular value
-    origin_min_weights = repmat(s_min ^ 2, 1, n_weights);
+    H = projectionMatrix(...
+        image_sampling_f, align_f, dispersion_f, sensitivity, lambda,...
+        image_sampling_f, options.int_method, []...
+    );
+    s_min = svds(H, 1, 'smallest');
+    H_is_singular = size(H, 1) < size(H, 2) || s_min < eps;
+    if ~H_is_singular
+        % Select the smallest singular value
+        origin_min_weights = repmat(s_min ^ 2, 1, n_weights);
+    end
+    origin_max_weights = repmat(svds(H, 1) ^ 2, 1, n_active_weights);
 end
 origin_min_weights(~enabled_weights) = 0;
-origin_max_weights = repmat(svds(H, 1) ^ 2, 1, n_active_weights);
 
 log_err = fLogErr(origin_min_weights);
 origin = [log_err(1), zeros(1, n_active_weights)];
@@ -393,7 +406,7 @@ if verbose
         end
     end
     fprintf(')\n\t');
-    if H_is_singular
+    if options.clip_weights || H_is_singular
         fprintf('(from `options.minimum_weights`)');
     else
         fprintf('(from smallest matrix singular value)');
@@ -409,7 +422,13 @@ if verbose
             fprintf(', ');
         end
     end
-    fprintf(')\n');
+    fprintf(')\n\t');
+    if options.clip_weights
+        fprintf('(from `options.maximum_weights`)');
+    else
+        fprintf('(from largest matrix singular value)');
+    end
+    fprintf('\n');
 end
 
 output_path = (nargout > 3);
@@ -461,7 +480,9 @@ for iter_outer = 1:options.maxit(1)
         % Check for convergence (Equation 31 of Belge et al. 2002.)
         changes_outer(w) = abs(weights(aw) - weights_prev(aw)) / abs(weights_prev(aw));
         if weights(aw) < 0
-            warning('Negative iterate #%d encountered in selectWeights(): weights(%d) = %g', iter_outer, aw, weights(aw));
+            if verbose
+                warning('Negative iterate #%d encountered in selectWeights(): weights(%d) = %g', iter_outer, aw, weights(aw));
+            end
             % Go back
             weights(aw) = options.initial_weights(aw);
             changes_outer(w) = options.tol(1);
@@ -480,7 +501,9 @@ for iter_outer = 1:options.maxit(1)
     if use_line_search
         t = closestPointToLine(origin, log_err_prev(err_filter), log_err(err_filter));
         if t < 0
-            warning('Negative line search parameter encountered in selectWeights(), iteration %d, inner iteration 0.', iter_outer);
+            if verbose
+                warning('Negative line search parameter encountered in selectWeights(), iteration %d, inner iteration 0.', iter_outer);
+            end
             % Abort fixed-point iteration
             weights = weights_prev;
             break;
@@ -498,6 +521,7 @@ for iter_outer = 1:options.maxit(1)
             % Use one less iteration than `options.maxit(2)`  to account
             % for the final comparison of the endpoints of the search
             % region
+            converged_inner = false;
             for iter_inner = 1:(options.maxit(2) - 1)
 
                 % As the L-hypersurface is in a log-space, select the next
@@ -507,7 +531,9 @@ for iter_outer = 1:options.maxit(1)
                 %weights_new = (weights_start * (1 - t)) + (weights_end * t);
 
                 if any(weights_new < 0)
-                    warning('Negative inner iterate #%d-%d encountered in selectWeights().', iter_outer, iter_inner);
+                    if verbose
+                        warning('Negative inner iterate #%d-%d encountered in selectWeights().', iter_outer, iter_inner);
+                    end
                     break;
                 end
 
@@ -523,7 +549,9 @@ for iter_outer = 1:options.maxit(1)
                         log_err_start = log_err_new;
                         distance_start = distance_new;
                     else
-                        warning('Inner iterate #%d-%d is larger than the line start encountered in selectWeights().', iter_outer, iter_inner);
+                        if verbose
+                            warning('Inner iterate #%d-%d is larger than the line start encountered in selectWeights().', iter_outer, iter_inner);
+                        end
                         break;
                     end
                 else
@@ -534,7 +562,9 @@ for iter_outer = 1:options.maxit(1)
                         log_err_end = log_err_new;
                         distance_end = distance_new;
                     else
-                        warning('Inner iterate #%d-%d is larger than the line end encountered in selectWeights().', iter_outer, iter_inner);
+                        if verbose
+                            warning('Inner iterate #%d-%d is larger than the line end encountered in selectWeights().', iter_outer, iter_inner);
+                        end
                         break;
                     end
                 end
@@ -553,7 +583,9 @@ for iter_outer = 1:options.maxit(1)
                 end
                 t = closestPointToLine(origin, log_err_start(err_filter), log_err_end(err_filter));
                 if t < 0 || t > 1
-                    warning('Line search parameter outside [0, 1] encountered in selectWeights(), iteration %d, inner iteration %d.', iter_outer, iter_inner);
+                    if verbose
+                        warning('Line search parameter outside [0, 1] encountered in selectWeights(), iteration %d, inner iteration %d.', iter_outer, iter_inner);
+                    end
                     break;
                 end
             end
@@ -634,6 +666,25 @@ if verbose
         fprintf('Convergence after %d iterations.\n', iter_outer);
     else
         fprintf('Maximum number of iterations, %d, reached without convergence.\n', iter_outer);
+    end
+end
+
+% Clip the final weights
+if options.clip_weights
+    for aw = 1:n_weights
+        if enabled_weights(aw)
+            if weights(aw) < options.minimum_weights(aw)
+                if verbose
+                    warning('Clipped weight %d from %g to the minimum value %g.', aw, weights(aw), options.minimum_weights(aw));
+                end
+                weights(aw) = options.minimum_weights(aw);
+            elseif weights(aw) > options.maximum_weights(aw)
+                if verbose
+                    warning('Clipped weight %d from %g to the maximum value %g.', aw, weights(aw), options.maximum_weights(aw));
+                end
+                weights(aw) = options.maximum_weights(aw);
+            end
+        end
     end
 end
 
