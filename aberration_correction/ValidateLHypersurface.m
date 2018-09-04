@@ -156,6 +156,9 @@
 % changed.)
 %
 % ## Notes
+% - The method of Belge et al. 2002 is derived for an unconstrained
+%   optimization problem, and so may not work for non-negativity
+%   constrained optimization.
 % - The image colour space is not altered by this script; RGB images are
 %   produced in the camera's colour space. See 'imreadRAW()' for code to
 %   convert an image to sRGB after demosaicing.

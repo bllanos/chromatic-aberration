@@ -259,6 +259,11 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeights(...
 %     framework." Inverse Problems, vol. 18, pp. 1161-1183, 2002.
 %     doi:10.1088/0266-5611/18/4/314
 %
+% Note that this method is derived for an unconstrained optimization
+% problem. It is likely not appropriate to use it in combination with the
+% non-negativity constraint supported by 'baek2017Algorithm2()', for
+% example.
+%
 % ## Notes
 % - The dispersion matrix mapping `I_patch` to the `J_patch` input argument
 %   of `f`, given as the `dispersion_matrix` input argument of `f`, will be
