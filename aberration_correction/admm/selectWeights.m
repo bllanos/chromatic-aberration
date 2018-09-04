@@ -276,7 +276,8 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeights(...
 %   calculating the dispersion matrix for, at worst case, the entire
 %   image).
 %
-% See also projectionMatrix, baek2017Algorithm2, solvePatchesAligned
+% See also selectWeightsGrid, projectionMatrix, baek2017Algorithm2,
+% solvePatchesAligned
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
