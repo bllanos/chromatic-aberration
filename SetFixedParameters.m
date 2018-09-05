@@ -79,7 +79,7 @@ rho = [ 1, 1, 1, 1 ];
 % Weights on the two prior terms, the `weights` input argument.
 % Baek et al. (2017) used [1e-5, 0.1]
 weights = [
-    1e-2, 0, 0
+    1e-2, 1e-2, 0
 ];
 
 % Convergence tolerances in ADMM, the `tol` input argument.
@@ -97,7 +97,7 @@ baek2017Algorithm2Options.maxit = [ 500, 500 ];
 baek2017Algorithm2Options.varying_penalty_params = [2, 2, 10];
 
 % Types of norms to use on the prior terms
-baek2017Algorithm2Options.norms = [false, false, false];
+baek2017Algorithm2Options.norms = [true, true, true];
 
 % Whether to apply a non-negativity constraint (in which case, `rho` must
 % have three elements)
@@ -133,17 +133,17 @@ selectWeightsOptions.clip_weights = true;
 % Minimum values to use for regularization weights (or to use to set the
 % origin of the minimum distance function in case the data fitting matrix
 % is singular)
-selectWeightsOptions.minimum_weights = 1e-8 * ones(1, size(weights, 2));
+selectWeightsOptions.minimum_weights = eps * ones(1, size(weights, 2));
 
 % Maximum values to use for regularization weights
-selectWeightsOptions.maximum_weights = 10 * ones(1, size(weights, 2));
+selectWeightsOptions.maximum_weights = 1e-2 * ones(1, size(weights, 2));
 
 selectWeightsGridOptions = selectWeightsOptions;
 
 % Maximum number of grid search iterations
-selectWeightsGridOptions.maxit = 50;
+selectWeightsGridOptions.maxit = 100;
 
-selectWeightsGridOptions.tol = 1e-5;
+selectWeightsGridOptions.tol = 1e-6;
 
 selectWeightsOptions.method = 'fixed-point-safe';
 

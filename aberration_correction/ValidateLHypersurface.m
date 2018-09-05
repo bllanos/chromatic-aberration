@@ -436,12 +436,13 @@ if n_active_weights < 4
     outer_it_start = [1; iter_diff + 1];
     outer_it_end = [iter_diff; n_iter_all];
     iteration_colors = jet(n_iter_outer);
+    err_filter = [true, enabled_weights];
     
     % Display the search path for the chosen weights
     if plot_search_path
         log_weights = log(weights_search.weights(:, enabled_weights));
         log_weights_diff = [diff(log_weights, 1, 1); zeros(1, n_active_weights)];
-        log_err = log(weights_search.err(:, [true, enabled_weights]));
+        log_err = log(weights_search.err(:, err_filter));
         log_err_diff = [diff(log_err, 1, 1); zeros(1, size(log_err, 2))];
         
         figure;
@@ -585,7 +586,7 @@ if n_active_weights < 4
             mse = I_patch_s((border + 1):(end - border), (border + 1):(end - border), :) - I_patch_gt_clipped;
             all_mse_samples(s) = mean(mean(mean(mse.^2)));
         end
-        log_all_err_samples = log(all_err_samples(:, [true, enabled_weights]));
+        log_all_err_samples = log(all_err_samples(:, err_filter));
         log_all_mse_samples = log(all_mse_samples);
         
         % Also obtain mean-square-error values for the search path
@@ -606,19 +607,20 @@ if n_active_weights < 4
         figure;
         hold on
         title('L-hypersurface with search path for the selected weights')
+        origin_plot = weights_search.origin(err_filter);
         if n_active_weights == 1
             plot(...
                 log_all_err_samples(:, 2), log_all_err_samples(:, 1),...
                 'Marker', 'o'...
             );
-            plot(weights_search.origin(2), weights_search.origin(1), 'k*');
+            plot(origin_plot(2), origin_plot(1), 'k*');
         elseif n_active_weights == 2
             tri = delaunay(log_all_err_samples(:, 2), log_all_err_samples(:, 3));
             trisurf(...
                 tri, log_all_err_samples(:, 2), log_all_err_samples(:, 3), log_all_err_samples(:, 1),...
                 'FaceAlpha', 0.5 ...
             );
-            plot3(weights_search.origin(2), weights_search.origin(3), weights_search.origin(1), 'ko');
+            plot3(origin_plot(2), origin_plot(3), origin_plot(1), 'ko');
         else
             error('Unexpected number of active weights.');
         end
@@ -741,7 +743,7 @@ if n_active_weights < 4
         % Look at the minimum distance function of Belge et al. 2002.
         mdf_all_weights = sqrt(sum(...
             (log_all_err_samples - ...
-            repmat(weights_search.origin([true, enabled_weights]), n_samples_all, 1)).^2, 2 ...
+            repmat(weights_search.origin(err_filter), n_samples_all, 1)).^2, 2 ...
         ));
         figure;
         hold on
