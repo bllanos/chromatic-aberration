@@ -1,5 +1,5 @@
 %% Demosaicing and hyperspectral ADMM-based correction of chromatic aberration
-% Test the L-hypersurface method of Belge et al. 2002 for selecting
+% Test the grid search method of Song et al. 2016 for selecting
 % regularization weights
 %
 % ## Usage
@@ -27,7 +27,7 @@
 % #### True image
 % A spectral or colour image serving as the ground truth for image
 % estimation. The true image is needed to compare the weights selected
-% using the L-hypersurface with the weights giving the lowest error
+% using the grid search method with the weights giving the lowest error
 % relative to the true image.
 %
 % The true image must be associated with a '.mat' file containing a vector
@@ -84,26 +84,24 @@
 %
 % ### Graphical output
 %
-% Figures are opened showing the search path taken by the fixed-point
-% iterative method of Belge et al. 2002 for selecting regularization
-% weights. The search path can be shown on plots of the L-hypersurface, and
-% of the true error hypersurface, depending on the amount of graphical
-% output requested. (Sampling these surfaces is computationally-expensive.)
-% After sampling the L-hypersurface, further figures give insight into the
-% convergence properties of the fixed-point iterative method. Lastly,
-% additional figures show the location of the image patch used for
-% selecting the regularization weights, and compare the true and estimated
-% patches.
+% Figures are opened showing the search path taken by the grid search
+% method of Song et al. 2016 for selecting regularization weights. The
+% search path can be shown on plots of the L-hypersurface, and of the true
+% error hypersurface, depending on the amount of graphical output
+% requested. (Sampling these surfaces is computationally-expensive.) After
+% sampling the L-hypersurface, further figures give insight into the
+% convergence properties of the method. Lastly, additional figures show the
+% location of the image patch used for selecting the regularization
+% weights, and compare the true and estimated patches.
 %
-% Graphical output relating to the fixed-point iterative method will not be
-% produced if there are more than three regularization weights to be
-% chosen.
+% Graphical output relating to the grid search method will not be produced
+% if there are more than three regularization weights to be chosen.
 %
 % ### Estimated images
 %
 % One of each of the following types of images is created, depending on the
 % type of latent image (spectral or colour). The images are produced under
-% the regularization weights chosen by the method of Belge et al. 2002. The
+% the regularization weights chosen by the method of Song et al. 2016. The
 % filename of the input image, concatenated with a string of parameter
 % information, is represented by '*' below.
 % - '*_roi.tif' and '*_roi.mat': A cropped version of the input image
@@ -156,9 +154,6 @@
 % changed.)
 %
 % ## Notes
-% - The method of Belge et al. 2002 is derived for an unconstrained
-%   optimization problem, and so may not work for non-negativity
-%   constrained optimization.
 % - The image colour space is not altered by this script; RGB images are
 %   produced in the camera's colour space. See 'imreadRAW()' for code to
 %   convert an image to sRGB after demosaicing.
@@ -175,12 +170,11 @@
 %   of the aberrated RGB image. Summation allows multiple sharp bands to
 %   form a blurred colour channel.
 % - This script uses the first row of `weights` defined in
-%   'SetFixedParameters.m' to initialize the fixed-point algorithm for
-%   selecting regularization weights based on the image content
-%   (implemented in 'selectWeights()'). Elements of `weights(1, :)` can be
-%   set to zero to disable the corresponding regularization terms. Note
-%   that the number of nonzero elements of `weights(1, :)` determines the
-%   dimensionality of the visualizations output by this script.
+%   'SetFixedParameters.m' to determine which regularization weights to
+%   set. Elements of `weights(1, :)` set to zero disable the corresponding
+%   regularization terms. Note that the number of nonzero elements of
+%   `weights(1, :)` determines the dimensionality of the visualizations
+%   output by this script.
 % - This script could estimate downsampled images (configured by adjusting
 %   `downsampling_factor` in 'SetFixedParameters.m'), if it were to use
 %   'solvePatches()' instead of 'solvePatchesAligned()' for patch-based
@@ -204,11 +198,15 @@
 %   multiple regularization parameters in a generalized L-curve
 %   framework." Inverse Problems, vol. 18, pp. 1161-1183, 2002.
 %   doi:10.1088/0266-5611/18/4/314
+% - Song, Y., Brie, D., Djermoune, E.-H., & Henrot, S.. "Regularization
+%   Parameter Estimation for Non-Negative Hyperspectral Image
+%   Deconvolution." IEEE Transactions on Image Processing, vol. 25, no. 11,
+%   pp. 5316-5330, 2016. doi:10.1109/TIP.2016.2601489
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
 % University of Alberta, Department of Computing Science
-% File created August 24, 2018
+% File created September 5, 2018
 
 % List of parameters to save with results
 parameters_list = {
@@ -246,7 +244,7 @@ color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180828_K
 % Output directory for all images and saved parameters
 output_directory = '/home/llanos/Downloads';
 
-% ## Options for the L-hypersurface method of Belge et al. 2002
+% ## Options for the grid search method of Song et al. 2016
 
 % The top-left corner (row, column) of the image patch to use for
 % regularization weights selection. If empty (`[]`), the patch will be
@@ -270,7 +268,7 @@ run('SetFixedParameters.m')
 
 %% Load the images
 
-enabled_weights = selectWeightsOptions.enabled_weights;
+enabled_weights = selectWeightsGridOptions.enabled_weights;
 n_weights = length(enabled_weights);
 if ~isscalar(n_samples) && isvector(n_samples) && length(n_samples) ~= n_weights
     error('If `n_samples is a vector, it must have as many elements as there are weights, %d.', n_weights);
@@ -319,12 +317,12 @@ bands = bands_gt;
 if channel_mode
     baek2017Algorithm2Options.int_method = 'none';
     solvePatchesOptions.int_method = 'none';
-    selectWeightsOptions.int_method = 'none';
+    selectWeightsGridOptions.int_method = 'none';
     imageFormationOptions.int_method = 'none';
 else
     baek2017Algorithm2Options.int_method = int_method;
     solvePatchesOptions.int_method = int_method;
-    selectWeightsOptions.int_method = int_method;
+    selectWeightsGridOptions.int_method = int_method;
     imageFormationOptions.int_method = int_method;
 end
 
@@ -374,25 +372,21 @@ if any([size(I_gt, 1), size(I_gt, 2)] ~= image_sampling)
     ]);
 end
 
-%% L-hypersurface method for regularization weight selection
+%% Grid search method for regularization weight selection
 
 baek2017Algorithm2Options.add_border = false;
 baek2017Algorithm2Options.l_surface = true;
 patch_size = patch_sizes(1, :);
 padding = paddings(1);
 
-% Most of the options to selectWeights() are set in 'SetFixedParameters.m'
-selectWeightsOptions.initial_weights = weights(1, :);
-
-[ weights, patch_lim, I_patch, weights_search ] = selectWeights(...
+% Most of the options to selectWeightsGrid() are set in 'SetFixedParameters.m'
+[ weights, patch_lim, I_patch, weights_search ] = selectWeightsGrid(...
     I_raw, bayer_pattern, dispersionfun, sensor_map_resampled, bands,...
-    selectWeightsOptions,...
-    @baek2017Algorithm2, {...
-        rho, baek2017Algorithm2Options, false...
-    }, target_patch, selectWeightsVerbose...
+    rho, baek2017Algorithm2Options, selectWeightsGridOptions,...
+    target_patch, selectWeightsGridVerbose...
 );
 
-%% Visualize the L-hypersurface method
+%% Visualize the grid search method
 
 % Display the target patch
 if plot_image_patch
@@ -430,6 +424,7 @@ n_active_weights = sum(enabled_weights);
 if n_active_weights < 4
     
     to_all_weights = find(enabled_weights);
+    err_filter = [true, enabled_weights];
     n_iter_all = size(weights_search.weights, 1);
     n_iter_outer = weights_search.iter(end);
     iter_diff = find(diff(weights_search.iter));
@@ -441,7 +436,7 @@ if n_active_weights < 4
     if plot_search_path
         log_weights = log(weights_search.weights(:, enabled_weights));
         log_weights_diff = [diff(log_weights, 1, 1); zeros(1, n_active_weights)];
-        log_err = log(weights_search.err(:, [true, enabled_weights]));
+        log_err = log(weights_search.err(:, err_filter));
         log_err_diff = [diff(log_err, 1, 1); zeros(1, size(log_err, 2))];
         
         figure;
@@ -585,7 +580,7 @@ if n_active_weights < 4
             mse = I_patch_s((border + 1):(end - border), (border + 1):(end - border), :) - I_patch_gt_clipped;
             all_mse_samples(s) = mean(mean(mean(mse.^2)));
         end
-        log_all_err_samples = log(all_err_samples(:, [true, enabled_weights]));
+        log_all_err_samples = log(all_err_samples(:, err_filter));
         log_all_mse_samples = log(all_mse_samples);
         
         % Also obtain mean-square-error values for the search path
@@ -602,20 +597,36 @@ if n_active_weights < 4
         log_path_mse_samples = log(path_mse_samples);
         log_path_mse_samples_diff = [diff(log_path_mse_samples, 1); 0];
         
+        % Find out which points are on the Pareto front
+        pareto_front = zeros(n_samples_all, 1);
+        for s = 1:n_samples_all
+            err_s = all_err_samples(s, err_filter);
+            comp_err = all_err_samples(:, err_filter) - repmat(err_s, n_samples_all, 1);
+            pareto_front(s) = all(any(comp_err > 0, 2) || all(comp_err >= 0, 2), 1);
+        end
+        
         % Plotting
         figure;
         hold on
         title('L-hypersurface with search path for the selected weights')
         if n_active_weights == 1
             plot(...
-                log_all_err_samples(:, 2), log_all_err_samples(:, 1),...
-                'Marker', 'o'...
+                log_all_err_samples(:, 2), log_all_err_samples(:, 1)...
+            );
+            scatter(...
+                log_all_err_samples(pareto_front, 2), log_all_err_samples(pareto_front, 1),...
+                [], [0, 1, 0], 'filled'...
+            );
+            scatter(...
+                log_all_err_samples(~pareto_front, 2), log_all_err_samples(~pareto_front, 1),...
+                [], [1, 0, 0], 'filled'...
             );
             plot(weights_search.origin(2), weights_search.origin(1), 'k*');
         elseif n_active_weights == 2
             tri = delaunay(log_all_err_samples(:, 2), log_all_err_samples(:, 3));
             trisurf(...
-                tri, log_all_err_samples(:, 2), log_all_err_samples(:, 3), log_all_err_samples(:, 1),...
+                tri, log_all_err_samples(:, 2), log_all_err_samples(:, 3),...
+                log_all_err_samples(:, 1), pareto_front,...
                 'FaceAlpha', 0.5 ...
             );
             plot3(weights_search.origin(2), weights_search.origin(3), weights_search.origin(1), 'ko');
@@ -632,6 +643,7 @@ if n_active_weights < 4
             end
             xlabel(sprintf('log(regularization norm %d)', to_all_weights(1)))
             ylabel('log(residual)')
+            legend('L-hypersurface', 'Pareto front', 'Non-Pareto front', 'MDF origin', 'Search path');
         elseif n_active_weights == 2
             for io = 1:n_iter_outer
                 quiver3(...
@@ -643,11 +655,11 @@ if n_active_weights < 4
             xlabel(sprintf('log(regularization norm %d)', to_all_weights(1)))
             ylabel(sprintf('log(regularization norm %d)', to_all_weights(2)))
             zlabel('log(residual)')
+            legend('L-hypersurface (Pareto front in green)', 'MDF origin', 'Search path');
         else
             error('Unexpected number of active weights.');
         end
         hold off
-        legend('L-hypersurface', 'MDF origin', 'Search path');
         
         figure;
         hold on
@@ -657,10 +669,19 @@ if n_active_weights < 4
                 log_all_weights_samples(:, 1), log_all_mse_samples,...
                 'Marker', 'o'...
             );
+            scatter(...
+                log_all_err_samples(pareto_front, 2), log_all_mse_samples(pareto_front, 1),...
+                [], [0, 1, 0], 'filled'...
+            );
+            scatter(...
+                log_all_err_samples(~pareto_front, 2), log_all_mse_samples(~pareto_front, 1),...
+                [], [1, 0, 0], 'filled'...
+            );
         elseif n_active_weights == 2
             tri = delaunay(log_all_weights_samples(:, 1), log_all_weights_samples(:, 2));
             trisurf(...
-                tri, log_all_weights_samples(:, 1), log_all_weights_samples(:, 2), log_all_mse_samples,...
+                tri, log_all_weights_samples(:, 1), log_all_weights_samples(:, 2),...
+                log_all_mse_samples, pareto_front,...
                 'FaceAlpha', 0.5 ...
             );
         else
@@ -676,6 +697,7 @@ if n_active_weights < 4
             end
             xlabel(sprintf('log(weight %d)', to_all_weights(1)))
             ylabel('log(Mean square error) wrt ground truth patch')
+            legend('Patch log(MSE) surface', 'Pareto front', 'Non-Pareto front', 'Search path');
         elseif n_active_weights == 2
             for io = 1:n_iter_outer
                 quiver3(...
@@ -687,61 +709,16 @@ if n_active_weights < 4
             xlabel(sprintf('log(weight %d)', to_all_weights(1)))
             ylabel(sprintf('log(weight %d)', to_all_weights(2)))
             zlabel('log(Mean square error) wrt ground truth patch')
+            legend('Patch log(MSE) surface (Pareto front in green)', 'Search path');
         else
             error('Unexpected number of active weights.');
         end
         hold off
-        legend('Patch log(MSE) surface', 'Search path');
         
-        % Look at the behaviour of the fixed-point method
-        next_weights = all_err_samples(:, 1) .* (...
-            log_all_err_samples(:, (1:n_active_weights) + 1) - repmat(weights_search.origin(to_all_weights + 1), n_samples_all, 1)...
-        ) ./ (...
-            all_err_samples(:, to_all_weights + 1) .* (log_all_err_samples(:, 1) - repmat(weights_search.origin(1), n_samples_all, 1))...
-        );
-        next_weights(next_weights < 0) = nan;
-        next_weights(~isfinite(next_weights)) = nan;
-        log_next_weights = log(next_weights);
-        log_next_weights_diff = log_next_weights - log_all_weights_samples;
-        figure;
-        hold on
-        if n_active_weights == 1
-            plot(...
-                log_all_weights_samples,...
-                log_next_weights,...
-                'Marker', 'o'...
-            );
-            plot(log_all_weights_samples, log_all_weights_samples);
-            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
-            ylabel(sprintf('Next value of log(weight %d)', to_all_weights(1)))
-            legend('Fixed point formula result', 'y = x');
-        elseif n_active_weights == 2
-            quiver(...
-                log_all_weights_samples(:, 1), log_all_weights_samples(:, 2),...
-                log_next_weights_diff(:, 1), log_next_weights_diff(:, 2),...
-                'AutoScale', 'on'...
-            );
-            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
-            ylabel(sprintf('log(weight %d)', to_all_weights(2)))
-        elseif n_active_weights == 3
-            quiver3(...
-                log_all_weights_samples(:, 1), log_all_weights_samples(:, 2), log_all_weights_samples(:, 3),...
-                log_next_weights_diff(:, 1), log_next_weights_diff(:, 2), log_next_weights_diff(:, 3),...
-                'AutoScale', 'on'...
-            );
-            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
-            ylabel(sprintf('log(weight %d)', to_all_weights(2)))
-            zlabel(sprintf('log(weight %d)', to_all_weights(3)))
-        else
-            error('Unexpected number of active weights.');
-        end
-        title('Fixed-point formula for the next weights evaluated at the current weights')
-        hold off
-        
-        % Look at the minimum distance function of Belge et al. 2002.
+        % Look at the minimum distance function of Song et al. 2016.
         mdf_all_weights = sqrt(sum(...
-            (log_all_err_samples - ...
-            repmat(weights_search.origin([true, enabled_weights]), n_samples_all, 1)).^2, 2 ...
+            (all_err_samples - ...
+            repmat(weights_search.origin, n_samples_all, 1)).^2, 2 ...
         ));
         figure;
         hold on

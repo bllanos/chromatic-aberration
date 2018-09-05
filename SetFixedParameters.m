@@ -126,11 +126,6 @@ selectWeightsOptions.patch_size = patch_sizes(1, :);
 
 selectWeightsOptions.enabled_weights = logical(weights(1, :));
 
-selectWeightsOptions.method = 'fixed-point-safe';
-
-% Maximum number of fixed-point (1) and line search (2) iterations
-selectWeightsOptions.maxit = [100, 100];
-
 % Whether or not to enforce 'minimum_weights' and 'maximum_weights' given
 % in this same options structure
 selectWeightsOptions.clip_weights = true;
@@ -143,6 +138,18 @@ selectWeightsOptions.minimum_weights = 1e-8 * ones(1, size(weights, 2));
 % Maximum values to use for regularization weights
 selectWeightsOptions.maximum_weights = 10 * ones(1, size(weights, 2));
 
+selectWeightsGridOptions = selectWeightsOptions;
+
+% Maximum number of grid search iterations
+selectWeightsGridOptions.maxit = 50;
+
+selectWeightsGridOptions.tol = 1e-5;
+
+selectWeightsOptions.method = 'fixed-point-safe';
+
+% Maximum number of fixed-point (1) and line search (2) iterations
+selectWeightsOptions.maxit = [100, 100];
+
 % Relative convergence criteria for the fixed-point iterative algorithm and
 % for the inner line search
 selectWeightsOptions.tol = [1e-4, 1e-2];
@@ -153,3 +160,4 @@ baek2017Algorithm2Options.l_err_border = [paddings(1), paddings(1)];
 % ## Debugging Flags
 baek2017Algorithm2Verbose = true;
 selectWeightsVerbose = true;
+selectWeightsGridVerbose = true;
