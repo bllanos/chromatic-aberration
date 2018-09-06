@@ -133,6 +133,15 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeightsGrid(...
 %     specifying maximum values for the regularization weights. These
 %     values will be used if 'clip_weights' is `true`, and otherwise this
 %     field is optional.
+%   - 'scaling': A character vector indicating how to transform the
+%     coordinate frame of the response surface prior to evaluating the
+%     minimum distance function. A value of 'none' will deactivate scaling.
+%     A value of 'normalized' will cause each dimension to be linearly
+%     scaled so that the coordinates of points on the response surface are
+%     between zero and one, with zero representing the origin of the
+%     minimum distance function, and one representing a maximum value. A
+%     value of 'log' will cause each dimensions to be logarithmically
+%     scaled.
 %   - 'tol': The first element is the threshold value of the relative
 %     change in the minimum distance criterion from one iteration to the
 %     next. When the change is less than this threshold, iteration
@@ -189,12 +198,23 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeightsGrid(...
 %     is the second output argument of 'baek2017Algorithm2()' when called
 %     using `search.weights(i, :)` as the `weights` input argument
 %     'baek2017Algorithm2()'.
+%   - 'err_scaled': A version of 'err' where the values have been scaled
+%     according to the scaling required by `options.scaling`.
 %   - 'origin': The reference point of the minimum distance criterion used
 %     for the grid search algorithm. A vector of length
 %     (length(options.enabled_weights) + 1), where the first element
 %     corresponds to the residual, and the remaining elements correspond to
 %     the regularization terms. The elements corresponding to disabled
 %     regularization terms are set to zero.
+%   - 'err_max': The maximum values of all objectives in the image
+%     estimation problem. A vector of length
+%     (length(options.enabled_weights) + 1), where the first element
+%     corresponds to the residual, and the remaining elements correspond to
+%     the regularization terms. The elements corresponding to disabled
+%     regularization terms are set to zero. 'err_max' and 'origin' are used
+%     to scale the response surface when `options.scaling` is 'linear'.
+%   - 'origin_scaled': A version of 'origin' where the values have been
+%     scaled according to the scaling required by `options.scaling`.
 %   - 'origin_min_weights': The minimum regularization weight values,
 %     corresponding to the first element of 'origin'. A vector with the
 %     same length as `options.enabled_weights`, with the elements
@@ -252,12 +272,35 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeightsGrid(...
 % University of Alberta, Department of Computing Science
 % File created September 4, 2018
 
-    function [err_raw, I] = getErr(weights)
-        [I, err_raw] = baek2017Algorithm2(...
-            image_sampling_f, align_f, dispersion_f, sensitivity, lambda,...
-            J_f, weights, rho, baek2017Algorithm2Options...
-        );
-        err_raw = err_raw.';
+    function [err_raw, err_scaled, I] = getErr(weights)
+        n = size(weights, 1);
+        if n == 1
+            [I, err_raw] = baek2017Algorithm2(...
+                image_sampling_f, align_f, dispersion_f, sensitivity, lambda,...
+                J_f, weights, rho, baek2017Algorithm2Options...
+            );
+            err_raw = err_raw.';
+        else
+            I = [];
+            err_raw = zeros(n, n_err);
+            parfor s = 1:n
+                [~, err_raw_s] = baek2017Algorithm2(...
+                    image_sampling_f, align_f, dispersion_f, sensitivity, lambda,...
+                    J_f, weights(s, :), rho, baek2017Algorithm2Options...
+                );
+                err_raw(s, :) = err_raw_s;
+            end
+        end
+        err_scaled = err_raw;
+        if nargout > 1
+            if scaling == 1
+                err_scaled(:, err_filter) = (err_raw(:, err_filter) - repmat(err_min, n, 1)) ./ repmat(err_range, n, 1);
+            elseif scaling == 2
+                err_scaled(:, err_filter) = log(err_raw(:, err_filter));
+            elseif scaling ~= 0
+                error('Unexpected value of scaling, %d.', scaling);
+            end
+        end
     end
 
 nargoutchk(1, 4);
@@ -265,6 +308,16 @@ narginchk(8, 10);
 
 if any(options.minimum_weights <= 0)
     error('All minimum values for regularization weights must be greater than zero.');
+end
+
+if strcmp(options.scaling, 'none')
+    scaling = 0;
+elseif strcmp(options.scaling, 'normalized')
+    scaling = 1;
+elseif strcmp(options.scaling, 'log')
+    scaling = 2;
+else
+    error('Unrecognized value %s of `options.scaling`', options.scaling);
 end
 
 target_patch = [];
@@ -345,17 +398,24 @@ baek2017Algorithm2Options.nonneg = false;
 
 err = getErr(origin_min_weights);
 origin = [err(1), zeros(1, n_active_weights)];
+err_max = [0, err([false, enabled_weights])];
+err = getErr(origin_max_weights);
+err_max(1) = err(1);
 for w = 1:n_active_weights
     point = zeros(1, n_weights);
     point(to_all_weights(w)) = origin_max_weights(w);
     err = getErr(point);
     origin(w + 1) = err(to_all_weights(w) + 1);
 end
+err_min = origin;
+err_range = err_max - err_min;
+[~, origin_scaled] = getErr(origin_min_weights);
+
 if verbose
     fprintf('The origin is (%d', origin(1));
     for aw = 1:n_weights
         if enabled_weights(aw)
-            fprintf(', %d', origin(to_active_weights(aw)));
+            fprintf(', %d', origin(to_active_weights(aw) + 1));
         else
             fprintf(', _');
         end
@@ -403,16 +463,21 @@ output_path = (nargout > 3);
 if output_path
     search.origin = [origin(1), zeros(1, n_weights)];
     search.origin([false, enabled_weights]) = origin(2:end);
+    search.err_max = [err_max(1), zeros(1, n_weights)];
+    search.err_max([false, enabled_weights]) = err_max(2:end);
     search.origin_min_weights = origin_min_weights;
     search.origin_max_weights = zeros(1, n_weights);
     search.origin_max_weights(enabled_weights) = origin_max_weights;
+    search.origin_scaled = origin_scaled;
 end
+origin_scaled = origin_scaled(err_filter);
 
 % Grid search iteration
 
 if output_path
     search.weights = zeros(options.n_iter(1) + 1, n_weights);
     search.err = zeros(options.n_iter(1) + 1, n_err);
+    search.err_scaled = zeros(options.n_iter(1) + 1, n_err);
 end
 
 grid_side_length = 4;
@@ -427,9 +492,8 @@ end
 eval_side_length = grid_side_length - 2;
 n_samples = eval_side_length ^ n_active_weights;
 weights_samples = zeros(n_samples, n_weights);
-err_samples = zeros(n_samples, n_err);
 
-origin_rep = repmat(origin, n_samples, 1);
+origin_scaled_rep = repmat(origin_scaled, n_samples, 1);
 
 converged = false;
 subs = cell(n_active_weights, 1);
@@ -445,20 +509,16 @@ for iter = 1:options.n_iter(1)
     end
     
     % Evaluate the response surface at the grid points
-    parfor s = 1:n_samples
-        [~, err_samples(s, :)] = baek2017Algorithm2(...
-            image_sampling_f, align_f, dispersion_f, sensitivity, lambda,...
-            J_f, weights_samples(s, :), rho, baek2017Algorithm2Options...
-        );
-    end
+    [err_samples, err_scaled_samples] = getErr(weights_samples);
     
     % Evaluate the minimum distance criterion
-    distance_sq = sum((err_samples(:, err_filter) - origin_rep).^2, 2);
+    distance_sq = sum((err_samples(:, err_filter) - origin_scaled_rep).^2, 2);
     [distance_sq_current, min_ind] = min(distance_sq);
     
     if output_path
         search.weights(iter, :) = weights_samples(min_ind, :);
         search.err(iter, :) = err_samples(min_ind, :);
+        search.err_scaled(iter, :) = err_scaled_samples(min_ind, :);
     end
     
     % Check for convergence
@@ -530,13 +590,15 @@ if options.clip_weights
     end
 end
 
-[err, I_patch] = getErr(weights);
+[err, err_scaled, I_patch] = getErr(weights);
 if output_path
     output_index = iter + 1;
     search.weights(output_index, :) = weights;
     search.weights = search.weights(1:output_index, :);
     search.err(output_index, :) = err;
     search.err = search.err(1:output_index, :);
+    search.err_scaled(output_index, :) = err_scaled;
+    search.err_scaled = search.err_scaled(1:output_index, :);
     varargout{1} = search;
 end
 

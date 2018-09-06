@@ -427,12 +427,28 @@ if n_active_weights < 4
     err_filter = [true, enabled_weights];
     n_iter = size(weights_search.weights, 1);
     
+    if strcmp(selectWeightsGridOptions.scaling, 'none')
+        scalingfun = @(x, x_min, x_range) x;
+    elseif strcmp(selectWeightsGridOptions.scaling, 'normalized')
+        scalingfun = @(x, x_min, x_range) (x - repmat(x_min, size(x, 1), 1)) ./ repmat(x_range, size(x, 1), 1);
+    elseif strcmp(selectWeightsGridOptions.scaling, 'log')
+        scalingfun = @(x, x_min, x_range) log(x);
+    else
+        error('Unrecognized value %s of `selectWeightsGridOptions.scaling`', selectWeightsGridOptions.scaling);
+    end
+    err_min = weights_search.origin(err_filter);
+    err_max = weights_search.err_max(err_filter);
+    err_range = err_max - err_min;
+    
     % Display the search path for the chosen weights
     if plot_search_path
-        log_weights = log(weights_search.weights(:, enabled_weights));
+        weights_path = weights_search.weights(:, enabled_weights);
+        log_weights = log(weights_path);
         log_weights_diff = [diff(log_weights, 1, 1); zeros(1, n_active_weights)];
-        log_err = log(weights_search.err(:, err_filter));
-        log_err_diff = [diff(log_err, 1, 1); zeros(1, size(log_err, 2))];
+        err_path = weights_search.err(:, err_filter);
+        err_path_diff = [diff(err_path, 1, 1); zeros(1, size(err_path, 2))];
+        sc_err = weights_search.err_scaled(:, err_filter);
+        sc_err_diff = [diff(sc_err, 1, 1); zeros(1, size(sc_err, 2))];
         
         figure;
         hold on
@@ -472,34 +488,68 @@ if n_active_weights < 4
         hold on
         if n_active_weights == 1
             quiver(...
-                log_err(:, 2), log_err(:, 1),...
-                log_err_diff(:, 2), log_err_diff(:, 1),...
+                err_path(:, 2), err_path(:, 1),...
+                err_path_diff(:, 2), err_path_diff(:, 1),...
                 'AutoScale', 'off'...
             );
-            xlabel(sprintf('log(regularization norm %d)', to_all_weights(1)))
-            ylabel('log(residual)')
+            xlabel(sprintf('regularization norm %d', to_all_weights(1)))
+            ylabel('residual')
         elseif n_active_weights == 2
             quiver3(...
-                log_err(:, 2), log_err(:, 3), log_err(:, 1),...
-                log_err_diff(:, 2), log_err_diff(:, 3), log_err_diff(:, 1),...
+                err_path(:, 2), err_path(:, 3), err_path(:, 1),...
+                err_path_diff(:, 2), err_path_diff(:, 3), err_path_diff(:, 1),...
                 'AutoScale', 'off'...
             );
-            xlabel(sprintf('log(regularization norm %d)', to_all_weights(1)))
-            ylabel(sprintf('log(regularization norm %d)', to_all_weights(2)))
-            zlabel('log(residual)')
+            xlabel(sprintf('regularization norm %d', to_all_weights(1)))
+            ylabel(sprintf('regularization norm %d', to_all_weights(2)))
+            zlabel('residual')
         elseif n_active_weights == 3
             quiver3(...
-                log_err(:, 2), log_err(:, 3), log_err(:, 4),...
-                log_err_diff(:, 2), log_err_diff(:, 3), log_err_diff(:, 4),...
+                err_path(:, 2), err_path(:, 3), err_path(:, 4),...
+                err_path_diff(:, 2), err_path_diff(:, 3), err_path_diff(:, 4),...
                 'AutoScale', 'off'...
             );
-            xlabel(sprintf('log(regularization norm %d)', to_all_weights(1)))
-            ylabel(sprintf('log(regularization norm %d)', to_all_weights(2)))
-            zlabel(sprintf('log(regularization norm %d)', to_all_weights(3)))
+            xlabel(sprintf('regularization norm %d', to_all_weights(1)))
+            ylabel(sprintf('regularization norm %d', to_all_weights(2)))
+            zlabel(sprintf('regularization norm %d', to_all_weights(3)))
         else
             error('Unexpected number of active weights.');
         end
         title('Search path for the selected weights, in error space')
+        hold off
+        
+        figure;
+        hold on
+        if n_active_weights == 1
+            quiver(...
+                sc_err(:, 2), sc_err(:, 1),...
+                sc_err_diff(:, 2), sc_err_diff(:, 1),...
+                'AutoScale', 'off'...
+            );
+            xlabel(sprintf('scaled regularization norm %d', to_all_weights(1)))
+            ylabel('scaled residual')
+        elseif n_active_weights == 2
+            quiver3(...
+                sc_err(:, 2), sc_err(:, 3), sc_err(:, 1),...
+                sc_err_diff(:, 2), sc_err_diff(:, 3), sc_err_diff(:, 1),...
+                'AutoScale', 'off'...
+            );
+            xlabel(sprintf('scaled regularization norm %d', to_all_weights(1)))
+            ylabel(sprintf('scaled regularization norm %d', to_all_weights(2)))
+            zlabel('scaled residual')
+        elseif n_active_weights == 3
+            quiver3(...
+                sc_err(:, 2), sc_err(:, 3), sc_err(:, 4),...
+                sc_err_diff(:, 2), sc_err_diff(:, 3), sc_err_diff(:, 4),...
+                'AutoScale', 'off'...
+            );
+            xlabel(sprintf('scaled regularization norm %d', to_all_weights(1)))
+            ylabel(sprintf('scaled regularization norm %d', to_all_weights(2)))
+            zlabel(sprintf('scaled regularization norm %d', to_all_weights(3)))
+        else
+            error('Unexpected number of active weights.');
+        end
+        title('Search path for the selected weights, in scaled error space')
         hold off
     end
     
@@ -528,7 +578,8 @@ if n_active_weights < 4
                 prod(n_samples_full(1:(w-1))), 1 ...
             );
         end
-        log_all_weights_samples = log(all_weights_samples(:, enabled_weights));
+        all_weights_samples_plot = all_weights_samples(:, enabled_weights);
+        log_all_weights_samples = log(all_weights_samples_plot);
         
         % Construct arguments for the image estimation algorithm
         if isempty(bayer_pattern)
@@ -563,7 +614,8 @@ if n_active_weights < 4
             mse = I_patch_s((border + 1):(end - border), (border + 1):(end - border), :) - I_patch_gt_clipped;
             all_mse_samples(s) = mean(mean(mean(mse.^2)));
         end
-        log_all_err_samples = log(all_err_samples(:, err_filter));
+        all_err_samples_plot = all_err_samples(:, err_filter);
+        sc_all_err_samples = scalingfun(all_err_samples_plot, err_min, err_range);
         log_all_mse_samples = log(all_mse_samples);
         
         % Also obtain mean-square-error values for the search path
@@ -591,26 +643,26 @@ if n_active_weights < 4
         % Plotting
         figure;
         hold on
-        title('L-hypersurface with search path for the selected weights')
-        origin_plot = log(weights_search.origin(err_filter));
+        title('Response surface with search path for the selected weights')
+        origin_plot = weights_search.origin(err_filter);
         if n_active_weights == 1
             plot(...
-                log_all_err_samples(:, 2), log_all_err_samples(:, 1)...
+                all_err_samples(:, 2), all_err_samples(:, 1)...
             );
             scatter(...
-                log_all_err_samples(pareto_front_filter, 2), log_all_err_samples(pareto_front_filter, 1),...
+                all_err_samples(pareto_front_filter, 2), all_err_samples(pareto_front_filter, 1),...
                 [], [0, 1, 0], 'filled'...
             );
             scatter(...
-                log_all_err_samples(~pareto_front_filter, 2), log_all_err_samples(~pareto_front_filter, 1),...
+                all_err_samples(~pareto_front_filter, 2), all_err_samples(~pareto_front_filter, 1),...
                 [], [1, 0, 0], 'filled'...
             );
             plot(origin_plot(2), origin_plot(1), 'k*');
         elseif n_active_weights == 2
-            tri = delaunay(log_all_err_samples(:, 2), log_all_err_samples(:, 3));
+            tri = delaunay(all_err_samples(:, 2), all_err_samples(:, 3));
             trisurf(...
-                tri, log_all_err_samples(:, 2), log_all_err_samples(:, 3),...
-                log_all_err_samples(:, 1), double(pareto_front_filter),...
+                tri, all_err_samples(:, 2), all_err_samples(:, 3),...
+                all_err_samples(:, 1), double(pareto_front_filter),...
                 'FaceAlpha', 0.5 ...
             );
             plot3(origin_plot(2), origin_plot(3), origin_plot(1), 'ko');
@@ -619,23 +671,75 @@ if n_active_weights < 4
         end
         if n_active_weights == 1
             quiver(...
-                log_err(:, 2), log_err(:, 1),...
-                log_err_diff(:, 2), log_err_diff(:, 1),...
+                err_path(:, 2), err_path(:, 1),...
+                err_path_diff(:, 2), err_path_diff(:, 1),...
                 'AutoScale', 'off'...
             );
-            xlabel(sprintf('log(regularization norm %d)', to_all_weights(1)))
-            ylabel('log(residual)')
-            legend('L-hypersurface', 'Pareto front', 'Non-Pareto front', 'MDF origin', 'Search path');
+            xlabel(sprintf('regularization norm %d', to_all_weights(1)))
+            ylabel('residual')
+            legend('Response surface', 'Pareto front', 'Non-Pareto front', 'MDF origin', 'Search path');
         elseif n_active_weights == 2
             quiver3(...
-                log_err(:, 2), log_err(:, 3), log_err(:, 1),...
-                log_err_diff(:, 2), log_err_diff(:, 3), log_err_diff(:, 1),...
+                err_path(:, 2), err_path(:, 3), err_path(:, 1),...
+                err_path_diff(:, 2), err_path_diff(:, 3), err_path_diff(:, 1),...
                 'AutoScale', 'off'...
             );
-            xlabel(sprintf('log(regularization norm %d)', to_all_weights(1)))
-            ylabel(sprintf('log(regularization norm %d)', to_all_weights(2)))
-            zlabel('log(residual)')
-            legend('L-hypersurface (Pareto front coloured)', 'MDF origin', 'Search path');
+            xlabel(sprintf('regularization norm %d', to_all_weights(1)))
+            ylabel(sprintf('regularization norm %d', to_all_weights(2)))
+            zlabel('residual')
+            legend('Response surface (Pareto front coloured)', 'MDF origin', 'Search path');
+        else
+            error('Unexpected number of active weights.');
+        end
+        hold off
+        
+        figure;
+        hold on
+        title('Scaled response surface with search path for the selected weights')
+        sc_origin_plot = weights_search.origin_scaled(err_filter);
+        if n_active_weights == 1
+            plot(...
+                sc_all_err_samples(:, 2), sc_all_err_samples(:, 1)...
+            );
+            scatter(...
+                sc_all_err_samples(pareto_front_filter, 2), sc_all_err_samples(pareto_front_filter, 1),...
+                [], [0, 1, 0], 'filled'...
+            );
+            scatter(...
+                sc_all_err_samples(~pareto_front_filter, 2), sc_all_err_samples(~pareto_front_filter, 1),...
+                [], [1, 0, 0], 'filled'...
+            );
+            plot(sc_origin_plot(2), sc_origin_plot(1), 'k*');
+        elseif n_active_weights == 2
+            tri = delaunay(sc_all_err_samples(:, 2), sc_all_err_samples(:, 3));
+            trisurf(...
+                tri, sc_all_err_samples(:, 2), sc_all_err_samples(:, 3),...
+                sc_all_err_samples(:, 1), double(pareto_front_filter),...
+                'FaceAlpha', 0.5 ...
+            );
+            plot3(sc_origin_plot(2), sc_origin_plot(3), sc_origin_plot(1), 'ko');
+        else
+            error('Unexpected number of active weights.');
+        end
+        if n_active_weights == 1
+            quiver(...
+                sc_err(:, 2), sc_err(:, 1),...
+                sc_err_diff(:, 2), sc_err_diff(:, 1),...
+                'AutoScale', 'off'...
+            );
+            xlabel(sprintf('scaled regularization norm %d', to_all_weights(1)))
+            ylabel('scaled residual')
+            legend('Scaled response surface', 'Pareto front', 'Non-Pareto front', 'Scaled MDF origin', 'Search path');
+        elseif n_active_weights == 2
+            quiver3(...
+                sc_err(:, 2), sc_err(:, 3), sc_err(:, 1),...
+                sc_err_diff(:, 2), sc_err_diff(:, 3), sc_err_diff(:, 1),...
+                'AutoScale', 'off'...
+            );
+            xlabel(sprintf('scaled regularization norm %d', to_all_weights(1)))
+            ylabel(sprintf('scaled regularization norm %d', to_all_weights(2)))
+            zlabel('scaled residual')
+            legend('Scaled response surface (Pareto front coloured)', 'Scaled MDF origin', 'Search path');
         else
             error('Unexpected number of active weights.');
         end
@@ -693,8 +797,8 @@ if n_active_weights < 4
         
         % Look at the minimum distance function of Song et al. 2016.
         mdf_all_weights = sqrt(sum(...
-            (all_err_samples(:, err_filter) - ...
-            repmat(weights_search.origin(err_filter), n_samples_all, 1)).^2, 2 ...
+            (sc_all_err_samples(:, err_filter) - ...
+            repmat(sc_origin_plot, n_samples_all, 1)).^2, 2 ...
         ));
         figure;
         hold on
@@ -705,22 +809,22 @@ if n_active_weights < 4
                 'Marker', 'o'...
             );
             xlabel(sprintf('log(weight %d)', to_all_weights(1)))
-            ylabel('Squared distance to origin')
+            ylabel('Distance to origin')
         elseif n_active_weights == 2
             trisurf(...
                 tri, log_all_weights_samples(:, 1), log_all_weights_samples(:, 2), mdf_all_weights...
             );
             xlabel(sprintf('log(weight %d)', to_all_weights(1)))
             ylabel(sprintf('log(weight %d)', to_all_weights(2)))
-            zlabel('Squared distance to origin');
+            zlabel('Distance to origin');
         else
             error('Unexpected number of active weights.');
         end
-        title('Squared distance to the origin of the minimum distance function')
+        title('Distance to the origin of the minimum distance function')
         hold off
         
     elseif plot_hypersurfaces
-        warning('The L-hypersurface and the MSE hypersurface cannot be plotted when there are more than two active regularization terms.');
+        warning('The response surface and the MSE hypersurface cannot be plotted when there are more than two active regularization terms.');
     end
 
 elseif plot_search_path || plot_hypersurfaces

@@ -395,7 +395,7 @@ if verbose
     fprintf('The origin is (%d', origin(1));
     for aw = 1:n_weights
         if enabled_weights(aw)
-            fprintf(', %d', origin(to_active_weights(aw)));
+            fprintf(', %d', origin(to_active_weights(aw) + 1));
         else
             fprintf(', _');
         end
