@@ -111,8 +111,10 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeightsGrid(...
 %     be included in the grid search method. If `enabled_weights(i)` is
 %     `false`, the weight for the i-th regularization term will be set to
 %     zero, rather than set using the grid search method.
-%   - 'maxit': The maximum number of grid refinement iterations to perform
-%     in the method of Song et al. 2016.
+%   - 'n_iter': The first element is the maximum number of grid refinement
+%     iterations to perform in the method of Song et al. 2016. The second
+%     is the minimum number of iterations to perform (which takes priority
+%     over termination based on 'tol').
 %   - 'clip_weights': If `true`, the origin of the minimum distance
 %     criterion will be set based on 'minimum_weights' and
 %     'maximum_weights', rather than chosen semi-automatically, and the
@@ -409,8 +411,8 @@ end
 % Grid search iteration
 
 if output_path
-    search.weights = zeros(options.maxit + 1, n_weights);
-    search.err = zeros(options.maxit + 1, n_err);
+    search.weights = zeros(options.n_iter(1) + 1, n_weights);
+    search.err = zeros(options.n_iter(1) + 1, n_err);
 end
 
 grid_side_length = 4;
@@ -432,7 +434,7 @@ origin_rep = repmat(origin, n_samples, 1);
 converged = false;
 subs = cell(n_active_weights, 1);
 eval_side_length_rep = repmat(eval_side_length, 1, n_active_weights);
-for iter = 1:options.maxit
+for iter = 1:options.n_iter(1)
     
     % Generate the grid of weights
     for w = 1:n_active_weights
@@ -485,7 +487,7 @@ for iter = 1:options.maxit
         fprintf('), distance = %g (change: %g)\n', distance_sq_prev, change);
     end
     
-    if converged
+    if converged && iter >= options.n_iter(2)
         break;
     end
     
