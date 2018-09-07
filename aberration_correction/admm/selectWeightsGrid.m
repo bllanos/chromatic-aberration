@@ -376,7 +376,7 @@ to_all_weights = find(enabled_weights);
 
 origin_min_weights = reshape(options.minimum_weights, 1, n_weights);
 if options.clip_weights
-    origin_max_weights = reshape(options.maximum_weights(enabled_weights), 1, n_active_weights);
+    origin_max_weights = reshape(options.maximum_weights, 1, n_weights);
 else
     H = projectionMatrix(...
         image_sampling_f, align_f, dispersion_f, sensitivity, lambda,...
@@ -388,7 +388,7 @@ else
         % Select the smallest singular value
         origin_min_weights = repmat(s_min ^ 2, 1, n_weights);
     end
-    origin_max_weights = repmat(svds(H, 1) ^ 2, 1, n_active_weights);
+    origin_max_weights = repmat(svds(H, 1) ^ 2, 1, n_weights);
 end
 origin_min_weights(~enabled_weights) = 0;
 
@@ -403,13 +403,20 @@ err = getErr(origin_max_weights);
 err_max(1) = err(1);
 for w = 1:n_active_weights
     point = zeros(1, n_weights);
-    point(to_all_weights(w)) = origin_max_weights(w);
+    point(to_all_weights(w)) = origin_max_weights(to_all_weights(w));
     err = getErr(point);
     origin(w + 1) = err(to_all_weights(w) + 1);
 end
 err_min = origin;
 err_range = err_max - err_min;
-[~, origin_scaled] = getErr(origin_min_weights);
+[~, err_scaled] = getErr(origin_min_weights);
+origin_scaled = [err_scaled(1), zeros(1, n_active_weights)];
+for w = 1:n_active_weights
+    point = zeros(1, n_weights);
+    point(to_all_weights(w)) = origin_max_weights(to_all_weights(w));
+    [~, err_scaled] = getErr(point);
+    origin_scaled(w + 1) = err_scaled(to_all_weights(w) + 1);
+end
 
 if verbose
     fprintf('The origin is (%d', origin(1));
@@ -440,7 +447,7 @@ if verbose
     fprintf('\n\tmaximum weights (');
     for aw = 1:n_weights
         if enabled_weights(aw)
-            fprintf('%d', origin_max_weights(to_active_weights(aw)));
+            fprintf('%d', origin_max_weights(aw));
         else
             fprintf('_');
         end
@@ -466,11 +473,10 @@ if output_path
     search.err_max = [err_max(1), zeros(1, n_weights)];
     search.err_max([false, enabled_weights]) = err_max(2:end);
     search.origin_min_weights = origin_min_weights;
-    search.origin_max_weights = zeros(1, n_weights);
-    search.origin_max_weights(enabled_weights) = origin_max_weights;
-    search.origin_scaled = origin_scaled;
+    search.origin_max_weights = origin_max_weights;
+    search.origin_scaled = [origin_scaled(1), zeros(1, n_weights)];
+    search.origin_scaled([false, enabled_weights]) = origin_scaled(2:end);
 end
-origin_scaled = origin_scaled(err_filter);
 
 % Grid search iteration
 
@@ -485,7 +491,7 @@ grid_vectors = zeros(grid_side_length, n_active_weights);
 for w = 1:n_active_weights
     grid_vectors(:, w) = logspace(...
                 log10(origin_min_weights(to_all_weights(w))),...
-                log10(origin_max_weights(w)),...
+                log10(origin_max_weights(to_all_weights(w))),...
                 grid_side_length...
     ).';
 end
@@ -512,7 +518,7 @@ for iter = 1:options.n_iter(1)
     [err_samples, err_scaled_samples] = getErr(weights_samples);
     
     % Evaluate the minimum distance criterion
-    distance_sq = sum((err_samples(:, err_filter) - origin_scaled_rep).^2, 2);
+    distance_sq = sum((err_scaled_samples(:, err_filter) - origin_scaled_rep).^2, 2);
     [distance_sq_current, min_ind] = min(distance_sq);
     
     if output_path

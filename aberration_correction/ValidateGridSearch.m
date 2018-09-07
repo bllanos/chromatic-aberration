@@ -249,7 +249,7 @@ output_directory = '/home/llanos/Downloads';
 % The top-left corner (row, column) of the image patch to use for
 % regularization weights selection. If empty (`[]`), the patch will be
 % selected by the user.
-target_patch = []; %[478, 328];
+target_patch = [334, 320]; %[473, 346];
 
 % ## Parameters controlling graphical output
 
@@ -261,7 +261,7 @@ plot_hypersurfaces = true;
 % constructing the L-hypersurface
 % This can be a scalar, or a vector with a length equal to the number of
 % weights (not only the number of active weights)
-n_samples = 25;
+n_samples = 100;
 
 % Parameters which do not usually need to be changed
 run('SetFixedParameters.m')
@@ -821,6 +821,69 @@ if n_active_weights < 4
             error('Unexpected number of active weights.');
         end
         title('Distance to the origin of the minimum distance function')
+        hold off
+        
+        figure;
+        hold on
+        title('Patch log(MSE) surface compared with minimum distance function')
+        log_all_mse_samples_scaled = (log_all_mse_samples - min(log_all_mse_samples))...
+            / (max(log_all_mse_samples) - min(log_all_mse_samples));
+        if n_active_weights == 1
+            plot(...
+                log_all_weights_samples(:, 1), log_all_mse_samples_scaled,...
+                '-or'...
+            );
+        elseif n_active_weights == 2
+            tri = delaunay(log_all_weights_samples(:, 1), log_all_weights_samples(:, 2));
+            trisurf(...
+                tri, log_all_weights_samples(:, 1), log_all_weights_samples(:, 2),...
+                log_all_mse_samples_scaled, ones(n_samples_all, 1),...
+                'FaceAlpha', 0.5 ...
+            );
+        else
+            error('Unexpected number of active weights.');
+        end
+        mdf_all_weights_scaled = (mdf_all_weights - min(mdf_all_weights))...
+            / (max(mdf_all_weights) - min(mdf_all_weights));
+        if n_active_weights == 1
+            plot(...
+                log_all_weights_samples,...
+                mdf_all_weights_scaled,...
+                '-sg'...
+            );
+            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
+            ylabel('Normalized value')
+        elseif n_active_weights == 2
+            trisurf(...
+                tri, log_all_weights_samples(:, 1), log_all_weights_samples(:, 2),...
+                mdf_all_weights_scaled, zeros(n_samples_all, 1),...
+                'FaceAlpha', 0.5 ...
+            );
+            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
+            ylabel(sprintf('log(weight %d)', to_all_weights(2)))
+            zlabel('Normalized value');
+        else
+            error('Unexpected number of active weights.');
+        end
+        log_path_mse_samples_scaled = (log_path_mse_samples - min(log_all_mse_samples))...
+            / (max(log_all_mse_samples) - min(log_all_mse_samples));
+        log_path_mse_samples_scaled_diff = [diff(log_path_mse_samples_scaled, 1); 0];
+        if n_active_weights == 1
+            quiver(...
+                log_weights(:, 1), log_path_mse_samples_scaled,...
+                log_weights_diff(:, 1), log_path_mse_samples_scaled_diff,...
+                'AutoScale', 'off', 'Color', [0, 0, 1]...
+            );
+        elseif n_active_weights == 2
+            quiver3(...
+                log_weights(:, 1), log_weights(:, 2), log_path_mse_samples_scaled,...
+                log_weights_diff(:, 1), log_weights_diff(:, 2), log_path_mse_samples_scaled_diff,...
+                'AutoScale', 'off', 'Color', [0, 0, 1]...
+            );
+        else
+            error('Unexpected number of active weights.');
+        end
+        legend('log(MSE)', 'Minimum distance function', 'Search path')
         hold off
         
     elseif plot_hypersurfaces
