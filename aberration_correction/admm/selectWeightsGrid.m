@@ -142,10 +142,9 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeightsGrid(...
 %     minimum distance function, and one representing a maximum value. A
 %     value of 'log' will cause each dimensions to be logarithmically
 %     scaled.
-%   - 'tol': The first element is the threshold value of the relative
-%     change in the minimum distance criterion from one iteration to the
-%     next. When the change is less than this threshold, iteration
-%     terminates.
+%   - 'tol': The threshold value of the relative change in the minimum
+%     distance criterion from one iteration to the next. When the change is
+%     less than this threshold, iteration terminates.
 %
 % verbose -- Verbosity flag
 %   If `true`, console output will be displayed to show the progress of the
@@ -155,9 +154,10 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeightsGrid(...
 % ## Output Arguments
 %
 % weights -- Selected regularization weights
-%   The value of the `weights` input argument to `f`, chosen by the minimum
-%   distance criterion grid search method of Song et al. 2016. `weights` is
-%   a vector of the same length as `options.enabled_weights`.
+%   The value of the `weights` input argument to 'baek2017Algorithm2()',
+%   chosen by the minimum distance criterion grid search method of Song et
+%   al. 2016. `weights` is a vector of the same length as
+%   `options.enabled_weights`.
 %
 % patch_lim -- Patch boundaries
 %   A 2 x 2 array, with the following elements:
