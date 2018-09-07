@@ -443,7 +443,7 @@ if n_active_weights < 4
     % Display the search path for the chosen weights
     if plot_search_path
         weights_path = weights_search.weights(:, enabled_weights);
-        log_weights = log(weights_path);
+        log_weights = log10(weights_path);
         log_weights_diff = [diff(log_weights, 1, 1); zeros(1, n_active_weights)];
         err_path = weights_search.err(:, err_filter);
         err_path_diff = [diff(err_path, 1, 1); zeros(1, size(err_path, 2))];
@@ -460,24 +460,24 @@ if n_active_weights < 4
                 'Marker', 'o'...
             );
             xlabel('Iteration number')
-            ylabel(sprintf('log(weight %d)', to_all_weights(1)))
+            ylabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
         elseif n_active_weights == 2
             quiver(...
                 log_weights(:, 1), log_weights(:, 2),...
                 log_weights_diff(:, 1), log_weights_diff(:, 2),...
                 'AutoScale', 'off'...
             );
-            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
-            ylabel(sprintf('log(weight %d)', to_all_weights(2)))
+            xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
+            ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
         elseif n_active_weights == 3
             quiver3(...
                 log_weights(:, 1), log_weights(:, 2), log_weights(:, 3),...
                 log_weights_diff(:, 1), log_weights_diff(:, 2), log_weights_diff(:, 3),...
                 'AutoScale', 'off'...
             );
-            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
-            ylabel(sprintf('log(weight %d)', to_all_weights(2)))
-            zlabel(sprintf('log(weight %d)', to_all_weights(3)))
+            xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
+            ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
+            zlabel(sprintf('log_{10}(weight %d)', to_all_weights(3)))
         else
             error('Unexpected number of active weights.');
         end
@@ -550,6 +550,7 @@ if n_active_weights < 4
             error('Unexpected number of active weights.');
         end
         title('Search path for the selected weights, in scaled error space')
+        axis equal
         hold off
     end
     
@@ -579,7 +580,7 @@ if n_active_weights < 4
             );
         end
         all_weights_samples_plot = all_weights_samples(:, enabled_weights);
-        log_all_weights_samples = log(all_weights_samples_plot);
+        log_all_weights_samples = log10(all_weights_samples_plot);
         
         % Construct arguments for the image estimation algorithm
         if isempty(bayer_pattern)
@@ -616,7 +617,7 @@ if n_active_weights < 4
         end
         all_err_samples_plot = all_err_samples(:, err_filter);
         sc_all_err_samples = scalingfun(all_err_samples_plot, err_min, err_range);
-        log_all_mse_samples = log(all_mse_samples);
+        log_all_mse_samples = log10(all_mse_samples);
         
         % Also obtain mean-square-error values for the search path
         path_mse_samples = zeros(n_iter, 1);
@@ -629,7 +630,7 @@ if n_active_weights < 4
             mse = I_patch_s((border + 1):(end - border), (border + 1):(end - border), :) - I_patch_gt_clipped;
             path_mse_samples(s) = mean(mean(mean(mse.^2)));
         end
-        log_path_mse_samples = log(path_mse_samples);
+        log_path_mse_samples = log10(path_mse_samples);
         log_path_mse_samples_diff = [diff(log_path_mse_samples, 1); 0];
         
         % Find out which points are on the Pareto front
@@ -691,6 +692,7 @@ if n_active_weights < 4
         else
             error('Unexpected number of active weights.');
         end
+        axis equal
         hold off
         
         figure;
@@ -743,11 +745,12 @@ if n_active_weights < 4
         else
             error('Unexpected number of active weights.');
         end
+        axis equal
         hold off
         
         figure;
         hold on
-        title('Patch log(MSE) surface with search path for the selected weights')
+        title('Patch log_{10}(MSE) surface with search path for the selected weights')
         if n_active_weights == 1
             plot(...
                 log_all_weights_samples(:, 1), log_all_mse_samples,...
@@ -777,19 +780,19 @@ if n_active_weights < 4
                 log_weights_diff(:, 1), log_path_mse_samples_diff,...
                 'AutoScale', 'off'...
             );
-            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
-            ylabel('log(Mean square error) wrt ground truth patch')
-            legend('Patch log(MSE) surface', 'Pareto front', 'Non-Pareto front', 'Search path');
+            xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
+            ylabel('log_{10}(Mean square error) wrt ground truth patch')
+            legend('Patch log_{10}(MSE) surface', 'Pareto front', 'Non-Pareto front', 'Search path');
         elseif n_active_weights == 2
             quiver3(...
                 log_weights(:, 1), log_weights(:, 2), log_path_mse_samples,...
                 log_weights_diff(:, 1), log_weights_diff(:, 2), log_path_mse_samples_diff,...
                 'AutoScale', 'off'...
             );
-            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
-            ylabel(sprintf('log(weight %d)', to_all_weights(2)))
-            zlabel('log(Mean square error) wrt ground truth patch')
-            legend('Patch log(MSE) surface (Pareto front coloured)', 'Search path');
+            xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
+            ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
+            zlabel('log_{10}(Mean square error) wrt ground truth patch')
+            legend('Patch log_{10}(MSE) surface (Pareto front coloured)', 'Search path');
         else
             error('Unexpected number of active weights.');
         end
@@ -808,14 +811,14 @@ if n_active_weights < 4
                 mdf_all_weights,...
                 'Marker', 'o'...
             );
-            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
+            xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
             ylabel('Distance to origin')
         elseif n_active_weights == 2
             trisurf(...
                 tri, log_all_weights_samples(:, 1), log_all_weights_samples(:, 2), mdf_all_weights...
             );
-            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
-            ylabel(sprintf('log(weight %d)', to_all_weights(2)))
+            xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
+            ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
             zlabel('Distance to origin');
         else
             error('Unexpected number of active weights.');
@@ -825,7 +828,7 @@ if n_active_weights < 4
         
         figure;
         hold on
-        title('Patch log(MSE) surface compared with minimum distance function')
+        title('Patch log_{10}(MSE) surface compared with minimum distance function')
         log_all_mse_samples_scaled = (log_all_mse_samples - min(log_all_mse_samples))...
             / (max(log_all_mse_samples) - min(log_all_mse_samples));
         if n_active_weights == 1
@@ -851,7 +854,7 @@ if n_active_weights < 4
                 mdf_all_weights_scaled,...
                 '-sg'...
             );
-            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
+            xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
             ylabel('Normalized value')
         elseif n_active_weights == 2
             trisurf(...
@@ -859,8 +862,8 @@ if n_active_weights < 4
                 mdf_all_weights_scaled, zeros(n_samples_all, 1),...
                 'FaceAlpha', 0.5 ...
             );
-            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
-            ylabel(sprintf('log(weight %d)', to_all_weights(2)))
+            xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
+            ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
             zlabel('Normalized value');
         else
             error('Unexpected number of active weights.');
@@ -883,7 +886,7 @@ if n_active_weights < 4
         else
             error('Unexpected number of active weights.');
         end
-        legend('log(MSE)', 'Minimum distance function', 'Search path')
+        legend('log_{10}(MSE)', 'Minimum distance function', 'Search path')
         hold off
         
     elseif plot_hypersurfaces

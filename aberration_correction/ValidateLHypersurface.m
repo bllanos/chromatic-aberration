@@ -440,9 +440,9 @@ if n_active_weights < 4
     
     % Display the search path for the chosen weights
     if plot_search_path
-        log_weights = log(weights_search.weights(:, enabled_weights));
+        log_weights = log10(weights_search.weights(:, enabled_weights));
         log_weights_diff = [diff(log_weights, 1, 1); zeros(1, n_active_weights)];
-        log_err = log(weights_search.err(:, err_filter));
+        log_err = log10(weights_search.err(:, err_filter));
         log_err_diff = [diff(log_err, 1, 1); zeros(1, size(log_err, 2))];
         
         figure;
@@ -457,7 +457,7 @@ if n_active_weights < 4
                 );
             end
             xlabel('Iteration number')
-            ylabel(sprintf('log(weight %d)', to_all_weights(1)))
+            ylabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
         elseif n_active_weights == 2
             for io = 1:n_iter_outer
                 quiver(...
@@ -466,8 +466,8 @@ if n_active_weights < 4
                     'AutoScale', 'off', 'Color', iteration_colors(io, :)...
                 );
             end
-            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
-            ylabel(sprintf('log(weight %d)', to_all_weights(2)))
+            xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
+            ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
         elseif n_active_weights == 3
             for io = 1:n_iter_outer
                 quiver3(...
@@ -476,9 +476,9 @@ if n_active_weights < 4
                     'AutoScale', 'off', 'Color', iteration_colors(io, :)...
                 );
             end
-            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
-            ylabel(sprintf('log(weight %d)', to_all_weights(2)))
-            zlabel(sprintf('log(weight %d)', to_all_weights(3)))
+            xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
+            ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
+            zlabel(sprintf('log_{10}(weight %d)', to_all_weights(3)))
         else
             error('Unexpected number of active weights.');
         end
@@ -495,8 +495,8 @@ if n_active_weights < 4
                     'AutoScale', 'off', 'Color', iteration_colors(io, :)...
                 );
             end
-            xlabel(sprintf('log(regularization norm %d)', to_all_weights(1)))
-            ylabel('log(residual)')
+            xlabel(sprintf('log_{10}(regularization norm %d)', to_all_weights(1)))
+            ylabel('log_{10}(residual)')
         elseif n_active_weights == 2
             for io = 1:n_iter_outer
                 quiver3(...
@@ -505,9 +505,9 @@ if n_active_weights < 4
                     'AutoScale', 'off', 'Color', iteration_colors(io, :)...
                 );
             end
-            xlabel(sprintf('log(regularization norm %d)', to_all_weights(1)))
-            ylabel(sprintf('log(regularization norm %d)', to_all_weights(2)))
-            zlabel('log(residual)')
+            xlabel(sprintf('log_{10}(regularization norm %d)', to_all_weights(1)))
+            ylabel(sprintf('log_{10}(regularization norm %d)', to_all_weights(2)))
+            zlabel('log_{10}(residual)')
         elseif n_active_weights == 3
             for io = 1:n_iter_outer
                 quiver3(...
@@ -516,9 +516,9 @@ if n_active_weights < 4
                     'AutoScale', 'off', 'Color', iteration_colors(io, :)...
                 );
             end
-            xlabel(sprintf('log(regularization norm %d)', to_all_weights(1)))
-            ylabel(sprintf('log(regularization norm %d)', to_all_weights(2)))
-            zlabel(sprintf('log(regularization norm %d)', to_all_weights(3)))
+            xlabel(sprintf('log_{10}(regularization norm %d)', to_all_weights(1)))
+            ylabel(sprintf('log_{10}(regularization norm %d)', to_all_weights(2)))
+            zlabel(sprintf('log_{10}(regularization norm %d)', to_all_weights(3)))
         else
             error('Unexpected number of active weights.');
         end
@@ -551,7 +551,7 @@ if n_active_weights < 4
                 prod(n_samples_full(1:(w-1))), 1 ...
             );
         end
-        log_all_weights_samples = log(all_weights_samples(:, enabled_weights));
+        log_all_weights_samples = log10(all_weights_samples(:, enabled_weights));
         
         % Construct arguments for the image estimation algorithm
         if isempty(bayer_pattern)
@@ -586,8 +586,8 @@ if n_active_weights < 4
             mse = I_patch_s((border + 1):(end - border), (border + 1):(end - border), :) - I_patch_gt_clipped;
             all_mse_samples(s) = mean(mean(mean(mse.^2)));
         end
-        log_all_err_samples = log(all_err_samples(:, err_filter));
-        log_all_mse_samples = log(all_mse_samples);
+        log_all_err_samples = log10(all_err_samples(:, err_filter));
+        log_all_mse_samples = log10(all_mse_samples);
         
         % Also obtain mean-square-error values for the search path
         path_mse_samples = zeros(n_iter_all, 1);
@@ -600,7 +600,7 @@ if n_active_weights < 4
             mse = I_patch_s((border + 1):(end - border), (border + 1):(end - border), :) - I_patch_gt_clipped;
             path_mse_samples(s) = mean(mean(mean(mse.^2)));
         end
-        log_path_mse_samples = log(path_mse_samples);
+        log_path_mse_samples = log10(path_mse_samples);
         log_path_mse_samples_diff = [diff(log_path_mse_samples, 1); 0];
         
         % Plotting
@@ -632,8 +632,8 @@ if n_active_weights < 4
                     'AutoScale', 'off', 'Color', iteration_colors(io, :)...
                 );
             end
-            xlabel(sprintf('log(regularization norm %d)', to_all_weights(1)))
-            ylabel('log(residual)')
+            xlabel(sprintf('log_{10}(regularization norm %d)', to_all_weights(1)))
+            ylabel('log_{10}(residual)')
         elseif n_active_weights == 2
             for io = 1:n_iter_outer
                 quiver3(...
@@ -642,18 +642,19 @@ if n_active_weights < 4
                     'AutoScale', 'off', 'Color', iteration_colors(io, :)...
                 );
             end
-            xlabel(sprintf('log(regularization norm %d)', to_all_weights(1)))
-            ylabel(sprintf('log(regularization norm %d)', to_all_weights(2)))
-            zlabel('log(residual)')
+            xlabel(sprintf('log_{10}(regularization norm %d)', to_all_weights(1)))
+            ylabel(sprintf('log_{10}(regularization norm %d)', to_all_weights(2)))
+            zlabel('log_{10}(residual)')
         else
             error('Unexpected number of active weights.');
         end
         hold off
         legend('L-hypersurface', 'MDF origin', 'Search path');
+        axis equal
         
         figure;
         hold on
-        title('Patch log(MSE) surface with search path for the selected weights')
+        title('Patch log_{10}(MSE) surface with search path for the selected weights')
         if n_active_weights == 1
             plot(...
                 log_all_weights_samples(:, 1), log_all_mse_samples,...
@@ -676,8 +677,8 @@ if n_active_weights < 4
                     'AutoScale', 'off', 'Color', iteration_colors(io, :)...
                 );
             end
-            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
-            ylabel('log(Mean square error) wrt ground truth patch')
+            xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
+            ylabel('log_{10}(Mean square error) wrt ground truth patch')
         elseif n_active_weights == 2
             for io = 1:n_iter_outer
                 quiver3(...
@@ -686,14 +687,14 @@ if n_active_weights < 4
                     'AutoScale', 'off', 'Color', iteration_colors(io, :)...
                 );
             end
-            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
-            ylabel(sprintf('log(weight %d)', to_all_weights(2)))
-            zlabel('log(Mean square error) wrt ground truth patch')
+            xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
+            ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
+            zlabel('log_{10}(Mean square error) wrt ground truth patch')
         else
             error('Unexpected number of active weights.');
         end
         hold off
-        legend('Patch log(MSE) surface', 'Search path');
+        legend('Patch log_{10}(MSE) surface', 'Search path');
         
         % Look at the behaviour of the fixed-point method
         next_weights = all_err_samples(:, 1) .* (...
@@ -703,7 +704,7 @@ if n_active_weights < 4
         );
         next_weights(next_weights < 0) = nan;
         next_weights(~isfinite(next_weights)) = nan;
-        log_next_weights = log(next_weights);
+        log_next_weights = log10(next_weights);
         log_next_weights_diff = log_next_weights - log_all_weights_samples;
         figure;
         hold on
@@ -714,8 +715,8 @@ if n_active_weights < 4
                 'Marker', 'o'...
             );
             plot(log_all_weights_samples, log_all_weights_samples);
-            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
-            ylabel(sprintf('Next value of log(weight %d)', to_all_weights(1)))
+            xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
+            ylabel(sprintf('Next value of log_{10}(weight %d)', to_all_weights(1)))
             legend('Fixed point formula result', 'y = x');
         elseif n_active_weights == 2
             quiver(...
@@ -723,17 +724,17 @@ if n_active_weights < 4
                 log_next_weights_diff(:, 1), log_next_weights_diff(:, 2),...
                 'AutoScale', 'on'...
             );
-            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
-            ylabel(sprintf('log(weight %d)', to_all_weights(2)))
+            xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
+            ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
         elseif n_active_weights == 3
             quiver3(...
                 log_all_weights_samples(:, 1), log_all_weights_samples(:, 2), log_all_weights_samples(:, 3),...
                 log_next_weights_diff(:, 1), log_next_weights_diff(:, 2), log_next_weights_diff(:, 3),...
                 'AutoScale', 'on'...
             );
-            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
-            ylabel(sprintf('log(weight %d)', to_all_weights(2)))
-            zlabel(sprintf('log(weight %d)', to_all_weights(3)))
+            xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
+            ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
+            zlabel(sprintf('log_{10}(weight %d)', to_all_weights(3)))
         else
             error('Unexpected number of active weights.');
         end
@@ -753,14 +754,14 @@ if n_active_weights < 4
                 mdf_all_weights,...
                 'Marker', 'o'...
             );
-            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
+            xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
             ylabel('Squared distance to origin')
         elseif n_active_weights == 2
             trisurf(...
                 tri, log_all_weights_samples(:, 1), log_all_weights_samples(:, 2), mdf_all_weights...
             );
-            xlabel(sprintf('log(weight %d)', to_all_weights(1)))
-            ylabel(sprintf('log(weight %d)', to_all_weights(2)))
+            xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
+            ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
             zlabel('Squared distance to origin');
         else
             error('Unexpected number of active weights.');
