@@ -244,7 +244,7 @@ function [ weights, patch_lim, I_patch, varargout ] = trainWeights(...
             parfor s = 1:n
                 I_s = f(...
                     image_sampling_f, align_f, dispersion_f, sensitivity, lambda,...
-                    J_f, weights, f_args{:}...
+                    J_f, weights(s, :), f_args{:}...
                 );
                 I_diff = I_s((border + 1):(end - border), (border + 1):(end - border), :) - I_patch_gt_clipped;
                 err(s) = mean(mean(mean(I_diff.^2)));
@@ -253,7 +253,7 @@ function [ weights, patch_lim, I_patch, varargout ] = trainWeights(...
     end
 
 nargoutchk(1, 4);
-narginchk(8, 10);
+narginchk(9, 11);
 
 target_patch = [];
 verbose = false;
@@ -315,7 +315,7 @@ max_weights = reshape(options.maximum_weights, 1, n_weights);
 output_path = (nargout > 3);
 if output_path
     search.weights = zeros(options.n_iter(1), n_weights);
-    search.err = zeros(options.n_iter(1), n_err);
+    search.err = zeros(options.n_iter(1), 1);
 end
 
 grid_side_length = 4;

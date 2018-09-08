@@ -38,7 +38,9 @@ parameters_list = [parameters_list, {
     'int_method',...
     'patch_sizes',...
     'paddings',...
-    'selectWeightsOptions'...
+    'selectWeightsOptions',...
+    'selectWeightsGridOptions',...
+    'trainWeightsOptions'...
     }];
 
 %% Image parameters
@@ -79,7 +81,7 @@ rho = [ 1, 1, 1, 1 ];
 % Weights on the two prior terms, the `weights` input argument.
 % Baek et al. (2017) used [1e-5, 0.1]
 weights = [
-    1e-2, 1e-2, 0
+    1e-2, 0, 0
 ];
 
 % Convergence tolerances in ADMM, the `tol` input argument.
@@ -97,7 +99,7 @@ baek2017Algorithm2Options.maxit = [ 500, 500 ];
 baek2017Algorithm2Options.varying_penalty_params = [2, 2, 10];
 
 % Types of norms to use on the prior terms
-baek2017Algorithm2Options.norms = [false, false, false];
+baek2017Algorithm2Options.norms = [true, true, true];
 
 % Whether to apply a non-negativity constraint (in which case, `rho` must
 % have three elements)
@@ -126,6 +128,8 @@ selectWeightsOptions.patch_size = patch_sizes(1, :);
 
 selectWeightsOptions.enabled_weights = logical(weights(1, :));
 
+trainWeightsOptions = selectWeightsOptions;
+
 % Whether or not to enforce 'minimum_weights' and 'maximum_weights' given
 % in this same options structure
 selectWeightsOptions.clip_weights = true;
@@ -146,7 +150,7 @@ selectWeightsGridOptions.n_iter = [100, 50];
 selectWeightsGridOptions.tol = 1e-7;
 
 % Type of scaling
-selectWeightsGridOptions.scaling = 'none';
+selectWeightsGridOptions.scaling = 'normalized';
 
 selectWeightsOptions.method = 'fixed-point-safe';
 
@@ -157,10 +161,22 @@ selectWeightsOptions.maxit = [100, 100];
 % for the inner line search
 selectWeightsOptions.tol = [1e-4, 1e-2];
 
+trainWeightsOptions.n_iter = selectWeightsGridOptions.n_iter;
+
+% Minimum values to use for regularization weights
+trainWeightsOptions.minimum_weights = eps * ones(1, size(weights, 2));
+
+% Maximum values to use for regularization weights
+trainWeightsOptions.maximum_weights = 1e10 * ones(1, size(weights, 2));
+
+trainWeightsOptions.tol = 1e-7;
+
 % Border to exclude from image patches before calculating error
 baek2017Algorithm2Options.l_err_border = [paddings(1), paddings(1)];
+trainWeightsOptions.border = paddings(1);
 
 % ## Debugging Flags
 baek2017Algorithm2Verbose = true;
 selectWeightsVerbose = true;
 selectWeightsGridVerbose = true;
+trainWeightsVerbose = true;
