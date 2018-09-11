@@ -55,12 +55,12 @@
 %     square error with respect to the true images. 'mse_weights' is a 2D
 %     array with one row per image in the dataset.
 % - 'corners': A three-dimensional array containing the top-left corners of
-%   the image patches used to select regularization weights. `corners(i,
-%   pc, :)` is a two-element vector containing the row and column indices,
+%   the image patches used to select regularization weights. `corners(pc,
+%   :, i)` is a two-element vector containing the row and column indices,
 %   respectively, of the i-th image's pc-th patch's top-left corner.
 % - 'patch_penalties_spectral_L1': A three-dimensional array, containing
 %   the L1 norms of the regularization penalties evaluated on the true
-%   spectral image patches. `patch_penalties_spectral_L1(i, pc, w)`
+%   spectral image patches. `patch_penalties_spectral_L1(pc, w, i)`
 %   corresponds to the w-th enabled regularization term for the pc-th patch
 %   of the i-th image.
 % - 'patch_penalties_spectral_L2': An array similar to
@@ -72,7 +72,7 @@
 % - 'patch_penalties_rgb_L2': An array similar to 'patch_penalties_rgb_L1',
 %   but which contains L2 norms of regularization penalties.
 % - 'all_mdf_weights': Regularization weights selected using the method of
-%   Song et al. 2016. `all_mdf_weights(f, i, pc, :)` is the vector of
+%   Song et al. 2016. `all_mdf_weights(pc, :, i, f)` is the vector of
 %   regularization weights selected for the f-th algorithm on the pc-th
 %   patch of the i-th image
 % - 'all_mse_weights': An array with the same layout as 'all_mdf_weights',
@@ -135,7 +135,7 @@ parameters_list = {
 
 %% Input data and parameters
 
-dataset_name = 'kodak';
+dataset_name = '20180817_TestSpectralDataset';
 
 % Describe algorithms to run
 run('SetAlgorithms.m')
@@ -247,16 +247,16 @@ baek2017Algorithm2Options.add_border = false;
 baek2017Algorithm2Options.l_surface = true;
 
 if has_spectral
-    patch_penalties_spectral_L1 = zeros(n_images, n_patches, n_weights);
-    patch_penalties_spectral_L2 = zeros(n_images, n_patches, n_weights);
+    patch_penalties_spectral_L1 = zeros(n_patches, n_weights, n_images);
+    patch_penalties_spectral_L2 = zeros(n_patches, n_weights, n_images);
 end
-patch_penalties_rgb_L1 = zeros(n_images, n_patches, n_weights);
-patch_penalties_rgb_L2 = zeros(n_images, n_patches, n_weights);
+patch_penalties_rgb_L1 = zeros(n_patches, n_weights, n_images);
+patch_penalties_rgb_L2 = zeros(n_patches, n_weights, n_images);
 
-corners = zeros(n_images, n_patches, 2);
+corners = zeros(n_patches, 2, n_images);
 
-all_mdf_weights = zeros(n_admm_algorithms, n_images, n_patches, n_weights);
-all_mse_weights = zeros(n_admm_algorithms, n_images, n_patches, n_weights);
+all_mdf_weights = zeros(n_patches, n_weights, n_images, n_admm_algorithms);
+all_mse_weights = zeros(n_patches, n_weights, n_images, n_admm_algorithms);
 
 for i = 1:n_images
     if verbose
@@ -271,7 +271,7 @@ for i = 1:n_images
         error('Image %d is smaller than the patch size', i);
     end
     
-    corners(i, :, :) = [
+    corners(:, :, i) = [
         randi(image_sampling(1) - full_patch_size(1), n_patches, 1),...
         randi(image_sampling(2) - full_patch_size(2), n_patches, 1)
     ];
@@ -280,8 +280,8 @@ for i = 1:n_images
     if has_spectral
         for pc = 1:n_patches
             patch = I_spectral_gt(...
-                corners(i, pc, 1):(corners(i, pc, 1) + full_patch_size(1)),...
-                corners(i, pc, 2):(corners(i, pc, 2) + full_patch_size(2)), : ...
+                corners(pc, 1, i):(corners(pc, 1, i) + (full_patch_size(1) - 1)),...
+                corners(pc, 2, i):(corners(pc, 2, i) + (full_patch_size(2) - 1)), : ...
             );
             patch_cropped = patch(...
                 (padding + 1):(end - padding), (padding + 1):(end - padding), : ...
@@ -291,26 +291,26 @@ for i = 1:n_images
                     continue;
                 end
                 err_vector = patch_operators_spectral{w} * reshape(patch_cropped, [], 1);
-                patch_penalties_spectral_L1(i, pc, w) = mean(abs(err_vector));
-                patch_penalties_spectral_L2(i, pc, w) = dot(err_vector, err_vector) / length(err_vector);
+                patch_penalties_spectral_L1(pc, w, i) = mean(abs(err_vector));
+                patch_penalties_spectral_L2(pc, w, i) = dot(err_vector, err_vector) / length(err_vector);
             end
         end
     end
     for pc = 1:n_patches
         patch = I_rgb_gt(...
-            corners(i, pc, 1):(corners(i, pc, 1) + (full_patch_size(1) - 1)),...
-            corners(i, pc, 2):(corners(i, pc, 2) + (full_patch_size(2) - 1)), : ...
+            corners(pc, 1, i):(corners(pc, 1, i) + (full_patch_size(1) - 1)),...
+            corners(pc, 2, i):(corners(pc, 2, i) + (full_patch_size(2) - 1)), : ...
         );
         patch_cropped = patch(...
             (padding + 1):(end - padding), (padding + 1):(end - padding), : ...
         );
         for w = 1:n_weights
             err_vector = patch_operators_rgb{w} * reshape(patch_cropped, [], 1);
-            patch_penalties_rgb_L1(i, pc, w) = mean(abs(err_vector));
-            patch_penalties_rgb_L2(i, pc, w) = dot(err_vector, err_vector) / length(err_vector);
-            if w == n_weights
-                patch_penalties_spectral_L1(i, pc, w) = patch_penalties_rgb_L1(i, pc, w);
-                patch_penalties_spectral_L2(i, pc, w) = patch_penalties_rgb_L2(i, pc, w);
+            patch_penalties_rgb_L1(pc, w, i) = mean(abs(err_vector));
+            patch_penalties_rgb_L2(pc, w, i) = dot(err_vector, err_vector) / length(err_vector);
+            if has_spectral && w == n_weights
+                patch_penalties_spectral_L1(pc, w, i) = patch_penalties_rgb_L1(pc, w, i);
+                patch_penalties_spectral_L2(pc, w, i) = patch_penalties_rgb_L2(pc, w, i);
             end
         end
     end
@@ -359,14 +359,14 @@ for i = 1:n_images
                     I_raw_gt, bayer_pattern, df_spectral_reverse,...
                     sensor_map_resampled, bands,...
                     rho, baek2017Algorithm2Options_f, selectWeightsGridOptions_f,...
-                    corners(i, pc, :), selectWeightsGridVerbose...
+                    corners(pc, :, i), selectWeightsGridVerbose...
                 );
                 mse_weights_patches(pc, :) = trainWeights(...
                     I_spectral_gt, I_raw_gt, bayer_pattern, df_spectral_reverse,...
                     sensor_map_resampled, bands, trainWeightsOptions_f,...
                     @baek2017Algorithm2, {...
                         rho, baek2017Algorithm2Options_f, false...
-                    }, corners(i, pc, :), trainWeightsVerbose...
+                    }, corners(pc, :, i), trainWeightsVerbose...
                 );
             end 
         else
@@ -375,21 +375,21 @@ for i = 1:n_images
                     I_raw_gt, bayer_pattern, df_rgb_reverse,...
                     sensor_map_rgb, bands_rgb,...
                     rho, baek2017Algorithm2Options_f, selectWeightsGridOptions_f,...
-                    corners(i, pc, :), selectWeightsGridVerbose...
+                    corners(pc, :, i), selectWeightsGridVerbose...
                 );
                 mse_weights_patches(pc, :) = trainWeights(...
                     I_rgb_gt, I_raw_gt, bayer_pattern, df_rgb_reverse,...
                     sensor_map_rgb, bands_rgb, trainWeightsOptions_f,...
                     @baek2017Algorithm2, {...
                         rho, baek2017Algorithm2Options_f, false...
-                    }, corners(i, pc, :), trainWeightsVerbose...
+                    }, corners(pc, :, i), trainWeightsVerbose...
                 );
             end
         end
         mdf_weights = geomean(mdf_weights_patches, 1);
         mse_weights = geomean(mse_weights_patches, 1);
-        all_mdf_weights(f, i, :, :) = mdf_weights_patches;
-        all_mse_weights(f, i, :, :) = mse_weights_patches;
+        all_mdf_weights(:, :, i, f) = mdf_weights_patches;
+        all_mse_weights(:, :, i, f) = mse_weights_patches;
         admm_algorithms.(admm_algorithm_fields{f}).mdf_weights(i, :) = mdf_weights;
         admm_algorithms.(admm_algorithm_fields{f}).mse_weights(i, :) = mse_weights;
     end
@@ -423,11 +423,11 @@ for f = 1:n_admm_algorithms
     );
     if algorithm.spectral
         name_params = [...
-            names{i}, sprintf('_bands%d_', n_bands), name_params...
+            sprintf('bands%d_', n_bands), name_params...
         ];
     else
         name_params = [...
-            names{i}, '_RGB_', name_params...
+            'RGB_', name_params...
         ];
     end
     name_params = fullfile(output_directory, name_params);
@@ -440,10 +440,10 @@ for f = 1:n_admm_algorithms
     n_active_weights = sum(enabled_weights);
     to_all_weights = find(enabled_weights);
 
-    mdf_weights = reshape(all_mdf_weights(f, :, :, :), [], n_weights);
+    mdf_weights = reshape(permute(all_mdf_weights(:, :, :, f), [1, 3, 2, 4]), [], n_weights);
     mdf_weights = mdf_weights(:, enabled_weights);
     log_mdf_weights = log10(mdf_weights);
-    mse_weights = reshape(all_mse_weights(f, :, :, :), [], n_weights);
+    mse_weights = reshape(permute(all_mse_weights(:, :, :, f), [1, 3, 2, 4]), [], n_weights);
     mse_weights = mse_weights(:, enabled_weights);
     log_mse_weights = log10(mse_weights);
 
@@ -503,15 +503,15 @@ for f = 1:n_admm_algorithms
         aw = to_all_weights(w);
         if algorithm.spectral && has_color_map
             if baek2017Algorithm2Options_f.norms(aw)
-                patch_penalties = log_patch_penalties_spectral_L1(:, :, w);
+                patch_penalties = log_patch_penalties_spectral_L1(:, w, :);
             else
-                patch_penalties = log_patch_penalties_spectral_L2(:, :, w);
+                patch_penalties = log_patch_penalties_spectral_L2(:, w, :);
             end
         else
             if baek2017Algorithm2Options_f.norms(aw)
-                patch_penalties = log_patch_penalties_rgb_L1(:, :, w);
+                patch_penalties = log_patch_penalties_rgb_L1(:, w, :);
             else
-                patch_penalties = log_patch_penalties_rgb_L2(:, :, w);
+                patch_penalties = log_patch_penalties_rgb_L2(:, w, :);
             end
         end
         patch_penalties = reshape(patch_penalties, [], 1);
