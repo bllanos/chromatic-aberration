@@ -171,10 +171,7 @@ end
 
 %% Prepare for patch processing
 
-enabled_weights = trainWeightsOptions.enabled_weights;
-to_all_weights = find(enabled_weights);
-n_weights = length(enabled_weights);
-n_active_weights = sum(enabled_weights);
+n_weights = length(trainWeightsOptions.enabled_weights);
 
 patch_size = patch_sizes(1, :);
 padding = paddings(1);
@@ -184,16 +181,15 @@ if has_spectral
     image_sampling_patch_spectral = [patch_size, n_bands];
     n_spectral_weights = n_weights - 1;
     patch_operators_spectral = cell(n_spectral_weights, 1);
-    for w = 1:n_active_weights
-        aw = to_all_weights(w);
-        if aw > n_spectral_weights
+    for w = 1:n_weights
+        if w > n_spectral_weights
             % The anti-mosaicking prior is applied in RGB space
             continue;
         end
-        if aw == 1 || aw == 2
+        if w == 1 || w == 2
             G = spatialGradient(image_sampling_patch_spectral);
         end
-        if aw == 2
+        if w == 2
             G_lambda = spectralGradient(image_sampling_patch_spectral, baek2017Algorithm2Options.full_GLambda);
             G_lambda_sz1 = size(G_lambda, 1);
             G_lambda_sz2 = size(G_lambda, 2);
@@ -205,18 +201,17 @@ if has_spectral
                 ]; %#ok<AGROW>
             G = G_lambda * G;
         end
-        patch_operators_spectral{aw} = G;
+        patch_operators_spectral{w} = G;
     end
 end
 
-patch_operators_rgb = cell(n_active_weights, 1);
+patch_operators_rgb = cell(n_weights, 1);
 image_sampling_patch_rgb = [patch_size, n_channels_rgb];
-for w = 1:n_active_weights
-    aw = to_all_weights(w);
-    if aw == 1 || aw == 2
+for w = 1:n_weights
+    if w == 1 || w == 2
         G = spatialGradient(image_sampling_patch_rgb);
     end
-    if aw == 2
+    if w == 2
         G_lambda = spectralGradient(image_sampling_patch_rgb, baek2017Algorithm2Options.full_GLambda);
         G_lambda_sz1 = size(G_lambda, 1);
         G_lambda_sz2 = size(G_lambda, 2);
@@ -228,10 +223,10 @@ for w = 1:n_active_weights
             ]; %#ok<AGROW>
         G = G_lambda * G;
     end
-    if aw == 3
+    if w == 3
         G = antiMosaicMatrix(patch_size, bayer_pattern);
     end
-    patch_operators_rgb{aw} = G;
+    patch_operators_rgb{w} = G;
 end
 
 admm_algorithm_fields = fieldnames(admm_algorithms);
@@ -251,11 +246,11 @@ end
 baek2017Algorithm2Options.add_border = false;
 
 if has_spectral
-    patch_penalties_spectral_L1 = zeros(n_images, n_patches, n_active_weights);
-    patch_penalties_spectral_L2 = zeros(n_images, n_patches, n_active_weights);
+    patch_penalties_spectral_L1 = zeros(n_images, n_patches, n_weights);
+    patch_penalties_spectral_L2 = zeros(n_images, n_patches, n_weights);
 end
-patch_penalties_rgb_L1 = zeros(n_images, n_patches, n_active_weights);
-patch_penalties_rgb_L2 = zeros(n_images, n_patches, n_active_weights);
+patch_penalties_rgb_L1 = zeros(n_images, n_patches, n_weights);
+patch_penalties_rgb_L2 = zeros(n_images, n_patches, n_weights);
 
 corners = zeros(n_images, n_patches, 2);
 
@@ -290,12 +285,11 @@ for i = 1:n_images
             patch_cropped = patch(...
                 (padding + 1):(end - padding), (padding + 1):(end - padding), : ...
             );
-            for w = 1:n_active_weights
-                aw = to_all_weights(w);
-                if aw > n_spectral_weights
+            for w = 1:n_weights
+                if w > n_spectral_weights
                     continue;
                 end
-                err_vector = reshape(patch_cropped, [], 1) * patch_operators_spectral{aw};
+                err_vector = reshape(patch_cropped, [], 1) * patch_operators_spectral{w};
                 patch_penalties_spectral_L1(i, pc, w) = mean(abs(err_vector));
                 patch_penalties_spectral_L2(i, pc, w) = dot(err_vector, err_vector) / length(err_vector);
             end
@@ -309,12 +303,11 @@ for i = 1:n_images
         patch_cropped = patch(...
             (padding + 1):(end - padding), (padding + 1):(end - padding), : ...
         );
-        for w = 1:n_active_weights
-            aw = to_all_weights(w);
-            err_vector = reshape(patch_cropped, [], 1) * patch_operators_rgb{aw};
+        for w = 1:n_weights
+            err_vector = reshape(patch_cropped, [], 1) * patch_operators_rgb{w};
             patch_penalties_rgb_L1(i, pc, w) = mean(abs(err_vector));
             patch_penalties_rgb_L2(i, pc, w) = dot(err_vector, err_vector) / length(err_vector);
-            if aw == n_weights
+            if w == n_weights
                 patch_penalties_spectral_L1(i, pc, w) = patch_penalties_rgb_L1(i, pc, w);
                 patch_penalties_spectral_L2(i, pc, w) = patch_penalties_rgb_L2(i, pc, w);
             end
@@ -351,6 +344,11 @@ for i = 1:n_images
         baek2017Algorithm2Options_f = mergeStructs(...
             baek2017Algorithm2Options, algorithm.options, false, true...
         );
+    
+        selectWeightsGridOptions_f = selectWeightsGridOptions;
+        selectWeightsGridOptions_f.enabled_weights = algorithm.priors;
+        trainWeightsOptions_f = trainWeightsOptions;
+        trainWeightsOptions_f.enabled_weights = algorithm.priors;
         
         mdf_weights_patches = zeros(n_patches, n_weights);
         mse_weights_patches = zeros(n_patches, n_weights);
@@ -435,6 +433,10 @@ for f = 1:n_admm_algorithms
     baek2017Algorithm2Options_f = mergeStructs(...
         baek2017Algorithm2Options, algorithm.options, false, true...
     );
+
+    enabled_weights = algorithm.priors;
+    n_active_weights = sum(enabled_weights);
+    to_all_weights = find(enabled_weights);
 
     mdf_weights = reshape(all_mdf_weights(f, :, :, :), [], n_weights);
     mdf_weights = mdf_weights(:, enabled_weights);
