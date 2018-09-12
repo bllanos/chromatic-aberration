@@ -404,6 +404,12 @@ end
 mdf_color = [1, 0, 0];
 mse_color = [0, 1, 0];
 
+min_nz_weight = min(min(all_mdf_weights(all_mdf_weights ~= 0)), min(all_mse_weights(all_mse_weights ~= 0)));
+max_nz_weight = max(max(all_mdf_weights(all_mdf_weights ~= 0)), max(all_mse_weights(all_mse_weights ~= 0)));
+log_min_nz_weight = log10(min_nz_weight);
+log_max_nz_weight = log10(max_nz_weight);
+plot_limits = [log_min_nz_weight - 1, log_max_nz_weight + 1];
+
 if has_spectral
     log_patch_penalties_spectral_L1 = log10(patch_penalties_spectral_L1);
     log_patch_penalties_spectral_L2 = log10(patch_penalties_spectral_L2);
@@ -461,6 +467,8 @@ for f = 1:n_admm_algorithms
         legend('Weights', 'y = x');
         xlabel('Weight selected using the mean square error');
         ylabel('Weight selected using the minimum distance criterion');
+        xlim(plot_limits)
+        ylim(plot_limits)
     elseif n_active_weights == 2
         scatter(...
             log_mdf_weights(:, 1), log_mdf_weights(:, 2), [], mdf_color, 'filled'...
@@ -471,6 +479,8 @@ for f = 1:n_admm_algorithms
         legend('MDF', 'MSE');
         xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
         ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
+        xlim(plot_limits)
+        ylim(plot_limits)
     elseif n_active_weights == 3
         scatter3(...
             log_mdf_weights(:, 1), log_mdf_weights(:, 2), log_mdf_weights(:, 3),...
@@ -484,6 +494,9 @@ for f = 1:n_admm_algorithms
         xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
         ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
         zlabel(sprintf('log_{10}(weight %d)', to_all_weights(3)))
+        xlim(plot_limits)
+        ylim(plot_limits)
+        zlim(plot_limits)
     else
         error('Unexpected number of active weights.');
     end
@@ -491,6 +504,7 @@ for f = 1:n_admm_algorithms
         'Agreement between MDF and MSE weights selected for %s',...
         algorithm.name...
     ));
+    %axis equal
     hold off
     
     savefig(...
@@ -527,6 +541,7 @@ for f = 1:n_admm_algorithms
             'Agreement between MDF and MSE weights selected for %s',...
             algorithm.name...
         ));
+        ylim(plot_limits)
         hold off
         
         savefig(...
