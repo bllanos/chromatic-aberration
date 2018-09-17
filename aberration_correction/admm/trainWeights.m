@@ -189,14 +189,15 @@ function [ weights, patch_lim, I_patch, varargout ] = trainWeights(...
 % search -- Grid search method search path
 %   A structure with the following fields:
 %   - 'weights': An array of dimensions n x length(options.enabled_weights),
-%     where 'n' is the number of iterations used by the grid search
-%     algorithm to select the final regularization weights. The `weights`
-%     output argument is copied to `search.weights(n, :)`.
+%     where 'n' is one greater than the number of iterations used by the
+%     grid search algorithm to select the final regularization weights. The
+%     `weights` output argument is copied to `search.weights(n, :)`.
 %     `search.weights(i, :)` is the estimate of the regularization weights
 %     at the i-th iteration.
 %   - 'err': An array of dimensions n x (length(options.enabled_weights) + 1)
 %     containing the mean square error between the estimated image patch
-%     and the patch of `I` at each iteration.
+%     and the patch of `I` at each iteration. `search.err(n)` is the mean
+%     square error corresponding to the `weights` output argument.
 %
 % ## References
 %
@@ -314,8 +315,8 @@ max_weights = reshape(options.maximum_weights, 1, n_weights);
 % Grid search iteration
 output_path = (nargout > 3);
 if output_path
-    search.weights = zeros(options.n_iter(1), n_weights);
-    search.err = zeros(options.n_iter(1), 1);
+    search.weights = zeros(options.n_iter(1) + 1, n_weights);
+    search.err = zeros(options.n_iter(1) + 1, 1);
 end
 
 grid_side_length = 4;
@@ -370,7 +371,7 @@ for iter = 1:options.n_iter(1)
         fprintf('%d:   weights = (', iter);
         for aw = 1:n_weights
             if enabled_weights(aw)
-                fprintf('%d', weights(aw));
+                fprintf('%g', weights(aw));
             else
                 fprintf('_');
             end
@@ -406,11 +407,14 @@ if verbose
 end
 
 if nargout > 2
-    [~, I_patch] = getErr(weights);
+    [err, I_patch] = getErr(weights);
 end
 
 if output_path
+    iter = iter + 1;
+    search.weights(iter, :) = weights;
     search.weights = search.weights(1:iter, :);
+    search.err(iter, :) = err;
     search.err = search.err(1:iter, :);
     varargout{1} = search;
 end

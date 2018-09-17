@@ -117,9 +117,9 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeightsGrid(...
 %     over termination based on 'tol').
 %   - 'clip_weights': If `true`, the origin of the minimum distance
 %     criterion will be set based on 'minimum_weights' and
-%     'maximum_weights', rather than chosen semi-automatically, and the
-%     output weights will be constrained to lie between the minimum and
-%     maximum weights.
+%     'maximum_weights', rather than chosen semi-automatically, and
+%     therefore the output weights will be constrained to lie between the
+%     minimum and maximum weights.
 %   - 'minimum_weights': A vector, of the same length as 'enabled_weights',
 %     specifying minimum values for the regularization weights. The
 %     elements of 'minimum_weights' will be used if the matrix operator of
@@ -430,7 +430,7 @@ if verbose
     fprintf('), corresponding to:\n\tminimum weights (');
     for aw = 1:n_weights
         if enabled_weights(aw)
-            fprintf('%d', origin_min_weights(aw));
+            fprintf('%g', origin_min_weights(aw));
         else
             fprintf('_');
         end
@@ -447,7 +447,7 @@ if verbose
     fprintf('\n\tmaximum weights (');
     for aw = 1:n_weights
         if enabled_weights(aw)
-            fprintf('%d', origin_max_weights(aw));
+            fprintf('%g', origin_max_weights(aw));
         else
             fprintf('_');
         end
@@ -542,7 +542,7 @@ for iter = 1:options.n_iter(1)
         fprintf('%d:   weights = (', iter);
         for aw = 1:n_weights
             if enabled_weights(aw)
-                fprintf('%d', weights(aw));
+                fprintf('%g', weights(aw));
             else
                 fprintf('_');
             end
@@ -574,25 +574,6 @@ if verbose
         fprintf('Convergence after %d iterations.\n', iter);
     else
         fprintf('Maximum number of iterations, %d, reached without convergence.\n', iter);
-    end
-end
-
-% Clip the final weights
-if options.clip_weights
-    for aw = 1:n_weights
-        if enabled_weights(aw)
-            if weights(aw) < options.minimum_weights(aw)
-                if verbose
-                    warning('Clipped weight %d from %g to the minimum value %g.', aw, weights(aw), options.minimum_weights(aw));
-                end
-                weights(aw) = options.minimum_weights(aw);
-            elseif weights(aw) > options.maximum_weights(aw)
-                if verbose
-                    warning('Clipped weight %d from %g to the maximum value %g.', aw, weights(aw), options.maximum_weights(aw));
-                end
-                weights(aw) = options.maximum_weights(aw);
-            end
-        end
     end
 end
 

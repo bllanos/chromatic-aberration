@@ -403,7 +403,7 @@ if verbose
     fprintf('), corresponding to:\n\tminimum weights (');
     for aw = 1:n_weights
         if enabled_weights(aw)
-            fprintf('%d', origin_min_weights(aw));
+            fprintf('%g', origin_min_weights(aw));
         else
             fprintf('_');
         end
@@ -420,7 +420,7 @@ if verbose
     fprintf('\n\tmaximum weights (');
     for aw = 1:n_weights
         if enabled_weights(aw)
-            fprintf('%d', origin_max_weights(to_active_weights(aw)));
+            fprintf('%g', origin_max_weights(to_active_weights(aw)));
         else
             fprintf('_');
         end
@@ -636,7 +636,7 @@ for iter_outer = 1:options.maxit(1)
         fprintf(')\n%d:   weights = (', iter_outer);
         for aw = 1:n_weights
             if enabled_weights(aw)
-                fprintf('%d', weights(aw));
+                fprintf('%g', weights(aw));
             else
                 fprintf('_');
             end
@@ -647,7 +647,7 @@ for iter_outer = 1:options.maxit(1)
         fprintf(')\n%d:   changes = (', iter_outer);
         for aw = 1:n_weights
             if enabled_weights(aw)
-                fprintf('%d', changes_outer(to_active_weights(aw)));
+                fprintf('%g', changes_outer(to_active_weights(aw)));
             else
                 fprintf('_');
             end

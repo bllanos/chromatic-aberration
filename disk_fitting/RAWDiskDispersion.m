@@ -119,7 +119,7 @@ parameters_list = {
 % filepaths. Masks are used to avoid processing irrelevant portions of
 % images.
 partial_filepaths = {
-    '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20170808_OpticalTableMatrix/averaged/d44_a22_far_disksWhite'
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20170808_OpticalTableMatrix/averaged/d44_a22_far_disksWhite'
     };
 
 % Filename extension (excluding the leading '.')
@@ -174,14 +174,20 @@ dispersion_fieldname = 'center';
 model_from_reference = false;
 
 % Spline, or global polynomial models can be fitted
-model_type = 'polynomial';
+model_type = 'spline';
 
 % Parameters for polynomial model fitting
 max_degree_xy = 5;
 max_degree_lambda = 5;
 
 % Parameters for spline model fitting
-spline_smoothing_weight = 10;
+spline_smoothing_options = struct(...
+    'n_iter', [20, 50],...
+    'grid_size', [10, 4],...
+    'minimum', eps,...
+    'maximum', 1e10,...
+    'tol', 1e-6 ...
+);
 
 % ## Debugging Flags
 findAndFitDisksVerbose.verbose_disk_search = false;
@@ -302,12 +308,12 @@ elseif strcmp(model_type, 'spline')
     if rgb_mode
         [ dispersionfun, dispersion_data ] = xylambdaSplinefit(...
             centers_for_fitting, dispersion_fieldname, disparity,...
-            dispersion_fieldname, spline_smoothing_weight...
+            dispersion_fieldname, spline_smoothing_options, xylambdaFitVerbose...
         );
     else
         [ dispersionfun, dispersion_data ] = xylambdaPolyfit(...
             centers_for_fitting, dispersion_fieldname, disparity,...
-            dispersion_fieldname, spline_smoothing_weight, bands...
+            dispersion_fieldname, spline_smoothing_options, bands, xylambdaFitVerbose...
         );
     end
 else
