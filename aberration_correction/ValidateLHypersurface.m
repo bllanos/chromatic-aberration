@@ -40,9 +40,8 @@
 % ### Model of dispersion
 %
 % A '.mat' file containing several variables, which is the output of
-% 'DoubleConvexThickLensDiskDispersion.m', 'RAWDiskDispersion.m',
-% 'DoubleConvexThickLensDispersion.m' or 'BimaterialImages.m', for example.
-% The following variables are required:
+% 'RAWDiskDispersion.m', 'DoubleConvexThickLensDispersion.m' or
+% 'BimaterialImages.m', for example. The following variables are required:
 % - 'dispersion_data': A model of chromatic aberration, modeling the warping
 %   from the reference colour channel or wavelength band to the other
 %   colour channels or wavelength bands. `dispersion_data` can be converted to

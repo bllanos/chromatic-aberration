@@ -1,6 +1,6 @@
 %% Ray tracing simulation of an image dispersion function
-% Obtain a dispersion model corresponding to a thick (biconvex) lens
-% projecting an image onto a sensor. Fit the dispersion model to point
+% Obtain dispersion models corresponding to a thick (biconvex) lens
+% projecting an image onto a sensor. Fit the dispersion models to point
 % spread function statistics that vary with spatial coordinates and
 % wavelength.
 %
@@ -18,29 +18,40 @@
 %
 % ### Polynomial fitting results
 %
-% A '.mat' file containing the following variables:
+% Eight '.mat' files, each containing the following variables:
 %
 % - 'centers': The independent variables data used for fitting the model of
 %   dispersion. `centers` is a structure array, with one field containing
 %   the image positions of the centres of simulated point spread functions.
 %   `centers(i, k)` is the centre of the point spread function for the i-th
-%   light source position, with the light source emitting light of the k-th
-%   wavelength. In this context, "centre" refers to the point spread
+%   light source position, with the light source emitting light of either
+%   the k-th wavelength, or for the k-th colour channel (depending on
+%   'rgb_mode'). In this context, "centre" refers to the point spread
 %   function statistic named in the `dispersion_fieldname` variable.
+%   Therefore this script could be used to model changes in point spread
+%   function statistics other than centroids, for example.
 % - 'disparity': The dependent variables data used for fitting the
 %   model of dispersion. `disparity` is the first output argument of
 %   'statsToDisparity()', produced when 'statsToDisparity()' was called
 %   with `centers` as one of its input arguments. The format of `disparity`
 %   is described in the documentation of 'statsToDisparity()'. `disparity`
 %   contains the dispersion vectors between the centres of point spread
-%   functions for different wavelengths.
+%   functions for different wavelengths or colour channels.
 % - 'dispersion_data': The model of dispersion, modeling the mapping from
 %   `centers` to `disparity`. `dispersion_data` can be converted to a
 %   function form using `dispersionfun = makeDispersionfun(dispersion_data)`
-% - 'bands': A vector containing the wavelengths at which dispersion can be
-%   evaluated to approximate the dispersion between the Red, Green, and
-%   Blue colour channels of the sensor. These are the wavelengths at which
-%   the colour channels reach their peak quantum efficiencies.
+% - 'bands': For point spread function statistics which cannot be
+%   accumulated across wavelengths, 'bands' is a vector containing the
+%   wavelengths at which dispersion can be evaluated to approximate the
+%   dispersion between the Red, Green, and Blue colour channels of the
+%   sensor. These are the wavelengths at which the colour channels reach
+%   their peak quantum efficiencies. For point spread function statistics
+%   which can be accumulated across wavelengths, bands is `[1, 2, 3]`,
+%   indicating that the dispersion model is formulated in terms of the Red,
+%   Green, and Blue colour channels. The per-channel dispersion models have
+%   been constructed following processing of the point spread function
+%   statistics by 'diskStatsToRGB()'. For spectral models of dispersion,
+%   'bands' is a vector of all wavelengths used in the simulation.
 % - 'model_space': A structure describing the range of coordinates over
 %   which the model of dispersion is valid, having the following fields:
 %   - 'corners': The first and second rows contain the (x,y) coordinates of
@@ -51,8 +62,31 @@
 %     dispersion model was constructed under geometrical optics coordinate
 %     conventions, wherein the y-axis is positive upwards on the image
 %     plane, and the origin is the image centre.
+% - 'model_from_reference': If `true`, dispersion is modelled between bands
+%   (colour channels or wavelengths) as a function of positions in the
+%   reference band. If `false`, dispersion is modelled as a function of
+%   positions in the non-reference bands. The first case is useful for
+%   warping the other bands to align with the reference band, such as when
+%   correcting chromatic aberration by image warping. The second case is
+%   useful for warping an "ideal" image to compare it with an observed
+%   aberrated image. In both cases, the dispersion vectors point from the
+%   reference band to the other bands.
+% - 'model_type': The type of model of dispersion, either 'spline', or
+%   'polynomial'. Spline models of dispersion are generated using
+%   'xylambdaSplinefit()', whereas polynomial models of dispersion are
+%   generated using 'xylambdaPolyfit()'.
+% - 'rgb_mode': A Boolean value indicating if the model of dispersion
+%   applies to colour channels (`true`) or wavelengths (`false`). In the
+%   former case, the model may be approximate, as discussed in the
+%   documentation of 'bands' above.
+% - 'reference_index': The index of the reference colour channel or
+%   wavelength, with respect to which dispersion is calculated.
 %
-% Additionally, the file contains the values of all parameters in the first
+% One '.mat' file is generated for each possible combination of of
+% 'model_from_reference', 'model_type', and 'rgb_mode'. The '.mat' files
+% will be named based on the models of dispersion that they contain.
+%
+% Additionally, the files contain the values of all parameters in the first
 % section of the script below, for reference. (Specifically, those listed
 % in `parameters_list`, which should be updated if the set of parameters is
 % changed.)
@@ -75,6 +109,11 @@
 parameters_list = {
         'lens_params',...
         'ior_lens_reference_index',...
+        'wavelengths_to_rgb',...
+        'reference_index_rgb',...
+        'channels_to_rgb',...
+        'can_average_to_rgb',...
+        'bands_rgb',...
         'ray_params',...
         'sellmeierConstants',...
         'image_params',...
@@ -82,11 +121,10 @@ parameters_list = {
         'request_spline_smoothing',...
         'scene_params',...
         'dispersion_fieldname',...
+        'intensity_threshold',...
         'max_degree_xy',...
         'max_degree_lambda',...
-        'spline_smoothing_weight',...
-        'model_from_reference',...
-        'model_type'...
+        'spline_smoothing_options'...
     };
 
 %% Input data and parameters
@@ -127,16 +165,20 @@ lens_params.ior_lens = sellmeierDispersion(lens_params.wavelengths, sellmeierCon
 % image plane
 [~, ior_lens_reference_index] = min(abs(lens_params.wavelengths - 587.6));
 
-% Used for debugging visualizations only
+% Used for debugging visualizations for spectral models of dispersion. Also
+% used to convert per-wavelength point spread function statistics to
+% per-colour channel point spread function statistics, when appropriate,
+% when producing colour channel models of dispersion.
 %
 % Obtained using the quantum efficiencies presented in
 % '/home/llanos/GoogleDrive/ThesisResearch/Equipment/FLEA3/20170508_FL3_GE_EMVA_Imaging Performance Specification.pdf'
 % Image sensor: Sony ICX655, 2/3", Color (page 19)
-lens_params.wavelengths_to_rgb = sonyQuantumEfficiency(lens_params.wavelengths);
+wavelengths_to_rgb = sonyQuantumEfficiency(lens_params.wavelengths);
 
-% Normalize, for improved colour saturation
-lens_params.wavelengths_to_rgb = lens_params.wavelengths_to_rgb ./...
-    max(max(lens_params.wavelengths_to_rgb));
+% Normalize, for improved colour saturation.
+% This version is only used for debugging visualizations.
+lens_params.wavelengths_to_rgb = wavelengths_to_rgb ./...
+    max(max(wavelengths_to_rgb));
 
 % ### Ray interpolation parameters
 image_params.image_sampling = [2048, 2448];
@@ -165,19 +207,22 @@ scene_params.preserve_angle_over_depths = true;
 
 % ## Dispersion model generation
 dispersion_fieldname = 'mean_position';
+reference_index_rgb = 2; % Green colour channel
+channels_to_rgb = eye(3); % Used only for visualization
+bands_rgb = 1:3;
 
-% If `true`, model dispersion between bands (colour channels or spectral
-% bands) as a function of positions in the reference band. If `false`,
-% model dispersion as a function of positions in the non-reference bands.
-% The first case is useful for warping the other bands to align with the
-% reference band, such as when correcting chromatic aberration by image
-% warping. The second case is useful for warping an "ideal" image to
-% compare it with an observed aberrated image. In both cases, the
-% dispersion vectors point from the reference band to the other bands.
-model_from_reference = false;
+% Can the information corresponding to this fieldname be accumulated across
+% wavelengths, according to the camera's spectral sensitivity, to produce
+% information for colour channels?
+%
+% This variable is presently calculated based on the implementation of
+% 'diskStatsToRGB()'.
+can_average_to_rgb = strcmp(dispersion_fieldname, 'mean_position') ||...
+    strcmp(dispersion_fieldname, 'mean_value') ||...
+    strcmp(dispersion_fieldname, 'radius');
 
-% Spline, or global polynomial models can be fitted
-model_type = 'spline';
+% The `threshold` argument of 'diskStatsToRGB()'
+intensity_threshold = 0.1;
 
 % Parameters for polynomial model fitting
 max_degree_xy = min(12, min(scene_params.n_lights) - 1);
@@ -186,11 +231,14 @@ max_degree_lambda = min(12, length(lens_params.wavelengths) - 1);
 % Parameters for spline model fitting
 spline_smoothing_options = struct(...
     'n_iter', [20, 50],...
-    'grid_size', [10, 4],...
+    'grid_size', [15, 4],...
     'minimum', eps,...
     'maximum', 1e10,...
     'tol', 1e-6 ...
 );
+
+% ## Output directory
+output_directory = '/home/llanos/Downloads';
 
 % ## Debugging Flags
 plot_light_positions = true;
@@ -232,13 +280,13 @@ lens_params_scene.ior_lens = lens_params.ior_lens(ior_lens_reference_index);
 %% Run the simulation
 
 [...
-    centers...
+    centers_spectral...
 ] = doubleSphericalLensPSF(...
     lens_params, ray_params, image_params, X_lights, z_film, lights_filter,...
     request_spline_smoothing, depth_factors, doubleSphericalLensPSFVerbose...
 );
 
-%% Fit a dispersion model to the results
+%% Fit dispersion models to the results
 
 x_fields = struct(...
     'mean_position', 'mean_position',...
@@ -248,50 +296,8 @@ x_fields = struct(...
     'radius', 'mean_position'...
 );
 
-disparity = statsToDisparity(...
-    centers, ior_lens_reference_index,...
-    depth_factors, 0, x_fields, lens_params.wavelengths, lens_params.wavelengths_to_rgb, statsToDisparityVerbose...
-);
-
-n_wavelengths = length(lens_params.wavelengths);
-
-if model_from_reference
-    centers_for_fitting = repmat(centers(:, ior_lens_reference_index), 1, n_wavelengths);
-else
-    centers_for_fitting = centers;
-end
-
-if strcmp(model_type, 'polynomial')
-    [ dispersionfun, dispersion_data ] = xylambdaPolyfit(...
-        centers_for_fitting, dispersion_fieldname, max_degree_xy, disparity, dispersion_fieldname,...
-        lens_params.wavelengths, max_degree_lambda, xylambdaFitVerbose...
-    );
-elseif strcmp(model_type, 'spline')
-    [ dispersionfun, dispersion_data ] = xylambdaSplinefit(...
-        centers_for_fitting, dispersion_fieldname, disparity, dispersion_fieldname,...
-        spline_smoothing_options, lens_params.wavelengths, xylambdaFitVerbose...
-    );
-else
-    error('Unrecognized value of the `model_type` paramter.');
-end
-
-%% Visualization
-
-if plot_model
-    plotXYLambdaModel(...
-        centers_for_fitting, dispersion_fieldname, disparity, dispersion_fieldname,...
-        lens_params.wavelengths, lens_params.wavelengths(ior_lens_reference_index), n_lambda_plot, dispersionfun...
-    );
-end
-
-%% Save results to a file
-
-% Find appropriate wavelengths for approximating RGB chromatic aberration
-[~, ind] = max(lens_params.wavelengths_to_rgb, [], 1);
-bands = lens_params.wavelengths(ind);
-
 % Indicate where in the image the model is usable
-centers_unpacked = permute(reshape([centers.(dispersion_fieldname)], 2, []), [2 1]);
+centers_unpacked = permute(reshape([centers_spectral.(dispersion_fieldname)], 2, []), [2 1]);
 model_space.corners = [
     min(centers_unpacked(:, 1)), max(centers_unpacked(:, 2));
     max(centers_unpacked(:, 1)), min(centers_unpacked(:, 2))
@@ -299,11 +305,127 @@ model_space.corners = [
 model_space.pixel_size = pixel_size;
 model_space.system = 'geometric';
 
+centers_rgb = diskStatsToRGB( centers_spectral, wavelengths_to_rgb, intensity_threshold );
+
+disparity_spectral = statsToDisparity(...
+    centers_spectral, ior_lens_reference_index,...
+    depth_factors, 0, x_fields, lens_params.wavelengths,...
+    lens_params.wavelengths_to_rgb, statsToDisparityVerbose...
+);
+
+disparity_rgb = statsToDisparity(...
+    centers_rgb, reference_index_rgb, depth_factors, 0, x_fields,...
+    bands_rgb, channels_to_rgb, statsToDisparityVerbose...
+);
+
 save_variables_list = [ parameters_list, {...
-        'centers',...
-        'disparity',...
-        'dispersion_data',...
-        'bands',...
-        'model_space'...
-    } ];
-uisave(save_variables_list,'DoubleConvexThickLensDispersionResults');
+    'centers',...
+    'disparity',...
+    'dispersion_data',...
+    'bands',...
+    'model_space',...
+    'model_from_reference',...
+    'model_type',...
+    'rgb_mode',...
+    'reference_index'...
+} ];
+
+for rgb_mode = [true, false]
+    spectral_mode = ~rgb_mode || (rgb_mode && ~can_average_to_rgb);
+    if spectral_mode
+        centers = centers_spectral;
+        reference_index = ior_lens_reference_index;
+        if rgb_mode
+            % Find appropriate wavelengths for approximating RGB chromatic aberration
+            [~, ind] = max(wavelengths_to_rgb, [], 1);
+            bands = lens_params.wavelengths(ind);
+        else
+            bands = lens_params.wavelengths;
+        end
+        rep_factor = length(lens_params.wavelengths);
+        disparity = disparity_spectral;
+    else
+        centers = centers_rgb;
+        reference_index = reference_index_rgb;
+        bands = bands_rgb;
+        rep_factor = length(bands);
+        disparity = disparity_rgb;
+    end
+    
+    for model_from_reference = [true, false]
+        if model_from_reference
+            centers_for_fitting = repmat(centers(:, reference_index), 1, rep_factor);
+        else
+            centers_for_fitting = centers;
+        end
+
+        for model_type = {'spline', 'polynomial'}
+            if strcmp(model_type, 'polynomial')
+                if spectral_mode
+                    [ dispersionfun, dispersion_data ] = xylambdaPolyfit(...
+                        centers_for_fitting, dispersion_fieldname,...
+                        max_degree_xy, disparity, dispersion_fieldname,...
+                        lens_params.wavelengths, max_degree_lambda, xylambdaFitVerbose...
+                    );
+                else
+                    [ dispersionfun, dispersion_data ] = xylambdaPolyfit(...
+                        centers_for_fitting, dispersion_fieldname,...
+                        max_degree_xy, disparity,...
+                        dispersion_fieldname, xylambdaFitVerbose...
+                    );                    
+                end
+            elseif strcmp(model_type, 'spline')
+                if spectral_mode
+                    [ dispersionfun, dispersion_data ] = xylambdaSplinefit(...
+                        centers_for_fitting, dispersion_fieldname, disparity,...
+                        dispersion_fieldname, spline_smoothing_options,...
+                        lens_params.wavelengths, xylambdaFitVerbose...
+                    );
+                else
+                    [ dispersionfun, dispersion_data ] = xylambdaSplinefit(...
+                        centers_for_fitting, dispersion_fieldname, disparity,...
+                        dispersion_fieldname, spline_smoothing_options, xylambdaFitVerbose...
+                    );                    
+                end
+            else
+                error('Unrecognized value of `model_type`.');
+            end
+
+            %% Visualization
+
+            if plot_model
+                if spectral_mode
+                    plotXYLambdaModel(...
+                        centers_for_fitting, dispersion_fieldname, disparity,...
+                        dispersion_fieldname, lens_params.wavelengths,...
+                        lens_params.wavelengths(reference_index),...
+                        n_lambda_plot, dispersionfun...
+                    );
+                else
+                    plotXYLambdaModel(...
+                        centers_for_fitting, dispersion_fieldname, disparity,...
+                        dispersion_fieldname, reference_index, dispersionfun...
+                    );
+                end
+            end
+
+            %% Save results to a file
+            filename = 'DoubleConvexThickLensDispersionResults';
+            if rgb_mode
+                filename = [filename, '_RGB_'];
+            else
+                filename = [filename, '_spectral_'];
+            end
+            filename = [filename, model_type];
+            if model_from_reference
+                filename = [filename, '_fromReference'];
+            else
+                filename = [filename, '_fromNonReference'];
+            end
+            filename = [filename, '.mat'];
+
+            save_data_filename = fullfile(output_directory, filename);
+            save(save_data_filename, save_variables_list{:});
+        end
+    end
+end

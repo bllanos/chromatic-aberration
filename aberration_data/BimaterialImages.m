@@ -68,9 +68,9 @@
 %
 % ### Discrete spectral space
 %
-% The 'bands' variable defined in the parameters section of the code below
-% can be empty (`[]`), in which case it is loaded from the colour space
-% conversion data (see above).
+% The 'bands' variable defined in the parameters section of the code (in
+% 'SetFixedParameters.m') can be empty (`[]`), in which case it is loaded
+% from the colour space conversion data (see above).
 %
 % The final 'bands' vector is clipped to the intervals defined by the other
 % vectors of wavelengths, to avoid extrapolation when resampling data to

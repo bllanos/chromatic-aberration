@@ -26,10 +26,10 @@
 % compatible with the input model of chromatic aberration described below.
 %
 % ### Model of chromatic aberration
+%
 % A '.mat' file containing several variables, which is the output of
-% 'DoubleConvexThickLensDiskDispersion.m', 'RAWDiskDispersion.m',
-% 'DoubleConvexThickLensDispersion.m' or 'BimaterialImages.m', for example.
-% The following variables are required:
+% 'RAWDiskDispersion.m', 'DoubleConvexThickLensDispersion.m' or
+% 'BimaterialImages.m', for example. The following variables are required:
 % - 'dispersion_data': A model of chromatic aberration, modelling the
 %   warping from the reference colour channel to the other colour channels.
 %   `dispersion_data` can be converted to a function form using

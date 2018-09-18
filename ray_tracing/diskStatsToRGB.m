@@ -94,6 +94,7 @@ wavelengths_to_rgb_reshape = wavelengths_to_rgb_reshape ./ repmat(...
     );
 
 % Mean position
+%
 % Perform an average over wavelengths, weighted by quantum efficiencies
 mean_position_rgb = repmat(stats_mat.mean_position, 1, 1, 1, 1, n_channels);
 wavelengths_to_rgb_rep = repmat(wavelengths_to_rgb_reshape, n_points, size(mean_position_rgb, 2), 1, n_depths, 1);
@@ -139,6 +140,7 @@ stats_rgb_mat.mean_value = mean_value_rgb;
 % as constant.
 
 % Max value
+%
 % Same concerns as for max position.
 
 % Radius

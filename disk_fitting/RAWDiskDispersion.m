@@ -1,11 +1,11 @@
 %% Chromatic aberration calibration from captured images
-% Obtain a dispersion model from RAW images of disk calibration patterns.
+% Obtain dispersion models from RAW images of disk calibration patterns.
 %
 % ## Usage
 % Modify the parameters, the first code section below, then run.
 %
 % This script can either model dispersion between colour channels, or
-% dispersion between images taken under different wavelength bandpass
+% dispersion between images taken under different optical bandpass
 % filters.
 %
 % ## Input
@@ -19,7 +19,7 @@
 %
 % ### Model fitting results
 %
-% A '.mat' file containing the following variables:
+% Four '.mat' files, each containing the following variables:
 %
 % - 'centers': The independent variables data used for fitting the
 %   model of dispersion. `centers` is a structure array, with one field
@@ -50,13 +50,30 @@
 %     dispersion model was constructed under image coordinate conventions,
 %     wherein the y-axis is positive downards on the image plane, and the
 %     origin is the top left corner of the image.
+% - 'model_from_reference': If `true`, dispersion is modelled between bands
+%   (colour channels or spectral bands) as a function of positions in the
+%   reference band. If `false`, dispersion is modelled as a function of
+%   positions in the non-reference bands. The first case is useful for
+%   warping the other bands to align with the reference band, such as when
+%   correcting chromatic aberration by image warping. The second case is
+%   useful for warping an "ideal" image to compare it with an observed
+%   aberrated image. In both cases, the dispersion vectors point from the
+%   reference band to the other bands.
+% - 'model_type': The type of model of dispersion, either 'spline', or
+%   'polynomial'. Spline models of dispersion are generated using
+%   'xylambdaSplinefit()', whereas polynomial models of dispersion are
+%   generated using 'xylambdaPolyfit()'.
 %
-% Additionally, the file contains the values of all parameters in the first
+% One '.mat' file is generated for each possible combination of of
+% 'model_from_reference' and 'model_type'. Therefore, only the model of
+% dispersion differs between the files. The '.mat' files will be named
+% based on the models of dispersion that they contain.
+%
+% Additionally, the files contain the values of all parameters in the first
 % section of the script below, for reference. (Specifically, those listed
 % in `parameters_list`, which should be updated if the set of parameters is
-% changed.) Note that the set of parameters contains the `bands` variable
-% also output by 'DoubleConvexThickLensDispersion.m' and
-% 'DoubleConvexThickLensDiskDispersion.m'.
+% changed.) Note that the set of parameters contains the `bands` variable,
+% also output by 'DoubleConvexThickLensDispersion.m'.
 %
 % ## References
 % - Baek, S.-H., Kim, I., Gutierrez, D., & Kim, M. H. (2017). "Compact
@@ -89,9 +106,7 @@ parameters_list = {
         'dispersion_fieldname',...
         'max_degree_xy',...
         'max_degree_lambda',...
-        'spline_smoothing_weight',...
-        'model_from_reference',...
-        'model_type'...
+        'spline_smoothing_options'...
     };
 
 %% Input data and parameters
@@ -136,8 +151,8 @@ mask_threshold = 0.5; % In a range of intensities from 0 to 1
 % taken under different spectral bands
 rgb_mode = true;
 
-% Note that `bands_to_rgb` is used only for visualization purposes, not for
-% calculations. It does not need to be accurate.
+% `bands_to_rgb` is used for visualization purposes only, and so does not
+% need to be accurate
 if rgb_mode
     bands = 1:3;
     reference_index = 2; % Green colour channel
@@ -163,31 +178,21 @@ findAndFitDisks_options.area_outlier_threshold = 2;
 % ## Dispersion model generation
 dispersion_fieldname = 'center';
 
-% If `true`, model dispersion between bands (colour channels or spectral
-% bands) as a function of positions in the reference band. If `false`,
-% model dispersion as a function of positions in the non-reference bands.
-% The first case is useful for warping the other bands to align with the
-% reference band, such as when correcting chromatic aberration by image
-% warping. The second case is useful for warping an "ideal" image to
-% compare it with an observed aberrated image. In both cases, the
-% dispersion vectors point from the reference band to the other bands.
-model_from_reference = false;
-
-% Spline, or global polynomial models can be fitted
-model_type = 'spline';
-
 % Parameters for polynomial model fitting
-max_degree_xy = 5;
-max_degree_lambda = 5;
+max_degree_xy = 12;
+max_degree_lambda = 12;
 
 % Parameters for spline model fitting
 spline_smoothing_options = struct(...
     'n_iter', [20, 50],...
-    'grid_size', [10, 4],...
+    'grid_size', [15, 4],...
     'minimum', eps,...
     'maximum', 1e10,...
     'tol', 1e-6 ...
 );
+
+% ## Output directory
+output_directory = '/home/llanos/Downloads';
 
 % ## Debugging Flags
 findAndFitDisksVerbose.verbose_disk_search = false;
@@ -195,7 +200,7 @@ findAndFitDisksVerbose.verbose_disk_refinement = false;
 findAndFitDisksVerbose.display_final_centers = true;
 
 statsToDisparityVerbose.display_raw_values = false;
-statsToDisparityVerbose.display_raw_disparity = true;
+statsToDisparityVerbose.display_raw_disparity = false;
 statsToDisparityVerbose.filter = struct(...
     dispersion_fieldname, true...
 );
@@ -268,7 +273,7 @@ for i = 1:n_images
     centers_cell{i} = centers_i;
 end
         
-%% Fit a dispersion model to the results
+%% Fit dispersion models to the results
 
 if rgb_mode
     % Centers are already associated between colour channels
@@ -286,58 +291,6 @@ disparity = statsToDisparity(...
     1, 0, x_fields, bands, bands_to_rgb, statsToDisparityVerbose...
 );
 
-if model_from_reference
-    centers_for_fitting = repmat(centers(:, reference_index), 1, n_bands);
-else
-    centers_for_fitting = centers;
-end
-
-if strcmp(model_type, 'polynomial')
-    if rgb_mode
-        [ dispersionfun, dispersion_data ] = xylambdaPolyfit(...
-            centers_for_fitting, dispersion_fieldname, max_degree_xy, disparity,...
-            dispersion_fieldname, xylambdaFitVerbose...
-        );
-    else
-        [ dispersionfun, dispersion_data ] = xylambdaPolyfit(...
-            centers_for_fitting, dispersion_fieldname, max_degree_xy, disparity,...
-            dispersion_fieldname, bands, max_degree_lambda, xylambdaFitVerbose...
-        );
-    end
-elseif strcmp(model_type, 'spline')
-    if rgb_mode
-        [ dispersionfun, dispersion_data ] = xylambdaSplinefit(...
-            centers_for_fitting, dispersion_fieldname, disparity,...
-            dispersion_fieldname, spline_smoothing_options, xylambdaFitVerbose...
-        );
-    else
-        [ dispersionfun, dispersion_data ] = xylambdaPolyfit(...
-            centers_for_fitting, dispersion_fieldname, disparity,...
-            dispersion_fieldname, spline_smoothing_options, bands, xylambdaFitVerbose...
-        );
-    end
-else
-    error('Unrecognized value of the `model_type` paramter.');
-end
-
-%% Visualization
-
-if plot_model
-    if rgb_mode
-        plotXYLambdaModel(...
-            centers_for_fitting, dispersion_fieldname, disparity, dispersion_fieldname,...
-            reference_index, dispersionfun...
-        );
-    else
-        plotXYLambdaModel(...
-            centers_for_fitting, dispersion_fieldname, disparity, dispersion_fieldname,...
-            bands, bands(reference_index), n_lambda_plot, dispersionfun...
-        );
-    end
-end
-
-%% Save results to a file
-
 % Indicate where in the image the model is usable
 centers_unpacked = permute(reshape([centers.(dispersion_fieldname)], 2, []), [2 1]);
 model_space.corners = [
@@ -348,9 +301,82 @@ model_space.image_size = image_size;
 model_space.system = 'image';
 
 save_variables_list = [ parameters_list, {...
-        'centers',...
-        'disparity',...
-        'dispersion_data',...
-        'model_space'...
-    } ];
-uisave(save_variables_list,'RAWDiskDispersionResults');
+    'centers',...
+    'disparity',...
+    'dispersion_data',...
+    'model_space',...
+    'model_from_reference',...
+    'model_type'...
+} ];
+
+for model_from_reference = [true, false]
+    if model_from_reference
+        centers_for_fitting = repmat(centers(:, reference_index), 1, n_bands);
+    else
+        centers_for_fitting = centers;
+    end
+        
+    for model_type = {'spline', 'polynomial'}
+        if strcmp(model_type, 'polynomial')
+            if rgb_mode
+                [ dispersionfun, dispersion_data ] = xylambdaPolyfit(...
+                    centers_for_fitting, dispersion_fieldname, max_degree_xy, disparity,...
+                    dispersion_fieldname, xylambdaFitVerbose...
+                );
+            else
+                [ dispersionfun, dispersion_data ] = xylambdaPolyfit(...
+                    centers_for_fitting, dispersion_fieldname, max_degree_xy, disparity,...
+                    dispersion_fieldname, bands, max_degree_lambda, xylambdaFitVerbose...
+                );
+            end
+        elseif strcmp(model_type, 'spline')
+            if rgb_mode
+                [ dispersionfun, dispersion_data ] = xylambdaSplinefit(...
+                    centers_for_fitting, dispersion_fieldname, disparity,...
+                    dispersion_fieldname, spline_smoothing_options, xylambdaFitVerbose...
+                );
+            else
+                [ dispersionfun, dispersion_data ] = xylambdaSplinefit(...
+                    centers_for_fitting, dispersion_fieldname, disparity,...
+                    dispersion_fieldname, spline_smoothing_options, bands, xylambdaFitVerbose...
+                );
+            end
+        else
+            error('Unrecognized value of `model_type`.');
+        end
+
+        %% Visualization
+
+        if plot_model
+            if rgb_mode
+                plotXYLambdaModel(...
+                    centers_for_fitting, dispersion_fieldname, disparity, dispersion_fieldname,...
+                    reference_index, dispersionfun...
+                );
+            else
+                plotXYLambdaModel(...
+                    centers_for_fitting, dispersion_fieldname, disparity, dispersion_fieldname,...
+                    bands, bands(reference_index), n_lambda_plot, dispersionfun...
+                );
+            end
+        end
+
+        %% Save results to a file
+        filename = 'RAWDiskDispersionResults';
+        if rgb_mode
+            filename = [filename, '_RGB_'];
+        else
+            filename = [filename, '_spectral_'];
+        end
+        filename = [filename, model_type];
+        if model_from_reference
+            filename = [filename, '_fromReference'];
+        else
+            filename = [filename, '_fromNonReference'];
+        end
+        filename = [filename, '.mat'];
+            
+        save_data_filename = fullfile(output_directory, filename);
+        save(save_data_filename, save_variables_list{:});
+    end
+end
