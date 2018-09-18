@@ -103,6 +103,23 @@ function [Y1_resampled, varargout] = resampleArrays(x1, Y1, x2, varargin)
 % for `Y2` and `x2`), otherwise resampling will occur along the wrong
 % dimension.
 %
+% ## Notes
+% - This function is often used to resample spectral data so that
+%   operations can be performed on data from multiple sources. In PBRT
+%   (Physically-Based Rendering Tool, https://pbrt.org/), the values of the
+%   resampled data are sometimes the averages of piecewise-linear
+%   approximations of the data between consecutive sample locations. In
+%   this function, the values of the resampled data are approximations of
+%   the data at the new sample locations. Averaging may produce better
+%   results, but would not make sense when the new sampling locations are
+%   non-uniformly spaced. As such, the approach taken in this function is
+%   more flexible. Note that PBRT uses Riemann sums for converting spectra
+%   to XYZ colours, for example. The spectral to colour conversion
+%   functions in this codebase, such as 'channelConversionMatrix()' can use
+%   the trapezoid rule for numerical integration, thus implicitly
+%   compensating for the lack of averaging when the spectral data was
+%   resampled.
+%
 % % See also interp1
 
 % Bernard Llanos

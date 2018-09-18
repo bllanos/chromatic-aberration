@@ -134,7 +134,7 @@ parameters_list = {
 % filepaths. Masks are used to avoid processing irrelevant portions of
 % images.
 partial_filepaths = {
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20170808_OpticalTableMatrix/averaged/d44_a22_far_disksWhite'
+    '/home/llanos/Downloads/d44_a22_far_disksWhite'
     };
 
 % Filename extension (excluding the leading '.')
@@ -149,7 +149,7 @@ mask_threshold = 0.5; % In a range of intensities from 0 to 1
 
 % Find dispersion between colour channels, as opposed to between images
 % taken under different spectral bands
-rgb_mode = true;
+rgb_mode = false;
 
 % `bands_to_rgb` is used for visualization purposes only, and so does not
 % need to be accurate
@@ -159,8 +159,8 @@ if rgb_mode
     bands_to_rgb = eye(3);
 else
     % Wavelengths will be expected at the end of filenames
-    bands = [];
-    reference_index = 0;
+    bands = [400, 500, 600];
+    reference_index = 2;
     bands_to_rgb = sonyQuantumEfficiency(bands);
     % Normalize, for improved colour saturation
     bands_to_rgb = bands_to_rgb ./ max(max(bands_to_rgb));
@@ -199,8 +199,8 @@ findAndFitDisksVerbose.verbose_disk_search = false;
 findAndFitDisksVerbose.verbose_disk_refinement = false;
 findAndFitDisksVerbose.display_final_centers = true;
 
-statsToDisparityVerbose.display_raw_values = false;
-statsToDisparityVerbose.display_raw_disparity = false;
+statsToDisparityVerbose.display_raw_values = true;
+statsToDisparityVerbose.display_raw_disparity = true;
 statsToDisparityVerbose.filter = struct(...
     dispersion_fieldname, true...
 );
@@ -316,7 +316,8 @@ for model_from_reference = [true, false]
         centers_for_fitting = centers;
     end
         
-    for model_type = {'spline', 'polynomial'}
+    for model_type_cell = {'spline', 'polynomial'}
+        model_type = model_type_cell{1};
         if strcmp(model_type, 'polynomial')
             if rgb_mode
                 [ dispersionfun, dispersion_data ] = xylambdaPolyfit(...
@@ -345,8 +346,7 @@ for model_from_reference = [true, false]
             error('Unrecognized value of `model_type`.');
         end
 
-        %% Visualization
-
+        % Visualization
         if plot_model
             if rgb_mode
                 plotXYLambdaModel(...
@@ -361,7 +361,7 @@ for model_from_reference = [true, false]
             end
         end
 
-        %% Save results to a file
+        % Save results to a file
         filename = 'RAWDiskDispersionResults';
         if rgb_mode
             filename = [filename, '_RGB_'];
