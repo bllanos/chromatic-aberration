@@ -63,6 +63,9 @@
 %   the variable 'I_full') created by warping the spectral image according
 %   to the dispersion model, then converting the image to the RGB colour
 %   space of the camera.
+% - '*_raw_noNoise.tif' and '*_raw_noNoise.mat': A simulation of The RAW
+%   image corresponding to the spectral image, stored in the variable
+%   'I_raw_noNoise'.
 % - '*_raw.tif' and '*_raw.mat': A simulation of The RAW image
 %   corresponding to the spectral image, with added noise, stored in the
 %   variable 'I_raw'.
@@ -79,6 +82,9 @@
 %   conversion data file, for reference.
 % - 'sensor_map_resampled': The resampled version of the 'sensor_map'
 %   variable, generated for compatibility with the true latent image.
+%   'sensor_map' may have been normalized so that colour images will have
+%   values in the appropriate range, as set in the parameters section
+%   below.
 % 
 % Additionally, the file contains the values of all parameters in the first
 % section of the script below, for reference. (Specifically, those listed
@@ -124,10 +130,21 @@ parameters_list = {
 %% Input data and parameters
 
 % Colour space conversion data
-color_map_filename = '';
+color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180923_TestingChirpImageGeneration/CIE1931ColorMapData.mat';
 
-% Image dimensions (height, width, number of bands)
-image_sampling = [256, 100, 25];
+% Whether or not to normalize spectral sensitivity functions, assuming an
+% illuminant which is uniform across the spectrum. The normalization code
+% is based on 'reflectanceToRadiance()'
+normalize_color_map = true;
+% Which spectral sensitivity function to use for computing the
+% normalization
+normalize_color_map_reference_index = 2; % Use '2' for the CIE tristimulus functions (since 2 denotes Y) 
+
+% Image dimensions (height, width)
+image_sampling = [128, 128];
+
+% Number of samples for antialiasing during image generation
+n_samples = 1;
 
 % Number of patch sizes to test. Patches will be square.
 n_patch_sizes = 5;
@@ -174,16 +191,18 @@ diff_bands = diff(bands);
 if any(diff_bands ~= diff_bands(1))
     error('Expected `bands` to contain equally-spaced wavelengths.');
 end
+n_bands = length(bands);
 delta_lambda = (bands(end) - bands(1)) / (n_bands - 1);
 lambda_range = [bands(1) - delta_lambda / 2, bands(end) + delta_lambda / 2];
+image_sampling_3 = [image_sampling, n_bands];
 
-min_spatial_size = min(image_sampling(1:2));
+min_spatial_size = min(image_sampling);
 patch_sizes = repmat(...
     round(logspace(0, log10(min_spatial_size), n_patch_sizes)), 1, 2 ...
 );
 
 [~, dispersion_max] = chirpImage(...
-  image_sampling, lambda_range, 1, [], 'params'...
+  image_sampling_3, lambda_range, 1, [], 'params'...
 );
 paddings = [0, round(logspace(0, log10(padding_ratio_max * dispersion_max), n_padding))];
 
@@ -196,8 +215,8 @@ imageFormationOptions.padding = 0; % No need to accommodate dispersion
 
 bands_script = bands;
 bands = [];
-model_variables_required = { 'sensor_map', 'channel_mode' };
-load(color_map_filename, model_variables_required{:}, bands_variable_name);
+model_variables_required = { 'sensor_map', 'channel_mode', 'bands' };
+load(color_map_filename, model_variables_required{:});
 if ~all(ismember(model_variables_required, who))
     error('One or more of the required colour space conversion variables is not loaded.')
 end
@@ -210,12 +229,19 @@ end
 bands_color = bands;
 bands = bands_script;
 
+% Normalize spectral sensitivities to avoid out-of-range colour values.
+if normalize_color_map
+    ybar = sensor_map(normalize_color_map_reference_index, :);
+    weights = integrationWeights(bands_color, int_method);
+    N = dot(ybar, weights);
+    sensor_map = sensor_map / N;
+end
+
 baek2017Algorithm2Options.int_method = int_method;
 selectWeightsGridOptions.int_method = int_method;
 trainWeightsOptions.int_method = int_method;
 imageFormationOptions.int_method = int_method;
 
-n_bands = length(bands);
 % Resample colour space conversion data if necessary
 if n_bands ~= length(bands_color) || any(bands ~= bands_color)
     [sensor_map_resampled, bands] = resampleArrays(...
@@ -238,39 +264,46 @@ n_auxiliary_images = 4;
 auxiliary_images = cell(n_auxiliary_images, 1);
 n_noise_fractions = length(noise_fractions);
 
-for no = 1:n_noise_fractions
-    noise_fraction = noise_fraction(no);
-    snr = noiseFractionToSNR(noise_fraction);
-    for d = 1:n_dispersion
-        dispersion_fraction = dispersion_fractions(d);
+for d = 1:n_dispersion
+    dispersion_fraction = dispersion_fractions(d);
+
+    % Synthesize the true image
+    [I_spectral_gt, I_warped_gt, dispersionfun] = chirpImage(...
+        image_sampling_3, lambda_range, dispersion_fraction, n_samples...
+    );
+    I_rgb_gt = imageFormation(...
+        I_spectral_gt, sensor_map_resampled, bands,...
+        imageFormationOptions...
+    );
+    I_rgb_warped_gt = imageFormation(...
+        I_warped_gt, sensor_map_resampled, bands,...
+        imageFormationOptions...
+    );
+    I_raw_noNoise_gt = mosaic(I_rgb_warped_gt, bayer_pattern);
+    
+    name_params_gt = sprintf('dispersion%e_', dispersion_fraction);
+    saveImages(...
+        output_directory, name_params_gt,...
+        I_raw_noNoise_gt, 'raw_noNoise', 'I_raw_noNoise',...
+        I_spectral_gt, 'latent', 'I_latent',...
+        I_rgb_gt, 'rgb', 'I_rgb',...
+        I_rgb_warped_gt, 'rgb_warped', 'I_full',...
+        I_warped_gt, 'warped', 'I_warped'...
+    );
         
-        % Synthesize the true image
-        [I_spectral_gt, I_warped_gt, dispersionfun] = chirpImage(...
-            image_sampling, lambda_range, d_fraction, n_samples...
-        );
-        I_rgb_gt = imageFormation(...
-            I_spectral_gt, sensor_map_resampled, bands,...
-            imageFormationOptions...
-        );
-        I_rgb_warped_gt = imageFormation(...
-            I_warped_gt, sensor_map_resampled, bands,...
-            imageFormationOptions...
-        );
-        I_raw_gt = mosaic(I_rgb_warped_gt, bayer_pattern);
-        I_raw_gt = addNoise(I_raw_gt, snr);
-        
+    for no = 1:n_noise_fractions
+        noise_fraction = noise_fractions(no);
+        snr = noiseFractionToSNR(noise_fraction);
+        I_raw_gt = addNoise(I_raw_noNoise_gt, snr);
+                
         name_params_gt = sprintf(...
-            'noise%e_dispersion%e', noise_fraction, dispersion_fraction...
+            'dispersion%e_noise%e_', dispersion_fraction, noise_fraction...
         );
         saveImages(...
             output_directory, name_params_gt,...
-            I_raw_gt, 'raw', 'I_raw',...
-            I_spectral_gt, 'latent', 'I_latent',...
-            I_rgb_gt, 'rgb', 'I_rgb',...
-            I_rgb_warped_gt, 'rgb_warped', 'I_full',...
-            I_rgb_warped_gt, 'warped', 'I_warped'...
+            I_raw_gt, 'raw', 'I_raw'...
         );
-    
+                
         has_dispersion = ~isempty(dispersionfun);
         
         for ps = 1:n_patch_sizes
@@ -283,9 +316,9 @@ for no = 1:n_noise_fractions
                 if verbose_progress
                     disp('Splitting the input image into patches...');
                 end
-                i_vector = 1:patch_size(1):image_sampling(1);
+                i_vector = 1:patch_size(1):image_sampling_3(1);
                 n_i_vector = length(i_vector);
-                j_vector = 1:patch_size(2):image_sampling(2);
+                j_vector = 1:patch_size(2):image_sampling_3(2);
                 n_j_vector = length(j_vector);
                 n_patches = n_i_vector * n_j_vector;
                 patches_J = cell(1, n_j_vector);
@@ -397,7 +430,7 @@ for no = 1:n_noise_fractions
 
                 % Save the results
                 name_params = sprintf(...
-                    'noise%e_dispersion%e_patch%dx%d_pad%d_weights%ew%ew%e_',...
+                    'noise%e_dispersion%e_patch%dx%d_pad%d_',...
                     noise_fraction, dispersion_fraction, patch_size(1),...
                     patch_size(2), padding...
                 );

@@ -46,7 +46,7 @@ parameters_list = {
 
 %% Input data and parameters
 
-data_source = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180614_ASTM_E308/Table1_CIE1931_2DegStandardObserver.csv';
+data_source = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180614_ASTM_E308/Table1_CIE1931_2DegStandardObserver.csv';
 % Data represents spectral sensitivities, not colour channel mappings
 channel_mode = false;
 

@@ -72,7 +72,7 @@ function J = addNoise(I, snr)
 nargoutchk(1, 1);
 narginchk(2, 2);
 
-n_channels = size(I);
+n_channels = size(I, 3);
 
 if isinf(snr)
     J = I;

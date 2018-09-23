@@ -135,7 +135,7 @@ image_height = image_sampling(1);
 image_width = image_sampling(2);
 n_bands = image_sampling(3);
 
-alpha = pi / image_width;
+alpha = pi / (2 * image_width);
 lambda_0 = lambda_range(1);
 lambda_1 = lambda_range(2);
 lambda_span = diff(lambda_range);
@@ -198,7 +198,7 @@ else
     
     if nargout > 2
         if d_fraction > 0
-            varargout{3} = dispersionfun;
+            varargout{3} = @dispersionfun;
         else
             varargout{3} = [];
         end
