@@ -81,8 +81,8 @@ rho = [ 1, 1, 1, 1 ];
 % Weights on the two prior terms, the `weights` input argument.
 % Baek et al. (2017) used [1e-5, 0.1]
 weights = [
-    1e-2, 1e-2, 1e-2;
-    1e-3, 1e-3, 1e-3
+    1e-2, 1e-2, 0;
+    1e-3, 1e-3, 0
 ];
 
 % Convergence tolerances in ADMM, the `tol` input argument.
@@ -175,6 +175,11 @@ trainWeightsOptions.tol = 1e-6;
 % Border to exclude from image patches before calculating error
 baek2017Algorithm2Options.l_err_border = [paddings(1), paddings(1)];
 trainWeightsOptions.border = paddings(1);
+
+% Whether or not to use parallel execution within each grid search
+% iteration
+trainWeightsOptions.parallel = false;
+selectWeightsGridOptions.parallel = false;
 
 % ## Debugging Flags
 baek2017Algorithm2Verbose = true;

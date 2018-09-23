@@ -145,6 +145,8 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeightsGrid(...
 %   - 'tol': The threshold value of the relative change in the minimum
 %     distance criterion from one iteration to the next. When the change is
 %     less than this threshold, iteration terminates.
+%   - 'parallel': A Boolean value specifying whether or not to parallelize
+%     the testing of grid samples using MATLAB's `parfor` loop.
 %
 % verbose -- Verbosity flag
 %   If `true`, console output will be displayed to show the progress of the
@@ -283,12 +285,22 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeightsGrid(...
         else
             I = [];
             err_raw = zeros(n, n_err);
-            parfor s = 1:n
-                [~, err_raw_s] = baek2017Algorithm2(...
-                    image_sampling_f, align_f, dispersion_f, sensitivity, lambda,...
-                    J_f, weights(s, :), rho, baek2017Algorithm2Options...
-                );
-                err_raw(s, :) = err_raw_s;
+            if options.parallel
+                parfor s = 1:n
+                    [~, err_raw_s] = baek2017Algorithm2(...
+                        image_sampling_f, align_f, dispersion_f, sensitivity, lambda,...
+                        J_f, weights(s, :), rho, baek2017Algorithm2Options...
+                    );
+                    err_raw(s, :) = err_raw_s;
+                end
+            else
+                for s = 1:n
+                    [~, err_raw_s] = baek2017Algorithm2(...
+                        image_sampling_f, align_f, dispersion_f, sensitivity, lambda,...
+                        J_f, weights(s, :), rho, baek2017Algorithm2Options...
+                    );
+                    err_raw(s, :) = err_raw_s;
+                end
             end
         end
         err_scaled = err_raw;

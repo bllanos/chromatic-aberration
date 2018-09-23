@@ -264,6 +264,7 @@ n_samples = 100;
 
 % Parameters which do not usually need to be changed
 run('SetFixedParameters.m')
+selectWeightsGridOptions.parallel = true;
 
 %% Load the images
 

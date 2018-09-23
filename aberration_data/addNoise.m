@@ -19,8 +19,8 @@ function J = addNoise(I, snr)
 % ## Output Arguments
 %
 % J -- Noisy image
-%   An image produced by adding noise to `I`. One noise distribution will
-%   be computed for each pixel, such that the signal to noise ratio is
+%   An image produced by adding noise to image `I`. One noise distribution
+%   will be computed for each pixel, such that the signal to noise ratio is
 %   respected for every pixel. Note that this method almost simulates
 %   photon shot noise and pixel response non-uniformity noise that scale
 %   with image intensity, except that photon shot noise would scale with
@@ -62,7 +62,7 @@ function J = addNoise(I, snr)
 %     capture settings using the spectral sensitivity and crosstalk model."
 %     Applied Optics, 55(25), 6989-6999. doi:10.1364/AO.55.006989
 %
-% See also PoissonDistribution, bayerMask
+% See also noiseFractionToSNR, randn
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -74,9 +74,7 @@ narginchk(2, 2);
 
 n_channels = size(I);
 
-if snr <= 0
-    error('The signal to noise ratio must be positive.')
-elseif isinf(snr)
+if isinf(snr)
     J = I;
     return;
 end

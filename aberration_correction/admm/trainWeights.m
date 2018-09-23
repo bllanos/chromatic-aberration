@@ -147,6 +147,8 @@ function [ weights, patch_lim, I_patch, varargout ] = trainWeights(...
 %   - 'tol': The threshold value of the relative change in the mean square
 %     error from one iteration to the next. When the change is less than
 %     this threshold, iteration terminates.
+%   - 'parallel': A Boolean value specifying whether or not to parallelize
+%     the testing of grid samples using MATLAB's `parfor` loop.
 %
 % verbose -- Verbosity flag
 %   If `true`, console output will be displayed to show the progress of the
@@ -242,13 +244,24 @@ function [ weights, patch_lim, I_patch, varargout ] = trainWeights(...
             err = mean(mean(mean(I_diff.^2)));
         else
             err = zeros(n, 1);
-            parfor s = 1:n
-                I_s = f(...
-                    image_sampling_f, align_f, dispersion_f, sensitivity, lambda,...
-                    J_f, weights(s, :), f_args{:}...
-                );
-                I_diff = I_s((border + 1):(end - border), (border + 1):(end - border), :) - I_patch_gt_clipped;
-                err(s) = mean(mean(mean(I_diff.^2)));
+            if options.parallel
+                parfor s = 1:n
+                    I_s = f(...
+                        image_sampling_f, align_f, dispersion_f, sensitivity, lambda,...
+                        J_f, weights(s, :), f_args{:}...
+                    );
+                    I_diff = I_s((border + 1):(end - border), (border + 1):(end - border), :) - I_patch_gt_clipped;
+                    err(s) = mean(mean(mean(I_diff.^2)));
+                end
+            else
+                for s = 1:n
+                    I_s = f(...
+                        image_sampling_f, align_f, dispersion_f, sensitivity, lambda,...
+                        J_f, weights(s, :), f_args{:}...
+                    );
+                    I_diff = I_s((border + 1):(end - border), (border + 1):(end - border), :) - I_patch_gt_clipped;
+                    err(s) = mean(mean(mean(I_diff.^2)));
+                end
             end
         end
     end

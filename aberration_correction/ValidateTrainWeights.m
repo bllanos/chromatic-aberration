@@ -257,6 +257,7 @@ n_samples = 30;
 
 % Parameters which do not usually need to be changed
 run('SetFixedParameters.m')
+trainWeightsOptions.parallel = true;
 
 %% Load the images
 

@@ -151,6 +151,8 @@ verbose = true;
 
 % ## Parameters which do not usually need to be changed
 run('SetFixedParameters.m')
+trainWeightsOptions.parallel = true;
+selectWeightsGridOptions.parallel = true;
 
 % Check for problematic parameters
 if add_border

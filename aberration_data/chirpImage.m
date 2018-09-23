@@ -1,17 +1,38 @@
-function [I_hyper, I_warped] = chirpImage(image_sampling, lambda_range, d_fraction, n_samples)
+function varargout = chirpImage(image_sampling, lambda_range, d_fraction, n_samples, varargin)
 % CHIRPIMAGE  Create an image with spatial and spectral linear chirp, and spectral dispersion
 %
 % ## Syntax
 % I_hyper = chirpImage(image_sampling, lambda_range, d_fraction, n_samples)
-% [I_hyper, I_warped] = chirpImage(image_sampling, lambda_range, d_fraction, n_samples)
+% [I_hyper, I_warped] = chirpImage(...
+%   image_sampling, lambda_range, d_fraction, n_samples...
+% )
+% [I_hyper, I_warped, dispersionfun] = chirpImage(...
+%   image_sampling, lambda_range, d_fraction, n_samples...
+% )
+% [delta_lambda, dispersion_max, bands] = chirpImage(...
+%   image_sampling, lambda_range, d_fraction, n_samples, 'params'...
+% )
 %
 % ## Description
 % I_hyper = chirpImage(image_sampling, lambda_range, d_fraction, n_samples)
 %   Returns a version of the hyperspectral image without dispersion
 %
-% [I_hyper, I_warped] = chirpImage(image_sampling, lambda_range, d_fraction, n_samples)
+% [I_hyper, I_warped] = chirpImage(...
+%   image_sampling, lambda_range, d_fraction, n_samples...
+% )
 %   Additionally returns a version of the hyperspectral image with
 %   dispersion
+%
+% [I_hyper, I_warped, dispersionfun] = chirpImage(...
+%   image_sampling, lambda_range, d_fraction, n_samples...
+% )
+%   Additionally returns a model of the dispersion in the second output
+%   image.
+%
+% [delta_lambda, dispersion_max, bands] = chirpImage(...
+%   image_sampling, lambda_range, d_fraction, n_samples, 'params'...
+% )
+%   Returns intermediate parameters used for image generation.
 %
 % ## Input Arguments
 %
@@ -31,7 +52,7 @@ function [I_hyper, I_warped] = chirpImage(image_sampling, lambda_range, d_fracti
 %   A scalar from 0 to 1, where 0 indicates no dispersion, and 1 indicates
 %   maximum dispersion. The amount of dispersion scales linearly with
 %   `d_fraction`. Under the maximum dispersion, the hypothetical image for
-%   wavelength `lambda_range(2)` is a shifted to the right relative to the
+%   wavelength `lambda_range(2)` is shifted to the right relative to the
 %   hypothetical image for wavelength `lambda_range(1)` by an amount
 %   corresponding to the distance from the left border of the latter image
 %   to the x-coordinate of its first intensity minimum.
@@ -40,11 +61,9 @@ function [I_hyper, I_warped] = chirpImage(image_sampling, lambda_range, d_fracti
 %   As far as I know, there is no analytical form for the integral of the
 %   image intensity function. This integral would need to be taken over the
 %   x, y, and spectral domain of a pixel in order to compute the pixel's
-%   value. This function approximates the integral with the average of a
-%   grid of samples in the pixel's domain. `n_samples` is a three-element
-%   vector containing the number of grid voxels along the x, y, and
-%   spectral dimensions, respectively. If `n_samples` is empty, or is a
-%   vector of ones, then each pixel is given the value of the image
+%   value. This function approximates the integral with the average of
+%   `n_samples` random samples in the pixel's domain. If `n_samples` is
+%   empty, or is one, then each pixel is given the value of the image
 %   intensity function evaluated at its centroid.
 %
 % ## Output Arguments
@@ -68,23 +87,49 @@ function [I_hyper, I_warped] = chirpImage(image_sampling, lambda_range, d_fracti
 %   dispersed image is synthesized directly, rather than as a warped
 %   version of `I_hyper`.
 %
+% dispersionfun -- Dispersion model
+%   A function which takes an input 2D array 'xylambda', where the three
+%   columns represent two spatial coordinates and a wavelength, (x, y,
+%   lambda). The output of the function is a 2D array, 'disparity', where
+%   the columns represent the x and y-components of dispersion vectors.
+%
+%   If `d_fraction` is zero, this output argument is empty (`[]`).
+%
+% delta_lambda -- Wavelength spacing
+%   The distance between the centre wavelengths of consecutive spectral
+%   bands in the output images, measured in nanometres (assuming
+%   `lambda_range` is measured in nanometres).
+%
+% dispersion_max -- Magnitude of dispersion
+%   The size of the offset between the hypothetical image for wavelength
+%   `lambda_range(2)` and the hypothetical image for wavelength
+%   `lambda_range(1)`, measured in pixels.
+%
+% bands -- Centre wavelengths
+%   A column vector containing the centre wavelengths of the spectral bands
+%   in the output images.
+%
 % ## References
 % The chirp function is described in Chapter 2 of:
 %
 %   Goodman, J. W. (2005). Introduction to fourier optics (3rd ed.).
 %     Englewood, Colorado: Roberts & Company.
 %
-% See also imageFormation
+% See also imageFormation, makeDispersionfun
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
 % University of Alberta, Department of Computing Science
 % File created September 20, 2018
 
-nargoutchk(1, 2);
-narginchk(24, 4);
 
-output_warped = nargout > 1;
+narginchk(4, 5);
+nargoutchk(1, 3);
+
+output_params = ~isempty(varargin) && strcmp(varargin{1}, 'params');
+if ~output_params
+    output_warped = (nargout > 1);
+end
 
 image_height = image_sampling(1);
 image_width = image_sampling(2);
@@ -96,8 +141,9 @@ lambda_1 = lambda_range(2);
 lambda_span = diff(lambda_range);
 delta_lambda = lambda_span / n_bands;
 beta = pi / (image_height * delta_lambda);
-d_max = sqrt(image_width) / lambda_span;
-d_absolute = d_fraction * d_max;
+dispersion_max = d_fraction * sqrt(image_width);
+d_scaled = dispersion_max / lambda_span;
+bands = linspace(lambda_0 + delta_lambda / 2, lambda_1 - delta_lambda / 2, n_bands).';
 
     function intensity = imageIntensity(x, y, lambda, d)
         lambda_rel = lambda - lambda_0;
@@ -105,53 +151,57 @@ d_absolute = d_fraction * d_max;
             (cos(beta .* y .* lambda_rel) + 1) ./ 4;
     end
 
-if isempty(n_samples) || all(n_samples == 1)
-    lambda = linspace(lambda_0 + delta_lambda / 2, lambda_1 - delta_lambda / 2, n_bands);
-    [Y, X, Lambda] = ndgrid(0.5:1:image_height, 0.5:1:image_width, lambda);
-    I_hyper = imageIntensity(X, Y, Lambda, 0);
-    if output_warped
-        I_warped = imageIntensity(X, Y, Lambda, d_absolute);
+    function disparity = dispersionfun(xylambda)
+        disparity = [...
+            d_scaled * (xylambda(3) - lambda_0),...
+            zeros(size(xylambda, 1), 1)...
+        ];
     end
-else
-    n_dims = 3;
-    if n_dims ~= length(n_samples)
-        error('`n_samples` should be a %d-element vector.', n_dims);
-    end
-    offsets = cell(n_dims, 1);
-    delta = [1, 1, delta_lambda];
-    for d = 1:n_dims
-        offsets{d} = linspace(...
-            delta / (2 * n_samples(d)), delta - (delta / (2 * n_samples(d))),...
-            n_samples(d)...
-        );
-    end
-    n_samples_all = prod(n_samples);
-    offsets_all = zeros(n_samples_all, n_dims);
-    for d = 1:n_dims
-        offsets_all(:, d) = repmat(...
-            repelem(offsets{d}, prod(n_samples((d + 1):end))),...
-            prod(n_samples(1:(d - 1))), 1 ...
-        );
-    end
-    lambda = linspace(lambda_0, lambda_1 - delta_lambda, n_bands);
-    [Y, X, Lambda] = ndgrid(0:(image_height - 1), 0:(image_width - 1), lambda);
-    I_hyper = zeros(image_sampling);
-    if output_warped
-        I_warped = zeros(image_sampling);
-    end
-    for s = 1:n_samples_all
-        Y_s = Y + offsets_all(s, 2);
-        X_s = X + offsets_all(s, 1);
-        Lambda_s = Lambda + offsets_all(s, 3);
-        I_hyper = I_hyper + imageIntensity(X_s, Y_s, Lambda_s, 0);
-        if output_warped
-            I_warped = I_warped + imageIntensity(X_s, Y_s, Lambda_s, d_absolute);
+
+if output_params
+    varargout{1} = delta_lambda;
+    if nargout > 1
+        varargout{2} = dispersion_max;
+        if nargout > 2
+            varargout{3} = bands;
         end
     end
-    n_px_all = prod(image_sampling);
-    I_hyper = I_hyper / n_px_all;
-    if output_warped
-        I_warped = I_warped / n_px_all;
+else
+    if isempty(n_samples) || n_samples == 1
+        [Y, X, Lambda] = ndgrid(0.5:1:image_height, 0.5:1:image_width, bands);
+        varargout{1} = imageIntensity(X, Y, Lambda, 0);
+        if output_warped
+            varargout{2} = imageIntensity(X, Y, Lambda, d_scaled);
+        end
+    else
+        % Reference points at the corners of each pixel
+        bands = linspace(lambda_0, lambda_1 - delta_lambda, n_bands);
+        [Y, X, Lambda] = ndgrid(0:(image_height - 1), 0:(image_width - 1), bands);
+        I_hyper = zeros(image_sampling);
+        if output_warped
+            I_warped = zeros(image_sampling);
+        end
+        for s = 1:n_samples
+            Y_s = Y + rand(image_sampling);
+            X_s = X + rand(image_sampling);
+            Lambda_s = Lambda + delta_lambda * rand(image_sampling);
+            I_hyper = I_hyper + imageIntensity(X_s, Y_s, Lambda_s, 0);
+            if output_warped
+                I_warped = I_warped + imageIntensity(X_s, Y_s, Lambda_s, d_scaled);
+            end
+        end
+        varargout{1} = I_hyper / n_samples;
+        if output_warped
+            varargout{2} = I_warped / n_samples;
+        end
+    end
+    
+    if nargout > 2
+        if d_fraction > 0
+            varargout{3} = dispersionfun;
+        else
+            varargout{3} = [];
+        end
     end
 end
 
