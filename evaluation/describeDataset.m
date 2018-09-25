@@ -82,7 +82,8 @@ function [dataset_params] = describeDataset(name)
 %       argument of 'evaluateSpectral()', describing default evaluation
 %       options for all spectral images. Fields for storing figure handles
 %       should not be included. The field 'plot_color' should also be
-%       omitted.
+%       omitted. 'global_spectral' is needed only for datasets with
+%       spectral images.
 %     - 'custom_spectral': A structure, where the value of each field is
 %       of the form of the `options` input argument of
 %       'evaluateSpectral()', and describes custom evaluation options for a
@@ -91,7 +92,8 @@ function [dataset_params] = describeDataset(name)
 %       spectral image files that will be loaded. Fields not present in the
 %       structures should default to the values given by 'global_spectral'.
 %       Fields for storing figure handles should not be included. The field
-%       'plot_color' should also be omitted.
+%       'plot_color' should also be omitted. 'custom_spectral' is needed
+%       only for datasets with spectral images.
 %
 % ## Recognized (high-quality) datasets
 % - 'kodak': The Kodak Lossless True Color Image Suite dataset, often

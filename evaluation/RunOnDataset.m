@@ -215,7 +215,6 @@ for i = 1:n_images
     if isempty(I_rgb_gt_warped)
         e_rgb_table = [];
     else
-        % Evaluate the aberrated image as a baseline
         e_rgb_table = evaluateAndSaveRGB(...
             I_rgb_gt_warped, I_rgb_gt, dp, names{i}, 'Aberrated',...
             fullfile(output_directory, [names{i} '_aberrated'])...
@@ -268,22 +267,16 @@ for i = 1:n_images
                 continue;
             end
             
-            if algorithm.spectral
-                if has_color_map
-                    if channel_mode
-                        baek2017Algorithm2Options.int_method = 'none';
-                        solvePatchesOptions.int_method = 'none';
-                    else
-                        baek2017Algorithm2Options.int_method = int_method;
-                        solvePatchesOptions.int_method = int_method;
-                    end
-                else
-                    continue;
+            baek2017Algorithm2Options.int_method = 'none';
+            solvePatchesOptions.int_method = 'none';
+            if algorithm.spectral && has_color_map
+                if ~channel_mode
+                    baek2017Algorithm2Options.int_method = int_method;
+                    solvePatchesOptions.int_method = int_method;
                 end
             else
-                baek2017Algorithm2Options.int_method = 'none';
-                solvePatchesOptions.int_method = 'none';
-            end
+                continue;
+            end                
             
             if use_manual_weights
                 weights_f = weights(w, :);
@@ -308,7 +301,7 @@ for i = 1:n_images
                 );
             alg_name_params = sprintf(...
                 '%s, patch %d x %d, padding %d',...
-                algorithm.file, patch_size(1), patch_size(2), padding...
+                algorithm.name, patch_size(1), patch_size(2), padding...
                 );
             if use_manual_weights
                 name_params = [...

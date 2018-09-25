@@ -42,9 +42,11 @@ function [e_spectral, varargout] = evaluateSpectral(...
 %   A structure which controls graphical output to figures relating to
 %   the spectral images, and also determines some of the output in
 %   `e_spectral`. `options` has the following fields:
-%   - 'error_map': If `true`, then this function will produce a figure
-%     showing the absolute error between the two images. The figure will be
-%     produced for the band having the highest mean squared error.
+%   - 'error_map': If `true`, then this function will produce three figures
+%     containing error maps. The first shows the absolute error between the
+%     two images. The figure will be produced for the band having the
+%     highest mean squared error. The second shows spectral RMSE error,
+%     whereas the third shows spectral goodness-of-fit.
 %   - 'radiance': A matrix, where each row is a four-element vector
 %     describing an image patch (center pixel x-coordinate, center pixel
 %     y-coordinate, width, and height). Image patches widths and heights
@@ -131,8 +133,8 @@ function [e_spectral, varargout] = evaluateSpectral(...
 % fg_spectral -- Spectral error evaluation figures
 %   A structure with the following fields, all of which store figure
 %   handles:
-%   - 'error_map': A figure handle corresponding to the output triggered
-%     by `options.error_map`.
+%   - 'error_map': A vector of figure handles corresponding to the output
+%     triggered by `options.error_map`.
 %   - 'radiance': A vector of figure handles corresponding to the output
 %     triggered by `options.radiance`.
 %   - 'patches': A figure showing the image locations of all patches
@@ -343,11 +345,21 @@ fg_spectral = struct;
 if isfield(options, 'error_map') && options.error_map
     ind = find(e_spectral.mse.raw == e_spectral.mse.max);
     diff_band = I_spectral(:, :, ind) - R_spectral(:, :, ind);
-    fg_spectral.error_map = figure;
+    fg_spectral.error_map(1) = figure;
     imagesc(diff_band);
     colorbar;
     title(sprintf('Difference image for the %g band, MSE %g',...
         lambda(ind), e_spectral.mse.max));
+    
+    fg_spectral.error_map(2) = figure;
+    imagesc(rmse_per_pixel);
+    colorbar;
+    title('Spectral root-mean-square error');
+    
+    fg_spectral.error_map(3) = figure;
+    imagesc(gof_per_pixel);
+    colorbar;
+    title('Spectral goodness-of-fit');
 end
 
 background = [];
