@@ -196,7 +196,7 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeightsGrid(...
 %     the regularization weights at the i-th iteration.
 %   - 'err': An array of dimensions
 %     (n + 1) x (length(options.enabled_weights) + 1) containing the second
-%     output argument of 'baek2017Algorithm2()' at each iteration. `err(i)`
+%     output argument of 'baek2017Algorithm2()' at each iteration. `err(i, :)`
 %     is the second output argument of 'baek2017Algorithm2()' when called
 %     using `search.weights(i, :)` as the `weights` input argument
 %     'baek2017Algorithm2()'.

@@ -171,11 +171,11 @@ n_admm_algorithms = length(admm_algorithm_fields);
 if use_manual_weights
     n_weights = size(weights, 1);
 else
-    n_weights = 2; % Each image is assigned MDF and MSE weights
+    n_weights = 2; % Each image is assigned MDC and MSE weights
     for f = 1:n_admm_algorithms
         algorithm = admm_algorithms.(admm_algorithm_fields{f});
         if algorithm.enabled && any([...
-                size(algorithm.mdf_weights, 1),...
+                size(algorithm.mdc_weights, 1),...
                 size(algorithm.mse_weights, 1)
             ] ~= n_images)
             error('Algorithm "%s" does not have a number of weights matching the number of images.', algorithm.name)
@@ -289,7 +289,7 @@ for i = 1:n_images
                 weights_f = weights(w, :);
             else
                 if w == 1
-                    weights_f = algorithm.mdf_weights(i, :);
+                    weights_f = algorithm.mdc_weights(i, :);
                 elseif w == 2
                     weights_f = algorithm.mse_weights(i, :);
                 else
@@ -323,8 +323,8 @@ for i = 1:n_images
                 )];
             else
                 if w == 1
-                    name_params = [name_params, '_MDFweights_'];
-                    alg_name_params = [alg_name_params, ', MDF weights'];
+                    name_params = [name_params, '_MDCweights_'];
+                    alg_name_params = [alg_name_params, ', MDC weights'];
                 elseif w == 2
                     name_params = [name_params, '_MSEweights_'];
                     alg_name_params = [alg_name_params, ', MSE weights'];

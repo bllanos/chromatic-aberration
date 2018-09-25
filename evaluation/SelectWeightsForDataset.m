@@ -48,8 +48,8 @@
 %   regularization weights were selected. 'admm_algorithms' is created by
 %   'SetAlgorithms.m', and then each algorithm is given two additional
 %   fields by this script:
-%   - 'mdf_weights': Regularization weights selected using the minimum
-%     distance criterion of Song et al. 2016. 'mdf_weights' is a 2D array
+%   - 'mdc_weights': Regularization weights selected using the minimum
+%     distance criterion of Song et al. 2016. 'mdc_weights' is a 2D array
 %     with one row per image in the dataset.
 %   - 'mse_weights': Regularization weights selected to minimize the mean
 %     square error with respect to the true images. 'mse_weights' is a 2D
@@ -71,11 +71,11 @@
 %   penalties evaluated on colour versions of the images.
 % - 'patch_penalties_rgb_L2': An array similar to 'patch_penalties_rgb_L1',
 %   but which contains L2 norms of regularization penalties.
-% - 'all_mdf_weights': Regularization weights selected using the method of
-%   Song et al. 2016. `all_mdf_weights(pc, :, i, f)` is the vector of
+% - 'all_mdc_weights': Regularization weights selected using the method of
+%   Song et al. 2016. `all_mdc_weights(pc, :, i, f)` is the vector of
 %   regularization weights selected for the f-th algorithm on the pc-th
 %   patch of the i-th image
-% - 'all_mse_weights': An array with the same layout as 'all_mdf_weights',
+% - 'all_mse_weights': An array with the same layout as 'all_mdc_weights',
 %   but which contains regularization weights selected by minimizing the
 %   true mean square error.
 % 
@@ -100,8 +100,8 @@
 % - Regularization weights will not be selected for algorithms which are
 %   disabled (using the 'enabled' fields in the structures describing the
 %   algorithms). Instead, values of zero will be output for disabled
-%   algorithms in 'all_mdf_weights' and 'all_mse_weights', and the
-%   'mdf_weights' and 'mse_weights' fields will not be added to their
+%   algorithms in 'all_mdc_weights' and 'all_mse_weights', and the
+%   'mdc_weights' and 'mse_weights' fields will not be added to their
 %   structures in 'admm_algorithms'.
 % - Only image patches that are not clipped by the image edges will be
 %   chosen for selecting regularization weights.
@@ -226,6 +226,8 @@ for w = 1:n_weights
         G = G_lambda * G;
     end
     if w == 3
+        % This is not quite correct - The Bayer pattern code changes
+        % depending on the location of the patch.
         G = antiMosaicMatrix(patch_size, bayer_pattern);
     end
     patch_operators_rgb{w} = G;
@@ -238,7 +240,7 @@ for f = 1:n_admm_algorithms
     if ~algorithm.enabled
         continue;
     end
-    admm_algorithms.(admm_algorithm_fields{f}).mdf_weights = zeros(n_images, n_weights); 
+    admm_algorithms.(admm_algorithm_fields{f}).mdc_weights = zeros(n_images, n_weights); 
     admm_algorithms.(admm_algorithm_fields{f}).mse_weights = zeros(n_images, n_weights);
 end
 
@@ -257,7 +259,7 @@ patch_penalties_rgb_L2 = zeros(n_patches, n_weights, n_images);
 
 corners = zeros(n_patches, 2, n_images);
 
-all_mdf_weights = zeros(n_patches, n_weights, n_images, n_admm_algorithms);
+all_mdc_weights = zeros(n_patches, n_weights, n_images, n_admm_algorithms);
 all_mse_weights = zeros(n_patches, n_weights, n_images, n_admm_algorithms);
 
 for i = 1:n_images
@@ -353,11 +355,11 @@ for i = 1:n_images
         trainWeightsOptions_f = trainWeightsOptions;
         trainWeightsOptions_f.enabled_weights = algorithm.priors;
         
-        mdf_weights_patches = zeros(n_patches, n_weights);
+        mdc_weights_patches = zeros(n_patches, n_weights);
         mse_weights_patches = zeros(n_patches, n_weights);
         if algorithm.spectral
             for pc = 1:n_patches
-                mdf_weights_patches(pc, :) = selectWeightsGrid(...
+                mdc_weights_patches(pc, :) = selectWeightsGrid(...
                     I_raw_gt, bayer_pattern, df_spectral_reverse,...
                     sensor_map_resampled, bands,...
                     rho, baek2017Algorithm2Options_f, selectWeightsGridOptions_f,...
@@ -373,7 +375,7 @@ for i = 1:n_images
             end 
         else
             for pc = 1:n_patches
-                mdf_weights_patches(pc, :) = selectWeightsGrid(...
+                mdc_weights_patches(pc, :) = selectWeightsGrid(...
                     I_raw_gt, bayer_pattern, df_rgb_reverse,...
                     sensor_map_rgb, bands_rgb,...
                     rho, baek2017Algorithm2Options_f, selectWeightsGridOptions_f,...
@@ -388,11 +390,11 @@ for i = 1:n_images
                 );
             end
         end
-        mdf_weights = geomean(mdf_weights_patches, 1);
+        mdc_weights = geomean(mdc_weights_patches, 1);
         mse_weights = geomean(mse_weights_patches, 1);
-        all_mdf_weights(:, :, i, f) = mdf_weights_patches;
+        all_mdc_weights(:, :, i, f) = mdc_weights_patches;
         all_mse_weights(:, :, i, f) = mse_weights_patches;
-        admm_algorithms.(admm_algorithm_fields{f}).mdf_weights(i, :) = mdf_weights;
+        admm_algorithms.(admm_algorithm_fields{f}).mdc_weights(i, :) = mdc_weights;
         admm_algorithms.(admm_algorithm_fields{f}).mse_weights(i, :) = mse_weights;
     end
 
@@ -403,11 +405,11 @@ end
 
 %% Visualization of weights selected for the dataset
 
-mdf_color = [1, 0, 0];
+mdc_color = [1, 0, 0];
 mse_color = [0, 1, 0];
 
-min_nz_weight = min(min(all_mdf_weights(all_mdf_weights ~= 0)), min(all_mse_weights(all_mse_weights ~= 0)));
-max_nz_weight = max(max(all_mdf_weights(all_mdf_weights ~= 0)), max(all_mse_weights(all_mse_weights ~= 0)));
+min_nz_weight = min(min(all_mdc_weights(all_mdc_weights ~= 0)), min(all_mse_weights(all_mse_weights ~= 0)));
+max_nz_weight = max(max(all_mdc_weights(all_mdc_weights ~= 0)), max(all_mse_weights(all_mse_weights ~= 0)));
 log_min_nz_weight = log10(min_nz_weight);
 log_max_nz_weight = log10(max_nz_weight);
 plot_limits = [log_min_nz_weight - 1, log_max_nz_weight + 1];
@@ -448,9 +450,9 @@ for f = 1:n_admm_algorithms
     n_active_weights = sum(enabled_weights);
     to_all_weights = find(enabled_weights);
 
-    mdf_weights = reshape(permute(all_mdf_weights(:, :, :, f), [1, 3, 2, 4]), [], n_weights);
-    mdf_weights = mdf_weights(:, enabled_weights);
-    log_mdf_weights = log10(mdf_weights);
+    mdc_weights = reshape(permute(all_mdc_weights(:, :, :, f), [1, 3, 2, 4]), [], n_weights);
+    mdc_weights = mdc_weights(:, enabled_weights);
+    log_mdc_weights = log10(mdc_weights);
     mse_weights = reshape(permute(all_mse_weights(:, :, :, f), [1, 3, 2, 4]), [], n_weights);
     mse_weights = mse_weights(:, enabled_weights);
     log_mse_weights = log10(mse_weights);
@@ -459,11 +461,11 @@ for f = 1:n_admm_algorithms
     hold on
     if n_active_weights == 1
         scatter(...
-            log_mse_weights, log_mdf_weights, 'filled'...
+            log_mse_weights, log_mdc_weights, 'filled'...
         );
         line_limits = [...
-            min(min(log_mse_weights, log_mdf_weights));
-            max(max(log_mse_weights, log_mdf_weights))
+            min(min(log_mse_weights, log_mdc_weights));
+            max(max(log_mse_weights, log_mdc_weights))
         ];
         line(line_limits, line_limits, 'Color', 'b');
         legend('Weights', 'y = x');
@@ -473,26 +475,26 @@ for f = 1:n_admm_algorithms
         ylim(plot_limits)
     elseif n_active_weights == 2
         scatter(...
-            log_mdf_weights(:, 1), log_mdf_weights(:, 2), [], mdf_color, 'filled'...
+            log_mdc_weights(:, 1), log_mdc_weights(:, 2), [], mdc_color, 'filled'...
         );
         scatter(...
             log_mse_weights(:, 1), log_mse_weights(:, 2), [], mse_color, 'filled'...
         );
-        legend('MDF', 'MSE');
+        legend('MDC', 'MSE');
         xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
         ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
         xlim(plot_limits)
         ylim(plot_limits)
     elseif n_active_weights == 3
         scatter3(...
-            log_mdf_weights(:, 1), log_mdf_weights(:, 2), log_mdf_weights(:, 3),...
-            [], mdf_color, 'filled'...
+            log_mdc_weights(:, 1), log_mdc_weights(:, 2), log_mdc_weights(:, 3),...
+            [], mdc_color, 'filled'...
         );
         scatter3(...
             log_mse_weights(:, 1), log_mse_weights(:, 2), log_mse_weights(:, 3),...
             [], mse_color, 'filled'...
         );
-        legend('MDF', 'MSE');
+        legend('MDC', 'MSE');
         xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
         ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
         zlabel(sprintf('log_{10}(weight %d)', to_all_weights(3)))
@@ -503,7 +505,7 @@ for f = 1:n_admm_algorithms
         error('Unexpected number of active weights.');
     end
     title(sprintf(...
-        'Agreement between MDF and MSE weights selected for %s',...
+        'Agreement between MDC and MSE weights selected for %s',...
         algorithm.name...
     ));
     %axis equal
@@ -534,13 +536,13 @@ for f = 1:n_admm_algorithms
         
         fg = figure;
         hold on
-        scatter(patch_penalties, log_mdf_weights(:, w), [], mdf_color, 'filled');
+        scatter(patch_penalties, log_mdc_weights(:, w), [], mdc_color, 'filled');
         scatter(patch_penalties, log_mse_weights(:, w), [], mse_color, 'filled');
-        legend('MDF', 'MSE');
+        legend('MDC', 'MSE');
         xlabel(sprintf('log_{10}(Penalty %d)', aw))
         ylabel(sprintf('log_{10}(Weight %d)', aw))
         title(sprintf(...
-            'Agreement between MDF and MSE weights selected for %s',...
+            'Agreement between MDC and MSE weights selected for %s',...
             algorithm.name...
         ));
         ylim(plot_limits)
@@ -558,7 +560,7 @@ end
 save_variables_list = [ parameters_list, {...
     'bands', 'admm_algorithms', 'corners',...
     'patch_penalties_rgb_L1', 'patch_penalties_rgb_L2',...
-    'all_mdf_weights', 'all_mse_weights'...
+    'all_mdc_weights', 'all_mse_weights'...
 } ];
 if has_spectral
     save_variables_list = [save_variables_list, {...

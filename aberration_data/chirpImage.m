@@ -141,13 +141,13 @@ lambda_1 = lambda_range(2);
 lambda_span = diff(lambda_range);
 delta_lambda = lambda_span / n_bands;
 beta = pi / (image_height * delta_lambda);
-dispersion_max = d_fraction * sqrt(image_width);
+dispersion_max = d_fraction * sqrt(2 * image_width);
 d_scaled = dispersion_max / lambda_span;
 bands = linspace(lambda_0 + delta_lambda / 2, lambda_1 - delta_lambda / 2, n_bands).';
 
     function intensity = imageIntensity(x, y, lambda, d)
         lambda_rel = lambda - lambda_0;
-        intensity = (cos(alpha .* (x - d .* lambda_rel) .^ 2) + 1) .* ...
+        intensity = (cos(alpha .* max(0, x - d .* lambda_rel) .^ 2) + 1) .* ...
             (cos(beta .* y .* lambda_rel) + 1) ./ 4;
     end
 

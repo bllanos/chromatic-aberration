@@ -232,7 +232,7 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeights(...
 %     `search.weights(1, :)` is a copy of `options.initial_weights`.
 %   - 'err': An array of dimensions n x (length(options.enabled_weights) + 1)
 %     containing the second output argument of `f` at each iteration.
-%     `err(i)` is the second output argument of `f` when called using
+%     `err(i, :)` is the second output argument of `f` when called using
 %     `search.weights(i, :)` as the `weights` input argument of `f`.
 %   - 'origin': The origin point of the minimum distance function used for
 %     the fixed-point algorithm. A vector of length
