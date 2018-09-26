@@ -69,16 +69,17 @@ function varargout = chirpImage(image_sampling, lambda_range, dispersion_mag, n_
 % ## Output Arguments
 %
 % I_hyper -- Chirp image
-%   An image produced by evaluating a linear chirp function. As the
-%   x-coordinate increases, the amplitude of the spectral signal oscillates
-%   increasingly rapidly, until reaching a maximum rate of one cycle per
-%   two pixels at the right edge of the image. As the y-coordinate
-%   increases, the frequency of oscillation in the spectral dimension
-%   increases, until reaching a maximum rate of one cycle across two
-%   spectral bands at the bottom edge of the image. (The maximum
-%   frequencies are intended to respect the Whittaker-Shannon sampling
-%   theorem described by Goodman 2005.) Consequently, this image contains a
-%   range of both spatial and spectral frequencies.
+%   An image produced by evaluating a linear chirp function. The spectral
+%   curve at each pixel is a cosine function. As the x-coordinate
+%   increases, the phase of the spectral signal increases, and the rate at
+%   which it increases increases linearly with the x-coordinate, until the
+%   rate reaches a maximum of one cycle per two pixels at the right edge of
+%   the image. As the y-coordinate increases, the frequency of oscillation
+%   in the spectral dimension increases, until reaching a maximum rate of
+%   one cycle across two spectral bands at the bottom edge of the image.
+%   (The maximum frequencies are intended to respect the Whittaker-Shannon
+%   sampling theorem described by Goodman 2005.) Consequently, this image
+%   contains a range of both spatial and spectral frequencies.
 %
 % I_warped -- Dispersed image
 %   A version of `I_hyper` altered by spectral dispersion, with the
@@ -106,9 +107,9 @@ function varargout = chirpImage(image_sampling, lambda_range, dispersion_mag, n_
 %   at the suggested maximum dispersion. Under the maximum dispersion, the
 %   hypothetical image for wavelength `lambda_range(2)` is shifted to the
 %   right relative to the hypothetical image for wavelength
-%   `lambda_range(1)`, by an amount equal to the distance from the
-%   left border of the latter image to the x-coordinate of its first
-%   intensity minimum.
+%   `lambda_range(1)`, by an amount equal to the distance from the left
+%   border of the latter image to the x-coordinate where it reaches a
+%   half-cycle change in phase.
 %
 % bands -- Centre wavelengths
 %   A column vector containing the centre wavelengths of the spectral bands
@@ -153,8 +154,10 @@ bands = linspace(lambda_0 + delta_lambda / 2, lambda_1 - delta_lambda / 2, n_ban
 
     function intensity = imageIntensity(x, y, lambda, d)
         lambda_rel = lambda - lambda_0;
-        intensity = (cos(alpha .* max(0, x - d .* lambda_rel) .^ 2) + 1) .* ...
-            (cos(beta .* y .* lambda_rel) + 1) ./ 4;
+        intensity = (cos(...
+                (beta .* y .* lambda_rel) +...
+                (alpha .* max(0, x - d .* lambda_rel) .^ 2)...
+            ) + 1) ./ 2;
     end
 
     function disparity = dispersionfun(xylambda)
