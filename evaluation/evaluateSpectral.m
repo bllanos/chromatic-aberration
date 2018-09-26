@@ -351,7 +351,7 @@ end
 fg_spectral = struct;
 
 if isfield(options, 'error_map') && options.error_map
-    ind = find(e_spectral.mse.raw == e_spectral.mse.max);
+    ind = find(e_spectral.mse.raw == e_spectral.mse.max, 1);
     diff_band = I_spectral(:, :, ind) - R_spectral(:, :, ind);
     fg_spectral.error_map(1) = figure;
     imagesc(diff_band);

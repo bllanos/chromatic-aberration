@@ -83,10 +83,14 @@ I_rgb = nan(image_height, image_width, n_channels);
 for c = [1 n_channels_max]
     if channels(c)
         mask_c = mask(:, :, c);
-        x_c = reshape(X(mask_c), image_height / 2, image_width / 2);
-        y_c = reshape(Y(mask_c), image_height / 2, image_width / 2);
         I_raw_c = reshape(I_raw(mask_c), image_height / 2, image_width / 2);
-        I_c = interp2(x_c, y_c, I_raw_c, X, Y, 'linear');
+        if image_height <= 2 || image_width <= 2
+            I_c = repelem(I_raw_c, 2, 2);
+        else
+            x_c = reshape(X(mask_c), image_height / 2, image_width / 2);
+            y_c = reshape(Y(mask_c), image_height / 2, image_width / 2);
+            I_c = interp2(x_c, y_c, I_raw_c, X, Y, 'linear');
+        end
         if c == 1
             I_rgb(:, :, c) = I_c;
         else
@@ -113,11 +117,22 @@ if channels(green_index)
         I_g(missing_ind_g + image_height) +...
         I_g(missing_ind_g - image_height)...
         ) / 4; % Central region of image
-    I_g(1, :) = interp1(X(1, mask_g(1, :)), I_g(1, mask_g(1, :)), X(1, :), 'linear'); % Top
-    I_g(end, :) = interp1(X(end, mask_g(end, :)), I_g(end, mask_g(end, :)), X(end, :), 'linear'); % Bottom
-    I_g(:, 1) = interp1(Y(mask_g(:, 1), 1), I_g(mask_g(:, 1), 1), Y(:, 1), 'linear'); % Left
-    I_g(:, end) = interp1(Y(mask_g(:, end), end), I_g(mask_g(:, end), end), Y(:, end), 'linear'); % Right
     
+    if image_height <= 2
+        I_g(:, 1) = I_g(mask_g(:, 1), 1);
+        I_g(:, end) = I_g(mask_g(:, end), end);
+    else
+        I_g(:, 1) = interp1(Y(mask_g(:, 1), 1), I_g(mask_g(:, 1), 1), Y(:, 1), 'linear'); % Left
+        I_g(:, end) = interp1(Y(mask_g(:, end), end), I_g(mask_g(:, end), end), Y(:, end), 'linear'); % Right
+    end
+    if image_width <= 2
+        I_g(1, :) = I_g(1, mask_g(1, :));
+        I_g(end, :) = I_g(end, mask_g(end, :));
+    else
+        I_g(1, :) = interp1(X(1, mask_g(1, :)), I_g(1, mask_g(1, :)), X(1, :), 'linear'); % Top
+        I_g(end, :) = interp1(X(end, mask_g(end, :)), I_g(end, mask_g(end, :)), X(end, :), 'linear'); % Bottom
+    end
+
     if channels(green_index - 1)
         I_rgb(:, :, green_index) = I_g;
     else

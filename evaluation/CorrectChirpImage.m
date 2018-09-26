@@ -235,18 +235,19 @@ normalize_color_map = true;
 normalize_color_map_reference_index = 2; % Use '2' for the CIE tristimulus functions (since 2 denotes Y) 
 
 % Image dimensions (height, width)
-image_sampling = [128, 128];
+image_sampling = [32, 32];
 
 % Number of samples for antialiasing during image generation
 n_samples = 1;
 
 % Number of patch sizes to test. Patches will be square.
+% The smallest patch size will be 2 x 2 pixels.
 n_patch_sizes = 5;
-% Maximum patch side length. This value will be clipped to the shortest
+% Maximum patch side length. This value will be clipped to the largest
 % image dimension before use.
 patch_size_max = 50;
 
-% Number of patch padding sizes to test, including no padding
+% Number of patch padding sizes to test, including no padding.
 n_padding = 4;
 
 % Size of the largest padding size as a multiple of the maximum dispersion
@@ -272,7 +273,7 @@ n_eval_patches_x = 4;
 n_eval_patches_y = 4;
 
 % Spectral evaluation patch size (Must be an odd integer)
-eval_patch_size = 11;
+eval_patch_size = 5;
 
 % Output directory for all images and saved parameters
 output_directory = '/home/llanos/Downloads';
@@ -280,20 +281,19 @@ output_directory = '/home/llanos/Downloads';
 % ## Parameters which do not usually need to be changed
 run('SetFixedParameters.m')
 
-% Tweaks to the parameters set by 'SetFixedParameters.m'
+% ## Debugging flags
+baek2017Algorithm2Verbose = false;
+verbose_progress = true;
 
+%% Validate parameters, and construct intermediate parameters
+
+% Tweaks to the parameters set by 'SetFixedParameters.m'
 selectWeightsGridOptions.parallel = false;
 trainWeightsOptions.parallel = false;
 % Not all patches will have full borders, so do the following for
 % simplicity
 baek2017Algorithm2Options.l_err_border = [0, 0];
 trainWeightsOptions.border = 0;
-
-% ## Debugging flags
-baek2017Algorithm2Verbose = false;
-verbose_progress = true;
-
-%% Validate parameters, and construct intermediate parameters
 
 if add_border
     % Estimating a border area results in images which are usually not
@@ -319,7 +319,7 @@ lambda_range = [bands(1) - delta_lambda / 2, bands(end) + delta_lambda / 2];
 image_sampling_3 = [image_sampling, n_bands];
 
 patch_sizes = repmat(...
-    round(logspace(0, log10(min([image_sampling, patch_size_max])), n_patch_sizes)), 1, 2 ...
+    round(logspace(log10(2), log10(min([max(image_sampling), patch_size_max])), n_patch_sizes)).', 1, 2 ...
 );
 
 if n_padding < 1
@@ -390,8 +390,8 @@ dataset_params.evaluation = struct(...
 );
 
 [eval_patches_x, eval_patches_y] = meshgrid(...
-    linspace(ceil(eval_patch_size / 2), floor(image_sampling(2) - eval_patch_size / 2), n_eval_patches_x),...
-    linspace(ceil(eval_patch_size / 2), floor(image_sampling(1) - eval_patch_size / 2), n_eval_patches_y)...
+    round(linspace(ceil(eval_patch_size / 2), floor(image_sampling(2) - eval_patch_size / 2), n_eval_patches_x)),...
+    round(linspace(ceil(eval_patch_size / 2), floor(image_sampling(1) - eval_patch_size / 2), n_eval_patches_y))...
 );
 eval_patches_x = reshape(eval_patches_x, [], 1);
 eval_patches_y = reshape(eval_patches_y, [], 1);
