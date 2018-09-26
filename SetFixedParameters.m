@@ -100,7 +100,7 @@ baek2017Algorithm2Options.maxit = [ 500, 500 ];
 baek2017Algorithm2Options.varying_penalty_params = [2, 2, 10];
 
 % Types of norms to use on the prior terms
-baek2017Algorithm2Options.norms = [true, true, true];
+baek2017Algorithm2Options.norms = [false, false, false];
 
 % Whether to apply a non-negativity constraint (in which case, `rho` must
 % have three elements)
@@ -126,29 +126,31 @@ paddings = 10;
 % ## Options for selecting regularization weights
 
 selectWeightsOptions.patch_size = patch_sizes(1, :);
-
 selectWeightsOptions.enabled_weights = logical(weights(1, :));
-
-trainWeightsOptions = selectWeightsOptions;
+trainWeightsOptions.patch_size = selectWeightsOptions.patch_size;
+trainWeightsOptions.enabled_weights = selectWeightsOptions.enabled_weights;
+selectWeightsGridOptions.patch_size = selectWeightsOptions.patch_size;
+selectWeightsGridOptions.enabled_weights = selectWeightsOptions.enabled_weights;
 
 % Whether or not to enforce 'minimum_weights' and 'maximum_weights' given
 % in this same options structure
 selectWeightsOptions.clip_weights = true;
+selectWeightsGridOptions.clip_weights = selectWeightsOptions.clip_weights;
 
 % Minimum values to use for regularization weights (or to use to set the
 % origin of the minimum distance function in case the data fitting matrix
 % is singular)
 selectWeightsOptions.minimum_weights = eps * ones(1, size(weights, 2));
+selectWeightsGridOptions.minimum_weights = selectWeightsOptions.minimum_weights;
 
 % Maximum values to use for regularization weights
 selectWeightsOptions.maximum_weights = 1e10 * ones(1, size(weights, 2));
-
-selectWeightsGridOptions = selectWeightsOptions;
+selectWeightsGridOptions.maximum_weights = selectWeightsOptions.maximum_weights;
 
 % Maximum and minimum number of grid search iterations
-selectWeightsGridOptions.n_iter = [50, 20];
+selectWeightsGridOptions.n_iter = [30, 10];
 
-selectWeightsGridOptions.tol = 1e-6;
+selectWeightsGridOptions.tol = 1e-5;
 
 % Type of scaling
 selectWeightsGridOptions.scaling = 'normalized';
@@ -165,12 +167,12 @@ selectWeightsOptions.tol = [1e-4, 1e-2];
 trainWeightsOptions.n_iter = selectWeightsGridOptions.n_iter;
 
 % Minimum values to use for regularization weights
-trainWeightsOptions.minimum_weights = eps * ones(1, size(weights, 2));
+trainWeightsOptions.minimum_weights = selectWeightsOptions.minimum_weights;
 
 % Maximum values to use for regularization weights
-trainWeightsOptions.maximum_weights = 1e10 * ones(1, size(weights, 2));
+trainWeightsOptions.maximum_weights = selectWeightsOptions.maximum_weights;
 
-trainWeightsOptions.tol = 1e-6;
+trainWeightsOptions.tol = selectWeightsGridOptions.tol;
 
 % Border to exclude from image patches before calculating error
 baek2017Algorithm2Options.l_err_border = [paddings(1), paddings(1)];
