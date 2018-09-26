@@ -53,9 +53,8 @@ function varargout = chirpImage(image_sampling, lambda_range, dispersion_mag, n_
 %   measured in pixels. `dispersion_mag` is the offset between the
 %   hypothetical images for wavelength `lambda_range(2)` and wavelength
 %   `lambda_range(1)`. The image for `lambda_range(2)` is shifted to the
-%   right with dispersion, and is filled-in on the left with its values at
-%   the left border, in the absence of dispersion. Note that the sign of
-%   `dispersion_mag` is ignored.
+%   right with dispersion. Note that the sign of `dispersion_mag` is
+%   ignored.
 %
 % n_samples -- Number of samples per pixel
 %   As far as I know, there is no analytical form for the integral of the
@@ -109,7 +108,9 @@ function varargout = chirpImage(image_sampling, lambda_range, dispersion_mag, n_
 %   right relative to the hypothetical image for wavelength
 %   `lambda_range(1)`, by an amount equal to the distance from the left
 %   border of the latter image to the x-coordinate where it reaches a
-%   half-cycle change in phase.
+%   half-cycle change in phase. As such, the images for the endpoints of
+%   the spectral range are misaligned by half the width of the central
+%   maximum (which extends to both sides of the image's left border).
 %
 % bands -- Centre wavelengths
 %   A column vector containing the centre wavelengths of the spectral bands
@@ -156,7 +157,7 @@ bands = linspace(lambda_0 + delta_lambda / 2, lambda_1 - delta_lambda / 2, n_ban
         lambda_rel = lambda - lambda_0;
         intensity = (cos(...
                 (beta .* y .* lambda_rel) +...
-                (alpha .* max(0, x - d .* lambda_rel) .^ 2)...
+                (alpha .* (x - d .* lambda_rel) .^ 2)...
             ) + 1) ./ 2;
     end
 

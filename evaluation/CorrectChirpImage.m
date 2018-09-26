@@ -1,15 +1,36 @@
 %% Evaluate hyperspectral ADMM-based reconstruction of a chirp image
+%
 % This script investigates the following questions:
-% - How does reconstruction accuracy change with the spatial and spectral
-%   frequencies of the image?
-% - How does reconstruction accuracy change with the signal-to-noise ratio?
+% - How does image reconstruction accuracy change with the spatial and
+%   spectral frequencies of the image?
+% - How does image reconstruction accuracy change with the signal-to-noise
+%   ratio?
 % - How do the spatial and spectral frequencies of the image affect the
 %   choice of regularization weights?
-% - How is reconstruction accuracy affected by the patch size?
+% - How do the regularization weights chosen by 'selectWeightsGrid()' and
+%   'trainWeights()' differ, and how does this difference affect image
+%   reconstruction time and accuracy?
+% - How is image reconstruction accuracy affected by the patch size?
 % - How much overlap should patches have?
-% - How does the amount of dispersion affect reconstruction accuracy?
-% - How fast does image reconstruction finish with different patch and
+% - How does the amount of dispersion affect image reconstruction accuracy?
+% - How long does image reconstruction take with different patch and
 %   padding sizes?
+%
+% Presently, this script evaluates two image estimation methods:
+% - Regularization weight selection, per image patch, using
+%   'selectWeightsGrid()', followed by image estimation by an ADMM-family
+%   algorithm, using the selected per-patch regularization weights.
+% - Regularization weight selection, per image patch, using
+%   'trainWeights()', followed by image estimation by an ADMM-family
+%   algorithm, using the selected per-patch regularization weights.
+%
+% The same ADMM-family algorithm is used for both methods:
+% 'baek2017Algorithm2()', configured according to the parameters in
+% 'SetFixedParameters.m'. Note that 'baek2017Algorithm2()' is embedded in
+% 'selectWeightsGrid()', but explicitly passed to 'trainWeights()' as an
+% input argument. If 'selectWeightsGrid()' is updated such that it runs a
+% different image estimation algorithm, this script would need to be
+% modified to ensure the two methods remain comparable.
 %
 % ## Usage
 % Modify the parameters, the first code section below, then run.
@@ -39,6 +60,19 @@
 % Figures are created to answer the questions given above, and are saved to
 % MATLAB '.fig' files.
 %
+% Additionally, some of the per-pixel raw data used to create figures is
+% saved to separate '.mat' files. The string of parameter information
+% describing the context of the data is represented by '*' below:
+% - '*_weight${i}Image.mat': The 'I_weights' variable is a 2D image-sized
+%   array, where each element stores the i-th regularization weight for the
+%   patch covering the corresponding pixel location.
+% - '*_penalty${i}.mat': The 'I_penalty' variable is a 2D image-sized
+%   array, where each element stores the i-th regularization penalty for
+%   the patch covering the corresponding pixel location. Note that the
+%   penalty is evaluated on the true image, but the patch dimensions are a
+%   parameter of the image estimation process, so these images are specific
+%   to the image estimation parameters.
+%
 % ### Images
 %
 % The following types of images are created for each set of parameters used
@@ -46,9 +80,9 @@
 % images are created for each noise and dispersion setting, whereas
 % estimated images are created for each noise setting, dispersion setting,
 % patch size, and patch padding size combination. Therefore, true images
-% can be distinguished from estimated images by the parameter information
-% in their filenames. The string of parameter information is represented by
-% '*' below:
+% can be distinguished from estimated images by the amount of parameter
+% information in their filenames. The string of parameter information is
+% represented by '*' below:
 % - '*_latent.tif' and '*_latent.mat': The spectral image, stored in the
 %   variable 'I_latent'. The '.tif' image is only output if the spectral
 %   image is a greyscale or 3-channel image.
@@ -72,6 +106,8 @@
 %
 % ### Data file output
 %
+% #### Parameters, and execution time results
+%
 % A '.mat' file containing the following variables:
 %
 % - 'bands': The value of the 'bands' variable defined in
@@ -80,16 +116,54 @@
 %   wavelengths.
 % - 'bands_color': The 'bands' variable loaded from the colour space
 %   conversion data file, for reference.
+% - 'dataset_params': A structure of the form of the `dataset_params`
+%   output argument of 'describeDataset()'. 'dataset_params' allows the
+%   chirp images created by this script to be used as a dataset for
+%   evaluating other image estimation algorithms. Presently,
+%   'dataset_params' is missing dispersion information, as dispersion is
+%   not the same between images, and so cannot be described with a single
+%   dispersion model.
 % - 'sensor_map_resampled': The resampled version of the 'sensor_map'
 %   variable, generated for compatibility with the true latent image.
 %   'sensor_map' may have been normalized so that colour images will have
-%   values in the appropriate range, as set in the parameters section
-%   below.
+%   values in the appropriate range, as configured in the parameters
+%   section below.
+% - 'selectWeightsGrid_time': Execution timing information, stored as a 4D
+%   array, for image estimation and regularization weights selection by
+%   'selectWeightsGrid()'. `selectWeightsGrid_time(pp, ps, no, d)` is the
+%   time taken with the pp-th patch padding size, the ps-th patch size, the
+%   no-th noise fraction in the input image, and the d-th level of
+%   dispersion in the input image. Time values include the time taken to
+%   generate output images beyond the estimated spectral image, including
+%   visualizations of selected regularization weights, and regularization
+%   penalty values. (In other words, all of the types of images listed
+%   above which are dependent on the image estimation algorithm's
+%   parameters.) Time taken to save images to disk, and to generate figures
+%   from images, is excluded.
+% - 'trainWeightsGrid_time': An array with the same format and
+%   interpretation as 'selectWeightsGrid_time', containing execution timing
+%   information for image estimation and regularization weights selection
+%   by 'trainWeights()'.
+% - 'n_patches': A vector containing the number of patches resulting from
+%   each patch size used in the experiment.
 % 
 % Additionally, the file contains the values of all parameters in the first
 % section of the script below, for reference. (Specifically, those listed
 % in `parameters_list`, which should be updated if the set of parameters is
 % changed.)
+%
+% #### Evaluation results
+%
+% For each synthesized image, RGB error metrics and spectral error metrics
+% are output in the form of CSV files. Each CSV file contains results for
+% all image estimation methods. The RGB error metrics are saved as
+% '*_evaluateRGB.csv', whereas the spectral error metrics are saved as
+% '*_evaluateSpectral.csv'.
+%
+% Error metrics are also aggregated across images, and saved as
+% 'chirp_evaluateRGB.csv' and 'chirp_evaluateSpectral.csv'. The aggregation
+% may not be so meaningful, because the synthetic images differ in
+% dispersion magnitude and signal-to-noise ratio.
 %
 % ## Notes
 % - This script uses the first row of `weights` defined in
@@ -98,7 +172,8 @@
 %   regularization terms.
 % - This script does not estimate downsampled images, and so it ignores
 %   `downsampling_factor` in 'SetFixedParameters.m'.
-% - The body of this script is largely copied from 'solvePatchesAligned()'.
+% - The image estimation portion of this script is largely copied from
+%   'solvePatchesAligned()'.
 %
 % ## References
 % This experiment is inspired by Figure 20 of:
@@ -132,6 +207,17 @@
 % List of parameters to save with results
 parameters_list = {
     'color_map_filename',...
+    'normalize_color_map',...
+    'normalize_color_map_reference_index',...
+    'image_sampling',...
+    'n_samples',...
+    'n_patch_sizes',...
+    'patch_size_max',...
+    'n_padding',...
+    'padding_ratio_max',...
+    'dispersion_px',...
+    'n_dispersion_additional',...
+    'noise_fractions',...
     'output_directory'...
 };
 
@@ -160,19 +246,25 @@ n_patch_sizes = 5;
 % image dimension before use.
 patch_size_max = 50;
 
-% Number of patch padding sizes to test
+% Number of patch padding sizes to test, including no padding
 n_padding = 4;
 
 % Size of the largest padding size as a multiple of the maximum dispersion
 padding_ratio_max = 2;
 
 % Dispersion magnitudes in pixels to test. Note that zero dispersion will
-% always be tested.
+% always be tested (and so will be added to the list if it is not specified
+% here). Negative dispersion values are not allowed.
 dispersion_px = [0.1, 0.3, 1, 2, 3];
-% Number of additional dispersion magnitudes to test
+% Number of additional dispersion magnitudes to test, provided that the
+% largest value in `dispersion_px` is below the suggested maximum
+% dispersion value output by 'chirpImage()'. (Otherwise, no additional
+% dispersion magnitudes will be tested.) The additional dispersion
+% magnitudes are logarithmically-spaced.
 n_dispersion_additional = 3;
 
-% Noise fractions
+% Noise fractions: The standard deviation of the noise added to a given
+% image value is these fractions of the value
 noise_fractions = [0, 0.05, 0.1, 0.25, 0.5];
 
 % Number of patches to show spectral error plots for
@@ -230,20 +322,27 @@ patch_sizes = repmat(...
     round(logspace(0, log10(min([image_sampling, patch_size_max])), n_patch_sizes)), 1, 2 ...
 );
 
+if n_padding < 1
+    error('At least one padding size must be tested. The first padding size is always zero.');
+end
 [~, dispersion_max] = chirpImage(...
   image_sampling_3, lambda_range, 1, [], 'params'...
 );
-paddings = [0, round(logspace(0, log10(padding_ratio_max * dispersion_max), n_padding))];
+paddings = [0, round(logspace(0, log10(padding_ratio_max * dispersion_max), n_padding - 1))];
 
 dispersion_px = sort(dispersion_px);
-if dispersion_px(1) == 0
+if dispersion_px(1) < 0
+    error('Dispersion magnitudes to test must be non-negative.');
+elseif dispersion_px(1) == 0
     dispersion_px_all = dispersion_px;
 else
     dispersion_px_all = [0 dispersion_px];
 end
-dispersion_px_all = [ dispersion_px_all, logspace(...
-    log10(dispersion_px(end)), log10(dispersion_max), n_dispersion_additional...
-)];
+if dispersion_px(end) < dispersion_max
+    dispersion_px_all = [ dispersion_px_all, logspace(...
+        log10(dispersion_px(end)), log10(dispersion_max), n_dispersion_additional...
+    )];
+end
 n_dispersion = length(dispersion_px_all);
 
 n_noise_fractions = length(noise_fractions);
@@ -264,22 +363,22 @@ to_all_weights = find(enabled_weights);
 %% Generate a dataset description for future use
 
 raw_filename_postfix = 'raw';
-dp.raw_images_wildcard = fullfile(output_directory, ['*_', raw_filename_postfix, '.mat']);
-dp.raw_images_variable = 'I_raw';
+dataset_params.raw_images_wildcard = fullfile(output_directory, ['*_', raw_filename_postfix, '.mat']);
+dataset_params.raw_images_variable = 'I_raw';
 rgb_filename_postfix = 'rgb';
-dp.rgb_images_wildcard = fullfile(output_directory, ['*_', rgb_filename_postfix, '.mat']);
-dp.rgb_images_variable = 'I_rgb';
+dataset_params.rgb_images_wildcard = fullfile(output_directory, ['*_', rgb_filename_postfix, '.mat']);
+dataset_params.rgb_images_variable = 'I_rgb';
 spectral_filename_postfix = 'latent';
-dp.spectral_images_wildcard = fullfile(output_directory, ['*_', spectral_filename_postfix, '.mat']);
-dp.spectral_images_variable = 'I_latent';
-dp.spectral_reflectances = false;
-dp.dispersion_rgb_forward = []; % Presently, datasets cannot have per-image dispersion
-dp.dispersion_rgb_reverse = []; % Presently, datasets cannot have per-image dispersion
-dp.dispersion_spectral_reverse = []; % Presently, datasets cannot have per-image dispersion
-dp.color_map = color_map_filename;
+dataset_params.spectral_images_wildcard = fullfile(output_directory, ['*_', spectral_filename_postfix, '.mat']);
+dataset_params.spectral_images_variable = 'I_latent';
+dataset_params.spectral_reflectances = false;
+dataset_params.dispersion_rgb_forward = []; % Presently, datasets cannot have per-image dispersion
+dataset_params.dispersion_rgb_reverse = []; % Presently, datasets cannot have per-image dispersion
+dataset_params.dispersion_spectral_reverse = []; % Presently, datasets cannot have per-image dispersion
+dataset_params.color_map = color_map_filename;
 save_data_filename = fullfile(output_directory, 'CorrectChirpImage.mat'); 
-dp.wavelengths = save_data_filename;
-dp.evaluation = struct(...
+dataset_params.wavelengths = save_data_filename;
+dataset_params.evaluation = struct(...
     'global_rgb', struct('error_map', true),...
     'custom_rgb', struct,...
     'global_spectral', struct(...
@@ -296,7 +395,7 @@ dp.evaluation = struct(...
 );
 eval_patches_x = reshape(eval_patches_x, [], 1);
 eval_patches_y = reshape(eval_patches_y, [], 1);
-dp.evaluation.global_spectral.radiance = [...
+dataset_params.evaluation.global_spectral.radiance = [...
     eval_patches_x, eval_patches_y,...
     repmat(eval_patch_size, n_eval_patches_x * n_eval_patches_y, 2)...
 ];
@@ -305,10 +404,15 @@ dp.evaluation.global_spectral.radiance = [...
 % and spectral roughness. The other transitions from extreme spectral
 % roughness and no spatial roughness, to extreme spatial roughness and no
 % spectral roughness
-dp.evaluation.global_spectral.scanlines = [
+dataset_params.evaluation.global_spectral.scanlines = [
     1, 1, image_sampling(2), image_sampling(1);...
     1, image_sampling(1), image_sampling(2), 1
 ];
+
+warped_filename_postfix = 'warped';
+warped_images_variable = 'I_warped';
+rgb_warped_filename_postfix = 'rgb_warped';
+rgb_warped_images_variable = 'I_full';
 
 %% Load calibration data
 
@@ -367,7 +471,7 @@ err_images = cell(n_active_weights, 1);
 
 selectWeightsGrid_time = zeros(n_padding, n_patch_sizes, n_noise_fractions, n_dispersion);
 trainWeightsGrid_time = zeros(n_padding, n_patch_sizes, n_noise_fractions, n_dispersion);
-n_patches_all = zeros(n_padding, n_patch_sizes);
+n_patches = zeros(1, n_patch_sizes);
 
 % Variables for plotting
 mdc_color = [1, 0, 0];
@@ -413,24 +517,24 @@ for d = 1:n_dispersion
     saveImages(...
         output_directory, name_params_gt,...
         I_raw_noNoise_gt, 'raw_noNoise', 'I_raw_noNoise',...
-        I_spectral_gt, spectral_filename_postfix, dp.spectral_images_variable,...
-        I_rgb_gt, rgb_filename_postfix, dp.rgb_images_variable,...
-        I_rgb_warped_gt, 'rgb_warped', 'I_full',...
-        I_warped_gt, 'warped', 'I_warped'...
+        I_spectral_gt, spectral_filename_postfix, dataset_params.spectral_images_variable,...
+        I_rgb_gt, rgb_filename_postfix, dataset_params.rgb_images_variable,...
+        I_rgb_warped_gt, rgb_warped_filename_postfix, rgb_warped_images_variable,...
+        I_warped_gt, warped_filename_postfix, warped_images_variable...
     );
 
     % Compare the aberrated image to the original
     name_params_table_gt = sprintf('Dispersion %g', dispersion_px_d);
     e_rgb_table = evaluateAndSaveRGB(...
-        I_rgb_warped_gt, I_rgb_gt, dp, name_params_table_gt, all_name_params_tables{1},...
+        I_rgb_warped_gt, I_rgb_gt, dataset_params, name_params_table_gt, all_name_params_tables{1},...
         fullfile(output_directory, [name_params_gt '_aberrated'])...
     );
-    dp.evaluation.global_spectral.plot_color = evaluation_plot_colors(1, :);
-    dp.evaluation.global_spectral.plot_marker = 'none';
-    dp.evaluation.global_spectral.plot_style = '-';
+    dataset_params.evaluation.global_spectral.plot_color = evaluation_plot_colors(1, :);
+    dataset_params.evaluation.global_spectral.plot_marker = 'none';
+    dataset_params.evaluation.global_spectral.plot_style = '-';
     [e_spectral_table, fg_spectral] = evaluateAndSaveSpectral(...
         I_warped_gt, I_spectral_gt, bands,...
-        dp, name_params_table_gt, all_name_params_tables{1},...
+        dataset_params, name_params_table_gt, all_name_params_tables{1},...
         fullfile(output_directory, [name_params_gt '_aberrated'])...
     );
         
@@ -447,7 +551,7 @@ for d = 1:n_dispersion
         );
         saveImages(...
             output_directory, name_params_gt,...
-            I_raw_gt, raw_filename_postfix, dp.raw_images_variable...
+            I_raw_gt, raw_filename_postfix, dataset_params.raw_images_variable...
         );
                 
         has_dispersion = ~isempty(dispersionfun);
@@ -472,8 +576,8 @@ for d = 1:n_dispersion
                 n_i_vector = length(i_vector);
                 j_vector = 1:patch_size(2):image_sampling_3(2);
                 n_j_vector = length(j_vector);
-                n_patches = n_i_vector * n_j_vector;
-                n_patches_all(pp, ps) = n_patches;
+                n_patches_ps = n_i_vector * n_j_vector;
+                n_patches(ps) = n_patches_ps;
                 patches_J = cell(1, n_j_vector);
                 patches_I = cell(1, n_j_vector);
                 patches_I_gt = cell(1, n_j_vector);
@@ -650,7 +754,7 @@ for d = 1:n_dispersion
                         time_trainWeights = time_trainWeights + toc(trainWeights_time_start);
                         
                         if verbose_progress
-                            fprintf('\tProcessed patch %d of %d\n', i + (j-1) * n_i_vector, n_patches);
+                            fprintf('\tProcessed patch %d of %d\n', i + (j-1) * n_i_vector, n_patches_ps);
                         end
                     end
                     patches_I{j} = patches_I_j;
@@ -709,11 +813,11 @@ for d = 1:n_dispersion
                     name_params_f = [name_params, weights_functions_filenames{f}];
                     saveImages(...
                         output_directory, name_params_f,...
-                        estimated_images{f}, spectral_filename_postfix, dp.spectral_images_variable,...
-                        auxiliary_images{1, f}, rgb_filename_postfix, dp.rgb_images_variable,...
-                        auxiliary_images{2, f}, 'rgb_warped', 'I_full',...
-                        auxiliary_images{3, f}, raw_filename_postfix, dp.raw_images_variable,...
-                        auxiliary_images{4, f}, 'warped', 'I_warped'...
+                        estimated_images{f}, spectral_filename_postfix, dataset_params.spectral_images_variable,...
+                        auxiliary_images{1, f}, rgb_filename_postfix, dataset_params.rgb_images_variable,...
+                        auxiliary_images{2, f}, rgb_warped_filename_postfix, rgb_warped_images_variable,...
+                        auxiliary_images{3, f}, raw_filename_postfix, dataset_params.raw_images_variable,...
+                        auxiliary_images{4, f}, warped_filename_postfix, warped_images_variable...
                     );
                     for w = 1:n_active_weights
                         aw = to_all_weights(w);
@@ -758,8 +862,8 @@ for d = 1:n_dispersion
                 end
                 
                 % Comparative visualization of weights                
-                mdc_weights = reshape(points_weights_4D(:, :, :, 1), n_patches, n_active_weights);
-                mse_weights = reshape(points_weights_4D(:, :, :, 2), n_patches, n_active_weights);
+                mdc_weights = reshape(points_weights_4D(:, :, :, 1), n_patches_ps, n_active_weights);
+                mse_weights = reshape(points_weights_4D(:, :, :, 2), n_patches_ps, n_active_weights);
                 
                 fg = figure;
                 hold on
@@ -813,7 +917,7 @@ for d = 1:n_dispersion
                 
                 for w = 1:n_active_weights
                     aw = to_all_weights(w);
-                    penalties_w = reshape(points_err_3D(:, :, aw), n_patches, 1);
+                    penalties_w = reshape(points_err_3D(:, :, aw), n_patches_ps, 1);
                     
                     fg = figure;
                     hold on
@@ -836,20 +940,20 @@ for d = 1:n_dispersion
                     % Spectral evaluation
                     name_params_f = [name_params, weights_functions_filenames{f}'];
                     name_params_tables_f = [name_params_tables, weights_functions_abbrev{f}];
-                    dp.evaluation.global_spectral.plot_color =...
+                    dataset_params.evaluation.global_spectral.plot_color =...
                         evaluation_plot_colors_admm(color_ind, :);
-                    dp.evaluation.global_spectral.plot_marker =...
+                    dataset_params.evaluation.global_spectral.plot_marker =...
                         evaluation_plot_markers_admm(...
                             mod(color_ind - 1, length(evaluation_plot_markers_admm)) + 1 ...
                         );
-                    dp.evaluation.global_spectral.plot_style =...
+                    dataset_params.evaluation.global_spectral.plot_style =...
                         evaluation_plot_styles_admm(...
                             mod(color_ind - 1, length(evaluation_plot_styles_admm)) + 1 ...
                         );
                     color_ind = color_ind + 1;
                     all_name_params_tables{color_ind} = name_params_tables_f;
                     [e_spectral_table_current, fg_spectral] = evaluateAndSaveSpectral(...
-                        estimated_images{f}, I_spectral_gt, bands, dp,...
+                        estimated_images{f}, I_spectral_gt, bands, dataset_params,...
                         name_params_table_gt, name_params_tables_f,...
                         fullfile(output_directory, name_params_f(1:(end-1))),...
                         fg_spectral...
@@ -858,7 +962,7 @@ for d = 1:n_dispersion
                     
                     % RGB evaluation
                     e_rgb_table_current = evaluateAndSaveRGB(...
-                        auxiliary_images{1, f}, I_rgb_gt, dp,...
+                        auxiliary_images{1, f}, I_rgb_gt, dataset_params,...
                         name_params_table_gt, name_params_tables_f,...
                         fullfile(output_directory, name_params_f(1:(end-1)))...
                         );
@@ -878,7 +982,7 @@ for d = 1:n_dispersion
         );
         % Also save completed figures
         evaluateAndSaveSpectral(...
-            output_directory, dp, name_params_table_gt, all_alg_names, fg_spectral...
+            output_directory, dataset_params, name_params_table_gt, all_alg_names, fg_spectral...
         );
         e_spectral_tables{image_number} = e_spectral_table;
     
@@ -942,14 +1046,15 @@ for d = 1:n_dispersion
         
         fg = figure;
         hold on
+        n_patches_rep = repmat(n_patches, n_padding, 1);
         surf(...
             patch_sizes_grid, paddings_grid,...
-            selectWeightsGrid_time(:, :, no, d) ./ n_patches_all,...
+            selectWeightsGrid_time(:, :, no, d) ./ n_patches_rep,...
             'FaceAlpha', 0.5, 'FaceColor', mdc_color...
         );
         surf(...
             patch_sizes_grid, paddings_grid,...
-            trainWeights_time(:, :, no, d) ./ n_patches_all,...
+            trainWeights_time(:, :, no, d) ./ n_patches_rep,...
             'FaceAlpha', 0.5, 'FaceColor', mse_color...
         );
         colorbar
@@ -992,12 +1097,12 @@ writetable(...
 
 %% Save parameters and additional data to a file
 save_variables_list = [ parameters_list, {...
-        'dp',...
+        'dataset_params',...
         'bands_color',...
         'bands',...
         'sensor_map_resampled',...
         'selectWeightsGrid_time',...
         'trainWeights_time',...
-        'n_patches_all'...
+        'n_patches'...
     } ];
 save(save_data_filename, save_variables_list{:});
