@@ -403,6 +403,7 @@ else
     origin_max_weights = repmat(svds(H, 1) ^ 2, 1, n_weights);
 end
 origin_min_weights(~enabled_weights) = 0;
+origin_max_weights(~enabled_weights) = 0;
 
 nonneg = baek2017Algorithm2Options.nonneg;
 % Select the origin in the unconstrained version of the problem

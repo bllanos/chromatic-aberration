@@ -360,12 +360,12 @@ if isfield(options, 'error_map') && options.error_map
         lambda(ind), e_spectral.mse.max));
     
     fg_spectral.error_map(2) = figure;
-    imagesc(rmse_per_pixel);
+    imagesc(reshape(rmse_per_pixel, size(I_clipped, 1), size(I_clipped, 2)));
     colorbar;
     title('Spectral root-mean-square error');
     
     fg_spectral.error_map(3) = figure;
-    imagesc(gof_per_pixel);
+    imagesc(reshape(gof_per_pixel, size(I_clipped, 1), size(I_clipped, 2)));
     colorbar;
     title('Spectral goodness-of-fit');
 end

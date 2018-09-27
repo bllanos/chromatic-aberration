@@ -12,7 +12,8 @@ function [ M ] = antiMosaicMatrix(image_sampling, align)
 % ## Input Arguments
 %
 % image_sampling -- Image dimensions
-%   A two-element vector containing the image height and width, respectively.
+%   A two-element vector containing the image height and width,
+%   respectively. The image dimensions must be even integers.
 %
 % align -- Bayer pattern description
 %   A four-character character vector, specifying the Bayer tile pattern.

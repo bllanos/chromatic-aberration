@@ -13,7 +13,8 @@ function [ I_rgb ] = bilinearDemosaic(I_raw, align, varargin)
 %
 % I_raw -- RAW image
 %   A image_height x image_width array storing the raw colour filter array
-%   data of an image.
+%   data of an image. The image dimensions must be even integers, in order
+%   for the image to be a valid RAW image.
 %
 % align -- Bayer pattern description
 %   A four-character character vector, specifying the Bayer tile pattern.
@@ -73,6 +74,10 @@ I_raw = im2double(I_raw);
 
 image_height = size(I_raw, 1);
 image_width = size(I_raw, 2);
+if any(mod([image_height, image_width], 2) ~= 0)
+    error('The image dimensions must be even integers in order for the image to be a valid color filter array.');
+end
+
 mask = bayerMask( image_height, image_width, align );
 
 n_channels = sum(channels);
