@@ -133,19 +133,38 @@
 %   'selectWeightsGrid()'. `selectWeightsGrid_time(pp, ps, no, d)` is the
 %   time taken with the pp-th patch padding size, the ps-th patch size, the
 %   no-th noise fraction in the input image, and the d-th level of
-%   dispersion in the input image. Time values include the time taken to
-%   generate output images beyond the estimated spectral image, including
-%   visualizations of selected regularization weights, and regularization
-%   penalty values. (In other words, all of the types of images listed
-%   above which are dependent on the image estimation algorithm's
-%   parameters.) Time taken to save images to disk, and to generate figures
-%   from images, is excluded.
+%   dispersion in the input image. Note that the time is the sum of the
+%   times recorded on parallel workers, rather than the time per parallel
+%   worker.
 % - 'trainWeightsGrid_time': An array with the same format and
 %   interpretation as 'selectWeightsGrid_time', containing execution timing
 %   information for image estimation and regularization weights selection
 %   by 'trainWeights()'.
+% - 'whole_time': An array with the same format as
+%   'selectWeightsGrid_time', but containing total time measurements,
+%   including the times taken by both 'selectWeightsGrid()' and
+%   'trainWeights()'. The time is measured across the parallel processing
+%   section, and so may decrease when the number of parallel workers
+%   increases. Time values include the time taken to generate output images
+%   beyond the estimated spectral image, including visualizations of
+%   selected regularization weights, and regularization penalty values. (In
+%   other words, all of the types of images listed above which are
+%   dependent on the image estimation algorithm's parameters.) Time taken
+%   to save images to disk, and to generate figures from images, is
+%   excluded.
 % - 'n_patches': A vector containing the number of patches resulting from
 %   each patch size used in the experiment.
+% - 'num_workers': The number of workers in the parallel pool.
+%   'num_workers' is one if there is no parallel pool, or if the parallel
+%   pool no longer exists for some reason when this variable is set just
+%   after the parallel for-loop.
+% - 'mse': Mean squared error over all spectral bands for the images output
+%   the image estimation algorithms, stored as a 5D array. `mse(pp, ps, no,
+%   d, f)` is the mean squared error with the pp-th patch padding size, the
+%   ps-th patch size, the no-th noise fraction in the input image, and the
+%   d-th level of dispersion in the input image, for the f-th algorithm.
+%   'selectWeightsGrid()' is algorithm 1, and 'trainWeights()' is algorithm
+%   2.
 % 
 % Additionally, the file contains the values of all parameters in the first
 % section of the script below, for reference. (Specifically, those listed
@@ -238,35 +257,35 @@ normalize_color_map_reference_index = 2; % Use '2' for the CIE tristimulus funct
 image_sampling = [64, 64];
 
 % Number of samples for antialiasing during image generation
-n_samples = 1;
+n_samples = 1000;
 
 % Number of patch sizes to test. Patches will be square.
 % The smallest patch size will be 2 x 2 pixels.
 n_patch_sizes = 5;
 % Maximum patch side length. This value will be clipped to the largest
 % image dimension before use.
-patch_size_max = 50;
+patch_size_max = 24;
 
 % Number of patch padding sizes to test, including no padding.
 n_padding = 4;
 
 % Size of the largest padding size as a multiple of the maximum dispersion
-padding_ratio_max = 2;
+padding_ratio_max = 1;
 
 % Dispersion magnitudes in pixels to test. Note that zero dispersion will
 % always be tested (and so will be added to the list if it is not specified
 % here). Negative dispersion values are not allowed.
-dispersion_px = [0.1, 0.3, 1, 2, 3];
+dispersion_px = []; %[0.1, 0.3, 1, 2, 3];
 % Number of additional dispersion magnitudes to test, provided that the
 % largest value in `dispersion_px` is below the suggested maximum
 % dispersion value output by 'chirpImage()'. (Otherwise, no additional
 % dispersion magnitudes will be tested.) The additional dispersion
 % magnitudes are logarithmically-spaced.
-n_dispersion_additional = 3;
+n_dispersion_additional = 0;
 
 % Noise fractions: The standard deviation of the noise added to a given
 % image value is these fractions of the value
-noise_fractions = [0, 0.05, 0.1, 0.25, 0.5];
+noise_fractions = 0; %[0, 0.05, 0.1, 0.25, 0.5];
 
 % Number of patches to show spectral error plots for
 n_eval_patches_x = 4;
@@ -334,15 +353,20 @@ end
 paddings = [0, round(logspace(0, log10(padding_ratio_max * dispersion_max), n_padding - 1))];
 paddings(mod(paddings, 2) ~= 0) = paddings(mod(paddings, 2) ~= 0) + 1;
 
-dispersion_px = sort(dispersion_px);
+if isempty(dispersion_px)
+    dispersion_px = 0;
+else
+    dispersion_px = sort(dispersion_px);
+end
 if dispersion_px(1) < 0
     error('Dispersion magnitudes to test must be non-negative.');
-elseif dispersion_px(1) == 0
+end
+if dispersion_px(1) == 0
     dispersion_px_all = dispersion_px;
 else
     dispersion_px_all = [0 dispersion_px];
 end
-if dispersion_px(end) < dispersion_max
+if dispersion_px_all(end) < dispersion_max
     dispersion_px_all = [ dispersion_px_all, logspace(...
         log10(dispersion_px(end)), log10(dispersion_max), n_dispersion_additional...
     )];
@@ -473,9 +497,13 @@ auxiliary_images = cell(n_auxiliary_images, n_weights_functions);
 weights_images = cell(n_active_weights, n_weights_functions);
 err_images = cell(n_active_weights, 1);
 
+mse = zeros(n_padding, n_patch_sizes, n_noise_fractions, n_dispersion);
+
 selectWeightsGrid_time = zeros(n_padding, n_patch_sizes, n_noise_fractions, n_dispersion);
-trainWeightsGrid_time = zeros(n_padding, n_patch_sizes, n_noise_fractions, n_dispersion);
+trainWeights_time = zeros(n_padding, n_patch_sizes, n_noise_fractions, n_dispersion);
+whole_time = zeros(n_padding, n_patch_sizes, n_noise_fractions, n_dispersion);
 n_patches = zeros(1, n_patch_sizes);
+whole_time_color = [0, 0, 1];
 
 % Variables for plotting
 mdc_color = [1, 0, 0];
@@ -483,7 +511,7 @@ mse_color = [0, 1, 0];
 weights_functions_names = {'Minimum distance criterion', 'Mean square error'};
 weights_functions_abbrev = {'MDC', 'MSE'};
 weights_functions_filenames = {'selectWeightsGrid_', 'trainWeights_'};
-[patch_sizes_grid, paddings_grid] = meshgrid(patch_sizes, paddings);
+[patch_sizes_grid, paddings_grid] = meshgrid(patch_sizes(:, 1), paddings);
 
 % Evaluation variables
 n_images = n_dispersion * n_noise_fractions;
@@ -620,8 +648,8 @@ for d = 1:n_dispersion
                 end
 
                 % Process each patch
-                time_trainWeights = 0;
-                time_selectWeightsGrid = 0;
+                trainWeights_single_time = 0;
+                selectWeightsGrid_single_time = 0;
                 parfor j = 1:n_j_vector
                     patch_limits_j = patch_limits(:, j, :);
                     patch_trim_j = patch_trim(:, j, :);
@@ -731,7 +759,7 @@ for d = 1:n_dispersion
                             patches_weights_j(rows_I_ij, :, w, weights_function_index) = weight;
                             points_weights_j(i, 1, w, weights_function_index) = weight;
                         end
-                        time_selectWeightsGrid = time_selectWeightsGrid + toc(selectWeightsGrid_time_start);
+                        selectWeightsGrid_single_time = selectWeightsGrid_single_time + toc(selectWeightsGrid_time_start);
                         
                         % Process the patch with trainWeights()
                         weights_function_index = 2;
@@ -755,7 +783,7 @@ for d = 1:n_dispersion
                             patches_weights_j(rows_I_ij, :, w, weights_function_index) = weight;
                             points_weights_j(i, 1, w, weights_function_index) = weight;
                         end
-                        time_trainWeights = time_trainWeights + toc(trainWeights_time_start);
+                        trainWeights_single_time = trainWeights_single_time + toc(trainWeights_time_start);
                         
                         if verbose_progress
                             fprintf('\tProcessed patch %d of %d\n', i + (j-1) * n_i_vector, n_patches_ps);
@@ -767,6 +795,13 @@ for d = 1:n_dispersion
                     points_weights{j} = points_weights_j;
                     patches_err{j} = patches_err_j;
                     points_err{j} = points_err_j;
+                end
+                
+                pool = gcp('nocreate');
+                if isempty(pool)
+                    num_workers = 1;
+                else
+                    num_workers = pool.NumWorkers;
                 end
 
                 if verbose_progress
@@ -798,8 +833,9 @@ for d = 1:n_dispersion
                     fprintf('\tDone in %g seconds.\n', whole_time_elapsed);
                     disp('Performing evaluation and file output...')
                 end
-                selectWeightsGrid_time(pp, ps, no, d) = whole_time_elapsed - time_trainWeights;
-                trainWeightsGrid_time(pp, ps, no, d) = whole_time_elapsed - time_selectWeightsGrid;
+                selectWeightsGrid_time(pp, ps, no, d) = selectWeightsGrid_single_time;
+                trainWeights_time(pp, ps, no, d) = trainWeights_single_time;
+                whole_time(pp, ps, no, d) = whole_time_elapsed;
 
                 % Save the output images
                 name_params = sprintf(...
@@ -943,7 +979,7 @@ for d = 1:n_dispersion
                 for f = 1:n_weights_functions
                     % Spectral evaluation
                     name_params_f = [name_params, weights_functions_filenames{f}];
-                    name_params_tables_f = [name_params_tables, weights_functions_abbrev{f}];
+                    name_params_tables_f = sprintf('%s, %s', name_params_tables, weights_functions_abbrev{f});
                     dataset_params.evaluation.global_spectral.plot_color =...
                         evaluation_plot_colors_admm(color_ind, :);
                     dataset_params.evaluation.global_spectral.plot_marker =...
@@ -964,6 +1000,8 @@ for d = 1:n_dispersion
                         );
                     e_spectral_table = union(e_spectral_table_current, e_spectral_table);
                     
+                    mse(pp, ps, no, d, f) = e_spectral_table_current.MSE_mean;
+                    
                     % RGB evaluation
                     e_rgb_table_current = evaluateAndSaveRGB(...
                         auxiliary_images{1, f}, I_rgb_gt, dataset_params,...
@@ -978,15 +1016,15 @@ for d = 1:n_dispersion
         % Write evaluations to a file
         name_params_figures_gt = fullfile(output_directory, name_params_gt);
         writetable(...
-            e_rgb_table, [name_params_figures_gt, '_evaluateRGB.csv']...
+            e_rgb_table, [name_params_figures_gt, 'evaluateRGB.csv']...
         );
         e_rgb_tables{image_number} = e_rgb_table;
         writetable(...
-            e_spectral_table, [name_params_figures_gt, '_evaluateSpectral.csv']...
+            e_spectral_table, [name_params_figures_gt, 'evaluateSpectral.csv']...
         );
         % Also save completed figures
         evaluateAndSaveSpectral(...
-            output_directory, dataset_params, name_params_table_gt, all_alg_names, fg_spectral...
+            output_directory, dataset_params, name_params_table_gt, all_name_params_tables, fg_spectral...
         );
         e_spectral_tables{image_number} = e_spectral_table;
     
@@ -995,18 +1033,23 @@ for d = 1:n_dispersion
         fg = figure;
         hold on
         surf(...
-            patch_sizes_grid, paddings_grid, selectWeightsGrid_time(:, :, no, d),...
+            patch_sizes_grid, paddings_grid, selectWeightsGrid_time(:, :, no, d) ./ num_workers,...
             'FaceAlpha', 0.5, 'FaceColor', mdc_color...
         );
         surf(...
-            patch_sizes_grid, paddings_grid, trainWeights_time(:, :, no, d),...
+            patch_sizes_grid, paddings_grid, trainWeights_time(:, :, no, d) ./ num_workers,...
             'FaceAlpha', 0.5, 'FaceColor', mse_color...
+        );
+        surf(...
+            patch_sizes_grid, paddings_grid, whole_time(:, :, no, d),...
+            'FaceAlpha', 0.5, 'FaceColor', whole_time_color...
         );
         colorbar
         xlabel('Patch size');
         ylabel('Padding size');
         zlabel('Time to process image [s]');
-        legend(weights_functions_abbrev{:});
+        legend_str_time = {'MDC, per-worker', 'MSE, per-worker', 'Total + instrumentation'};
+        legend(legend_str_time);
         title(sprintf(...
             'Time for a %d x %d x %d image under dispersion %f and noise %f',...
             image_sampling_3(1), image_sampling_3(2), image_sampling_3(3),...
@@ -1023,19 +1066,23 @@ for d = 1:n_dispersion
         hold on
         surf(...
             patch_sizes_grid, paddings_grid,...
-            selectWeightsGrid_time(:, :, no, d) ./ ((patch_sizes_grid + paddings_grid) .^ 2),...
+            selectWeightsGrid_time(:, :, no, d) ./ (num_workers * (patch_sizes_grid + paddings_grid) .^ 2),...
             'FaceAlpha', 0.5, 'FaceColor', mdc_color...
         );
         surf(...
             patch_sizes_grid, paddings_grid,...
-            trainWeights_time(:, :, no, d) ./ ((patch_sizes_grid + paddings_grid) .^ 2),...
+            trainWeights_time(:, :, no, d) ./ (num_workers * (patch_sizes_grid + paddings_grid) .^ 2),...
             'FaceAlpha', 0.5, 'FaceColor', mse_color...
+        );
+        surf(...
+            patch_sizes_grid, paddings_grid, whole_time(:, :, no, d) ./ ((patch_sizes_grid + paddings_grid) .^ 2),...
+            'FaceAlpha', 0.5, 'FaceColor', whole_time_color...
         );
         colorbar
         xlabel('Patch size');
         ylabel('Padding size');
         zlabel('Time per pixel in a patch [s]');
-        legend(weights_functions_abbrev{:});
+        legend(legend_str_time);
         title(sprintf(...
             'Time for a %d x %d x %d image under dispersion %f and noise %f, per patch pixel',...
             image_sampling_3(1), image_sampling_3(2), image_sampling_3(3),...
@@ -1053,19 +1100,23 @@ for d = 1:n_dispersion
         n_patches_rep = repmat(n_patches, n_padding, 1);
         surf(...
             patch_sizes_grid, paddings_grid,...
-            selectWeightsGrid_time(:, :, no, d) ./ n_patches_rep,...
+            selectWeightsGrid_time(:, :, no, d) ./ (num_workers * n_patches_rep),...
             'FaceAlpha', 0.5, 'FaceColor', mdc_color...
         );
         surf(...
             patch_sizes_grid, paddings_grid,...
-            trainWeights_time(:, :, no, d) ./ n_patches_rep,...
+            trainWeights_time(:, :, no, d) ./ (num_workers * n_patches_rep),...
             'FaceAlpha', 0.5, 'FaceColor', mse_color...
+        );
+        surf(...
+            patch_sizes_grid, paddings_grid, whole_time(:, :, no, d) ./ n_patches_rep,...
+            'FaceAlpha', 0.5, 'FaceColor', whole_time_color...
         );
         colorbar
         xlabel('Patch size');
         ylabel('Padding size');
         zlabel('Time per patch [s]');
-        legend(weights_functions_abbrev{:});
+        legend(legend_str_time);
         title(sprintf(...
             'Time for a %d x %d x %d image under dispersion %f and noise %f, per patch',...
             image_sampling_3(1), image_sampling_3(2), image_sampling_3(3),...
@@ -1075,6 +1126,35 @@ for d = 1:n_dispersion
         savefig(...
             fg,...
             [name_params_figures_gt 'timePerPatch.fig'], 'compact'...
+        );
+        close(fg);
+        
+        % Show and save mean squared error results
+        
+        fg = figure;
+        hold on
+        surf(...
+            patch_sizes_grid, paddings_grid, mse(:, :, no, d, 1),...
+            'FaceAlpha', 0.5, 'FaceColor', mdc_color...
+        );
+        surf(...
+            patch_sizes_grid, paddings_grid, mse(:, :, no, d, 2),...
+            'FaceAlpha', 0.5, 'FaceColor', mse_color...
+        );
+        colorbar
+        xlabel('Patch size');
+        ylabel('Padding size');
+        zlabel('Mean squared error');
+        legend(weights_functions_abbrev);
+        title(sprintf(...
+            'Mean squared error for a %d x %d x %d image under dispersion %f and noise %f',...
+            image_sampling_3(1), image_sampling_3(2), image_sampling_3(3),...
+            dispersion_px_d, noise_fraction...
+        ));
+        hold off
+        savefig(...
+            fg,...
+            [name_params_figures_gt 'mse.fig'], 'compact'...
         );
         close(fg);
         
@@ -1107,6 +1187,9 @@ save_variables_list = [ parameters_list, {...
         'sensor_map_resampled',...
         'selectWeightsGrid_time',...
         'trainWeights_time',...
-        'n_patches'...
+        'whole_time',...
+        'num_workers',...
+        'n_patches',...
+        'mse'...
     } ];
 save(save_data_filename, save_variables_list{:});
