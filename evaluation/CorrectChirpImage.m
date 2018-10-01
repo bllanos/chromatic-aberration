@@ -230,9 +230,13 @@ parameters_list = {
     'normalize_color_map_reference_index',...
     'image_sampling',...
     'n_samples',...
+    'chirp_image_type',...
+    'chirp_image_threshold',...
     'n_patch_sizes',...
+    'patch_size_min',...
     'patch_size_max',...
     'n_padding',...
+    'padding_min',...
     'padding_ratio_max',...
     'dispersion_px',...
     'n_dispersion_additional',...
@@ -254,20 +258,35 @@ normalize_color_map = true;
 normalize_color_map_reference_index = 2; % Use '2' for the CIE tristimulus functions (since 2 denotes Y) 
 
 % Image dimensions (height, width)
-image_sampling = [64, 64];
+image_sampling = [128, 128];
 
 % Number of samples for antialiasing during image generation
 n_samples = 1000;
 
+% Type of chirp image to generate
+chirp_image_type = 'phase';
+
+% Threshold used to determine the camera spectral sensitivity functions'
+% bandlimits
+chirp_image_threshold = 0.95;
+
 % Number of patch sizes to test. Patches will be square.
-% The smallest patch size will be 2 x 2 pixels.
+% Padding sizes will be rounded to the nearest even integers.
 n_patch_sizes = 5;
+
+% Minimum patch side length
+patch_size_min = 4;
+
 % Maximum patch side length. This value will be clipped to the largest
 % image dimension before use.
 patch_size_max = 24;
 
-% Number of patch padding sizes to test, including no padding.
-n_padding = 4;
+% Number of patch padding sizes to test
+% Padding sizes will be rounded to the nearest even integers.
+n_padding = 3;
+
+% Minimum amount of padding
+padding_min = 4;
 
 % Size of the largest padding size as a multiple of the maximum dispersion
 padding_ratio_max = 1;
@@ -302,6 +321,7 @@ run('SetFixedParameters.m')
 
 % ## Debugging flags
 baek2017Algorithm2Verbose = false;
+chirp_image_verbose = false;
 verbose_progress = true;
 
 %% Validate parameters, and construct intermediate parameters
@@ -340,17 +360,14 @@ lambda_range = [bands(1) - delta_lambda / 2, bands(end) + delta_lambda / 2];
 image_sampling_3 = [image_sampling, n_bands];
 
 patch_sizes = repmat(...
-    round(logspace(log10(2), log10(min([max(image_sampling), patch_size_max])), n_patch_sizes)).', 1, 2 ...
+    round(logspace(log10(patch_size_min), log10(min([max(image_sampling), patch_size_max])), n_patch_sizes)).', 1, 2 ...
 );
 patch_sizes(mod(patch_sizes, 2) ~= 0) = patch_sizes(mod(patch_sizes, 2) ~= 0) + 1;
 
-if n_padding < 1
-    error('At least one padding size must be tested. The first padding size is always zero.');
-end
 [~, dispersion_max] = chirpImage(...
-  image_sampling_3, lambda_range, 1, [], 'params'...
+  image_sampling_3, lambda_range, 'params'...
 );
-paddings = [0, round(logspace(0, log10(padding_ratio_max * dispersion_max), n_padding - 1))];
+paddings = round(logspace(log10(padding_min), log10(padding_ratio_max * dispersion_max), n_padding));
 paddings(mod(paddings, 2) ~= 0) = paddings(mod(paddings, 2) ~= 0) + 1;
 
 if isempty(dispersion_px)
@@ -533,7 +550,9 @@ for d = 1:n_dispersion
 
     % Synthesize the true image
     [I_spectral_gt, I_warped_gt, dispersionfun] = chirpImage(...
-        image_sampling_3, lambda_range, dispersion_px_d, n_samples...
+        image_sampling_3, lambda_range, dispersion_px_d, n_samples,...
+        chirp_image_type, sensor_map_resampled, chirp_image_threshold,...
+        chirp_image_verbose...
     );
     I_rgb_gt = imageFormation(...
         I_spectral_gt, sensor_map_resampled, bands,...
