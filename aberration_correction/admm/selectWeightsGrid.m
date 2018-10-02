@@ -1,12 +1,12 @@
 function [ weights, patch_lim, I_patch, varargout ] = selectWeightsGrid(...
-    J, align, dispersionfun, sensitivity,...
+    J, align, dispersion, sensitivity,...
     lambda, rho, baek2017Algorithm2Options, options, varargin...
     )
 % SELECTWEIGHTSGRID  Use the grid search method to select regularization weights
 %
 % ## Syntax
 % weights = selectWeightsGrid(...
-%   J, align, dispersionfun, sensitivity, lambda, rho,...
+%   J, align, dispersion, sensitivity, lambda, rho,...
 %   baek2017Algorithm2Options, options [, target_patch, verbose]...
 % )
 % [ weights, patch_lim ] = selectWeightsGrid(___)
@@ -15,7 +15,7 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeightsGrid(...
 %
 % ## Description
 % weights = selectWeightsGrid(...
-%   J, align, dispersionfun, sensitivity, lambda, rho,...
+%   J, align, dispersion, sensitivity, lambda, rho,...
 %   baek2017Algorithm2Options, options [, target_patch, verbose]...
 % )
 %   Returns the regularization weights selected using the minimum distance
@@ -45,19 +45,23 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeightsGrid(...
 %   as the `sensorAlignment` input argument of `demosaic()`. `align` can
 %   also be empty, indicating that the input image is not mosaiced.
 %
-% dispersionfun -- Model of dispersion
-%   A function handle, produced by 'makeDispersionfun()'.
-%   `dispersionfun(X)`, where `X` is a three-element row vector (x, y,
-%   lambda), returns the dispersion vector for the position (x, y) in `J`
-%   corresponding to light with wavelength or colour channel index
-%   `lambda`. The dispersion vector corrects for lateral chromatic
-%   aberration by pointing from the corresponding position in the reference
-%   spectral band or colour channel to position (x, y). This function will
-%   negate the dispersion vectors produced by `dispersionfun()` in order to
-%   create a warp matrix from `I_patch` to `J`.
+% dispersion -- Model of dispersion
+%   `dispersion` can be empty (`[]`), if there is no model of dispersion.
+%   Otherwise, two forms of this argument can be passed:
 %
-%   `dispersionfun` can be empty (`[]`), if there is no model of
-%   dispersion.
+%   `dispersion` can be a function handle, produced by
+%   'makeDispersionfun()'. `dispersion(X)`, where `X` is a three-element
+%   row vector (x, y, lambda), returns the dispersion vector for the
+%   position (x, y) in `J` corresponding to light with wavelength or colour
+%   channel index `lambda`. The dispersion vector corrects for lateral
+%   chromatic aberration by pointing from the corresponding position in the
+%   reference spectral band or colour channel to position (x, y). This
+%   function will negate the dispersion vectors of `dispersion` in order to
+%   create a warp matrix from the latent image to `J`.
+%
+%   `dispersion` can be a matrix for warping the latent image to `J`, where
+%   the k-th row contains the weights of pixels in the latent image used to
+%   re-estimate the k-th pixel in `J`.
 %
 % sensitivity -- Spectral band conversion matrix
 %   A 2D array, where `sensitivity(i, j)` is the sensitivity of the i-th
@@ -68,7 +72,7 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeightsGrid(...
 % lambda -- Wavelength bands
 %   A vector of length 'c' containing the wavelengths or colour channel
 %   indices at which to evaluate the dispersion model encapsulated by
-%   `dispersionfun`. 'c' is the desired number of spectral bands or colour
+%   `dispersion`. 'c' is the desired number of spectral bands or colour
 %   channels in `I_patch`.
 %
 % rho -- Penalty parameters
@@ -365,11 +369,17 @@ else
     align_f = offsetBayerPattern(patch_lim(1, :), align);
 end
 image_sampling_f = diff(patch_lim, 1, 1) + 1;
-if ~isempty(dispersionfun)
-    dispersion_f = dispersionfunToMatrix(...
-        dispersionfun, lambda, image_sampling_f, image_sampling_f,...
-        [0, 0, image_sampling_f(2), image_sampling_f(1)], true, flip(target_patch) - 1 ...
-    );
+if ~isempty(dispersion)
+    if isfloat(dispersion) && ismatrix(dispersion)
+        dispersion_f = dispersion;
+    elseif isa(dispersion, 'function_handle')
+        dispersion_f = dispersionfunToMatrix(...
+            dispersion, lambda, image_sampling_f, image_sampling_f,...
+            [0, 0, image_sampling_f(2), image_sampling_f(1)], true, flip(target_patch) - 1 ...
+        );
+    else
+        error('`dispersion` must be either a floating-point matrix, or a function handle.');
+    end
 else
     dispersion_f = [];
 end

@@ -367,6 +367,7 @@ if isfield(options, 'error_map') && options.error_map
     fg_spectral.error_map(3) = figure;
     imagesc(reshape(gof_per_pixel, size(I_clipped, 1), size(I_clipped, 2)));
     colorbar;
+    caxis([0 1]);
     title('Spectral goodness-of-fit');
 end
 
@@ -486,6 +487,7 @@ if isfield(options, 'scanlines')
             fg_spectral.scanlines(i).gof = figure;
             xlabel('Image x-coordinage');
             ylabel('Spectral radiance goodness-of-fit');
+            ylim([0, 1]);
             title(sprintf('Spectral radiance error along line %d', i));
         end
         hold on
