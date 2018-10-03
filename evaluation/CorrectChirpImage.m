@@ -977,7 +977,7 @@ for d = 1:n_dispersion
                 
                 for w = 1:n_active_weights
                     aw = to_all_weights(w);
-                    penalties_w = reshape(points_err_3D(:, :, aw), n_patches_ps, 1);
+                    penalties_w = reshape(points_err_3D(:, :, w), n_patches_ps, 1);
                     
                     fg = figure;
                     hold on
