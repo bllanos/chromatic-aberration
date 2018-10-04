@@ -247,7 +247,7 @@ parameters_list = {
 %% Input data and parameters
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180923_TestingChirpImageGeneration/CIE1931ColorMapData.mat';
+color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180923_TestingChirpImageGeneration/SonyColorMapData.mat';
 
 % Whether or not to normalize spectral sensitivity functions, assuming an
 % illuminant which has a uniform spectral power distribution. The
@@ -294,17 +294,17 @@ padding_ratio_max = 1;
 % Dispersion magnitudes in pixels to test. Note that zero dispersion will
 % always be tested (and so will be added to the list if it is not specified
 % here). Negative dispersion values are not allowed.
-dispersion_px = [1, 2]; %[0.1, 0.3, 1, 2, 3];
+dispersion_px = []; %[0.1, 0.3, 1, 2, 3];
 % Number of additional dispersion magnitudes to test, provided that the
 % largest value in `dispersion_px` is below the suggested maximum
 % dispersion value output by 'chirpImage()'. (Otherwise, no additional
 % dispersion magnitudes will be tested.) The additional dispersion
 % magnitudes are logarithmically-spaced.
-n_dispersion_additional = 2;
+n_dispersion_additional = 0;
 
 % Noise fractions: The standard deviation of the noise added to a given
 % image value is these fractions of the value
-noise_fractions = 0; %[0, 0.05, 0.1, 0.25, 0.5];
+noise_fractions = [0, 0.05, 0.1, 0.25, 0.5];
 
 % Number of patches to show spectral error plots for
 n_eval_patches_x = 4;
@@ -574,23 +574,23 @@ for d = 1:n_dispersion
         I_rgb_warped_gt, rgb_warped_filename_postfix, rgb_warped_images_variable,...
         I_warped_gt, warped_filename_postfix, warped_images_variable...
     );
-
-    % Compare the aberrated image to the original
-    name_params_table_gt = sprintf('Dispersion %g', dispersion_px_d);
-    e_rgb_table = evaluateAndSaveRGB(...
-        I_rgb_warped_gt, I_rgb_gt, dataset_params, name_params_table_gt, all_name_params_tables{1},...
-        fullfile(output_directory, [name_params_gt 'aberrated'])...
-    );
-    dataset_params.evaluation.global_spectral.plot_color = evaluation_plot_colors(1, :);
-    dataset_params.evaluation.global_spectral.plot_marker = 'none';
-    dataset_params.evaluation.global_spectral.plot_style = '-';
-    [e_spectral_table, fg_spectral] = evaluateAndSaveSpectral(...
-        I_warped_gt, I_spectral_gt, bands,...
-        dataset_params, name_params_table_gt, all_name_params_tables{1},...
-        fullfile(output_directory, [name_params_gt 'aberrated'])...
-    );
         
     for no = 1:n_noise_fractions
+        % Compare the aberrated image to the original
+        name_params_table_gt = sprintf('Dispersion %g', dispersion_px_d);
+        e_rgb_table = evaluateAndSaveRGB(...
+            I_rgb_warped_gt, I_rgb_gt, dataset_params, name_params_table_gt, all_name_params_tables{1},...
+            fullfile(output_directory, [name_params_gt 'aberrated'])...
+        );
+        dataset_params.evaluation.global_spectral.plot_color = evaluation_plot_colors(1, :);
+        dataset_params.evaluation.global_spectral.plot_marker = 'none';
+        dataset_params.evaluation.global_spectral.plot_style = '-';
+        [e_spectral_table, fg_spectral] = evaluateAndSaveSpectral(...
+            I_warped_gt, I_spectral_gt, bands,...
+            dataset_params, name_params_table_gt, all_name_params_tables{1},...
+            fullfile(output_directory, [name_params_gt 'aberrated'])...
+        );
+
         noise_fraction = noise_fractions(no);
         snr = noiseFractionToSNR(noise_fraction);
         I_raw_gt = addNoise(I_raw_noNoise_gt, snr);
