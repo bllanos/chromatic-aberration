@@ -109,7 +109,7 @@ function [ I_3D, varargout ] = baek2017Algorithm2(...
 %   dispersion model. `j` is the input RAW image. If the linear system is
 %   underdetermined, the function will find the minimum-norm least squares
 %   solution. If the problem is sufficiently determined, as it may be in
-%   cases where `i` has fewer wavelength bands of colour channels than `j`
+%   cases where `i` has fewer wavelength bands or colour channels than `j`
 %   has colour channels, then the function will find the iterative
 %   approximation to the exact solution (using MATLAB's 'pcg()' function),
 %   or will find a least-squares solution.

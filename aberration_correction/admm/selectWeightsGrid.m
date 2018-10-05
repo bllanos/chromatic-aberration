@@ -107,8 +107,8 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeightsGrid(...
 %     respectively, of the image patch to be estimated. `patch_size`
 %     includes any padding used to eliminate border artifacts, although
 %     such padding is not represented in this function, but must be
-%     enforced in the manner in which `f` calculates its second output
-%     argument. (Refer to the documentation of `f` above for details.)
+%     enforced in the manner in which `baek2017Algorithm2()` calculates its
+%     `err` output argument.
 %   - 'enabled_weights': A logical vector with a length equal to the number
 %     of regularization terms in the image estimation problem.
 %     `enabled_weights(i)` is `true` if the i-th regularization term will
@@ -144,7 +144,7 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeightsGrid(...
 %     scaled so that the coordinates of points on the response surface are
 %     between zero and one, with zero representing the origin of the
 %     minimum distance function, and one representing a maximum value. A
-%     value of 'log' will cause each dimensions to be logarithmically
+%     value of 'log' will cause each dimension to be logarithmically
 %     scaled.
 %   - 'tol': The threshold value of the relative change in the minimum
 %     distance criterion from one iteration to the next. When the change is
