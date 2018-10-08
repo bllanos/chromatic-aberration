@@ -59,12 +59,14 @@ bands_script = bands;
 bands_interp_method = 'linear';
 
 % Downsampling factor to apply to the estimated latent images relative to
-% the input images. If empty (`[]`), downsampling will not occur.
+% the input images. If empty (`[]`), downsampling will not occur. Most
+% image estimation pipelines do not support downsampling.
 downsampling_factor = 1;
 
 % Whether to expand the latent image relative to the input image to cover
 % all undistorted coordinates from the input image. This is the
-% `add_border` input argument.
+% `options.add_border` input argument of `baek2017Algorithm2()`, for
+% example. Most image estimation pipelines do not support expansion.
 add_border = false;
 
 % ## Options for baek2017Algorithm2() (Alternating Direction Method of Multipliers)
@@ -78,17 +80,20 @@ baek2017Algorithm2Options.full_GLambda = false;
 % Boyd et al. 2011)
 rho = [ 1, 1, 1, 1 ];
 
-% Weights on the two prior terms, the `weights` input argument.
-% Baek et al. (2017) used [1e-5, 0.1]
+% Weights on the prior terms, the `weights` input argument. Baek et al.
+% (2017) used [1e-5, 0.1]. Each row represents one set of weights to test,
+% for image estimation pipelines that support multiple sets of weights.
+% Most image estimation pipelines use only the first row of this matrix.
+% Setting elements to zero disables the corresponding regularization term
+% during image estimation.
 weights = [
-    1e-2, 1e-2, 0;
+    1e-2, 0, 0;
     1e-3, 1e-3, 0
 ];
 
-% Convergence tolerances in ADMM, the `tol` input argument.
-%
-% Reasonable values for the third element are 10^-4 to 10^-3 (page 21 of
-% Boyd et al. 2011).
+% Convergence tolerances in ADMM, the `tol` input argument. Reasonable
+% values for the third element are 10^-4 to 10^-3 (page 21 of Boyd et al.
+% 2011).
 baek2017Algorithm2Options.tol = [ 1e-5, 1e-5, 1e-5 ];
 
 % Maximum number of inner and outer iterations, the `maxit` input argument
@@ -100,24 +105,25 @@ baek2017Algorithm2Options.maxit = [ 500, 500 ];
 baek2017Algorithm2Options.varying_penalty_params = [2, 2, 10];
 
 % Types of norms to use on the prior terms
-baek2017Algorithm2Options.norms = [false, false, false];
+baek2017Algorithm2Options.norms = [true, false, false];
 
 % Whether to apply a non-negativity constraint (in which case, `rho` must
 % have three elements)
-baek2017Algorithm2Options.nonneg = true;
+baek2017Algorithm2Options.nonneg = false;
 
-% Integration method to use for colour calculations
-%
-% If the latent space consists of wavelength bands, use this type of
-% numerical integration in 'channelConversionMatrix()'. (Otherwise, a value
-% of 'none' will automatically be used instead.)
+% Integration method to use for colour calculations. If the latent space
+% consists of wavelength bands, use this type of numerical integration in
+% 'channelConversionMatrix()'. (Otherwise, a value of 'none' will
+% automatically be used instead.)
 int_method = 'trap';
 
 % ## Options for patch-wise image estimation
 
 % Every combination of rows of `patch_sizes` and elements of `paddings`
-% will be tested.
-% If `patch_sizes` is empty only whole image estimation may be performed
+% will be tested by some image estimation pipelines, and if `patch_sizes`
+% is empty only whole image estimation may be performed. Some image
+% estimation pipelines only use the first row of `patch_sizes` and the
+% first element of `paddings`.
 patch_sizes = [ % Each row contains a (number of rows, number of columns) pair
    30 30;
 ]; 
@@ -183,8 +189,42 @@ trainWeightsOptions.border = paddings(1);
 trainWeightsOptions.parallel = false;
 selectWeightsGridOptions.parallel = false;
 
+% ## Options for solvePatchesADMM()
+%
+% solvePatchesADMM() is a super function, performing the same processing as
+% several smaller functions. Refer to its documentation comments for more
+% information about the following parameters.
+
+solvePatchesADMMOptions.admm_options = struct;
+solvePatchesADMMOptions.admm_options.rho = rho;
+solvePatchesADMMOptions.admm_options.full_GLambda = baek2017Algorithm2Options.full_GLambda;
+solvePatchesADMMOptions.admm_options.maxit = baek2017Algorithm2Options.maxit;
+solvePatchesADMMOptions.admm_options.norms = baek2017Algorithm2Options.norms;
+solvePatchesADMMOptions.admm_options.nonneg = baek2017Algorithm2Options.nonneg;
+solvePatchesADMMOptions.admm_options.tol = baek2017Algorithm2Options.tol;
+solvePatchesADMMOptions.admm_options.varying_penalty_params = baek2017Algorithm2Options.varying_penalty_params;
+
+solvePatchesADMMOptions.reg_options = struct;
+solvePatchesADMMOptions.reg_options.enabled = logical(weights(1, :));
+solvePatchesADMMOptions.reg_options.n_iter = selectWeightsGridOptions.n_iter;
+
+use_fixed_weights = false;
+if use_fixed_weights
+    solvePatchesADMMOptions.reg_options.minimum_weights = weights(1, :);
+    solvePatchesADMMOptions.reg_options.maximum_weights = weights(1, :);
+else
+    solvePatchesADMMOptions.reg_options.minimum_weights = selectWeightsOptions.minimum_weights;
+    solvePatchesADMMOptions.reg_options.maximum_weights = selectWeightsOptions.maximum_weights;
+end
+solvePatchesADMMOptions.reg_options.tol = selectWeightsGridOptions.tol;
+
+solvePatchesADMMOptions.patch_options = struct;
+solvePatchesADMMOptions.patch_options.patch_size = patch_sizes(1, :);
+solvePatchesADMMOptions.patch_options.padding = paddings(1);
+
 % ## Debugging Flags
 baek2017Algorithm2Verbose = true;
 selectWeightsVerbose = true;
 selectWeightsGridVerbose = true;
 trainWeightsVerbose = true;
+solvePatchesADMMVerbose = true;
