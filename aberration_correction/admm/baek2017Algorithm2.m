@@ -75,8 +75,7 @@ function [ I_3D, varargout ] = baek2017Algorithm2(...
 %   `dispersion` can be a matrix for warping `I` to `J`, where the k-th row
 %   contains the weights of pixels in `I` used to re-estimate the k-th
 %   pixel in `J`. With a matrix value for `dispersion`, this function will
-%   not make use of `lambda` or `options.add_border`, which are only needed
-%   for computing a warp matrix.
+%   not make use of `options.add_border`.
 %
 % sensitivity -- Spectral band conversion matrix
 %   A 2D array, where `sensitivity(i, j)` is the sensitivity of the i-th
