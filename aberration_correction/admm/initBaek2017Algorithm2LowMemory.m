@@ -102,7 +102,7 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(...
 %
 % See also baek2017Algorithm2LowMemory, baek2017Algorithm2, mosaicMatrix,
 % antiMosaicMatrix, channelConversionMatrix, spatialGradient,
-% spectralGradient,
+% spectralGradient
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang

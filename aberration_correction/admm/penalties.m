@@ -1,24 +1,26 @@
-function in = penalties( J_2D, I, J_est_2D, G, norms, in )
+function in = penalties( J, I, M_Omega_Phi, G, norms, in )
 % PENALTIES  Calculate data fitting and regularization errors
 %
 % ## Syntax
-% in = penalties( J_2D, I, J_est_2D, G, norms, in )
+% in = penalties( J, I, M_Omega_Phi, G, norms, in )
 %
 % ## Description
-% in = penalties( J_2D, I, J_est_2D, G, norms, in )
+% in = penalties( J, I, M_Omega_Phi, G, norms, in )
 %   Returns an updated structure containing penalty values.
 %
 % ## Input Arguments
 %
-% J_2D -- Input RAW image
-%   A 2D array containing the raw colour-filter pattern data of an image.
+% J -- Input RAW image
+%   A vector containing the vectorized raw colour-filter pattern data of an
+%   image.
 %
 % I -- Vectorized latent image
 %   An vector, storing the vectorized form of the estimated latent image
-%   corresponding to `J_2D`.
+%   corresponding to `J`.
 %
-% J_est_2D -- Estimated RAW image
-%   A 2D array containing the estimated version of `J_2D` created from `I`.
+% M_Omega_Phi -- Reprojection matrix
+%   A matrix that can multiply `I` to produce the version of `J`
+%   corresponding to `I`.
 %
 % G -- Regularization operators
 %   A cell vector, where `G{i}` is a matrix that can multiply `I` to
@@ -41,6 +43,8 @@ function in = penalties( J_2D, I, J_est_2D, G, norms, in )
 %     image.
 %   - 'err_vectors': A cell vector containing the results of applying the
 %     regularization operators in `G` to `I`.
+%   - 'J_est': A vector containing the estimated version of `J` created
+%     from `I`.
 %
 % ## Output Arguments
 %
@@ -50,13 +54,14 @@ function in = penalties( J_2D, I, J_est_2D, G, norms, in )
 % ## Notes
 % - This function is intended to be used for in-place computation, by
 %   having the caller assign the output argument `in` to the same variable
-%   input as the input argument `in`.
+%   input as the input argument `in`. `in` can be created by
+%   'initPenalties()'.
 % - In contrast to 'baek2017Algorithm2()', 'penalties()' does not remove a
 %   border region from the image prior to calculating penalty values, for
 %   efficiency.
 %
-% See also baek2017Algorithm2LowMemory, baek2017Algorithm2,
-% selectWeightsGrid, solvePatchesADMM
+% See also initPenalties, baek2017Algorithm2, weightsLowMemory,
+% solvePatchesADMM
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -66,7 +71,8 @@ function in = penalties( J_2D, I, J_est_2D, G, norms, in )
 nargoutchk(1, 1);
 narginchk(6, 6);
 
-in.err(1) = immse( J_2D, J_est_2D );
+in.J_est = M_Omega_Phi * I;
+in.err(1) = immse(J, in.J_est);
 
 for w = 1:length(G)
     in.err_vectors{w} = G{w} * I;
