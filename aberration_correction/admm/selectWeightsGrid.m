@@ -218,7 +218,7 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeightsGrid(...
 %     corresponds to the residual, and the remaining elements correspond to
 %     the regularization terms. The elements corresponding to disabled
 %     regularization terms are set to zero. 'err_max' and 'origin' are used
-%     to scale the response surface when `options.scaling` is 'linear'.
+%     to scale the response surface when `options.scaling` is 'normalized'.
 %   - 'origin_scaled': A version of 'origin' where the values have been
 %     scaled according to the scaling required by `options.scaling`.
 %   - 'origin_min_weights': The minimum regularization weight values,

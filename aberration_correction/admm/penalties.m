@@ -46,6 +46,8 @@ function in = penalties( J, I, M_Omega_Phi, G, norms, in )
 %   - 'J_est': A vector containing the estimated version of `J` created
 %     from `I`.
 %
+%   `in` can be initialized by 'initPenalties()'.
+%
 % ## Output Arguments
 %
 % in -- Updated intermediate data and results
