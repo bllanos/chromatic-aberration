@@ -251,7 +251,7 @@ enabled_weights = (weights ~= 0);
 nonneg = options.nonneg;
 norms = options.norms;
 % Don't use ADMM to optimize priors given zero weight
-norms(enabled_weights) = false;
+norms(~enabled_weights) = false;
 rho = options.rho;
 
 vary_penalty_parameters = false;

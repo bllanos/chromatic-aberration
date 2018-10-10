@@ -134,7 +134,7 @@ if length(norms) ~= n_priors
 end
 
 % Don't use ADMM to optimize priors given zero weight
-norms(enabled_weights) = false;
+norms(~enabled_weights) = false;
 
 rho = options.rho;
 if nonneg && length(rho) < nonneg_ind
@@ -162,9 +162,9 @@ else
 end
 if ~isempty(dispersion_matrix)
     if isfloat(dispersion_matrix) && ismatrix(dispersion_matrix)
-        if size(dispersion, 1) ~= n_elements_I
+        if size(dispersion_matrix, 1) ~= n_elements_I
             error('`dispersion_matrix` must have as many rows as there are pixels in `J` times bands.');
-        elseif size(dispersion, 2) ~= n_elements_I
+        elseif size(dispersion_matrix, 2) ~= n_elements_I
             error('`dispersion_matrix` must have as many columns as there are values in `I`.');
         end
     else
@@ -189,7 +189,7 @@ if enabled_weights(2)
         ] * out.G{1};
 end
 if enabled_weights(3)
-    out.G{3} = antiMosaicMatrix(image_sampling, align) * out.M_Omega_Phi;
+    out.G{3} = antiMosaicMatrix(image_sampling, align) * Omega_Phi;
 end
 
 out.M_Omega_Phi = mosaicMatrix(image_sampling, align) * Omega_Phi;
@@ -226,7 +226,7 @@ if nonneg
     out.I_A = speye(size(out.A_const));
 end
 
-out.A = sparse(size(out.A));
+out.A = sparse(size(out.A_const, 1), size(out.A_const, 2));
 out.b = zeros(n_elements_I, 1);
 
 out.I = zeros(n_elements_I, 1);
@@ -244,7 +244,11 @@ out.Y = cell(n_Z, 1);
 
 for z_ind = 1:n_Z
     if active_constraints(z_ind)
-        len_Z = size(out.G{z_ind}, 1);
+        if z_ind == nonneg_ind
+            len_Z = length(out.I);
+        else
+            len_Z = size(out.G{z_ind}, 1);
+        end
         out.Z{z_ind} = zeros(len_Z, 1);
         out.U{z_ind} = zeros(len_Z, 1);
         out.g{z_ind} = zeros(len_Z, 1);
