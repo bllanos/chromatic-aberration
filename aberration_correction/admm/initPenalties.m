@@ -33,10 +33,12 @@ nargoutchk(1, 1);
 narginchk(2, 2);
 
 n_priors = length(G);
-out.err = zeros(n_priors + 1, 1);
+out.err = zeros(1, n_priors + 1);
 out.err_vectors = cell(n_priors, 1);
 for w = 1:n_priors
-    out.err_vectors{w} = zeros(size(G{w}, 1), 1);
+    if ~isempty(G{w})
+        out.err_vectors{w} = zeros(size(G{w}, 1), 1);
+    end
 end
 
 out.J_est = zeros(size(M_Omega_Phi, 1), 1);

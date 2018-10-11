@@ -1,12 +1,15 @@
-function [out, weights] = initBaek2017Algorithm2LowMemory(...
-    image_sampling, align, dispersion_matrix, sensitivity, lambda, weights, options...
-)
+function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 % INITBAEK2017ALGORITHM2LOWMEMORY  Allocate memory for 'baek2017Algorithm2LowMemory()'
 %
 % ## Syntax
 % [out, weights] = initBaek2017Algorithm2LowMemory(...
 %   image_sampling, align, dispersion_matrix, sensitivity, lambda, weights, options...
 % )
+% out = initBaek2017Algorithm2LowMemory(...
+%   image_sampling, align, dispersion_matrix, sensitivity, lambda,...
+%   enabled_weights, options...
+% )
+% [out, weights] = initBaek2017Algorithm2LowMemory(out, weights, options)
 %
 % ## Description
 % [out, weights] = initBaek2017Algorithm2LowMemory(...
@@ -15,6 +18,16 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(...
 %   Returns a structure containing arrays to be used by
 %   'baek2017Algorithm2LowMemory()', as well as normalized regularization
 %   weights for 'baek2017Algorithm2LowMemory()'.
+%
+% out = initBaek2017Algorithm2LowMemory(...
+%   image_sampling, align, dispersion_matrix, sensitivity, lambda,...
+%   enabled_weights, options...
+% )
+%   Omits computations relating to regulariation weights, to be done during
+%   a subsequent call using the third call syntax.
+%
+% [out, weights] = initBaek2017Algorithm2LowMemory(out, weights, options)
+%   Adjusts the `out` structure to account for the new value of `weights`.
 %
 % ## Input Arguments
 %
@@ -53,10 +66,24 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(...
 %   `weights(3)` is the weight on a second-order gradient prior designed to
 %   penalize colour-filter array artifacts.
 %
-%   If all elements of `weights` are zero, and `options.nonneg` is `false`,
-%   this function will throw an error, in contrast to
-%   'baek2017Algorithm2()', as this case is expected to be handled by the
-%   caller.
+%   Values of zero in `weights` indicate that the corresponding
+%   regularization terms are disabled. If all elements of `weights` are
+%   zero, and `options.nonneg` is `false`, this function will throw an
+%   error, in contrast to 'baek2017Algorithm2()', as this case is expected
+%   to be handled by the caller.
+%
+%   In the call syntax where `weights` is one of only three input arguments,
+%   the value of `weights` must have the same pattern of zeros as in the
+%   call which initialized `out`. (In other words, it must agree with
+%   `enabled_weights`, documented below.)
+%
+% enabled_weights -- Regularization term statuses
+%   A logical vector indicating which regularization terms are active.
+%   `enabled_weights` is equivalent to `weights ~= 0`, except that passing
+%   `weights` allows this function to finish calculating the 'A_const'
+%   field of `out`. `enabled_weights` can be passed instead of `weights` to
+%   save some computation for later (to be done using the call syntax where
+%   `weights` is one of only three input arguments).
 %
 % options -- Options and small parameters
 %   A structure with the following fields:
@@ -89,11 +116,25 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(...
 %     non-negativity constraint on the estimated image. If `true`, 'rho'
 %     must have four elements.
 %
+% out -- Preallocated arrays and intermediate data
+%   The `in` input/output argument of 'baek2017Algorithm2LowMemory()'.
+%   Refer to the documentation of baek2017Algorithm2LowMemory.m.
+%
+%   `out` was initialized by a previous call to this function.
+%
 % ## Output Arguments
 %
 % out -- Preallocated arrays and intermediate data
 %   The `in` input/output argument of 'baek2017Algorithm2LowMemory()'.
 %   Refer to the documentation of baek2017Algorithm2LowMemory.m.
+%
+%   This function adds fields not used by 'baek2017Algorithm2LowMemory()':
+%   - 'A_const_noWeights': A partial computation of 'A' which is
+%     independent of the ADMM penalty parameters, and of the regularization
+%     weights.
+%
+%   The 'A_const' field will only be initialized/updated when `weights` is
+%   passed.
 %
 % weights -- Normalized regularization weights
 %   A version of the `weights` input argument where each regularization
@@ -109,23 +150,52 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(...
 % University of Alberta, Department of Computing Science
 % File created October 9, 2018
 
-nargoutchk(2, 2);
-narginchk(7, 7);
+if nargin == 7
+    compute_all = true;
+    image_sampling = varargin{1};
+    align = varargin{2};
+    dispersion_matrix = varargin{3};
+    sensitivity = varargin{4};
+    lambda = varargin{5};
+    no_weights = islogical(varargin{6});
+    if no_weights
+        nargoutchk(1, 1);
+        enabled_weights = varargin{6};
+    else
+        nargoutchk(2, 2);
+        weights = varargin{6};
+    end
+    options = varargin{7};
+elseif nargin == 3
+    nargoutchk(2, 2);
+    no_weights = false;
+    compute_all = false;
+    out = varargin{1};
+    weights = varargin{2};
+    options = varargin{3};
+else
+    error('Unexpected number of input arguments.')
+end
 
 n_priors = 3;
 nonneg_ind = 4;
-enabled_weights = (weights ~= 0);
-
-if length(weights) ~= n_priors
-    error('Expected `weights` to have length %d for the %d prior terms.', n_priors, n_priors);
+if ~no_weights
+    enabled_weights = (weights ~= 0);
 end
-if any(weights < 0)
+
+if length(enabled_weights) ~= n_priors
+    error('Expected `weights`/`enabled_weights` to have length %d for the %d prior terms.', n_priors, n_priors);
+end
+if ~no_weights && any(weights < 0)
     error('All elements of `weights` must be non-negative numbers.');
 end
 
-nonneg = options.nonneg;
-if all(~enabled_weights) && ~nonneg
-    error('At least one element of `weights` must be positive, or `options.nonneg` must be `true`.');
+if ~compute_all
+    for w = 1:n_priors
+        if enabled_weights(w) == isempty(out.G{w})
+            error('The set of enabled regularization terms has changed since `out` was created.');
+        end
+    end
 end
 
 norms = options.norms;
@@ -136,125 +206,139 @@ end
 % Don't use ADMM to optimize priors given zero weight
 norms(~enabled_weights) = false;
 
-rho = options.rho;
-if nonneg && length(rho) < nonneg_ind
-    error('A %d-th penalty parameter must be provided in `rho` when `options.nonneg` is `true`.', nonneg_ind);
-elseif length(rho) < n_priors
-    error('Expected `rho` to have length at least %d for the %d prior terms.', n_priors, n_priors);
-end
-if any(rho <= 0)
-    error('The penalty parameters, `rho`, must be positive numbers.');
-end
+if compute_all
+    nonneg = options.nonneg;
+    if all(~enabled_weights) && ~nonneg
+        error('At least one element of `weights` must be positive, or `options.nonneg` must be `true`.');
+    end
 
-int_method = options.int_method;
-if isStringScalar(int_method) || ischar(int_method)
-    do_integration = ~strcmp(int_method, 'none');
-else
-    error('`options.int_method` must be a character vector or a string scalar.');
-end
+    rho = options.rho;
+    if nonneg && length(rho) < nonneg_ind
+        error('A %d-th penalty parameter must be provided in `rho` when `options.nonneg` is `true`.', nonneg_ind);
+    elseif length(rho) < n_priors
+        error('Expected `rho` to have length at least %d for the %d prior terms.', n_priors, n_priors);
+    end
+    if any(rho <= 0)
+        error('The penalty parameters, `rho`, must be positive numbers.');
+    end
 
-n_bands = length(lambda);
-n_elements_I = prod(image_sampling) * n_bands;
-if do_integration
-    Omega_Phi = channelConversionMatrix(image_sampling, sensitivity, lambda, int_method);
-else
-    Omega_Phi = channelConversionMatrix(image_sampling, sensitivity);
-end
-if ~isempty(dispersion_matrix)
-    if isfloat(dispersion_matrix) && ismatrix(dispersion_matrix)
-        if size(dispersion_matrix, 1) ~= n_elements_I
-            error('`dispersion_matrix` must have as many rows as there are pixels in `J` times bands.');
-        elseif size(dispersion_matrix, 2) ~= n_elements_I
-            error('`dispersion_matrix` must have as many columns as there are values in `I`.');
-        end
+    int_method = options.int_method;
+    if isStringScalar(int_method) || ischar(int_method)
+        do_integration = ~strcmp(int_method, 'none');
     else
-        error('`dispersion_matrix` must be a floating-point matrix.');
+        error('`options.int_method` must be a character vector or a string scalar.');
     end
-    Omega_Phi = Omega_Phi * dispersion_matrix;
-end
 
-out.G = cell(n_priors, 1);
-if enabled_weights(1) || enabled_weights(2)
-    out.G{1} = spatialGradient([image_sampling, n_bands]);
-end
-if enabled_weights(2)
-    G_lambda = spectralGradient([image_sampling, n_bands], options.full_GLambda);
-    G_lambda_sz1 = size(G_lambda, 1);
-    G_lambda_sz2 = size(G_lambda, 2);
-    % The product `G_lambda * out.G{1}` must be defined, so `G_lambda` needs to be
-    % replicated to operate on both the x and y-gradients.
-    out.G{2} = [
-        G_lambda, sparse(G_lambda_sz1, G_lambda_sz2);
-        sparse(G_lambda_sz1, G_lambda_sz2), G_lambda
-        ] * out.G{1};
-end
-if enabled_weights(3)
-    out.G{3} = antiMosaicMatrix(image_sampling, align) * Omega_Phi;
-end
-
-out.M_Omega_Phi = mosaicMatrix(image_sampling, align) * Omega_Phi;
-
-% Adjust the weights so that they have the same relative importance
-% regardless of the differences in the lengths of the vectors whose norms
-% are being weighted.
-for w = 1:n_priors
-    if enabled_weights(w)
-        weights(w) = weights(w) * size(out.M_Omega_Phi, 1) / size(out.G{w}, 1);
+    n_bands = length(lambda);
+    n_elements_I = prod(image_sampling) * n_bands;
+    if do_integration
+        Omega_Phi = channelConversionMatrix(image_sampling, sensitivity, lambda, int_method);
+    else
+        Omega_Phi = channelConversionMatrix(image_sampling, sensitivity);
     end
-end
-
-out.J = zeros(size(out.M_Omega_Phi, 1), 1);
-
-out.M_Omega_Phi_J = zeros(n_elements_I, 1);
-out.G_T = cell(n_priors, 1);
-out.G_2 = cell(n_priors, 1);
-for w = 1:n_priors
-    if enabled_weights(w)
-        out.G_T{w} = out.G{w}.';
-        out.G_2{w} = (out.G{w}.' * out.G{w});
-    end
-end
-
-out.A_const = (out.M_Omega_Phi.' * out.M_Omega_Phi);
-for w = 1:n_priors
-    if enabled_weights(w) && ~norms(w)
-        out.A_const = out.A_const + weights(w) * out.G_2{w};
-    end
-end
-
-if nonneg
-    out.I_A = speye(size(out.A_const));
-end
-
-out.A = sparse(size(out.A_const, 1), size(out.A_const, 2));
-out.b = zeros(n_elements_I, 1);
-
-out.I = zeros(n_elements_I, 1);
-
-active_constraints = [norms, options.nonneg];
-n_Z = find(active_constraints, 1, 'last');
-
-% Initialization
-out.Z = cell(n_Z, 1);
-out.U = cell(n_Z, 1);
-out.g = cell(n_Z, 1);
-out.Z_prev = cell(n_Z, 1);
-out.R = cell(n_Z, 1);
-out.Y = cell(n_Z, 1);
-
-for z_ind = 1:n_Z
-    if active_constraints(z_ind)
-        if z_ind == nonneg_ind
-            len_Z = length(out.I);
+    if ~isempty(dispersion_matrix)
+        if isfloat(dispersion_matrix) && ismatrix(dispersion_matrix)
+            if size(dispersion_matrix, 1) ~= n_elements_I
+                error('`dispersion_matrix` must have as many rows as there are pixels in `J` times bands.');
+            elseif size(dispersion_matrix, 2) ~= n_elements_I
+                error('`dispersion_matrix` must have as many columns as there are values in `I`.');
+            end
         else
-            len_Z = size(out.G{z_ind}, 1);
+            error('`dispersion_matrix` must be a floating-point matrix.');
         end
-        out.Z{z_ind} = zeros(len_Z, 1);
-        out.U{z_ind} = zeros(len_Z, 1);
-        out.g{z_ind} = zeros(len_Z, 1);
-        out.Z_prev{z_ind} = zeros(len_Z, 1);
-        out.R{z_ind} = zeros(len_Z, 1);
-        out.Y{z_ind} = zeros(len_Z, 1);
+        Omega_Phi = Omega_Phi * dispersion_matrix;
+    end
+
+    out.G = cell(n_priors, 1); 
+    if enabled_weights(1) || enabled_weights(2)
+         G_xy = spatialGradient([image_sampling, n_bands]);
+         if enabled_weights(1)
+             out.G{1} = G_xy;
+         end
+    end
+    if enabled_weights(2)
+        G_lambda = spectralGradient([image_sampling, n_bands], options.full_GLambda);
+        G_lambda_sz1 = size(G_lambda, 1);
+        G_lambda_sz2 = size(G_lambda, 2);
+        % The product `G_lambda * G_xy` must be defined, so `G_lambda` needs to be
+        % replicated to operate on both the x and y-gradients.
+        out.G{2} = [
+            G_lambda, sparse(G_lambda_sz1, G_lambda_sz2);
+            sparse(G_lambda_sz1, G_lambda_sz2), G_lambda
+            ] * G_xy;
+    end
+    if enabled_weights(3)
+        out.G{3} = antiMosaicMatrix(image_sampling, align) * Omega_Phi;
+    end
+
+    out.M_Omega_Phi = mosaicMatrix(image_sampling, align) * Omega_Phi;
+    
+    out.J = zeros(size(out.M_Omega_Phi, 1), 1);
+
+    out.M_Omega_Phi_J = zeros(n_elements_I, 1);
+    out.G_T = cell(n_priors, 1);
+    out.G_2 = cell(n_priors, 1);
+    for w = 1:n_priors
+        if enabled_weights(w)
+            out.G_T{w} = out.G{w}.';
+            out.G_2{w} = (out.G{w}.' * out.G{w});
+        end
+    end
+    
+    out.A_const_noWeights = (out.M_Omega_Phi.' * out.M_Omega_Phi);
+    
+    if nonneg
+        out.I_A = speye(size(out.A_const_noWeights));
+    end
+
+    out.A = sparse(size(out.A_const_noWeights, 1), size(out.A_const_noWeights, 2));
+    out.b = zeros(n_elements_I, 1);
+
+    out.I = zeros(n_elements_I, 1);
+
+    active_constraints = [norms, options.nonneg];
+    n_Z = find(active_constraints, 1, 'last');
+
+    out.Z = cell(n_Z, 1);
+    out.U = cell(n_Z, 1);
+    out.g = cell(n_Z, 1);
+    out.Z_prev = cell(n_Z, 1);
+    out.R = cell(n_Z, 1);
+    out.Y = cell(n_Z, 1);
+
+    for z_ind = 1:n_Z
+        if active_constraints(z_ind)
+            if z_ind == nonneg_ind
+                len_Z = length(out.I);
+            else
+                len_Z = size(out.G{z_ind}, 1);
+            end
+            out.Z{z_ind} = zeros(len_Z, 1);
+            out.U{z_ind} = zeros(len_Z, 1);
+            out.g{z_ind} = zeros(len_Z, 1);
+            out.Z_prev{z_ind} = zeros(len_Z, 1);
+            out.R{z_ind} = zeros(len_Z, 1);
+            out.Y{z_ind} = zeros(len_Z, 1);
+        end
+    end
+
+end
+
+if ~no_weights
+    % Adjust the weights so that they have the same relative importance
+    % regardless of the differences in the lengths of the vectors whose norms
+    % are being weighted.
+    for w = 1:n_priors
+        if enabled_weights(w)
+            weights(w) = weights(w) * size(out.M_Omega_Phi, 1) / size(out.G{w}, 1);
+        end
+    end
+
+    out.A_const = out.A_const_noWeights;
+    for w = 1:n_priors
+        if enabled_weights(w) && ~norms(w)
+            out.A_const = out.A_const + weights(w) * out.G_2{w};
+        end
     end
 end
 

@@ -226,11 +226,14 @@ function [ I, weights, in_admm, varargout ] = weightsLowMemory(...
         for s = 1:n
             weights_s = zeros(1, n_weights);
             weights_s(enabled_weights) = weights(s, :);
+            [in_admm, weights_s] = initBaek2017Algorithm2LowMemory(...
+                in_admm, weights_s, admm_options...
+            );
             in_admm = baek2017Algorithm2LowMemory(...
                 align, n_bands, J_2D, weights_s, admm_options, in_admm...
             );
             if input_I_in
-                criterion_s = immse(I_in, in_admm.I);
+                criterion_s = immse(I_in(:), in_admm.I);
                 if criterion_s < criterion
                     criterion = criterion_s;
                     min_ind = s;
@@ -239,16 +242,16 @@ function [ I, weights, in_admm, varargout ] = weightsLowMemory(...
             else
                 % Note: This line is needed before the check `nargout > 0`
                 % because `in_penalties` is an implicit output argument.
-                in_penalties = penalties(in_admm.J, in_admm.I, in_admm.M_Omega_Phi, G_filtered, norms_filtered, in_penalties);
+                in_penalties = penalties(in_admm.J, in_admm.I, in_admm.M_Omega_Phi, in_admm.G, admm_options.norms, in_penalties);
                 if nargout > 0
                     criterion_s = sum((...
-                        (in_penalties.err - origin) ./ err_range...
+                        (in_penalties.err(err_filter) - origin) ./ err_range...
                         ).^2);
                     if criterion_s < criterion
                         criterion = criterion_s;
                         min_ind = s;
                         I_current_best = in_admm.I;
-                        err = in_penalties.err;
+                        err = in_penalties.err(err_filter);
                     end
                 end
             end
@@ -283,7 +286,7 @@ end
 
 verbose = false;
 if length(varargin) > 1
-    verbose = varargin{1};
+    verbose = varargin{2};
 end
 
 if any(options.minimum_weights <= 0)
@@ -294,6 +297,7 @@ if any(options.minimum_weights > options.maximum_weights)
 end
 
 enabled_weights = options.enabled;
+err_filter = [true, enabled_weights];
 n_weights = length(enabled_weights);
 n_active_weights = sum(enabled_weights);
 to_active_weights = double(enabled_weights);
@@ -304,6 +308,9 @@ max_weights = reshape(options.maximum_weights(enabled_weights), 1, n_active_weig
 % Handle the case where the weights are fixed
 if all(min_weights == max_weights)
     weights = options.minimum_weights;
+    [in_admm, weights] = initBaek2017Algorithm2LowMemory(...
+        in_admm, weights, admm_options...
+    );
     in_admm = baek2017Algorithm2LowMemory(...
         align, n_bands, J_2D, weights, admm_options, in_admm...
     );
@@ -318,10 +325,6 @@ if all(min_weights == max_weights)
     return;
 end
 
-% Construct variables shared with the error evaluation function
-G_filtered = in_admm.G(enabled_weights);
-norms_filtered = admm_options.norms(enabled_weights);
-
 % Select the origin of the minimum distance function
 % See Section 3.4 of Belge et al. 2002 and Section IV-B of Song et al. 2016
 if ~input_I_in
@@ -331,16 +334,18 @@ if ~input_I_in
     admm_options.nonneg = false;
 
     getCriterion(min_weights);
-    origin = [in_penalties.err(1), zeros(1, n_active_weights)];
-    err_max = [0, in_penalties.err(2:end)];
+    err_filtered = in_penalties.err(err_filter);
+    origin = [err_filtered(1), zeros(1, n_active_weights)];
+    err_max = [0, err_filtered(2:end)];
     getCriterion(max_weights);
     err_max(1) = in_penalties.err(1);
     
     for w = 1:n_active_weights
-        point = zeros(1, n_active_weights);
+        point = min_weights;
         point(w) = max_weights(w);
         getCriterion(point);
-        origin(w + 1) = in_penalties.err(w + 1);
+        err_filtered = in_penalties.err(err_filter);
+        origin(w + 1) = err_filtered(w + 1);
     end
     
     err_range = err_max - origin;
@@ -384,7 +389,7 @@ weights_samples = zeros(n_samples, n_active_weights);
 
 if output_path
     search.weights = zeros(options.n_iter(1) + 1, n_weights);
-    search.criterion = zeros(options.n_iter(1) + 1);
+    search.criterion = zeros(options.n_iter(1) + 1, 1);
     if ~input_I_in
         n_err = n_weights + 1;
         search.err = zeros(options.n_iter(1) + 1, n_err);

@@ -25,7 +25,9 @@ function in = penalties( J, I, M_Omega_Phi, G, norms, in )
 % G -- Regularization operators
 %   A cell vector, where `G{i}` is a matrix that can multiply `I` to
 %   produce a vector whose norm is a regularization penalty on the solution
-%   `I`.
+%   `I`. Cells can also contain empty values (`[]`), indicating that the
+%   corresponding regularization penalties are disabled (so no penalty
+%   values will be computed for them).
 %
 % norms -- Penalty norm types
 %   A logical vector the same length as `G`. If `norms(i)` is `true`, then
@@ -77,13 +79,15 @@ in.J_est = M_Omega_Phi * I;
 in.err(1) = immse(J, in.J_est);
 
 for w = 1:length(G)
-    in.err_vectors{w} = G{w} * I;
+    if ~isempty(G{w})
+        in.err_vectors{w} = G{w} * I;
 
-    if norms(aw)
-        in.err(w + 1) = mean(abs(in.err_vectors{aw}));
-    else
-        in.err(w + 1) = dot(in.err_vectors{aw}, in.err_vectors{aw}) / length(in.err_vectors{aw});
-    end 
+        if norms(w)
+            in.err(w + 1) = mean(abs(in.err_vectors{w}));
+        else
+            in.err(w + 1) = dot(in.err_vectors{w}, in.err_vectors{w}) / length(in.err_vectors{w});
+        end
+    end
 end
 
 end
