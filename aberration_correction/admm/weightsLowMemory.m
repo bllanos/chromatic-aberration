@@ -296,13 +296,6 @@ if length(varargin) > 1
     verbose = varargin{2};
 end
 
-if any(options.minimum_weights <= 0)
-    error('All minimum values for regularization weights must be greater than zero.');
-end
-if any(options.minimum_weights > options.maximum_weights)
-    error('All maximum values for regularization weights must be greater than the corresponding minimum values.');
-end
-
 enabled_weights = options.enabled;
 err_filter = [true, enabled_weights];
 n_weights = length(enabled_weights);
@@ -312,14 +305,22 @@ to_active_weights(enabled_weights) = 1:n_active_weights;
 min_weights = reshape(options.minimum_weights(enabled_weights), 1, n_active_weights);
 max_weights = reshape(options.maximum_weights(enabled_weights), 1, n_active_weights);
 
+if any(min_weights <= 0)
+    error('All minimum values for enabled regularization weights must be greater than zero.');
+end
+if any(min_weights > max_weights)
+    error('All maximum values for enabled regularization weights must be greater than the corresponding minimum values.');
+end
+
 % Handle the case where the weights are fixed
 if all(min_weights == max_weights)
-    weights = options.minimum_weights;
-    [in_admm, weights] = initBaek2017Algorithm2LowMemory(...
+    weights = zeros(1, n_weights);
+    weights(enabled_weights) = min_weights;
+    [in_admm, weights_normalized] = initBaek2017Algorithm2LowMemory(...
         in_admm, weights, admm_options...
     );
     in_admm = baek2017Algorithm2LowMemory(...
-        align, n_bands, J_2D, weights, admm_options, in_admm...
+        align, n_bands, J_2D, weights_normalized, admm_options, in_admm...
     );
     I = in_admm.I;
     if output_path
@@ -332,14 +333,17 @@ if all(min_weights == max_weights)
     return;
 end
 
-if any(options.low_guess > options.high_guess)
-    error('All elements of `options.high_guess` must be greater than the corresponding elements of `options.low_guess`.');
+low_guess = reshape(options.low_guess(enabled_weights), 1, n_active_weights);
+high_guess = reshape(options.high_guess(enabled_weights), 1, n_active_weights);
+
+if any(low_guess > high_guess)
+    error('All elements for enabled terms in `options.high_guess` must be greater than the corresponding elements of `options.low_guess`.');
 end
-if any(options.low_guess < options.minimum_weights)
-    error('All elements of `options.low_guess` must be greater than or equal to the corresponding elements of `options.minimum_weights`.');
+if any(low_guess < min_weights)
+    error('All elements for enabled terms in `options.low_guess` must be greater than or equal to the corresponding elements of `options.minimum_weights`.');
 end
-if any(options.high_guess > options.maximum_weights)
-    error('All elements of `options.high_guess` must be less than or equal to the corresponding elements of `options.maximum_weights`.');
+if any(high_guess > max_weights)
+    error('All elements for enabled terms in `options.high_guess` must be less than or equal to the corresponding elements of `options.maximum_weights`.');
 end
 
 % Select the origin of the minimum distance function
@@ -390,9 +394,6 @@ if output_path && ~input_I_in
 end
 
 % Grid search iteration
-
-low_guess = reshape(options.low_guess(enabled_weights), 1, n_active_weights);
-high_guess = reshape(options.high_guess(enabled_weights), 1, n_active_weights);
 
 grid_side_length = 4;
 grid_vectors = zeros(grid_side_length, n_active_weights);
