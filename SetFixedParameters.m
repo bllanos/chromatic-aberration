@@ -87,7 +87,7 @@ rho = [ 1, 1, 1, 1 ];
 % Setting elements to zero disables the corresponding regularization term
 % during image estimation.
 weights = [
-    1e-2, 0, 0;
+    1e-2, 0, 1e-2;
     1e-3, 1e-3, 0
 ];
 
@@ -105,7 +105,7 @@ baek2017Algorithm2Options.maxit = [ 500, 500 ];
 baek2017Algorithm2Options.varying_penalty_params = [2, 2, 10];
 
 % Types of norms to use on the prior terms
-baek2017Algorithm2Options.norms = [true, false, false];
+baek2017Algorithm2Options.norms = [false, false, false];
 
 % Whether to apply a non-negativity constraint (in which case, `rho` must
 % have three elements)
@@ -216,6 +216,8 @@ else
     solvePatchesADMMOptions.reg_options.minimum_weights = selectWeightsOptions.minimum_weights;
     solvePatchesADMMOptions.reg_options.maximum_weights = selectWeightsOptions.maximum_weights;
 end
+solvePatchesADMMOptions.reg_options.low_guess = [1e-2, 1e-2, 1e-2];
+solvePatchesADMMOptions.reg_options.high_guess = [1e2, 1e2, 1e2];
 solvePatchesADMMOptions.reg_options.tol = selectWeightsGridOptions.tol;
 
 solvePatchesADMMOptions.patch_options = struct;

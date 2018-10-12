@@ -76,7 +76,7 @@ function [ I, weights, in_admm, varargout ] = weightsLowMemory(...
 %   3 - A second-order gradient prior designed to penalize colour-filter
 %       array artifacts, implemented in antiMosaicMatrix.m.
 %
-%   `reg_options` is a structure with the following fields, controlling
+%   `options` is a structure with the following fields, controlling
 %   regularization, and regularization weight selection:
 %   - 'enabled': A logical vector, where each element indicates whether the
 %     corresponding regularization term listed above is enabled.
@@ -102,6 +102,13 @@ function [ I, weights, in_admm, varargout ] = weightsLowMemory(...
 %     so needs to contain very large values if `I_in` is empty. If `I_in`
 %     is not empty, 'maximum_weights' can contain any values thought to be
 %     reasonable values for producing a good image.
+%   - 'low_guess': A vector containing predicted lower bounds for the
+%     regularization weights. The search algorithm will examine
+%     regularization weights smaller than these values if necessary, but
+%     otherwise, 'low_guess' may reduce the number of iterations required
+%     for convergence.
+%   - 'high-guess': A vector containing predicted upper bounds for the
+%     regularization weights, used in the same way as 'low_guess'.
 %   - 'tol': The threshold value of the relative change in the objective
 %     criterion for regularization weights selection from one iteration to
 %     the next. When the change is less than this threshold, and the
@@ -325,6 +332,16 @@ if all(min_weights == max_weights)
     return;
 end
 
+if any(options.low_guess > options.high_guess)
+    error('All elements of `options.high_guess` must be greater than the corresponding elements of `options.low_guess`.');
+end
+if any(options.low_guess < options.minimum_weights)
+    error('All elements of `options.low_guess` must be greater than or equal to the corresponding elements of `options.minimum_weights`.');
+end
+if any(options.high_guess > options.maximum_weights)
+    error('All elements of `options.high_guess` must be less than or equal to the corresponding elements of `options.maximum_weights`.');
+end
+
 % Select the origin of the minimum distance function
 % See Section 3.4 of Belge et al. 2002 and Section IV-B of Song et al. 2016
 if ~input_I_in
@@ -374,16 +391,20 @@ end
 
 % Grid search iteration
 
+low_guess = reshape(options.low_guess(enabled_weights), 1, n_active_weights);
+high_guess = reshape(options.high_guess(enabled_weights), 1, n_active_weights);
+
 grid_side_length = 4;
 grid_vectors = zeros(grid_side_length, n_active_weights);
 for w = 1:n_active_weights
     grid_vectors(:, w) = logspace(...
-                log10(min_weights(w)),...
-                log10(max_weights(w)),...
+                log10(low_guess(w)),...
+                log10(high_guess(w)),...
                 grid_side_length...
     ).';
 end
-eval_side_length = grid_side_length - 2;
+border = 0;
+eval_side_length = grid_side_length - 2 * border;
 n_samples = eval_side_length ^ n_active_weights;
 weights_samples = zeros(n_samples, n_active_weights);
 
@@ -405,10 +426,10 @@ for iter = 1:options.n_iter(1)
     
     % Generate the grid of weights
     for w = 1:n_active_weights
-        weights_samples(:, w) = repmat(...
-            repelem(grid_vectors(2:(end - 1), w), eval_side_length ^ (w - 1)),...
-            eval_side_length ^ (n_active_weights - w), 1 ...
-        );
+        weights_samples(:, w) = repmat(repelem(...
+            grid_vectors((1 + border):(end - border), w),...
+            eval_side_length ^ (w - 1)...
+        ), eval_side_length ^ (n_active_weights - w), 1 );
     end
     
     % Evaluate the response surface at the grid points
@@ -427,12 +448,13 @@ for iter = 1:options.n_iter(1)
     end
     
     % Check for convergence
-    change = NaN;
+    if iter > 1
+        change = abs(criterion_samples - criterion_prev) ./ abs(criterion_prev);
+    else
+        change = NaN;
+    end
+    converged = (change < options.tol);
     if iter == 1 || criterion_samples <= criterion_prev
-        if iter > 1
-            change = abs(criterion_samples - criterion_prev) ./ abs(criterion_prev);
-        end
-        converged = (change < options.tol);
         criterion_prev = criterion_samples;
         weights(enabled_weights) = weights_samples(min_ind, :);
         I = I_current_best;
@@ -442,27 +464,54 @@ for iter = 1:options.n_iter(1)
     end
     
     if verbose
-        fprintf('%d:   weights = (', iter);
-        for aw = 1:n_weights
-            if enabled_weights(aw)
-                fprintf('%g', weights(aw));
-            else
-                fprintf('_');
-            end
-            if aw < n_weights
+        fprintf('%d:   active weights = (', iter);
+        for w = 1:n_active_weights
+            fprintf('%g', weights_samples(min_ind, w));
+            if w < n_active_weights
                 fprintf(', ');
             end
         end
-        fprintf('), criterion = %g (change: %g)\n', criterion_prev, change);
+        fprintf('), criterion = %g', criterion_samples);
+        if iter > 1
+            if criterion_samples <= criterion_prev
+                fprintf(' (better by %g)', change);
+            else
+                fprintf(' (worse by %g)', change);
+            end
+        end
+        fprintf('\n');
     end
     
     if converged && iter >= options.n_iter(2)
         break;
     end
     
-    % Set up the grid sampling for the next iteration
+    % Find the next sub-grid to sample
     [subs{:}] = ind2sub(eval_side_length_rep, min_ind);
-    subs_vector = cell2mat(subs) + 1;
+    subs_vector = cell2mat(subs) + border;
+    
+    if iter == 1
+        for w = 1:n_active_weights
+            if subs_vector(w) == 1
+                % The low guess is too high
+                grid_vectors(1, w) = min_weights(w);
+                subs_vector(w) = 2;
+            elseif subs_vector(w) == grid_side_length
+                % The high guess is too low
+                grid_vectors(end, w) = max_weights(w);
+                subs_vector(w) = grid_side_length - 1;
+            end
+        end
+    
+        % Subsequent iterations can test fewer points.
+        border = 1;
+        eval_side_length = grid_side_length - 2 * border;
+        n_samples = eval_side_length ^ n_active_weights;
+        weights_samples = zeros(n_samples, n_active_weights);
+        eval_side_length_rep = repmat(eval_side_length, 1, n_active_weights);
+    end
+    
+    % Set up the grid sampling for the next iteration
     for w = 1:n_active_weights
         grid_vectors(:, w) = logspace(...
                     log10(grid_vectors(subs_vector(w) - 1, w)),...
