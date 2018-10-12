@@ -104,9 +104,9 @@ function [ I, weights, in_admm, varargout ] = weightsLowMemory(...
 %     reasonable values for producing a good image.
 %   - 'low_guess': A vector containing predicted lower bounds for the
 %     regularization weights. The search algorithm will examine
-%     regularization weights smaller than these values if necessary, but
-%     otherwise, 'low_guess' may reduce the number of iterations required
-%     for convergence.
+%     regularization weights smaller than these values if necessary (as
+%     small as 'minimum_weights'), but otherwise, 'low_guess' may reduce
+%     the number of iterations required for convergence.
 %   - 'high-guess': A vector containing predicted upper bounds for the
 %     regularization weights, used in the same way as 'low_guess'.
 %   - 'tol': The threshold value of the relative change in the objective

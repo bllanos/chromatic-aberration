@@ -131,6 +131,10 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 %   Refer to the documentation of baek2017Algorithm2LowMemory.m.
 %
 %   This function adds fields not used by 'baek2017Algorithm2LowMemory()':
+%   - 'Omega': The colour space conversion matrix, mapping the vectorized
+%     latent image to a vector in the colour space of the input image.
+%   - 'M': The mosaicking matrix, mapping the vectorized form of the full
+%     colour image (`Omega * I`) to a colour-filter array format.
 %   - 'A_const_noWeights': A partial computation of 'A' which is
 %     independent of the ADMM penalty parameters, and of the regularization
 %     weights.
@@ -238,6 +242,7 @@ if compute_all
     else
         Omega_Phi = channelConversionMatrix(image_sampling, sensitivity);
     end
+    out.Omega = Omega_Phi;
     if ~isempty(dispersion_matrix)
         if isfloat(dispersion_matrix) && ismatrix(dispersion_matrix)
             if size(dispersion_matrix, 1) ~= n_elements_I
@@ -273,7 +278,8 @@ if compute_all
         out.G{3} = antiMosaicMatrix(image_sampling, align) * Omega_Phi;
     end
 
-    out.M_Omega_Phi = mosaicMatrix(image_sampling, align) * Omega_Phi;
+    out.M = mosaicMatrix(image_sampling, align);
+    out.M_Omega_Phi = out.M * Omega_Phi;
     
     out.J = zeros(size(out.M_Omega_Phi, 1), 1);
 
