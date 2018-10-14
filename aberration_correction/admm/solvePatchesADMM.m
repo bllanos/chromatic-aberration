@@ -489,10 +489,8 @@ parfor j = 1:n_j
     column_in_j = columns_in{j};
     image_sampling_p = [0, size(column_in_j, 2)];
     corner = [0, (j - 1) * patch_size(2) + 1];
-    cols_trim_out = [
-        min(padding + 1, corner(2));...
-        min(patch_size(2), image_sampling(2) - corner(2) + 1)
-    ];
+    cols_trim_out = [ min(padding + 1, corner(2)), 0 ];
+    cols_trim_out(2) = cols_trim_out(1) + min(patch_size(2) - 1, image_sampling(2) - corner(2));
     patch_start_col = max(corner(2) - padding, 1);
     col_out_width = diff(cols_trim_out) + 1;
     column_out_j = zeros(size(column_in_j, 1), col_out_width, n_channels_out);
@@ -500,10 +498,8 @@ parfor j = 1:n_j
     % Process each patch within the column
     for i = 1:n_i
         corner(1) = (i - 1) * patch_size(1) + 1;
-        rows_trim_out = [ 
-            min(padding + 1, corner(1));...
-            min(patch_size(1), image_sampling(1) - corner(1) + 1)
-        ];
+        rows_trim_out = [ min(padding + 1, corner(1)), 0 ];
+        rows_trim_out(2) = rows_trim_out(1) + min(patch_size(1) - 1, image_sampling(1) - corner(1));
         patch_lim_rows = [
             max(corner(1) - padding, 1);
             min(corner(1) + patch_size(1) + padding - 1, image_sampling(1));
@@ -515,7 +511,7 @@ parfor j = 1:n_j
         else
             align_p = offsetBayerPattern([patch_lim_rows(1), patch_start_col], align);
         end
-        image_sampling_p(2) = diff(patch_lim_rows) + 1;
+        image_sampling_p(1) = diff(patch_lim_rows) + 1;
         
         if has_dispersion
             dispersion_matrix_p = dispersionfunToMatrix(...
@@ -641,7 +637,7 @@ parfor j = 1:n_j
         if output_weights
             column_out_j(...
                 corner(1):patch_end_row, :, channels_out.I_weights(1):channels_out.I_weights(2)...
-            ) = repmat(reshape(weights, 1, 1, n_active_weights), diff(rows_trim_out) + 1, col_out_width, 1);
+            ) = repmat(reshape(weights(enabled_weights), 1, 1, n_active_weights), diff(rows_trim_out) + 1, col_out_width, 1);
         end
         
         if verbose

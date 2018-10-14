@@ -269,7 +269,7 @@ narginchk(8, 9);
 
 input_I_in = ~isstruct(varargin{1});
 if input_I_in
-    nargoutchk(4, 5);
+    nargoutchk(1, 4);
     if ~isfloat(varargin{1})
         error('If a structure `in_penalties` is not passed, a floating-point array, `I_in` must be passed.');
     end
@@ -282,7 +282,7 @@ if input_I_in
     end
     output_path = (nargout > 3);
 else
-    nargoutchk(5, 6);
+    nargoutchk(1, 5);
     if ~isscalar(varargin{1})
         error('`in_penalties` must be a scalar structure.');
     end
@@ -459,7 +459,7 @@ for iter = 1:options.n_iter(1)
         criterion_prev = criterion_samples;
         weights(enabled_weights) = weights_samples(min_ind, :);
         I = I_current_best;
-        if ~input_I_in
+        if output_path && ~input_I_in
             err_prev = err_samples;
         end 
     end

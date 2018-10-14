@@ -87,7 +87,7 @@ rho = [ 1, 1, 1, 1 ];
 % Setting elements to zero disables the corresponding regularization term
 % during image estimation.
 weights = [
-    1e-2, 0, 1e-2;
+    1e-2, 0, 0;
     1e-3, 1e-3, 0
 ];
 
