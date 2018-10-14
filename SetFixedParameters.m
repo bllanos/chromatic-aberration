@@ -87,7 +87,7 @@ rho = [ 1, 1, 1, 1 ];
 % Setting elements to zero disables the corresponding regularization term
 % during image estimation.
 weights = [
-    1e-2, 0, 0;
+    1e-2, 1e-2, 0;
     1e-3, 1e-3, 0
 ];
 
@@ -105,11 +105,11 @@ baek2017Algorithm2Options.maxit = [ 500, 500 ];
 baek2017Algorithm2Options.varying_penalty_params = [2, 2, 10];
 
 % Types of norms to use on the prior terms
-baek2017Algorithm2Options.norms = [false, false, false];
+baek2017Algorithm2Options.norms = [true, true, false];
 
 % Whether to apply a non-negativity constraint (in which case, `rho` must
 % have three elements)
-baek2017Algorithm2Options.nonneg = false;
+baek2017Algorithm2Options.nonneg = true;
 
 % Integration method to use for colour calculations. If the latent space
 % consists of wavelength bands, use this type of numerical integration in

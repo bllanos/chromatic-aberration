@@ -242,7 +242,7 @@ normalize_color_map = true;
 normalize_color_map_reference_index = 2; % Use '2' for the CIE tristimulus functions (since 2 denotes Y) 
 
 % Image dimensions (height, width)
-image_sampling = [32, 32];
+image_sampling = [128, 128];
 
 % Number of samples for antialiasing during image generation
 n_samples = 1000;
@@ -259,18 +259,18 @@ chirp_image_threshold = 0.95;
 n_patch_sizes = 1;
 
 % Minimum patch side length
-patch_size_min = 6;
+patch_size_min = 24;
 
 % Maximum patch side length. This value will be clipped to the largest
 % image dimension before use.
-patch_size_max = 6;
+patch_size_max = 24;
 
 % Number of patch padding sizes to test
 % Padding sizes will be rounded to the nearest even integers.
 n_padding = 1;
 
 % Minimum amount of padding
-padding_min = 4;
+padding_min = 16;
 
 % Size of the largest padding size as a multiple of the maximum dispersion
 padding_ratio_max = 1;
@@ -278,7 +278,7 @@ padding_ratio_max = 1;
 % Dispersion magnitudes in pixels to test. Note that zero dispersion will
 % always be tested (and so will be added to the list if it is not specified
 % here). Negative dispersion values are not allowed.
-dispersion_px = 3; %[0.1, 0.3, 1, 2, 3];
+dispersion_px = []; %[0.1, 0.3, 1, 2, 3];
 % Number of additional dispersion magnitudes to test, provided that the
 % largest value in `dispersion_px` is below the suggested maximum
 % dispersion value output by 'chirpImage()'. (Otherwise, no additional
@@ -288,11 +288,11 @@ n_dispersion_additional = 0;
 
 % Noise fractions: The standard deviation of the noise added to a given
 % image value is these fractions of the value
-noise_fractions = 0; %[0, 0.05, 0.1, 0.25, 0.5];
+noise_fractions = [0, 0.05, 0.1, 0.25, 0.5];
 
 % Number of patches to show spectral error plots for
-n_eval_patches_x = 0;
-n_eval_patches_y = 0;
+n_eval_patches_x = 4;
+n_eval_patches_y = 4;
 
 % Spectral evaluation patch size (Must be an odd integer)
 eval_patch_size = 5;
