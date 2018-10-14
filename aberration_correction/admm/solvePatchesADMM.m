@@ -394,6 +394,9 @@ n_bands = length(lambda);
 n_channels_rgb = size(sensitivity, 1);
 enabled_weights = reg_options.enabled;
 n_active_weights = sum(enabled_weights);
+if all(~enabled_weights) && output_weights
+    error('Cannot output selected regularization weights, because all regularization terms are disabled.');
+end
 use_min_norm = all(~enabled_weights) && ~admm_options.nonneg;
 
 if any(mod(image_sampling, 2) ~= 0)
@@ -530,15 +533,7 @@ parfor j = 1:n_j
             sensitivity, lambda, enabled_weights, admm_options...
         );
         if use_min_norm
-            in_admm.I = repmat(reshape(bilinearDemosaic(...
-                    column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)),...
-                    align_p, [false, true, false]...
-            ), [], 1), n_bands, 1); % Initialize with the Green channel
-            % Scale to match the mean intensity
             in_admm.J = reshape(column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)), [], 1);
-            J_mean = mean(in_admm.J);
-            J_est_mean = mean(in_admm.M_Omega_Phi * in_admm.I);
-            in_admm.I = in_admm.I * (J_mean / J_est_mean);
             
             if (size(in_admm.M_Omega_Phi, 1) < size(in_admm.M_Omega_Phi, 2)) ||...
                     (rank(in_admm.M_Omega_Phi) < size(in_admm.M_Omega_Phi, 2))
@@ -558,6 +553,14 @@ parfor j = 1:n_j
                         admm_options.tol(1), admm_options.maxit(1)...
                     );
                 end
+                in_admm.I = repmat(reshape(bilinearDemosaic(...
+                    column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)),...
+                    align_p, [false, true, false]...
+                ), [], 1), n_bands, 1); % Initialize with the Green channel
+                % Scale to match the mean intensity
+                J_mean = mean(in_admm.J);
+                J_est_mean = mean(in_admm.M_Omega_Phi * in_admm.I);
+                in_admm.I = in_admm.I * (J_mean / J_est_mean);
                 [ patches_I_ij, flag, relres, iter_pcg ] = pcg(...
                     in_admm.M_Omega_Phi, in_admm.J, admm_options.tol(1), admm_options.maxit(1), [], [], in_admm.I...
                 );

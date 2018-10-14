@@ -495,11 +495,25 @@ for iter = 1:options.n_iter(1)
         for w = 1:n_active_weights
             if subs_vector(w) == 1
                 % The low guess is too high
+                if verbose
+                    fprintf(...
+                        '%d:   Low guess of %g for the %d-th active weight is too high.\n',...
+                        iter, grid_vectors(1, w), w...
+                    );
+                end
                 grid_vectors(1, w) = min_weights(w);
+                grid_vectors(3, w) = grid_vectors(2, w);
                 subs_vector(w) = 2;
             elseif subs_vector(w) == grid_side_length
                 % The high guess is too low
+                if verbose
+                    fprintf(...
+                        '%d:   High guess of %g for the %d-th active weight is too low.\n',...
+                        iter, grid_vectors(end, w), w...
+                    );
+                end
                 grid_vectors(end, w) = max_weights(w);
+                grid_vectors(end - 2, w) = grid_vectors(end - 1, w);
                 subs_vector(w) = grid_side_length - 1;
             end
         end
