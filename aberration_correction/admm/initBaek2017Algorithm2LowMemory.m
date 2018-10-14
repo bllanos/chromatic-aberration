@@ -69,10 +69,10 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 %   penalize colour-filter array artifacts.
 %
 %   Values of zero in `weights` indicate that the corresponding
-%   regularization terms are disabled. If all elements of `weights` are
-%   zero, and `options.nonneg` is `false`, this function will throw an
-%   error, in contrast to 'baek2017Algorithm2()', as this case is expected
-%   to be handled by the caller.
+%   regularization terms are disabled. Note that if all elements of
+%   `weights` are zero, and `options.nonneg` is `false`,
+%   'baek2017Algorithm2LowMemory()' will throw an error, as image
+%   estimation in this case is expected to be handled by the caller.
 %
 %   In the call syntax where `weights` is one of only three input arguments,
 %   the value of `weights` must have the same pattern of zeros as in the
@@ -214,9 +214,6 @@ norms(~enabled_weights) = false;
 
 if compute_all
     nonneg = options.nonneg;
-    if all(~enabled_weights) && ~nonneg
-        error('At least one element of `weights` must be positive, or `options.nonneg` must be `true`.');
-    end
 
     rho = options.rho;
     if nonneg && length(rho) < nonneg_ind

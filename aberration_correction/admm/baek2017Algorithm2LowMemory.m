@@ -44,9 +44,9 @@ function in = baek2017Algorithm2LowMemory(...
 %   penalize colour-filter array artifacts.
 %
 %   If all elements of `weights` are zero, and `options.nonneg` is `false`,
-%   'initBaek2017Algorithm2LowMemory()' will throw an error, in contrast to
-%   'baek2017Algorithm2()', as this case is expected to be handled by the
-%   caller.
+%   this function will throw an error, in contrast to
+%   'baek2017Algorithm2()', as image estimation in this case is expected to
+%   be handled by the caller.
 %
 %   `weights` is expected to be normalized by the lengths of the
 %   vectors being weighted, as done by 'initBaek2017Algorithm2LowMemory()'
@@ -249,6 +249,9 @@ n_priors = 3;
 nonneg_ind = 4;
 enabled_weights = (weights ~= 0);
 nonneg = options.nonneg;
+if all(~enabled_weights) && ~nonneg
+    error('At least one element of `weights` must be positive, or `options.nonneg` must be `true`.');
+end
 norms = options.norms;
 % Don't use ADMM to optimize priors given zero weight
 norms(~enabled_weights) = false;

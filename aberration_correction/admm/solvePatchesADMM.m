@@ -529,44 +529,16 @@ parfor j = 1:n_j
             sensitivity, lambda, enabled_weights, admm_options...
         );
         if use_min_norm
-            in_admm.J = reshape(column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)), [], 1);
-            
-            if (size(in_admm.M_Omega_Phi, 1) < size(in_admm.M_Omega_Phi, 2)) ||...
-                    (rank(in_admm.M_Omega_Phi) < size(in_admm.M_Omega_Phi, 2))
-                % Minimum-norm least squares solution to the non-regularized problem
-                if(verbose)
-                    fprintf('Computing the minimum-norm least squares solution...\n');
-                end
-                patches_I_ij = lsqminnorm(in_admm.M_Omega_Phi, in_admm.J);
-                if(verbose)
-                    fprintf('\t...done.\n');
-                end
-            else
-                % Unique or least-squares solution
-                if(verbose)
-                    fprintf(...
-                        'Computing a non-regularized least squares solution with tolerance %g for up to %d iterations...\n',...
-                        admm_options.tol(1), admm_options.maxit(1)...
-                    );
-                end
-                in_admm.I = repmat(reshape(bilinearDemosaic(...
-                    column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)),...
-                    align_p, [false, true, false]...
-                ), [], 1), n_bands, 1); % Initialize with the Green channel
-                % Scale to match the mean intensity
-                J_mean = mean(in_admm.J);
-                J_est_mean = mean(in_admm.M_Omega_Phi * in_admm.I);
-                in_admm.I = in_admm.I * (J_mean / J_est_mean);
-                [ patches_I_ij, flag, relres, iter_pcg ] = pcg(...
-                    in_admm.M_Omega_Phi, in_admm.J, admm_options.tol(1), admm_options.maxit(1), [], [], in_admm.I...
-                );
-                if(verbose)
-                    fprintf('\tLeast-squares result: PCG (flag = %d, relres = %g, iter = %d)\n',...
-                        flag, relres, iter_pcg...
-                    );
-                end
+            % Minimum-norm least squares solution to the non-regularized problem
+            if(verbose)
+                fprintf('Computing the minimum-norm least squares solution...\n');
             end
-            
+            in_admm.J = reshape(column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)), [], 1);
+            patches_I_ij = lsqminnorm(in_admm.M_Omega_Phi, in_admm.J);
+            if(verbose)
+                fprintf('\t...done.\n');
+            end
+                        
         elseif input_I_in
             [...
                 patches_I_ij, weights...

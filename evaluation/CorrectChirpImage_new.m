@@ -316,7 +316,7 @@ if ~isempty(downsampling_factor)
 end
 
 diff_bands = diff(bands);
-if any(diff_bands ~= diff_bands(1))
+if ~isempty(diff_bands) && any(diff_bands ~= diff_bands(1))
     error('Expected `bands` to contain equally-spaced wavelengths.');
 end
 n_bands = length(bands);
