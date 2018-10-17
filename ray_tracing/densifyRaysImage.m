@@ -177,10 +177,8 @@ end
 if verbose
     figure
     imagesc(I);
-    colorbar
     xlabel('X');
     ylabel('Y');
-    zlabel('Irradiance');
     c = colorbar;
     c.Label.String = 'Irradiance';
     title('Estimated output image pixels')

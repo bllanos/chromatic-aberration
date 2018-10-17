@@ -468,7 +468,7 @@ if isfield(options, 'scanlines')
             figure(fg_spectral.scanlines(i).rmse);
         else
             fg_spectral.scanlines(i).rmse = figure;
-            xlabel('Image x-coordinage');
+            xlabel('Image x-coordinate');
             ylabel('Spectral radiance RMSE');
             title(sprintf('Spectral radiance error along line %d', i));
         end
@@ -485,7 +485,7 @@ if isfield(options, 'scanlines')
             figure(fg_spectral.scanlines(i).gof);
         else
             fg_spectral.scanlines(i).gof = figure;
-            xlabel('Image x-coordinage');
+            xlabel('Image x-coordinate');
             ylabel('Spectral radiance goodness-of-fit');
             ylim([0, 1]);
             title(sprintf('Spectral radiance error along line %d', i));
