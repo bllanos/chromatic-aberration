@@ -154,9 +154,11 @@ if has_rgb
         if (n_images_spectral ~= n_images_rgb)
             error('Mismatched number of spectral and colour images.');
         end
-        for i = 1:n_images_rgb
-            if ~strcmp(rgb_names{i}, names{i})
-                error('Not all spectral image filenames and colour image filenames match.');
+        if n_images_spectral > 1
+            for i = 1:n_images_rgb
+                if ~strcmp(rgb_names{i}, names{i})
+                    error('Not all spectral image filenames and colour image filenames match.');
+                end
             end
         end
     end
@@ -170,9 +172,11 @@ if has_raw
     if (n_images ~= n_images_raw)
         error('Mismatched number of spectral/colour and RAW images.');
     end
-    for i = 1:n_images
-        if ~strcmp(raw_names{i}, names{i})
-            error('Not all spectral/colour image filenames and RAW image filenames match.');
+    if n_images > 1
+        for i = 1:n_images
+            if ~strcmp(raw_names{i}, names{i})
+                error('Not all spectral/colour image filenames and RAW image filenames match.');
+            end
         end
     end
 end

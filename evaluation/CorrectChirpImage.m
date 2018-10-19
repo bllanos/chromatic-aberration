@@ -308,7 +308,9 @@ chirp_image_verbose = false;
 verbose_progress = true;
 
 %% Validate parameters, and construct intermediate parameters
-
+if use_fixed_weights
+    warning('`use_fixed_weights` is set, so weights will not be automatically selected.');
+end
 if ~isempty(downsampling_factor)
     if downsampling_factor ~= 1
         warning('`downsampling_factor` is ignored.');
@@ -474,7 +476,7 @@ n_criteria = 2; % Minimum distance criterion and image similarity criterion
 estimated_images = cell(1, n_criteria);
 n_auxiliary_images = 4;
 auxiliary_images = cell(n_auxiliary_images, n_criteria);
-weights_images = cell(n_criteria, 1);
+weights_images = cell(n_criteria, 1);    
 err_images = cell(n_active_weights, 1);
 
 mse = zeros(n_padding, n_patch_sizes, n_noise_fractions, n_dispersion);
@@ -590,10 +592,10 @@ for d = 1:n_dispersion
                 [...
                     estimated_images{criterion_index},...
                     auxiliary_images{1, criterion_index},...
+                    weights_images{criterion_index},...
                     auxiliary_images{2, criterion_index},...
                     auxiliary_images{3, criterion_index},...
-                    auxiliary_images{4, criterion_index},...
-                    weights_images{criterion_index}...
+                    auxiliary_images{4, criterion_index}...
                 ] = solvePatchesADMM(...
                   [], I_raw_gt, bayer_pattern, dispersionfun,...
                   sensor_map_resampled, bands,...
@@ -610,10 +612,10 @@ for d = 1:n_dispersion
                 [...
                     estimated_images{criterion_index},...
                     auxiliary_images{1, criterion_index},...
+                    weights_images{criterion_index},...
                     auxiliary_images{2, criterion_index},...
                     auxiliary_images{3, criterion_index},...
-                    auxiliary_images{4, criterion_index},...
-                    weights_images{criterion_index}...
+                    auxiliary_images{4, criterion_index}...
                 ] = solvePatchesADMM(...
                   I_spectral_gt, I_raw_gt, bayer_pattern, dispersionfun,...
                   sensor_map_resampled, bands,...
@@ -639,7 +641,9 @@ for d = 1:n_dispersion
                 n_patches(ps) = n_patches_ps;
                 patches_I_gt = cell(1, n_j_vector);
                 patches_I_rgb_gt = cell(1, n_j_vector);
-                points_weights = zeros(n_i_vector, n_j_vector, n_active_weights, n_criteria);
+                if ~use_fixed_weights
+                    points_weights = zeros(n_i_vector, n_j_vector, n_active_weights, n_criteria);
+                end
                 patches_err = cell(1, n_j_vector);
                 points_err = cell(1, n_j_vector);
                 patch_limits = zeros(n_i_vector, n_j_vector, 4);
@@ -657,10 +661,12 @@ for d = 1:n_dispersion
                         patch_trim(i, j, :) = reshape(trim, 1, 1, 4);
                         patch_limits(i, j, :) = reshape(patch_lim, 1, 1, 4);
                         
-                        for f = 1:n_criteria
-                            points_weights(i, j, :, f) = weights_images{f}(...
-                                corners(i, j, 1), corners(i, j, 2), :...
-                            );
+                        if ~use_fixed_weights
+                            for f = 1:n_criteria
+                                points_weights(i, j, :, f) = weights_images{f}(...
+                                    corners(i, j, 1), corners(i, j, 2), :...
+                                );
+                            end
                         end
 
                         if i == 1
@@ -805,25 +811,27 @@ for d = 1:n_dispersion
                         auxiliary_images{3, f}, raw_filename_postfix, dataset_params.raw_images_variable,...
                         auxiliary_images{4, f}, warped_filename_postfix, warped_images_variable...
                     );
-                    for w = 1:n_active_weights
-                        aw = to_all_weights(w);
-                        saveImages(...
-                            'data', output_directory, name_params_f,...
-                            weights_images{f}(:, :, w), sprintf('weight%dImage', aw), 'I_weights'...
-                        );
-                    
-                        fg = figure;
-                        imagesc(weights_images{f}(:, :, w));
-                        c = colorbar;
-                        c.Label.String = sprintf('log_{10}(weight %d)', aw);
-                        xlabel('Image x-coordinate')
-                        ylabel('Image y-coordinate')
-                        title(sprintf('Per-patch %s weight %d', criteria_names{f}, aw));
-                        savefig(...
-                            fg,...
-                            [name_params_files  criteria_filenames{f} sprintf('weight%dImage.fig', aw)], 'compact'...
+                    if ~use_fixed_weights
+                        for w = 1:n_active_weights
+                            aw = to_all_weights(w);
+                            saveImages(...
+                                'data', output_directory, name_params_f,...
+                                weights_images{f}(:, :, w), sprintf('weight%dImage', aw), 'I_weights'...
                             );
-                        close(fg);
+
+                            fg = figure;
+                            imagesc(weights_images{f}(:, :, w));
+                            c = colorbar;
+                            c.Label.String = sprintf('log_{10}(weight %d)', aw);
+                            xlabel('Image x-coordinate')
+                            ylabel('Image y-coordinate')
+                            title(sprintf('Per-patch %s weight %d', criteria_names{f}, aw));
+                            savefig(...
+                                fg,...
+                                [name_params_files  criteria_filenames{f} sprintf('weight%dImage.fig', aw)], 'compact'...
+                                );
+                            close(fg);
+                        end
                     end
                 end
                 for w = 1:n_active_weights
@@ -847,79 +855,81 @@ for d = 1:n_dispersion
                     close(fg);
                 end
                 
-                % Comparative visualization of weights                
-                mdc_weights = reshape(points_weights(:, :, :, 1), n_patches_ps, n_active_weights);
-                mse_weights = reshape(points_weights(:, :, :, 2), n_patches_ps, n_active_weights);
-                
-                fg = figure;
-                hold on
-                if n_active_weights == 1
-                    scatter(...
-                        mse_weights, mdc_weights, 'filled'...
-                        );
-                    line_limits = [...
-                        min(min(mse_weights, mdc_weights));
-                        max(max(mse_weights, mdc_weights))
-                        ];
-                    line(line_limits, line_limits, 'Color', 'b');
-                    legend('Weights', 'y = x');
-                    xlabel(sprintf('Weight selected using the %s', criteria_abbrev{2}));
-                    ylabel(sprintf('Weight selected using the %s', criteria_abbrev{1}));
-                elseif n_active_weights == 2
-                    scatter(...
-                        mdc_weights(:, 1), mdc_weights(:, 2), [], mdc_color, 'filled'...
-                        );
-                    scatter(...
-                        mse_weights(:, 1), mse_weights(:, 2), [], mse_color, 'filled'...
-                        );
-                    legend(criteria_abbrev{:});
-                    xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
-                    ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
-                elseif n_active_weights == 3
-                    scatter3(...
-                        mdc_weights(:, 1), mdc_weights(:, 2), mdc_weights(:, 3),...
-                        [], mdc_color, 'filled'...
-                        );
-                    scatter3(...
-                        mse_weights(:, 1), mse_weights(:, 2), mse_weights(:, 3),...
-                        [], mse_color, 'filled'...
-                        );
-                    legend(criteria_abbrev{:});
-                    xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
-                    ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
-                    zlabel(sprintf('log_{10}(weight %d)', to_all_weights(3)))
-                else
-                    error('Unexpected number of active weights.');
-                end
-                title(sprintf('Agreement between %s and %s weights', criteria_abbrev{:}));
-                axis equal
-                hold off
-                
-                savefig(...
-                    fg,...
-                    [name_params_files 'weightsCorrelation.fig'], 'compact'...
-                    );
-                close(fg);
-                
-                for w = 1:n_active_weights
-                    aw = to_all_weights(w);
-                    penalties_w = reshape(points_err_3D(:, :, w), n_patches_ps, 1);
-                    
+                % Comparative visualization of weights
+                if ~use_fixed_weights
+                    mdc_weights = reshape(points_weights(:, :, :, 1), n_patches_ps, n_active_weights);
+                    mse_weights = reshape(points_weights(:, :, :, 2), n_patches_ps, n_active_weights);
+
                     fg = figure;
                     hold on
-                    scatter(penalties_w, mdc_weights(:, w), [], mdc_color, 'filled');
-                    scatter(penalties_w, mse_weights(:, w), [], mse_color, 'filled');
-                    legend(criteria_abbrev{:});
-                    xlabel(sprintf('log_{10}(Penalty %d)', aw))
-                    ylabel(sprintf('log_{10}(Weight %d)', aw))
-                    title(sprintf('%s and %s weights as a function of the corresponding penalty term', criteria_abbrev{:}));
+                    if n_active_weights == 1
+                        scatter(...
+                            mse_weights, mdc_weights, 'filled'...
+                            );
+                        line_limits = [...
+                            min(min(mse_weights, mdc_weights));
+                            max(max(mse_weights, mdc_weights))
+                            ];
+                        line(line_limits, line_limits, 'Color', 'b');
+                        legend('Weights', 'y = x');
+                        xlabel(sprintf('Weight selected using the %s', criteria_abbrev{2}));
+                        ylabel(sprintf('Weight selected using the %s', criteria_abbrev{1}));
+                    elseif n_active_weights == 2
+                        scatter(...
+                            mdc_weights(:, 1), mdc_weights(:, 2), [], mdc_color, 'filled'...
+                            );
+                        scatter(...
+                            mse_weights(:, 1), mse_weights(:, 2), [], mse_color, 'filled'...
+                            );
+                        legend(criteria_abbrev{:});
+                        xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
+                        ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
+                    elseif n_active_weights == 3
+                        scatter3(...
+                            mdc_weights(:, 1), mdc_weights(:, 2), mdc_weights(:, 3),...
+                            [], mdc_color, 'filled'...
+                            );
+                        scatter3(...
+                            mse_weights(:, 1), mse_weights(:, 2), mse_weights(:, 3),...
+                            [], mse_color, 'filled'...
+                            );
+                        legend(criteria_abbrev{:});
+                        xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
+                        ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
+                        zlabel(sprintf('log_{10}(weight %d)', to_all_weights(3)))
+                    else
+                        error('Unexpected number of active weights.');
+                    end
+                    title(sprintf('Agreement between %s and %s weights', criteria_abbrev{:}));
+                    axis equal
                     hold off
-                    
+
                     savefig(...
                         fg,...
-                        [name_params_files sprintf('weight%dVsPenalty.fig', aw)], 'compact'...
+                        [name_params_files 'weightsCorrelation.fig'], 'compact'...
                         );
                     close(fg);
+
+                    for w = 1:n_active_weights
+                        aw = to_all_weights(w);
+                        penalties_w = reshape(points_err_3D(:, :, w), n_patches_ps, 1);
+
+                        fg = figure;
+                        hold on
+                        scatter(penalties_w, mdc_weights(:, w), [], mdc_color, 'filled');
+                        scatter(penalties_w, mse_weights(:, w), [], mse_color, 'filled');
+                        legend(criteria_abbrev{:});
+                        xlabel(sprintf('log_{10}(Penalty %d)', aw))
+                        ylabel(sprintf('log_{10}(Weight %d)', aw))
+                        title(sprintf('%s and %s weights as a function of the corresponding penalty term', criteria_abbrev{:}));
+                        hold off
+
+                        savefig(...
+                            fg,...
+                            [name_params_files sprintf('weight%dVsPenalty.fig', aw)], 'compact'...
+                            );
+                        close(fg);
+                    end
                 end
                
                 for f = 1:n_criteria

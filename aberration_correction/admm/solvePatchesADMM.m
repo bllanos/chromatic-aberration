@@ -16,10 +16,10 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %   admm_options, reg_options, patch_options [, verbose]...
 % )
 % [ I, I_rgb ] = solvePatchesADMM(___)
-% [ I, I_rgb, J_full ] = solvePatchesADMM(___)
-% [ I, I_rgb, J_full, J_est ] = solvePatchesADMM(___)
-% [ I, I_rgb, J_full, J_est, I_warped ] = solvePatchesADMM(___)
-% [ I, I_rgb, J_full, J_est, I_warped, weights_images ] = solvePatchesADMM(___)
+% [ I, I_rgb, weights_images ] = solvePatchesADMM(___)
+% [ I, I_rgb, weights_images, J_full ] = solvePatchesADMM(___)
+% [ I, I_rgb, weights_images, J_full, J_est ] = solvePatchesADMM(___)
+% [ I, I_rgb, weights_images, J_full, J_est, I_warped ] = solvePatchesADMM(___)
 %
 % ## Description
 % I = solvePatchesADMM(...
@@ -32,21 +32,21 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 % [ I, I_rgb ] = solvePatchesADMM(___)
 %   Additionally returns the RGB equivalent of the latent image.
 %
-% [ I, I_rgb, J_full ] = solvePatchesADMM(___)
+% [ I, I_rgb, weights_images ] = solvePatchesADMM(___)
+%   Additionally returns images illustrating the weights selected for the
+%   regularization terms in the optimization problem.
+%
+% [ I, I_rgb, weights_images, J_full ] = solvePatchesADMM(___)
 %   Additionally returns a version of the RGB equivalent of the latent
 %   image, warped according to the model of dispersion.
 %
-% [ I, I_rgb, J_full, J_est ] = solvePatchesADMM(___)
+% [ I, I_rgb, weights_images, J_full, J_est ] = solvePatchesADMM(___)
 %   Additionally returns the forward model estimate of the input RAW image
 %   `J`.
 %
-% [ I, I_rgb, J_full, J_est, I_warped ] = solvePatchesADMM(___)
+% [ I, I_rgb, weights_images, J_full, J_est, I_warped ] = solvePatchesADMM(___)
 %   Additionally returns the version of the latent image warped according
 %   to the model of dispersion.
-%
-% [ I, I_rgb, J_full, J_est, I_warped, weights_images ] = solvePatchesADMM(___)
-%   Additionally returns images illustrating the weights selected for the
-%   regularization terms in the optimization problem.
 %
 % ## Input Arguments
 %
@@ -230,6 +230,17 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %   space conversion data in `sensitivity`. An size(J, 1) x size(J, 2) x
 %   size(sensitivity, 1) array.
 %
+% weights_images -- Selected regularization weights
+%   A size(J, 1) x size(J, 2) x w array, where 'w' is the number of `true`
+%   values in `reg_options.enabled`. `weights_images(p, q, i)` contains the
+%   weight, on the regularization term corresponding to the i-th `true`
+%   value in `reg_options.enabled`, used when estimating the pixel at
+%   location (p, q).
+%
+%   If regularization weights are fixed, i.e. if
+%   `all(reg_options.minimum_weights == reg_options.maximum_weights)` is
+%   `true`, then `weights_images` is empty (`[]`);
+%
 % J_full -- Warped latent colour image
 %   A colour image produced by warping `I` according to the dispersion
 %   model, followed by conversion to the colour space of `J`. An size(J, 1)
@@ -243,13 +254,6 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 % I_warped -- Warped latent image
 %   An size(J, 1) x size(J, 2) x length(lambda) array, storing the latent
 %   image warped according to the dispersion model.
-%
-% weights_images -- Selected regularization weights
-%   A size(J, 1) x size(J, 2) x w array, where 'w' is the number of `true`
-%   values in `reg_options.enabled`. `weights_images(p, q, i)` contains the
-%   weight, on the regularization term corresponding to the i-th `true`
-%   value in `reg_options.enabled`, used when estimating the pixel at
-%   location (p, q).
 %
 % ## Notes
 %
@@ -384,9 +388,14 @@ if has_dispersion && ~isa(dispersionfun, 'function_handle')
     error('`dispersionfun` must be a function handle.');
 end
 
-output_weights = nargout > 5;
+nargout_before_weights = 2;
+output_weights = (nargout > nargout_before_weights) && ~all(reg_options.minimum_weights == reg_options.maximum_weights);
 input_I_in = ~isempty(I_in);
-n_auxiliary_images = nargout - output_weights - 1;
+if nargout > nargout_before_weights
+    n_auxiliary_images = nargout - 2;
+else
+    n_auxiliary_images = 1;
+end
 image_sampling = [size(J_2D, 1), size(J_2D, 2)];
 patch_size = patch_options.patch_size;
 padding = patch_options.padding;
@@ -441,6 +450,10 @@ n_channels_out = n_channels_out + channels_out.I(2);
 if n_auxiliary_images > 0
     channels_out.I_rgb = n_channels_out + [1, n_channels_rgb];
     n_channels_out = n_channels_out + channels_out.I_rgb(2);
+    if output_weights
+        channels_out.I_weights = n_channels_out + [1, n_active_weights];
+        n_channels_out = n_channels_out + channels_out.I_weights(2);
+    end
     if n_auxiliary_images > 1
         channels_out.J_full = n_channels_out + [1, n_channels_rgb];
         n_channels_out = n_channels_out + channels_out.J_full(2);
@@ -453,10 +466,6 @@ if n_auxiliary_images > 0
             end
         end
     end
-end
-if output_weights
-    channels_out.I_weights = n_channels_out + [1, n_active_weights];
-    n_channels_out = n_channels_out + channels_out.I_weights(2);
 end
 
 % Divide the input images into columns which will be sent to individual
@@ -632,17 +641,19 @@ if n_auxiliary_images > 0
     varargout = cell(1, nargout - 1);
     varargout{1} = images_out(:, :, channels_out.I_rgb(1):channels_out.I_rgb(2));
     if n_auxiliary_images > 1
-        varargout{2} = images_out(:, :, channels_out.J_full(1):channels_out.J_full(2));
+        varargout{3} = images_out(:, :, channels_out.J_full(1):channels_out.J_full(2));
         if n_auxiliary_images > 2
-            varargout{3} = images_out(:, :, channels_out.J_est(1):channels_out.J_est(2));
+            varargout{4} = images_out(:, :, channels_out.J_est(1):channels_out.J_est(2));
             if n_auxiliary_images > 3
-                varargout{4} = images_out(:, :, channels_out.I_warped(1):channels_out.I_warped(2));
+                varargout{5} = images_out(:, :, channels_out.I_warped(1):channels_out.I_warped(2));
             end
         end
     end
 end
 if output_weights
-    varargout{5} = images_out(:, :, channels_out.I_weights(1):channels_out.I_weights(2));
+    varargout{2} = images_out(:, :, channels_out.I_weights(1):channels_out.I_weights(2));
+elseif nargout > nargout_before_weights
+    varargout{2} = [];
 end
 
 if verbose

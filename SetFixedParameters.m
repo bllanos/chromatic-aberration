@@ -99,7 +99,7 @@ weights = [
 baek2017Algorithm2Options.tol = [ 1e-5, 1e-5, 1e-5 ];
 
 % Maximum number of inner and outer iterations, the `maxit` input argument
-baek2017Algorithm2Options.maxit = [ 500, 500 ];
+baek2017Algorithm2Options.maxit = [ 20, 500 ];
 
 % Parameters for adaptively changing the penalty parameters for improved
 % convergence speed. (Disable adaptive penalty parameter variation by
@@ -156,9 +156,12 @@ selectWeightsOptions.maximum_weights = 1e10 * ones(1, size(weights, 2));
 selectWeightsGridOptions.maximum_weights = selectWeightsOptions.maximum_weights;
 
 % Maximum and minimum number of grid search iterations
-selectWeightsGridOptions.n_iter = [30, 10];
+% Song et al. 2016 used a fixed number of 6 iterations, but I don't know
+% what range of regularization weights they were searching within.
+selectWeightsGridOptions.n_iter = [12, 6];
+trainWeightsOptions.n_iter = selectWeightsGridOptions.n_iter;
 
-selectWeightsGridOptions.tol = 1e-5;
+selectWeightsGridOptions.tol = 1e-3;
 
 % Type of scaling
 selectWeightsGridOptions.scaling = 'normalized';
@@ -171,8 +174,6 @@ selectWeightsOptions.maxit = [100, 100];
 % Relative convergence criteria for the fixed-point iterative algorithm and
 % for the inner line search
 selectWeightsOptions.tol = [1e-4, 1e-2];
-
-trainWeightsOptions.n_iter = selectWeightsGridOptions.n_iter;
 
 % Minimum values to use for regularization weights
 trainWeightsOptions.minimum_weights = selectWeightsOptions.minimum_weights;
@@ -218,8 +219,8 @@ else
     solvePatchesADMMOptions.reg_options.minimum_weights = selectWeightsOptions.minimum_weights;
     solvePatchesADMMOptions.reg_options.maximum_weights = selectWeightsOptions.maximum_weights;
 end
-solvePatchesADMMOptions.reg_options.low_guess = [1e-2, 1e-2, 1e-2];
-solvePatchesADMMOptions.reg_options.high_guess = [1e2, 1e2, 1e2];
+solvePatchesADMMOptions.reg_options.low_guess = [1e-3, 1e-3, 1e-3];
+solvePatchesADMMOptions.reg_options.high_guess = [10, 10, 10];
 solvePatchesADMMOptions.reg_options.tol = selectWeightsGridOptions.tol;
 
 solvePatchesADMMOptions.patch_options = struct;

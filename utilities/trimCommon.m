@@ -1,18 +1,17 @@
 function s_out = trimCommon(s_in)
-% TRIMCOMMON  Extract unique parts of character vectors
+% TRIMCOMMON  Extract unique parts of filepaths
 %
 % ## Syntax
 % s_out = trimCommon(s_in)
 %
 % ## Description
 % s_out = trimCommon(s_in)
-%   Returns a cell vector of the unique portions of the input character
-%   vectors.
+%   Returns a cell vector of the unique portions of the input filepaths.
 %
 % ## Input Arguments
 %
-% s_in -- Character vectors
-%   A cell vector of character vectors.
+% s_in -- Filenames
+%   A cell vector of character vectors representing filenames and paths.
 %
 % ## Output Arguments
 %
@@ -21,6 +20,10 @@ function s_out = trimCommon(s_in)
 %   versions of the character vectors in `s_in`. Starting and ending
 %   substrings common to all elements of `s_in` are absent from the
 %   elements of `s_out`.
+%
+%   If the input cell vector has length 1, the function will attempt to
+%   strip a file extension and path from its first element, returning just
+%   the filename without the extension.
 %
 % See also fileparts
 
@@ -31,6 +34,12 @@ function s_out = trimCommon(s_in)
 
 narginchk(1, 1);
 nargoutchk(1, 1);
+
+if length(s_in) == 1
+    s_out = cell(1, 1);
+    [~, s_out{1}] = fileparts(s_in{1});
+    return;
+end
 
 start_ind = length(s_in{1});
 end_ind = start_ind;

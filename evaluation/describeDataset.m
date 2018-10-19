@@ -109,7 +109,9 @@ function [dataset_params] = describeDataset(name)
 %       218:1–13. doi:10.1145/3130800.3130810
 %
 % There are some datasets defined in the code used for preliminary testing
-% only.
+% only, such as:
+% - 'kaist-crop': The color checker chart from Scene 30 of the KAIST
+%   dataset.
 %
 % ## Notes
 % - In order to compare results across images, the 'mi_bands' field of the
@@ -188,6 +190,58 @@ elseif strcmp(name, '20180817_TestSpectralDataset')
             'wrinkled_0143_grey', struct(...
                 'radiance', [129, 121, 15, 15; 155, 317, 5, 5],...
                 'scanlines', [66, 172, 270, 186]...
+            )...
+        )...
+    );
+elseif strcmp(name, 'kaist-crop')
+    dataset_params.raw_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181019_KAIST_ForPDFAResearchDayPoster/dataset/*cropped_raw.mat';
+    dataset_params.raw_images_variable = 'I_raw';
+    dataset_params.rgb_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181019_KAIST_ForPDFAResearchDayPoster/dataset/*cropped_rgb.mat';
+    dataset_params.rgb_images_variable = 'I_rgb';
+    dataset_params.spectral_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181019_KAIST_ForPDFAResearchDayPoster/dataset/*cropped_latent.mat';
+    dataset_params.spectral_images_variable = 'I_latent';
+    dataset_params.spectral_reflectances = false;
+    dataset_params.dispersion_rgb_forward = [];
+    dataset_params.dispersion_rgb_reverse = [];
+    dataset_params.dispersion_spectral_reverse = [];
+    dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181019_KAIST_ForPDFAResearchDayPoster/dataset/CIE1931ColorMapData.mat';
+    dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181019_KAIST_ForPDFAResearchDayPoster/dataset/wavelengths.mat';
+    dataset_params.evaluation = struct(...
+        'global_rgb', struct('error_map', true),...
+        'custom_rgb', struct,...
+        'global_spectral', struct(...
+            'error_map', true,...
+            'mi_bands', [4, 24],... % 450 nm and 650 nm
+            'bands_diff', [4, 24]...
+            ),...
+        'custom_spectral', struct(...
+            'scene30_cropped_latent', struct(...
+                'radiance', [ % Colour checker patches
+                    117, 112, 51, 51;
+                    225, 117, 51, 51;
+                    331, 115, 51, 51;
+                    435, 116, 51, 51;
+                    542, 123, 51, 51;
+                    649, 121, 51, 51;
+                    112, 217, 51, 51;
+                    220, 221, 51, 51;
+                    328, 224, 51, 51;
+                    434, 227, 51, 51;
+                    540, 228, 51, 51;
+                    648, 229, 51, 51;
+                    109, 329, 51, 51;
+                    217, 330, 51, 51;
+                    325, 329, 51, 51;
+                    431, 330, 51, 51;
+                    540, 332, 51, 51;
+                    645, 334, 51, 51;
+                    111, 430, 51, 51;
+                    217, 435, 51, 51;
+                    323, 435, 51, 51;
+                    431, 436, 51, 51;
+                    541, 435, 51, 51;
+                    643, 434, 51, 51
+                ]...
             )...
         )...
     );
