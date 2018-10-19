@@ -248,7 +248,7 @@ image_sampling = [128, 128];
 n_samples = 1000;
 
 % Type of chirp image to generate
-chirp_image_type = 'phase';
+chirp_image_type = 'blend-black-sharp';
 
 % Threshold used to determine the camera spectral sensitivity functions'
 % bandlimits
@@ -278,7 +278,7 @@ padding_ratio_max = 1;
 % Dispersion magnitudes in pixels to test. Note that zero dispersion will
 % always be tested (and so will be added to the list if it is not specified
 % here). Negative dispersion values are not allowed.
-dispersion_px = []; %[0.1, 0.3, 1, 2, 3];
+dispersion_px = 3; %[0.1, 0.3, 1, 2, 3];
 % Number of additional dispersion magnitudes to test, provided that the
 % largest value in `dispersion_px` is below the suggested maximum
 % dispersion value output by 'chirpImage()'. (Otherwise, no additional
@@ -288,7 +288,7 @@ n_dispersion_additional = 0;
 
 % Noise fractions: The standard deviation of the noise added to a given
 % image value is these fractions of the value
-noise_fractions = [0, 0.05, 0.1, 0.25, 0.5];
+noise_fractions = 0; %[0, 0.05, 0.1, 0.25, 0.5];
 
 % Number of patches to show spectral error plots for
 n_eval_patches_x = 4;

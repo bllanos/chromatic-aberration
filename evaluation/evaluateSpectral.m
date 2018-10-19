@@ -365,7 +365,7 @@ if isfield(options, 'error_map') && options.error_map
     title('Spectral root-mean-square error');
     
     fg_spectral.error_map(3) = figure;
-    imagesc(reshape(gof_per_pixel, size(I_clipped, 1), size(I_clipped, 2)));
+    imagesc(reshape(goodnessOfFit(I_clipped_lin, R_clipped_lin, false), size(I_clipped, 1), size(I_clipped, 2)));
     colorbar;
     caxis([0 1]);
     title('Spectral goodness-of-fit');
