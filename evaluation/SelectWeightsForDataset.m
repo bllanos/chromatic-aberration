@@ -135,7 +135,7 @@ parameters_list = {
 
 %% Input data and parameters
 
-dataset_name = '20180817_TestSpectralDataset';
+dataset_name = 'kaist-crop';
 
 % Describe algorithms to run
 run('SetAlgorithms.m')

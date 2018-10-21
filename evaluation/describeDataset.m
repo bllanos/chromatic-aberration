@@ -194,10 +194,10 @@ elseif strcmp(name, '20180817_TestSpectralDataset')
         )...
     );
 elseif strcmp(name, 'kaist-crop')
-    dataset_params.raw_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181019_KAIST_ForPDFAResearchDayPoster/dataset/*cropped_raw.mat';
-    dataset_params.raw_images_variable = 'I_raw';
-    dataset_params.rgb_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181019_KAIST_ForPDFAResearchDayPoster/dataset/*cropped_rgb.mat';
-    dataset_params.rgb_images_variable = 'I_rgb';
+    dataset_params.raw_images_wildcard = [];
+    dataset_params.raw_images_variable = [];
+    dataset_params.rgb_images_wildcard = [];
+    dataset_params.rgb_images_variable = [];
     dataset_params.spectral_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181019_KAIST_ForPDFAResearchDayPoster/dataset/*cropped_latent.mat';
     dataset_params.spectral_images_variable = 'I_latent';
     dataset_params.spectral_reflectances = false;

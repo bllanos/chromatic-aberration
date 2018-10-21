@@ -161,9 +161,10 @@ if has_rgb
                 end
             end
         end
+    else
+        names = rgb_names;
     end
     n_images = n_images_rgb;
-    names = rgb_names;
 end
 if has_raw
     raw_filenames = listFiles(dp.raw_images_wildcard);

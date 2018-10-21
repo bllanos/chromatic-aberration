@@ -27,9 +27,8 @@
 % 'SetAlgorithms.m'.
 %
 % In contrast with 'CorrectByHyperspectralADMM.m', the wavelengths at which
-% hyperspectral images are to be sampled are either determined from ground
-% truth hyperspectral data, or are otherwise set by 'SetFixedParameters.m',
-% but are not loaded from colour space conversion data, or dispersion model
+% hyperspectral images are to be sampled are set by 'SetFixedParameters.m',
+% rather than loaded from colour space conversion data, or dispersion model
 % data.
 %
 % ## Output
@@ -138,7 +137,7 @@ run('SetAlgorithms.m')
 % Optionally override the list of ADMM-family algorithms to run, and the
 % regularization weights to run them with, from the output file of
 % 'SelectWeightsForDataset.m'. (Leave empty otherwise)
-admm_algorithms_filename = [];
+admm_algorithms_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181019_KAIST_ForPDFAResearchDayPoster/weights_selection/SelectWeightsForDataset_kaist-crop.mat';
 
 % Output directory for all images and saved parameters
 output_directory = '/home/llanos/Downloads';
@@ -273,7 +272,7 @@ for i = 1:n_images
                 if ~channel_mode
                     solvePatchesADMMOptions.admm_options.int_method = int_method;
                 end
-            else
+            elseif algorithm.spectral
                 continue;
             end                
             
@@ -350,13 +349,13 @@ for i = 1:n_images
                     dp.evaluation.global_spectral.plot_color =...
                         evaluation_plot_colors_admm(color_ind, :);
                     dp.evaluation.global_spectral.plot_marker =...
-                        evaluation_plot_markers_admm(...
+                        evaluation_plot_markers_admm{...
                             mod(color_ind - 1, length(evaluation_plot_markers_admm)) + 1 ...
-                        );
+                        };
                     dp.evaluation.global_spectral.plot_style =...
-                        evaluation_plot_styles_admm(...
+                        evaluation_plot_styles_admm{...
                             mod(color_ind - 1, length(evaluation_plot_styles_admm)) + 1 ...
-                        );
+                        };
                     color_ind = color_ind + 1;
                     all_alg_names{end + 1} = alg_name_params;
                     [e_spectral_table_current, fg_spectral] = evaluateAndSaveSpectral(...
@@ -429,7 +428,8 @@ for i = 1:n_images
                     title(sprintf('Per-patch minimum distance criterion weight %d', aw));
                     savefig(...
                         fg,...
-                        [name_params  sprintf('weight%dImage.fig', aw)], 'compact'...
+                        fullfile(output_directory, [name_params  sprintf('weight%dImage.fig', aw)]),...
+                        'compact'...
                         );
                     close(fg);
                 end

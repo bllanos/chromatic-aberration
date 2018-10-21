@@ -54,7 +54,7 @@ bayer_pattern = 'gbrg';
 
 % Override the wavelengths or colour channel indices at which to evaluate
 % the model of dispersion, if desired.
-bands = 430:10:650;
+bands = 420:10:720;
 bands_script = bands;
 
 % Interpolation method used when resampling colour space conversion data
@@ -99,7 +99,7 @@ weights = [
 baek2017Algorithm2Options.tol = [ 1e-5, 1e-5, 1e-5 ];
 
 % Maximum number of inner and outer iterations, the `maxit` input argument
-baek2017Algorithm2Options.maxit = [ 20, 500 ];
+baek2017Algorithm2Options.maxit = [ 500, 500 ];
 
 % Parameters for adaptively changing the penalty parameters for improved
 % convergence speed. (Disable adaptive penalty parameter variation by
@@ -158,10 +158,10 @@ selectWeightsGridOptions.maximum_weights = selectWeightsOptions.maximum_weights;
 % Maximum and minimum number of grid search iterations
 % Song et al. 2016 used a fixed number of 6 iterations, but I don't know
 % what range of regularization weights they were searching within.
-selectWeightsGridOptions.n_iter = [12, 6];
+selectWeightsGridOptions.n_iter = [30, 6];
 trainWeightsOptions.n_iter = selectWeightsGridOptions.n_iter;
 
-selectWeightsGridOptions.tol = 1e-3;
+selectWeightsGridOptions.tol = 1e-6;
 
 % Type of scaling
 selectWeightsGridOptions.scaling = 'normalized';
@@ -220,7 +220,7 @@ else
     solvePatchesADMMOptions.reg_options.maximum_weights = selectWeightsOptions.maximum_weights;
 end
 solvePatchesADMMOptions.reg_options.low_guess = [1e-3, 1e-3, 1e-3];
-solvePatchesADMMOptions.reg_options.high_guess = [10, 10, 10];
+solvePatchesADMMOptions.reg_options.high_guess = [100, 100, 100];
 solvePatchesADMMOptions.reg_options.tol = selectWeightsGridOptions.tol;
 
 solvePatchesADMMOptions.patch_options = struct;

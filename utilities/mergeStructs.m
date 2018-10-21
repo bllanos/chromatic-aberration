@@ -1,4 +1,4 @@
-function sc = mergeStructs(sa, sb, intersect, overwrite)
+function sc = mergeStructs(sa, sb, intersect_arg, overwrite)
 % MERGESTRUCTS  Merge two structures
 %
 % ## Syntax
@@ -48,7 +48,7 @@ nargoutchk(1, 1);
 
 fields_a = fieldnames(sa);
 fields_b = fieldnames(sb);
-if intersect
+if intersect_arg
     fields_c = intersect(fields_a, fields_b);
 else
     fields_c = union(fields_a, fields_b);
