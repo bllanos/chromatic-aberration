@@ -31,7 +31,7 @@ disk_radius = 4;
 disk_separation = 11;
 
 % Output Directory
-output_directory = '/home/llanos/Downloads/patterns';
+output_directory = '/home/llanos/Downloads';
 
 % ## Printing parameters
 

@@ -134,7 +134,7 @@ parameters_list = {
 % filepaths. Masks are used to avoid processing irrelevant portions of
 % images.
 partial_filepaths = {
-    '/home/llanos/Downloads/d44_a22_far_disksWhite'
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20170808_OpticalTableMatrix/averaged/d44_a22_far_disksBlack'
     };
 
 % Filename extension (excluding the leading '.')
@@ -149,7 +149,7 @@ mask_threshold = 0.5; % In a range of intensities from 0 to 1
 
 % Find dispersion between colour channels, as opposed to between images
 % taken under different spectral bands
-rgb_mode = false;
+rgb_mode = true;
 
 % `bands_to_rgb` is used for visualization purposes only, and so does not
 % need to be accurate
@@ -170,7 +170,7 @@ end
 bayer_pattern = 'gbrg'; % Colour-filter pattern
 cleanup_radius = 2; % Morphological operations radius for 'findAndFitDisks()'
 k0 = 0.1; % `k0` argument of 'findAndFitDisks()'
-findAndFitDisks_options.bright_disks = true;
+findAndFitDisks_options.bright_disks = false;
 findAndFitDisks_options.mask_as_threshold = false;
 findAndFitDisks_options.group_channels = ~rgb_mode;
 findAndFitDisks_options.area_outlier_threshold = 2;
