@@ -30,17 +30,9 @@ parameters_list = [parameters_list, {
     'bayer_pattern',...
     'bands_script',...
     'bands_interp_method',...
-    'downsampling_factor',...
-    'add_border',...
-    'baek2017Algorithm2Options',...
-    'rho',...
-    'weights',...
     'int_method',...
     'patch_sizes',...
     'paddings',...
-    'selectWeightsOptions',...
-    'selectWeightsGridOptions',...
-    'trainWeightsOptions',...
     'use_fixed_weights',...
     'solvePatchesADMMOptions'...
     }];
@@ -60,64 +52,47 @@ bands_script = bands;
 % Interpolation method used when resampling colour space conversion data
 bands_interp_method = 'linear';
 
-% Downsampling factor to apply to the estimated latent images relative to
-% the input images. If empty (`[]`), downsampling will not occur. Most
-% image estimation pipelines do not support downsampling.
-downsampling_factor = 1;
-
-% Whether to expand the latent image relative to the input image to cover
-% all undistorted coordinates from the input image. This is the
-% `options.add_border` input argument of `baek2017Algorithm2()`, for
-% example. Most image estimation pipelines do not support expansion.
-add_border = false;
-
-% ## Options for baek2017Algorithm2() (Alternating Direction Method of Multipliers)
-
-% Whether to make the spectral gradient the same size as the image. This is
-% the `full_GLambda` input argument.
-baek2017Algorithm2Options.full_GLambda = false;
-
-% Penalty parameters in ADMM, the `rho` input argument.
-% Sample values seem to be in the range 1-10 (see pages 89, 93, and 95 of
-% Boyd et al. 2011)
-rho = [ 1, 1, 1, 1 ];
-
-% Weights on the prior terms, the `weights` input argument. Baek et al.
-% (2017) used [1e-5, 0.1]. Each row represents one set of weights to test,
-% for image estimation pipelines that support multiple sets of weights.
-% Most image estimation pipelines use only the first row of this matrix.
-% Setting elements to zero disables the corresponding regularization term
-% during image estimation.
-weights = [
-    1e-2, 1e-2, 0;
-    1e-3, 1e-3, 0
-];
-
-% Convergence tolerances in ADMM, the `tol` input argument. Reasonable
-% values for the third element are 10^-4 to 10^-3 (page 21 of Boyd et al.
-% 2011).
-baek2017Algorithm2Options.tol = [ 1e-5, 1e-5, 1e-5 ];
-
-% Maximum number of inner and outer iterations, the `maxit` input argument
-baek2017Algorithm2Options.maxit = [ 500, 500 ];
-
-% Parameters for adaptively changing the penalty parameters for improved
-% convergence speed. (Disable adaptive penalty parameter variation by
-% setting this option to an empty array.)
-baek2017Algorithm2Options.varying_penalty_params = [2, 2, 10];
-
-% Types of norms to use on the prior terms
-baek2017Algorithm2Options.norms = [false, false, false];
-
-% Whether to apply a non-negativity constraint (in which case, `rho` must
-% have three elements)
-baek2017Algorithm2Options.nonneg = true;
-
 % Integration method to use for colour calculations. If the latent space
 % consists of wavelength bands, use this type of numerical integration in
 % 'channelConversionMatrix()'. (Otherwise, a value of 'none' will
 % automatically be used instead.)
 int_method = 'trap';
+
+% ## Image estimation options
+
+solvePatchesADMMOptions.admm_options = struct;
+
+% Whether to make the spectral gradient the same size as the image
+solvePatchesADMMOptions.admm_options.full_GLambda = false;
+
+% Penalty parameters in ADMM, the `rho` input argument.
+% Sample values seem to be in the range 1-10 (see pages 89, 93, and 95 of
+% Boyd et al. 2011)
+solvePatchesADMMOptions.admm_options.rho = [ 1, 1, 1, 1 ];
+
+% Weights on the prior terms. Baek et al. (2017) used [1e-5, 0.1]. Setting
+% elements to zero disables the corresponding regularization term during
+% image estimation.
+weights = [ 1e-2, 1e-2, 0 ];
+
+% Convergence tolerances in ADMM. Reasonable values for the third element
+% are 10^-4 to 10^-3 (page 21 of Boyd et al. 2011).
+solvePatchesADMMOptions.admm_options.tol = [ 1e-5, 1e-5, 1e-5 ];
+
+% Maximum number of inner and outer iterations, the `maxit` input argument
+solvePatchesADMMOptions.admm_options.maxit = [ 500, 500 ];
+
+% Parameters for adaptively changing the penalty parameters for improved
+% convergence speed. (Disable adaptive penalty parameter variation by
+% setting this option to an empty array.)
+solvePatchesADMMOptions.admm_options.varying_penalty_params = [2, 2, 10];
+
+% Types of norms to use on the prior terms
+solvePatchesADMMOptions.admm_options.norms = [false, false, false];
+
+% Whether to apply a non-negativity constraint (in which case, `rho` must
+% have four elements)
+solvePatchesADMMOptions.admm_options.nonneg = true;
 
 % ## Options for patch-wise image estimation
 
@@ -125,111 +100,42 @@ int_method = 'trap';
 % will be tested by some image estimation pipelines, and if `patch_sizes`
 % is empty only whole image estimation may be performed. Some image
 % estimation pipelines only use the first row of `patch_sizes` and the
-% first element of `paddings`.
+% first element of `paddings`, via `solvePatchesADMMOptions.patch_options`.
 patch_sizes = [ % Each row contains a (number of rows, number of columns) pair
    30 30;
 ]; 
 paddings = 10;
 
-% ## Options for selecting regularization weights
-
-selectWeightsOptions.patch_size = patch_sizes(1, :);
-selectWeightsOptions.enabled_weights = logical(weights(1, :));
-trainWeightsOptions.patch_size = selectWeightsOptions.patch_size;
-trainWeightsOptions.enabled_weights = selectWeightsOptions.enabled_weights;
-selectWeightsGridOptions.patch_size = selectWeightsOptions.patch_size;
-selectWeightsGridOptions.enabled_weights = selectWeightsOptions.enabled_weights;
-
-% Whether or not to enforce 'minimum_weights' and 'maximum_weights' given
-% in this same options structure
-selectWeightsOptions.clip_weights = true;
-selectWeightsGridOptions.clip_weights = selectWeightsOptions.clip_weights;
-
-% Minimum values to use for regularization weights (or to use to set the
-% origin of the minimum distance function in case the data fitting matrix
-% is singular)
-selectWeightsOptions.minimum_weights = eps * ones(1, size(weights, 2));
-selectWeightsGridOptions.minimum_weights = selectWeightsOptions.minimum_weights;
-
-% Maximum values to use for regularization weights
-selectWeightsOptions.maximum_weights = 1e10 * ones(1, size(weights, 2));
-selectWeightsGridOptions.maximum_weights = selectWeightsOptions.maximum_weights;
-
-% Maximum and minimum number of grid search iterations
-% Song et al. 2016 used a fixed number of 6 iterations, but I don't know
-% what range of regularization weights they were searching within.
-selectWeightsGridOptions.n_iter = [30, 6];
-trainWeightsOptions.n_iter = selectWeightsGridOptions.n_iter;
-
-selectWeightsGridOptions.tol = 1e-6;
-
-% Type of scaling
-selectWeightsGridOptions.scaling = 'normalized';
-
-selectWeightsOptions.method = 'fixed-point-safe';
-
-% Maximum number of fixed-point (1) and line search (2) iterations
-selectWeightsOptions.maxit = [100, 100];
-
-% Relative convergence criteria for the fixed-point iterative algorithm and
-% for the inner line search
-selectWeightsOptions.tol = [1e-4, 1e-2];
-
-% Minimum values to use for regularization weights
-trainWeightsOptions.minimum_weights = selectWeightsOptions.minimum_weights;
-
-% Maximum values to use for regularization weights
-trainWeightsOptions.maximum_weights = selectWeightsOptions.maximum_weights;
-
-trainWeightsOptions.tol = selectWeightsGridOptions.tol;
-
-% Border to exclude from image patches before calculating error
-baek2017Algorithm2Options.l_err_border = [paddings(1), paddings(1)];
-trainWeightsOptions.border = paddings(1);
-
-% Whether or not to use parallel execution within each grid search
-% iteration
-trainWeightsOptions.parallel = false;
-selectWeightsGridOptions.parallel = false;
-
-% ## Options for solvePatchesADMM()
-%
-% solvePatchesADMM() is a super function, performing the same processing as
-% several smaller functions. Refer to its documentation comments for more
-% information about the following parameters.
-
-solvePatchesADMMOptions.admm_options = struct;
-solvePatchesADMMOptions.admm_options.rho = rho;
-solvePatchesADMMOptions.admm_options.full_GLambda = baek2017Algorithm2Options.full_GLambda;
-solvePatchesADMMOptions.admm_options.maxit = baek2017Algorithm2Options.maxit;
-solvePatchesADMMOptions.admm_options.norms = baek2017Algorithm2Options.norms;
-solvePatchesADMMOptions.admm_options.nonneg = baek2017Algorithm2Options.nonneg;
-solvePatchesADMMOptions.admm_options.tol = baek2017Algorithm2Options.tol;
-solvePatchesADMMOptions.admm_options.varying_penalty_params = baek2017Algorithm2Options.varying_penalty_params;
-
-solvePatchesADMMOptions.reg_options = struct;
-solvePatchesADMMOptions.reg_options.enabled = logical(weights(1, :));
-solvePatchesADMMOptions.reg_options.n_iter = selectWeightsGridOptions.n_iter;
-
-use_fixed_weights = false;
-if use_fixed_weights
-    solvePatchesADMMOptions.reg_options.minimum_weights = weights(1, :);
-    solvePatchesADMMOptions.reg_options.maximum_weights = weights(1, :);
-else
-    solvePatchesADMMOptions.reg_options.minimum_weights = selectWeightsOptions.minimum_weights;
-    solvePatchesADMMOptions.reg_options.maximum_weights = selectWeightsOptions.maximum_weights;
-end
-solvePatchesADMMOptions.reg_options.low_guess = [1e-3, 1e-3, 1e-3];
-solvePatchesADMMOptions.reg_options.high_guess = [100, 100, 100];
-solvePatchesADMMOptions.reg_options.tol = selectWeightsGridOptions.tol;
-
 solvePatchesADMMOptions.patch_options = struct;
 solvePatchesADMMOptions.patch_options.patch_size = patch_sizes(1, :);
 solvePatchesADMMOptions.patch_options.padding = paddings(1);
 
+% ## Options for selecting regularization weights
+
+solvePatchesADMMOptions.reg_options = struct;
+
+solvePatchesADMMOptions.reg_options.enabled = logical(weights(1, :));
+
+use_fixed_weights = false;
+if use_fixed_weights
+    solvePatchesADMMOptions.reg_options.minimum_weights = weights;
+    solvePatchesADMMOptions.reg_options.maximum_weights = weights;
+else
+    % Minimum values to use for regularization weights (and to use to set
+    % the origin of the minimum distance function)
+    solvePatchesADMMOptions.reg_options.minimum_weights = eps * ones(1, length(weights));
+    % Maximum values to use for regularization weights (and to use to set
+    % the origin of the minimum distance function)
+    solvePatchesADMMOptions.reg_options.maximum_weights = 1e10 * ones(1, length(weights));
+end
+solvePatchesADMMOptions.reg_options.low_guess = [1e-3, 1e-3, 1e-3];
+solvePatchesADMMOptions.reg_options.high_guess = [100, 100, 100];
+solvePatchesADMMOptions.reg_options.tol = 1e-6;
+
+% Maximum and minimum number of grid search iterations
+% Song et al. 2016 used a fixed number of 6 iterations, but I don't know
+% what range of regularization weights they were searching within.
+solvePatchesADMMOptions.reg_options.n_iter = [30, 6];
+
 % ## Debugging Flags
-baek2017Algorithm2Verbose = true;
-selectWeightsVerbose = true;
-selectWeightsGridVerbose = true;
-trainWeightsVerbose = true;
 solvePatchesADMMVerbose = true;

@@ -183,8 +183,6 @@
 % ## Notes
 % - This script only uses the first row of `patch_sizes`, and the first
 %   element of `paddings`, defined in 'SetFixedParameters.m'.
-% - This script ignores the `downsampling_factor` parameter defined in
-%   'SetFixedParameters.m'.
 %
 % ## References
 % - Foster, D. H. (2018). Tutorial on Transforming Hyperspectral Images to

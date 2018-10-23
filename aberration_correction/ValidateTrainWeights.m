@@ -93,39 +93,6 @@
 % Graphical output relating to the grid search method will not be produced
 % if there are more than three regularization weights to be chosen.
 %
-% ### Estimated images
-%
-% One of each of the following types of images is created, depending on the
-% type of latent image (spectral or colour). The images are produced under
-% the regularization weights chosen by the grid search. The filename of the
-% input image, concatenated with a string of parameter information, is
-% represented by '*' below.
-% - '*_roi.tif' and '*_roi.mat': A cropped version of the input image
-%   (stored in the variable 'I_raw'), containing the portion used as input
-%   for ADMM. This region of interest was determined using the
-%   `model_space` and `fill` variables saved in the input model of
-%   dispersion data file (see above). If these variables were not present,
-%   the cropped region is the entire input image. All of the other output
-%   images listed below are limited to the region shown in '*_roi.tif'.
-% - '*_latent.tif' and '*_latent.mat': The latent image estimated using
-%   ADMM (stored in the variable 'I_latent'). The '.tif' image is only
-%   output if the latent image is a greyscale or 3-channel image.
-% - '*_warped.tif' and '*_warped.mat': A version of the latent image
-%   (stored in the variable 'I_warped') created by warping the latent image
-%   according to the dispersion model. The '.tif' image is only output if
-%   if the latent image is a greyscale or 3-channel image.
-% - '*_rgb.tif' and '*_rgb.mat': A colour image (stored in the variable
-%   'I_rgb') created by converting the latent image to the RGB colour space
-%   of the camera.
-% - '*_rgb_warped.tif' and '*_rgb_warped.mat': A colour image (stored in
-%   the variable 'J_full') created by warping the latent image according to
-%   the dispersion model, then converting the image to the RGB colour space
-%   of the camera. This output image is, in a sense, a demosaiced version
-%   of the input image.
-% - '*_reestimated.tif' and '*_reestimated.mat': A simulation (stored in
-%   the variable 'J_est') of the input RAW image from the latent image,
-%   useful for visually evaluating the convergence of the ADMM algorithm.
-%
 % ### Data file output
 %
 % A '.mat' file containing the following variables:
@@ -134,9 +101,6 @@
 %   image.
 % - 'bands_color': The 'bands' variable loaded from the colour space
 %   conversion data file, for reference.
-% - 'image_bounds': The coordinates of the latent image in the space of the
-%   cropped input image. This is the 'image_bounds' output argument of
-%   'dispersionfunToMatrix()'.
 % - 'input_image_filename': The input image filename found using the
 %   wildcard provided in the parameters section of the script.
 % - 'true_image_filename': The true latent image filename found using the
@@ -165,31 +129,16 @@
 %   identity mapping of the colours of a latent RGB image into the colours
 %   of the aberrated RGB image. Summation allows multiple sharp bands to
 %   form a blurred colour channel.
-% - This script uses the first row of `weights` defined in
-%   'SetFixedParameters.m' to determine which regularization weights to
-%   set. Elements of `weights(1, :)` set to zero disable the corresponding
-%   regularization terms. Note that the number of nonzero elements of
-%   `weights(1, :)` determines the dimensionality of the visualizations
-%   output by this script.
-% - This script could estimate downsampled images (configured by adjusting
-%   `downsampling_factor` in 'SetFixedParameters.m'), if it were to use
-%   'solvePatches()' instead of 'solvePatchesAligned()' for patch-based
-%   image estimation. In that case, however, this script could not process
-%   very large images, except at higher downsampling factors.
-%   'solvePatchesAligned()' can process large images, but cannot downsample
-%   images.
+% - This script uses `solvePatchesADMMOptions.reg_options.enabled` defined
+%   in 'SetFixedParameters.m' to determine which regularization weights to
+%   set. Note that the number of `true` elements of
+%   `solvePatchesADMMOptions.reg_options.enabled` determines the
+%   dimensionality of the visualizations output by this script.
 % - This script only uses the first row of `patch_sizes`, and the first
-%   element of `paddings`, both defined in 'SetFixedParameters.m'.
+%   element of `paddings`, defined in 'SetFixedParameters.m', by using
+%   `solvePatchesADMMOptions.patch_options`.
 %
 % ## References
-% - Baek, S.-H., Kim, I., Gutierrez, D., & Kim, M. H. (2017). "Compact
-%   single-shot hyperspectral imaging using a prism." ACM Transactions
-%   on Graphics (Proc. SIGGRAPH Asia 2017), 36(6), 217:1–12.
-%   doi:10.1145/3130800.3130896
-% - Boyd, S, et al.. "Distributed Optimization and Statistical Learning via
-%   the Alternating Direction Method of Multipliers." Foundations and
-%   Trends in Machine Learning, vol. 3, no. 1, pp. 1-122, 2011.
-%   doi:10.1561/2200000016
 % - Song, Y., Brie, D., Djermoune, E.-H., & Henrot, S.. "Regularization
 %   Parameter Estimation for Non-Negative Hyperspectral Image
 %   Deconvolution." IEEE Transactions on Image Processing, vol. 25, no. 11,
@@ -257,7 +206,12 @@ n_samples = 30;
 
 % Parameters which do not usually need to be changed
 run('SetFixedParameters.m')
-trainWeightsOptions.parallel = true;
+
+%% Validate parameters
+
+if use_fixed_weights
+    error('Automatic regularization weight selection is disabled by `use_fixed_weights`.');
+end
 
 %% Load the images
 
@@ -308,14 +262,10 @@ bands_color = bands;
 bands = bands_gt;
 
 if channel_mode
-    baek2017Algorithm2Options.int_method = 'none';
-    solvePatchesOptions.int_method = 'none';
-    trainWeightsOptions.int_method = 'none';
+    solvePatchesADMMOptions.admm_options.int_method = 'none';
     imageFormationOptions.int_method = 'none';
 else
-    baek2017Algorithm2Options.int_method = int_method;
-    solvePatchesOptions.int_method = int_method;
-    trainWeightsOptions.int_method = int_method;
+    solvePatchesADMMOptions.admm_options.int_method = int_method;
     imageFormationOptions.int_method = int_method;
 end
 
@@ -367,18 +317,33 @@ end
 
 %% Grid search method for regularization weight selection
 
-baek2017Algorithm2Options.add_border = false;
 patch_size = patch_sizes(1, :);
 padding = paddings(1);
 
-% Most of the options to trainWeights() are set in 'SetFixedParameters.m'
-[ weights, patch_lim, I_patch, weights_search ] = trainWeights(...
-    I_gt, I_raw, bayer_pattern, dispersionfun, sensor_map_resampled, bands,...
-   trainWeightsOptions,...
-    @baek2017Algorithm2, {...
-        rho, baek2017Algorithm2Options, false...
-    }, target_patch, trainWeightsVerbose...
+if isempty(target_patch)
+    fg = figure;
+    imshow(I_raw);
+    title('Choose the center of the image patch')
+    [x,y] = ginput(1);
+    target_patch = [
+        max(1, round(y) - floor(options.patch_size(1) / 2)),...
+        max(1, round(x) - floor(options.patch_size(2) / 2))...
+    ];
+    close(fg);
+end
+solvePatchesADMMOptions.patch_options.target_patch = target_patch;
+
+[...
+    I_patch, ~, ~, ~, ~, ~, weights_search...
+] = solvePatchesADMM(...
+  I_gt, I_raw, bayer_pattern, dispersionfun,...
+  sensor_map_resampled, bands,...
+  solvePatchesADMMOptions.admm_options,...
+  solvePatchesADMMOptions.reg_options,...
+  solvePatchesADMMOptions.patch_options,...
+  solvePatchesADMMVerbose...
 );
+patch_lim = patchBoundaries(image_sampling, patch_size, padding, target_patch);
 
 %% Visualize the grid search method
 
@@ -413,7 +378,6 @@ if plot_image_patch
     title('True image patch vs. estimated image patch');
 end
 
-
 n_active_weights = sum(enabled_weights);
 if n_active_weights < 4
     
@@ -425,9 +389,7 @@ if n_active_weights < 4
         weights_path = weights_search.weights(:, enabled_weights);
         log_weights = log10(weights_path);
         log_weights_diff = [diff(log_weights, 1, 1); zeros(1, n_active_weights)];
-        err_path = weights_search.err;
-        err_path_diff = [diff(err_path, 1, 1); zeros(1, size(err_path, 2))];
-        log_err_path = log10(weights_search.err);
+        log_err_path = log10(weights_search.criterion);
         log_err_path_diff = [diff(log_err_path, 1, 1); zeros(1, size(log_err_path, 2))];
         
         figure;
@@ -510,20 +472,25 @@ if n_active_weights < 4
             dispersion_f = [];
         end
         I_raw_f = I_raw(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :);
+        in_admm = initBaek2017Algorithm2LowMemory(...
+            image_sampling_f, align_f, dispersion_f, sensor_map_resampled,...
+            bands, enabled_weights, solvePatchesADMMOptions.admm_options...
+        );
+        in_penalties = initPenalties(in_admm.M_Omega_Phi, in_admm.G);
         
         % Test the combinations of weights
         all_mse_samples = zeros(n_samples_all, 1);
-        I_patch_gt = I_gt(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :);
-        border = trainWeightsOptions.border;
-        I_patch_gt_clipped = I_patch_gt((border + 1):(end - border), (border + 1):(end - border), :);
+        I_patch_gt = reshape(I_gt(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :), [], 1);
         for s = 1:n_samples_all
-            I_patch_s = baek2017Algorithm2(...
-                image_sampling_f, align_f, dispersion_f, sensor_map_resampled, bands,...
-                I_raw_f, all_weights_samples(s, :), rho,...
-                baek2017Algorithm2Options, baek2017Algorithm2Verbose...
+            weights_s = all_weights_samples(s, :);
+            [in_admm, weights_s] = initBaek2017Algorithm2LowMemory(...
+                in_admm, weights_s, solvePatchesADMMOptions.admm_options...
             );
-            mse = I_patch_s((border + 1):(end - border), (border + 1):(end - border), :) - I_patch_gt_clipped;
-            all_mse_samples(s) = mean(mean(mean(mse.^2)));
+            in_admm = baek2017Algorithm2LowMemory(...
+                align_f, n_bands, I_raw_f, weights_s,...
+                solvePatchesADMMOptions.admm_options, in_admm...
+            );
+            all_mse_samples(s) = immse(in_admm.I, I_patch_gt);
         end
         log_all_mse_samples = log10(all_mse_samples);
         
@@ -577,59 +544,13 @@ elseif plot_search_path || plot_hypersurface
     warning('Graphical output cannot be generated when there are more than four active regularization terms.');
 end
 
-%% Estimate the entire latent image
-
-baek2017Algorithm2Options.l_surface = false;
-solvePatchesOptions.add_border = add_border; % Not used by solvePatchesAligned()
-solvePatchesOptions.patch_size = patch_size;
-solvePatchesOptions.padding = padding;
-
-if ~isempty(downsampling_factor)
-    if downsampling_factor ~= 1
-        warning([...
-            '`downsampling_factor` is ignored, because solvePatchesAligned(',...
-            ') will be used instead of solvePatches().'...
-        ]);
-    end
-    % image_sampling = ceil(image_sampling / downsampling_factor);
-end
-
-name_params = [name, sprintf(...
-    '_patch%dx%d_pad%d_weights%ew%ew%e_',...
-    patch_size(1), patch_size(2), padding,...
-    weights(1), weights(2), weights(3)...
-)];
-[...
-    I_latent, image_bounds, I_rgb, J_full, J_est, I_warped...
-] = solvePatchesAligned(...
-    I_raw, bayer_pattern, dispersionfun,...
-    sensor_map_resampled,...
-    bands, solvePatchesOptions, @baek2017Algorithm2,...
-    {...
-        weights, rho,...
-        baek2017Algorithm2Options, baek2017Algorithm2Verbose...
-    }...
-);
-
-% Save the results
-saveImages(...
-    output_directory, name_params,...
-    I_raw, 'roi', 'I_raw',...
-    I_latent, 'latent', 'I_latent',...
-    I_rgb, 'rgb', 'I_rgb',...
-    J_full, 'rgb_warped', 'J_full',...
-    J_est, 'reestimated', 'J_est',...
-    I_warped, 'warped', 'I_warped'...
-);
-
 %% Save parameters and additional data to a file
 save_variables_list = [ parameters_list, {...
         'input_image_filename',...
         'true_image_filename',...
         'bands_color',...
         'bands',...
-        'sensor_map_resampled',...
-        'image_bounds'...
+        'sensor_map_resampled'...
     } ];
 save_data_filename = fullfile(output_directory, 'ValidateLHypersurface.mat');
 save(save_data_filename, save_variables_list{:});

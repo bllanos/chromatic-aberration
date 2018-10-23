@@ -359,14 +359,13 @@ else
                 in.g{z_ind} = in.G{z_ind} * in.I;
             end
             in.Z_prev{z_ind} = in.Z{z_ind};
+            in.Z{z_ind} = in.g{z_ind} + in.U{z_ind};
             if z_ind == nonneg_ind
                 % See Section 5.2 of Boyd et al. 2011.
-                in.Z{z_ind} = in.g{z_ind} + in.U{z_ind};
                 in.Z{z_ind}(in.Z{z_ind} < 0) = 0;
             else
                 % See Section 6.3 of Boyd et al. 2011.
                 % Soft thresholding
-                in.Z{z_ind} = in.g{z_ind} + in.U{z_ind};
                 in.Z{z_ind}(in.Z{z_ind} > 0) = max(in.Z{z_ind}(in.Z{z_ind} > 0) - soft_thresholds(z_ind), 0);
                 in.Z{z_ind}(in.Z{z_ind} < 0) = min(in.Z{z_ind}(in.Z{z_ind} < 0) + soft_thresholds(z_ind), 0);
             end

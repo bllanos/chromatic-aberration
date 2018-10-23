@@ -171,12 +171,9 @@
 % dispersion magnitude and signal-to-noise ratio.
 %
 % ## Notes
-% - This script uses the first row of `weights` defined in
-%   'SetFixedParameters.m' to determine which regularization weights to
-%   set. Elements of `weights(1, :)` set to zero disable the corresponding
-%   regularization terms.
-% - This script does not estimate downsampled images, and so it ignores
-%   `downsampling_factor` in 'SetFixedParameters.m'.
+% - This script uses `solvePatchesADMMOptions.reg_options.enabled` defined
+%   in 'SetFixedParameters.m' to determine which regularization weights to
+%   set.
 %
 % ## References
 % This experiment is inspired by Figure 20 of:
@@ -310,11 +307,6 @@ verbose_progress = true;
 %% Validate parameters, and construct intermediate parameters
 if use_fixed_weights
     warning('`use_fixed_weights` is set, so weights will not be automatically selected.');
-end
-if ~isempty(downsampling_factor)
-    if downsampling_factor ~= 1
-        warning('`downsampling_factor` is ignored.');
-    end
 end
 
 diff_bands = diff(bands);
@@ -730,7 +722,7 @@ for d = 1:n_dispersion
                                 G = spatialGradient(image_sampling_f_3);
                             end
                             if aw == 2
-                                G_lambda = spectralGradient(image_sampling_f_3, baek2017Algorithm2Options.full_GLambda);
+                                G_lambda = spectralGradient(image_sampling_f_3, solvePatchesADMMOptions.admm_options.full_GLambda);
                                 G_lambda_sz1 = size(G_lambda, 1);
                                 G_lambda_sz2 = size(G_lambda, 2);
                                 % The product `G_lambda * G_xy` must be defined, so `G_lambda` needs to be
@@ -1216,7 +1208,7 @@ for d = 1:n_dispersion
     end
 end
 
-%% Show and save minimum mean squared error results
+%% Show and save minimum (over patch and padding sizes) mean squared error results
 
 mse_min = shiftdim(min(min(mse, [], 1), [], 2), 2);
 [dispersion_grid, noise_fractions_grid] = meshgrid(dispersion_px_all, noise_fractions);

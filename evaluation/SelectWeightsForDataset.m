@@ -92,11 +92,9 @@
 % criteria, and are saved to '.fig' files.
 %
 % ## Notes
-% - This script uses the first row of `patch_sizes`, and the first element
-%   of `paddings`, defined in 'SetFixedParameters.m' to set patch sizes for
-%   selecting regularization weights.
-% - This script ignores the `downsampling_factor` parameter defined in
-%   'SetFixedParameters.m'.
+% - This script only uses the first row of `patch_sizes`, and the first
+%   element of `paddings`, defined in 'SetFixedParameters.m', by using
+%   `solvePatchesADMMOptions.patch_options`.
 % - Regularization weights will not be selected for algorithms which are
 %   disabled (using the 'enabled' fields in the structures describing the
 %   algorithms). Instead, values of zero will be output for disabled
@@ -107,8 +105,8 @@
 %   chosen for selecting regularization weights.
 % - Image patch spectral derivatives, used for graphical output, not for
 %   regularization weights selection, are computed according to the
-%   'full_GLambda' field of the 'baek2017Algorithm2Options' structure
-%   defined in 'SetFixedParameters.m', rather than according to
+%   'full_GLambda' field of the 'solvePatchesADMMOptions.admm_options'
+%   structure defined in 'SetFixedParameters.m', rather than according to
 %   per-algorithm options.
 %
 % ## References
@@ -151,14 +149,11 @@ verbose = true;
 
 % ## Parameters which do not usually need to be changed
 run('SetFixedParameters.m')
-trainWeightsOptions.parallel = true;
-selectWeightsGridOptions.parallel = true;
 
-% Check for problematic parameters
-if add_border
-    % Estimating a border area results in images which are usually not
-    % registered with the ground truth.
-    error('Estimating a border around images prevents evaluation of the mean square error criterion.');
+%% Check for problematic parameters
+
+if use_fixed_weights
+    error('Weights should be fixed by running ''SelectWeightsForDataset.m'', not using the `use_fixed_weights` parameter in ''SetFixedParameters.m''');
 end
 
 %% Preprocess the dataset
@@ -173,10 +168,10 @@ end
 
 %% Prepare for patch processing
 
-n_weights = length(trainWeightsOptions.enabled_weights);
+n_weights = length(solvePatchesADMMOptions.reg_options.enabled);
 
-patch_size = patch_sizes(1, :);
-padding = paddings(1);
+patch_size = solvePatchesADMMOptions.patch_options.patch_size;
+padding = solvePatchesADMMOptions.patch_options.padding;
 full_patch_size = patch_size + padding * 2;
 
 if has_spectral
@@ -192,7 +187,7 @@ if has_spectral
             G = spatialGradient(image_sampling_patch_spectral);
         end
         if w == 2
-            G_lambda = spectralGradient(image_sampling_patch_spectral, baek2017Algorithm2Options.full_GLambda);
+            G_lambda = spectralGradient(image_sampling_patch_spectral, solvePatchesADMMOptions.admm_options.full_GLambda);
             G_lambda_sz1 = size(G_lambda, 1);
             G_lambda_sz2 = size(G_lambda, 2);
             % The product `G_lambda * G_xy` must be defined, so `G_lambda` needs to be
@@ -214,7 +209,7 @@ for w = 1:n_weights
         G = spatialGradient(image_sampling_patch_rgb);
     end
     if w == 2
-        G_lambda = spectralGradient(image_sampling_patch_rgb, baek2017Algorithm2Options.full_GLambda);
+        G_lambda = spectralGradient(image_sampling_patch_rgb, solvePatchesADMMOptions.admm_options.full_GLambda);
         G_lambda_sz1 = size(G_lambda, 1);
         G_lambda_sz2 = size(G_lambda, 2);
         % The product `G_lambda * G_xy` must be defined, so `G_lambda` needs to be
@@ -226,8 +221,9 @@ for w = 1:n_weights
         G = G_lambda * G;
     end
     if w == 3
-        % This is not quite correct - The Bayer pattern code changes
-        % depending on the location of the patch.
+        % The Bayer pattern code changes depending on the location of the
+        % patch, but only if the patch has an odd integer vertical or
+        % horizontal offset relative to the image origin
         G = antiMosaicMatrix(patch_size, bayer_pattern);
     end
     patch_operators_rgb{w} = G;
@@ -246,18 +242,12 @@ end
 
 %% Process the images
 
-% Fixed options for ADMM
-baek2017Algorithm2Options.add_border = false;
-baek2017Algorithm2Options.l_surface = true;
-
 if has_spectral
     patch_penalties_spectral_L1 = zeros(n_patches, n_weights, n_images);
     patch_penalties_spectral_L2 = zeros(n_patches, n_weights, n_images);
 end
 patch_penalties_rgb_L1 = zeros(n_patches, n_weights, n_images);
 patch_penalties_rgb_L2 = zeros(n_patches, n_weights, n_images);
-
-corners = zeros(n_patches, 2, n_images);
 
 all_mdc_weights = zeros(n_patches, n_weights, n_images, n_admm_algorithms);
 all_mse_weights = zeros(n_patches, n_weights, n_images, n_admm_algorithms);
@@ -275,26 +265,25 @@ for i = 1:n_images
         error('Image %d is smaller than the patch size', i);
     end
     
-    corners(:, :, i) = [
+    corners = [
         randi(image_sampling(1) - full_patch_size(1), n_patches, 1),...
         randi(image_sampling(2) - full_patch_size(2), n_patches, 1)
     ];
+    % Avoid changing the Bayer pattern
+    corners(mod(corners, 2) == 0) = corners(mod(corners, 2) == 0) - 1;
 
     % Characterize the patches
     if has_spectral
         for pc = 1:n_patches
             patch = I_spectral_gt(...
-                corners(pc, 1, i):(corners(pc, 1, i) + (full_patch_size(1) - 1)),...
-                corners(pc, 2, i):(corners(pc, 2, i) + (full_patch_size(2) - 1)), : ...
-            );
-            patch_cropped = patch(...
-                (padding + 1):(end - padding), (padding + 1):(end - padding), : ...
+                corners(pc, 1):(corners(pc, 1) + (full_patch_size(1) - 1)),...
+                corners(pc, 2):(corners(pc, 2) + (full_patch_size(2) - 1)), : ...
             );
             for w = 1:n_weights
                 if w > n_spectral_weights
                     continue;
                 end
-                err_vector = patch_operators_spectral{w} * reshape(patch_cropped, [], 1);
+                err_vector = patch_operators_spectral{w} * reshape(patch, [], 1);
                 patch_penalties_spectral_L1(pc, w, i) = mean(abs(err_vector));
                 patch_penalties_spectral_L2(pc, w, i) = dot(err_vector, err_vector) / length(err_vector);
             end
@@ -302,14 +291,11 @@ for i = 1:n_images
     end
     for pc = 1:n_patches
         patch = I_rgb_gt(...
-            corners(pc, 1, i):(corners(pc, 1, i) + (full_patch_size(1) - 1)),...
-            corners(pc, 2, i):(corners(pc, 2, i) + (full_patch_size(2) - 1)), : ...
-        );
-        patch_cropped = patch(...
-            (padding + 1):(end - padding), (padding + 1):(end - padding), : ...
+            corners(pc, 1):(corners(pc, 1) + (full_patch_size(1) - 1)),...
+            corners(pc, 2):(corners(pc, 2) + (full_patch_size(2) - 1)), : ...
         );
         for w = 1:n_weights
-            err_vector = patch_operators_rgb{w} * reshape(patch_cropped, [], 1);
+            err_vector = patch_operators_rgb{w} * reshape(patch, [], 1);
             patch_penalties_rgb_L1(pc, w, i) = mean(abs(err_vector));
             patch_penalties_rgb_L2(pc, w, i) = dot(err_vector, err_vector) / length(err_vector);
             if has_spectral && w == n_weights
@@ -319,75 +305,82 @@ for i = 1:n_images
         end
     end
 
-    % Run the algorithms
+    % Run the algorithms   
     for f = 1:n_admm_algorithms
         algorithm = admm_algorithms.(admm_algorithm_fields{f});
         if ~algorithm.enabled
             continue;
         end
 
-        if algorithm.spectral
-            if has_color_map
-                if channel_mode
-                    baek2017Algorithm2Options.int_method = 'none';
-                    selectWeightsGridOptions.int_method = 'none';
-                    trainWeightsOptions.int_method = 'none';
-                else
-                    baek2017Algorithm2Options.int_method = int_method;
-                    selectWeightsGridOptions.int_method = int_method;
-                    trainWeightsOptions.int_method = int_method;
-                end
-            else
-                continue;
+        solvePatchesADMMOptions.admm_options.int_method = 'none';
+        if algorithm.spectral && has_color_map
+            if ~channel_mode
+                solvePatchesADMMOptions.admm_options.int_method = int_method;
             end
-        else
-            baek2017Algorithm2Options.int_method = 'none';
-            selectWeightsGridOptions.int_method = 'none';
-            trainWeightsOptions.int_method = 'none';
+        elseif algorithm.spectral
+            continue;
         end
-
-        baek2017Algorithm2Options_f = mergeStructs(...
-            baek2017Algorithm2Options, algorithm.options, false, true...
-        );
-    
-        selectWeightsGridOptions_f = selectWeightsGridOptions;
-        selectWeightsGridOptions_f.enabled_weights = algorithm.priors;
-        trainWeightsOptions_f = trainWeightsOptions;
-        trainWeightsOptions_f.enabled_weights = algorithm.priors;
         
+        reg_options_f = mergeStructs(...
+            solvePatchesADMMOptions.reg_options, solvePatchesADMMOptions.reg_options, true, false...
+        );
+        reg_options_f.enabled = algorithm.priors;
+
+        admm_options_f = mergeStructs(...
+            solvePatchesADMMOptions.admm_options, algorithm.options, false, true...
+        );
+      
         mdc_weights_patches = zeros(n_patches, n_weights);
         mse_weights_patches = zeros(n_patches, n_weights);
         if algorithm.spectral
             for pc = 1:n_patches
-                mdc_weights_patches(pc, :) = selectWeightsGrid(...
-                    I_raw_gt, bayer_pattern, df_spectral_reverse,...
-                    sensor_map_resampled, bands,...
-                    rho, baek2017Algorithm2Options_f, selectWeightsGridOptions_f,...
-                    corners(pc, :, i), selectWeightsGridVerbose...
+                solvePatchesADMMOptions.patch_options.target_patch = corners(pc, :);
+                [...
+                    ~, ~, weights_images...
+                ] = solvePatchesADMM(...
+                  [], I_raw_gt, bayer_pattern, df_spectral_reverse,...
+                  sensor_map_resampled, bands,...
+                  admm_options_f, reg_options_f,...
+                  solvePatchesADMMOptions.patch_options,...
+                  solvePatchesADMMVerbose...
                 );
-                mse_weights_patches(pc, :) = trainWeights(...
-                    I_spectral_gt, I_raw_gt, bayer_pattern, df_spectral_reverse,...
-                    sensor_map_resampled, bands, trainWeightsOptions_f,...
-                    @baek2017Algorithm2, {...
-                        rho, baek2017Algorithm2Options_f, false...
-                    }, corners(pc, :, i), trainWeightsVerbose...
+                mdc_weights_patches(pc, reg_options_f.enabled) = weights_images(1, 1, :);
+                
+                [...
+                    ~, ~, weights_images...
+                ] = solvePatchesADMM(...
+                  I_spectral_gt, I_raw_gt, bayer_pattern, df_spectral_reverse,...
+                  sensor_map_resampled, bands,...
+                  admm_options_f, reg_options_f,...
+                  solvePatchesADMMOptions.patch_options,...
+                  solvePatchesADMMVerbose...
                 );
-            end 
+                mse_weights_patches(pc, reg_options_f.enabled) = weights_images(1, 1, :);                   
+            end
         else
             for pc = 1:n_patches
-                mdc_weights_patches(pc, :) = selectWeightsGrid(...
-                    I_raw_gt, bayer_pattern, df_rgb_reverse,...
-                    sensor_map_rgb, bands_rgb,...
-                    rho, baek2017Algorithm2Options_f, selectWeightsGridOptions_f,...
-                    corners(pc, :, i), selectWeightsGridVerbose...
+                solvePatchesADMMOptions.patch_options.target_patch = corners(pc, :);
+                [...
+                    ~, ~, weights_images...
+                ] = solvePatchesADMM(...
+                  [], I_raw_gt, bayer_pattern, df_rgb_reverse,...
+                  sensor_map_rgb, bands_rgb,...
+                  admm_options_f, reg_options_f,...
+                  solvePatchesADMMOptions.patch_options,...
+                  solvePatchesADMMVerbose...
                 );
-                mse_weights_patches(pc, :) = trainWeights(...
-                    I_rgb_gt, I_raw_gt, bayer_pattern, df_rgb_reverse,...
-                    sensor_map_rgb, bands_rgb, trainWeightsOptions_f,...
-                    @baek2017Algorithm2, {...
-                        rho, baek2017Algorithm2Options_f, false...
-                    }, corners(pc, :, i), trainWeightsVerbose...
+                mdc_weights_patches(pc, reg_options_f.enabled) = weights_images(1, 1, :);
+                
+                [...
+                    ~, ~, weights_images...
+                ] = solvePatchesADMM(...
+                  I_rgb_gt, I_raw_gt, bayer_pattern, df_rgb_reverse,...
+                  sensor_map_rgb, bands_rgb,...
+                  admm_options_f, reg_options_f,...
+                  solvePatchesADMMOptions.patch_options,...
+                  solvePatchesADMMVerbose...
                 );
+                mse_weights_patches(pc, reg_options_f.enabled) = weights_images(1, 1, :);
             end
         end
         mdc_weights = geomean(mdc_weights_patches, 1);
@@ -442,8 +435,8 @@ for f = 1:n_admm_algorithms
     end
     name_params = fullfile(output_directory, name_params);
     
-    baek2017Algorithm2Options_f = mergeStructs(...
-        baek2017Algorithm2Options, algorithm.options, false, true...
+    admm_options_f = mergeStructs(...
+        solvePatchesADMMOptions.admm_options, algorithm.options, false, true...
     );
 
     enabled_weights = algorithm.priors;
@@ -508,7 +501,6 @@ for f = 1:n_admm_algorithms
         'Agreement between MDC and MSE weights selected for %s',...
         algorithm.name...
     ));
-    %axis equal
     hold off
     
     savefig(...
@@ -520,13 +512,13 @@ for f = 1:n_admm_algorithms
     for w = 1:n_active_weights
         aw = to_all_weights(w);
         if algorithm.spectral && has_color_map
-            if baek2017Algorithm2Options_f.norms(aw)
+            if admm_options_f.norms(aw)
                 patch_penalties = log_patch_penalties_spectral_L1(:, w, :);
             else
                 patch_penalties = log_patch_penalties_spectral_L2(:, w, :);
             end
         else
-            if baek2017Algorithm2Options_f.norms(aw)
+            if admm_options_f.norms(aw)
                 patch_penalties = log_patch_penalties_rgb_L1(:, w, :);
             else
                 patch_penalties = log_patch_penalties_rgb_L2(:, w, :);

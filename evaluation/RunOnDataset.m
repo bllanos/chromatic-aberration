@@ -52,6 +52,19 @@
 %   'I_rgb'). If it was not estimated directly, it was created by
 %   converting the latent image to the RGB colour space of the input image.
 %
+% ### Regularization weights images
+%
+% If automatic regularization weight selection is enabled (see
+% `admm_algorithms_filename` in the parameters below), then the image
+% estimation algorithm will automatically choose weights on the
+% regularization terms in the ADMM optimization problem. For the i-th
+% enabled regularization term in the ADMM optimization problem, an image
+% will be output, as the variable 'I_weights', in the file
+% '*_weight${i}Image.mat', where '*' represents the filename of the input
+% image concatenated with a string of parameter information. A pixel in the
+% image will contain the weight on the i-th regularization term used when
+% estimating the pixel.
+%
 % ### Data file output
 %
 % #### Intermediate data and parameters
@@ -99,8 +112,6 @@
 % - This script only uses the first row of `patch_sizes`, and the first
 %   element of `paddings`, defined in 'SetFixedParameters.m', by using
 %   `solvePatchesADMMOptions.patch_options`.
-% - This script ignores the `downsampling_factor` parameter defined in
-%   'SetFixedParameters.m'.
 %
 % ## References
 %
@@ -149,9 +160,7 @@ verbose = true;
 run('SetFixedParameters.m')
 
 %% Check for problematic parameters
-if add_border
-    warning('`add_border` in ''SetFixedParameters.m'' is ignored.');
-end
+
 if use_fixed_weights
     error('Weights should be fixed by running ''SelectWeightsForDataset.m'', not using the `use_fixed_weights` parameter in ''SetFixedParameters.m''');
 end
@@ -425,7 +434,7 @@ for i = 1:n_images
                     c.Label.String = sprintf('log_{10}(weight %d)', aw);
                     xlabel('Image x-coordinate')
                     ylabel('Image y-coordinate')
-                    title(sprintf('Per-patch minimum distance criterion weight %d', aw));
+                    title(sprintf('Per-patch regularization weight %d', aw));
                     savefig(...
                         fg,...
                         fullfile(output_directory, [name_params  sprintf('weight%dImage.fig', aw)]),...
