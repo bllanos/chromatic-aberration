@@ -221,13 +221,16 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %     amount of dispersion in the image formation model.
 %   - 'target_patch': An optional field. If it exists, 'target_patch' is a
 %     two-element vector containing the row and column, respectively, of
-%     the top-left corner of the single image patch to be estimated. When
-%     `target_patch` is passed, all output arguments are calculated for a
-%     single image patch, rather than for the entire image. While a border
-%     around the patch will have been estimated, with a width given by
-%     'padding', it will not be included in the output. Prior to its
-%     removal, the border region will be used to calculate output
-%     images aside from `I`, to limit artifacts from image warping.
+%     the top-left corner of the single image patch to be estimated. For
+%     simplicity, so that it is not necessary to handle edge cases, wherein
+%     the patch may not be a valid colour-filter array image, the elements
+%     of 'target_patch' must be odd integers. When `target_patch` is
+%     passed, all output arguments are calculated for a single image patch,
+%     rather than for the entire image. While a border around the patch
+%     will have been estimated, with a width given by 'padding', it will
+%     not be included in the output. Prior to its removal, the border
+%     region will be used to calculate output images aside from `I`, to
+%     limit artifacts from image warping.
 %
 % verbose -- Verbosity flag
 %   If `true`, console output will be displayed to show progress
@@ -440,7 +443,7 @@ if any(mod(image_sampling, 2) ~= 0)
     error('The input image `J` must have dimensions which are even integers, or it cannot represent a colour-filter array image.');
 end
 if any(mod(patch_size, 2) ~= 0)
-    error('`patch_options.patch_size` must be an even integer to produce patches which are valid colour-filter array images.');
+    error('`patch_options.patch_size` must be even integers to produce patches which are valid colour-filter array images.');
 end
 if mod(padding, 2) ~= 0
     error('`patch_options.padding` must be an even integer to produce patches which are valid colour-filter array images.');
@@ -451,6 +454,19 @@ if input_I_in
     end
     if n_bands ~= size(I_in, 3)
         error('The number of wavelengths in `lambda` must equal the size of `I_in` in its third dimension.');
+    end
+end
+
+if do_single_patch
+    target_patch = patch_options.target_patch;
+    if target_patch(1) < 1 || target_patch(1) > image_sampling(1) ||...
+       target_patch(2) < 1 || target_patch(2) > image_sampling(2)
+        error('The target patch is outside of the image bounds.');
+    end
+    if any(mod(target_patch, 2) ~= 1)
+        error(['To prevent having an odd-sized patch because of clippin',...
+            'g at the image boundaries, the target patch corner must hav',...
+            'e odd integer coordinates.']);
     end
 end
 
@@ -501,7 +517,7 @@ end
 if do_single_patch
     n_i = 1;
     n_j = 1;
-    patch_offset = patch_options.target_patch - 1;
+    patch_offset = target_patch - 1;
 else
     n_i = ceil(image_sampling(1) / patch_size(1));
     n_j = ceil(image_sampling(2) / patch_size(2));
@@ -538,7 +554,6 @@ parfor j = 1:n_j
     corner = [0, (j - 1) * patch_size(2) + 1 + patch_offset(2)];
     cols_trim_out = [ min(padding + 1, corner(2)), 0 ];
     cols_trim_out(2) = cols_trim_out(1) + min(patch_size(2) - 1, image_sampling(2) - corner(2));
-    patch_start_col = max(corner(2) - padding, 1);
     col_out_width = diff(cols_trim_out) + 1;
     column_out_j = zeros(size(column_in_j, 1), col_out_width, n_channels_out);
     
@@ -552,12 +567,6 @@ parfor j = 1:n_j
             min(corner(1) + patch_size(1) + padding - 1, image_sampling(1));
         ];
         patch_end_row = min(corner(1) + patch_size(1) - 1, image_sampling(1));
-    
-        if isempty(align)
-            align_p = [];
-        else
-            align_p = offsetBayerPattern([patch_lim_rows(1), patch_start_col], align);
-        end
         image_sampling_p(1) = diff(patch_lim_rows) + 1;
         
         if has_dispersion
@@ -572,7 +581,7 @@ parfor j = 1:n_j
 
         % Solve for the output patch
         in_admm = initBaek2017Algorithm2LowMemory(...
-            image_sampling_p, align_p, dispersion_matrix_p,...
+            image_sampling_p, align, dispersion_matrix_p,...
             sensitivity, lambda, enabled_weights, admm_options...
         );
         if use_min_norm
@@ -592,7 +601,7 @@ parfor j = 1:n_j
                     patches_I_ij, weights, ~, search_out{j}...
                 ] = weightsLowMemory(...
                     column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)),...
-                    align_p, n_bands, admm_options, reg_options, in_admm,...
+                    align, n_bands, admm_options, reg_options, in_admm,...
                     column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.I_in(1):channels_in.I_in(2)),...
                     verbose...
                 );
@@ -601,7 +610,7 @@ parfor j = 1:n_j
                     patches_I_ij, weights...
                 ] = weightsLowMemory(...
                     column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)),...
-                    align_p, n_bands, admm_options, reg_options, in_admm,...
+                    align, n_bands, admm_options, reg_options, in_admm,...
                     column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.I_in(1):channels_in.I_in(2)),...
                     verbose...
                 );
@@ -614,7 +623,7 @@ parfor j = 1:n_j
                     patches_I_ij, weights, ~, ~, search_out{j}...
                 ] = weightsLowMemory(...
                     column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)),...
-                    align_p, n_bands, admm_options, reg_options, in_admm,...
+                    align, n_bands, admm_options, reg_options, in_admm,...
                     in_penalties, verbose...
                 );
             else
@@ -622,7 +631,7 @@ parfor j = 1:n_j
                     patches_I_ij, weights...
                 ] = weightsLowMemory(...
                     column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)),...
-                    align_p, n_bands, admm_options, reg_options, in_admm,...
+                    align, n_bands, admm_options, reg_options, in_admm,...
                     in_penalties, verbose...
                 );
             end

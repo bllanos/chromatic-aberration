@@ -148,7 +148,7 @@ run('SetAlgorithms.m')
 % Optionally override the list of ADMM-family algorithms to run, and the
 % regularization weights to run them with, from the output file of
 % 'SelectWeightsForDataset.m'. (Leave empty otherwise)
-admm_algorithms_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181019_KAIST_ForPDFAResearchDayPoster/weights_selection/SelectWeightsForDataset_kaist-crop.mat';
+admm_algorithms_filename = '/home/llanos/Downloads/SelectWeightsForDataset_kaist-crop.mat';
 
 % Output directory for all images and saved parameters
 output_directory = '/home/llanos/Downloads';

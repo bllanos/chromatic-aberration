@@ -251,8 +251,8 @@ output_directory = '/home/llanos/Downloads';
 % If empty (`[]`), the entire image will be estimated.
 target_patch = [];
 
-% Also compare with (or only run) whole image estimation.
-% Only enable this for small images.
+% Also compare with (or only run) whole image estimation. Only enable this
+% for small images.
 run_entire_image = false;
 
 % Parameters which do not usually need to be changed
@@ -334,6 +334,9 @@ end
 
 if ~isempty(target_patch)
     solvePatchesADMMOptions.patch_options.target_patch = target_patch;
+    if run_entire_image
+        error('The entire image will not be estimated if a target patch is set.');
+    end
 end
 
 for i = 1:n_images

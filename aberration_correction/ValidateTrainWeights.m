@@ -190,7 +190,7 @@ output_directory = '/home/llanos/Downloads';
 % The top-left corner (row, column) of the image patch to use for
 % regularization weights selection. If empty (`[]`), the patch will be
 % selected by the user.
-target_patch = [334, 320]; %[473, 346];
+target_patch = [335, 321]; %[473, 346];
 
 % ## Parameters controlling graphical output
 
@@ -215,7 +215,7 @@ end
 
 %% Load the images
 
-enabled_weights = trainWeightsOptions.enabled_weights;
+enabled_weights = solvePatchesADMMOptions.reg_options.enabled;
 n_weights = length(enabled_weights);
 if ~isscalar(n_samples) && isvector(n_samples) && length(n_samples) ~= n_weights
     error('If `n_samples is a vector, it must have as many elements as there are weights, %d.', n_weights);
@@ -343,7 +343,8 @@ solvePatchesADMMOptions.patch_options.target_patch = target_patch;
   solvePatchesADMMOptions.patch_options,...
   solvePatchesADMMVerbose...
 );
-patch_lim = patchBoundaries(image_sampling, patch_size, padding, target_patch);
+[patch_lim, trim] = patchBoundaries(image_sampling, patch_size, padding, target_patch);
+patch_lim_interior = [patch_lim(1, :) + trim(1, :) - 1; patch_lim(1, :) + trim(2, :) - 1];
 
 %% Visualize the grid search method
 
@@ -355,10 +356,14 @@ if plot_image_patch
         I_gt, sensor_map_resampled, bands,...
         imageFormationOptions, dispersionfun...
     );
-    image_sampling_patch = diff(patch_lim, 1, 1) + 1;
+    image_sampling_patch_exterior = diff(patch_lim, 1, 1) + 1;
+    image_sampling_patch_interior = diff(patch_lim_interior, 1, 1) + 1;
     I_annotated = insertShape(...
         I_rgb_gt_warped, 'Rectangle',...
-        [patch_lim(1, 2), patch_lim(1, 1), image_sampling_patch(2), image_sampling_patch(1)],...
+        [
+            patch_lim(1, 2), patch_lim(1, 1), image_sampling_patch_exterior(2), image_sampling_patch_exterior(1);
+            patch_lim_interior(1, 2), patch_lim_interior(1, 1), image_sampling_patch_interior(2), image_sampling_patch_interior(1)
+        ],...
         'LineWidth', 2 ...
     );
 
@@ -367,7 +372,7 @@ if plot_image_patch
     title('Image patch used for weights estimation');
     
     % Compare the input and output patches
-    I_patch_rgb_gt = I_rgb_gt(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :);
+    I_patch_rgb_gt = I_rgb_gt(patch_lim_interior(1, 1):patch_lim_interior(2, 1), patch_lim_interior(1, 2):patch_lim_interior(2, 2), :);
     I_patch_rgb = imageFormation(...
         I_patch, sensor_map_resampled, bands,...
         imageFormationOptions...
@@ -439,8 +444,8 @@ if n_active_weights < 4
         active_weights_samples = cell(n_active_weights, 1);
         for w = 1:n_active_weights
             active_weights_samples{w} = logspace(...
-                log10(trainWeightsOptions.minimum_weights(to_all_weights(w))),...
-                log10(trainWeightsOptions.maximum_weights(to_all_weights(w))),...
+                log10(solvePatchesADMMOptions.reg_options.minimum_weights(to_all_weights(w))),...
+                log10(solvePatchesADMMOptions.reg_options.maximum_weights(to_all_weights(w))),...
                 n_samples_full(w)...
             ).';
         end
@@ -552,5 +557,5 @@ save_variables_list = [ parameters_list, {...
         'bands',...
         'sensor_map_resampled'...
     } ];
-save_data_filename = fullfile(output_directory, 'ValidateLHypersurface.mat');
+save_data_filename = fullfile(output_directory, 'ValidateTrainWeights.mat');
 save(save_data_filename, save_variables_list{:});

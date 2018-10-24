@@ -175,7 +175,7 @@ padding = solvePatchesADMMOptions.patch_options.padding;
 full_patch_size = patch_size + padding * 2;
 
 if has_spectral
-    image_sampling_patch_spectral = [patch_size, n_bands];
+    image_sampling_patch_spectral = [full_patch_size, n_bands];
     n_spectral_weights = n_weights - 1;
     patch_operators_spectral = cell(n_spectral_weights, 1);
     for w = 1:n_weights
@@ -203,7 +203,7 @@ if has_spectral
 end
 
 patch_operators_rgb = cell(n_weights, 1);
-image_sampling_patch_rgb = [patch_size, n_channels_rgb];
+image_sampling_patch_rgb = [full_patch_size, n_channels_rgb];
 for w = 1:n_weights
     if w == 1 || w == 2
         G = spatialGradient(image_sampling_patch_rgb);
@@ -224,7 +224,7 @@ for w = 1:n_weights
         % The Bayer pattern code changes depending on the location of the
         % patch, but only if the patch has an odd integer vertical or
         % horizontal offset relative to the image origin
-        G = antiMosaicMatrix(patch_size, bayer_pattern);
+        G = antiMosaicMatrix(full_patch_size, bayer_pattern);
     end
     patch_operators_rgb{w} = G;
 end
