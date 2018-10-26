@@ -120,7 +120,7 @@ function [Y1_resampled, varargout] = resampleArrays(x1, Y1, x2, varargin)
 %   compensating for the lack of averaging when the spectral data was
 %   resampled.
 %
-% % See also interp1
+% See also interp1
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
