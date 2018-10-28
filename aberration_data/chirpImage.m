@@ -1,6 +1,4 @@
-function varargout = chirpImage(...
-    image_sampling, lambda_range, varargin...
-    )
+function varargout = chirpImage(image_sampling, lambda_range, varargin)
 % CHIRPIMAGE  Create an image with spatial and spectral linear chirp, and spectral dispersion
 %
 % ## Syntax
@@ -268,69 +266,10 @@ bands = linspace(lambda_0 + delta_lambda / 2, lambda_1 - delta_lambda / 2, n_ban
 if ~output_params
     d_scaled = dispersion_mag / lambda_span;
     if clip_spectral_frequency
-        % The following code is based on the 'FFTOfMatrixRowsExample.mlx'
-        % MATLAB example, shown on the 'fft' help page.
-        n_bands_pow2 = 2 ^ nextpow2(n_bands);
-        n_bands_pow2_2 = n_bands_pow2 / 2;
-        sensitivity_freq = fft(sensitivity, n_bands_pow2, 2);
-        sensitivity_freq = abs(sensitivity_freq / n_bands_pow2);
-        sensitivity_freq = sensitivity_freq(:, 1:(n_bands_pow2_2 + 1));
-        sensitivity_freq(:, 2:(end-1)) = 2 * sensitivity_freq(:, 2:(end-1));
-        sampling_freq = 1;
-        sampling_period = 1 / sampling_freq;
-        sampling_length = n_bands + 1;
-        frequencies_sampling = 0:(sampling_freq/n_bands_pow2):(sampling_freq/2-sampling_freq/n_bands_pow2);
-        sensitivity_power = (sensitivity_freq .^ 2) / 2; % Divide by 2 to correct for the earlier multiplication by 2
-        sensitivity_power = sensitivity_power ./ repmat(sum(sensitivity_power, 2), 1, n_bands_pow2_2 + 1);
-        sensitivity_power_cum = cumsum(sensitivity_power, 2);
-        bandlimits_mask = sensitivity_power_cum > threshold;
-        n_channels = size(sensitivity, 1);
-        bandlimits_ind = zeros(n_channels, 1);
-        for c = 1:n_channels
-            bandlimits_ind(c) = find(bandlimits_mask(c, :), 1);
-        end
+        [limits_freq, delta_theta_max] = bandlimit(sensitivity, threshold, verbose);
         if verbose
-            bands_sampling = (0:(sampling_length-1)) * sampling_period; 
-            figure;
-            for c = 1:n_channels
-                subplot(n_channels, 1, c)
-                plot(bands_sampling, [0, sensitivity(c, :)])
-                title(sprintf('Channel %d in the spectral band domain', c));
-                xlabel('Wavelength band index')
-                ylabel('Amplitude')
-            end
-            figure;
-            for c=1:n_channels
-                subplot(n_channels, 1, c)
-                plot(...
-                    frequencies_sampling,...
-                    sensitivity_freq(c, 1:n_bands_pow2_2)...
-                )
-                title(sprintf('Channel %d in the Frequency Domain', c));
-                xlabel('Frequency [cycles/(band index increment)]')
-                ylabel('Amplitude')
-            end
-            figure;
-            for c=1:n_channels
-                subplot(n_channels, 1, c)
-                hold on
-                plot(...
-                    frequencies_sampling,...
-                    sensitivity_power(c, 1:n_bands_pow2_2)...
-                )
-                scatter(frequencies_sampling(bandlimits_ind(c)), sensitivity_power(c, bandlimits_ind(c)), 'filled')
-                hold off
-                title(sprintf('Channel %d in power spectrum', c));
-                xlabel('Frequency [cycles/(band index increment)]')
-                ylabel('Relative power')
-                legend('Channel power', 'Bandlimit')
-            end
+            fprintf('Maximum spectral frequency will be %g [cycles/(band index increment)].\n', limits_freq);
         end
-        delta_theta_max = frequencies_sampling(max(bandlimits_ind));
-        if verbose
-            fprintf('Maximum spectral frequency will be %g [cycles/(band index increment)].\n', delta_theta_max);
-        end
-        delta_theta_max = 2 * pi * delta_theta_max;
     else
         delta_theta_max = Inf;
     end
