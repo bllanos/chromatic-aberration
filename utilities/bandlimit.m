@@ -68,6 +68,10 @@ if ~isempty(varargin)
     verbose = varargin{1};
 end
 
+if threshold < 0 || threshold > 1
+    error('`threshold` must be from 0 to 1.');
+end
+
 n = size(signals, 2);
 n_pow2 = 2 ^ nextpow2(n);
 n_pow2_2 = n_pow2 / 2;
@@ -78,18 +82,23 @@ freq_sampling = 0:(sampling_freq/n_pow2):(sampling_freq/2 - sampling_freq/n_pow2
 
 freq = fft(signals, n_pow2, 2);
 freq = abs(freq / n_pow2);
-freq = freq(:, 1:(n_pow2_2 + 1));
-freq(:, 2:(end-1)) = 2 * freq(:, 2:(end-1));
+freq = freq(:, 1:n_pow2_2);
+freq(:, 2:end) = 2 * freq(:, 2:end);
 
 power = (freq .^ 2) / 2; % Divide by 2 to correct for the earlier multiplication by 2
-power = power ./ repmat(sum(power, 2), 1, n_pow2_2 + 1);
+power = power ./ repmat(sum(power, 2), 1, n_pow2_2);
 power_cum = cumsum(power, 2);
 
 n_signals = size(signals, 1);
 bandlimits_ind = zeros(n_signals, 1);
 bandlimits_mask = power_cum >= threshold;
 for c = 1:n_signals
-    bandlimits_ind(c) = find(bandlimits_mask(c, :), 1);
+    ind = find(bandlimits_mask(c, :), 1);
+    if isempty(ind)
+        bandlimits_ind(c) = size(bandlimits_mask, 2);
+    else
+        bandlimits_ind(c) = ind;
+    end
 end
 
 if verbose
@@ -107,7 +116,7 @@ if verbose
     figure;
     for c=1:n_signals
         subplot(n_signals, 1, c)
-        plot(freq_sampling, freq(c, 1:n_pow2_2)...
+        plot(freq_sampling, freq(c, :)...
         )
         title(sprintf('Signal %d in the frequency domain', c));
         xlabel('Frequency [cycles/(time index increment)]')
@@ -120,7 +129,7 @@ if verbose
         hold on
         plot(...
             freq_sampling,...
-            power(c, 1:n_pow2_2)...
+            power(c, :)...
         )
         scatter(freq_sampling(bandlimits_ind(c)), power(c, bandlimits_ind(c)), 'filled')
         hold off

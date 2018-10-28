@@ -94,6 +94,10 @@ function [...
 %     sensitivity functions. `threshold` is the fraction of the cumulative
 %     power spectrum that the user considers to define the bandlimit
 %     (because no signal that has finite support is frequency-limited).
+%     When 'power_threshold' is one, `bands` will have the same sampling
+%     interval as `color_bands`. When 'power_threshold' is less than one,
+%     `bands` may have a larger sampling interval, reflecting the bandlimit
+%     of the spectral sensitivity functions.
 %   - 'support_threshold': A fraction indicating what proportion of the
 %     peak value of a colour channel's sensitivity function the user
 %     considers to be effectively zero (i.e. no sensitivity).
@@ -229,6 +233,9 @@ if options.bands_padding < 0
     error('`options.bands_padding` must be nonnegative.');
 end
 
+color_bands = reshape(color_bands, 1, []);
+spectral_bands = reshape(spectral_bands, 1, []);
+
 diff_color_bands = diff(color_bands);
 color_bands_spacing = diff_color_bands(1);
 if any(diff_color_bands ~= color_bands_spacing)
@@ -248,7 +255,7 @@ if n_color_bands ~= length(color_bands)
 end
 
 % Find endpoints of domain
-color_map_relative = color_map ./ repmat(max(color_map, 2), 1, n_color_bands);
+color_map_relative = color_map ./ repmat(max(color_map, [], 2), 1, n_color_bands);
 color_map_relative_logical = any(color_map_relative >= options.support_threshold, 1);
 start_band_ind = find(color_map_relative_logical, 1, 'first');
 start_band = color_bands(start_band_ind);
@@ -257,7 +264,7 @@ end_band = color_bands(end_band_ind);
 
 if verbose
     figure;
-    plot_colors = jet(n_color_bands);
+    plot_colors = jet(n_channels);
     hold on
     for c = 1:n_channels
         plot(color_bands, color_map(c, :), 'Color', plot_colors(c, :), 'LineWidth', 2);
@@ -271,9 +278,13 @@ if verbose
 end
 
 % Find bandlimit, and construct bands
-freq = bandlimit(color_map, options.power_threshold, verbose); % Units of cycles per index
-freq_wavelengths = freq / diff_color_bands; % Units of cycles per unit change in wavelength
-bands_spacing = 1 / (2 * freq_wavelengths); % Nyquist limit sample spacing
+if options.power_threshold == 1
+    bands_spacing = color_bands_spacing;
+else
+    freq = bandlimit(color_map, options.power_threshold, verbose); % Units of cycles per index
+    freq_wavelengths = freq / color_bands_spacing; % Units of cycles per unit change in wavelength
+    bands_spacing = 1 / (2 * freq_wavelengths); % Nyquist limit sample spacing
+end
 bands = start_band:bands_spacing:end_band;
 % Add one sample to the end if the full range is not covered
 if bands(end) < end_band
