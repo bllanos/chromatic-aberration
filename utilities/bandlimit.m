@@ -75,36 +75,35 @@ end
 n = size(signals, 2);
 n_pow2 = 2 ^ nextpow2(n);
 n_pow2_2 = n_pow2 / 2;
+n_pow2_21 = n_pow2_2 + 1;
 sampling_freq = 1;
 sampling_period = 1 / sampling_freq;
 sampling_length = n + 1;
-freq_sampling = 0:(sampling_freq/n_pow2):(sampling_freq/2 - sampling_freq/n_pow2);
+freq_sampling = 0:(sampling_freq/n_pow2):sampling_freq/2;
 
-freq = fft(signals, n_pow2, 2);
-freq = abs(freq / n_pow2);
-freq = freq(:, 1:n_pow2_2);
-freq(:, 2:end) = 2 * freq(:, 2:end);
+freq_two_sided = fft(signals, n_pow2, 2);
+freq = abs(freq_two_sided / n_pow2);
+freq = freq(:, 1:n_pow2_21);
+freq(:, 2:(end - 1)) = 2 * freq(:, 2:(end - 1));
 
-power = (freq .^ 2) / 2; % Divide by 2 to correct for the earlier multiplication by 2
-power = power ./ repmat(sum(power, 2), 1, n_pow2_2);
+% Multiply by 'n_pow2' because of the earlier division by 'n_pow2'
+power = (freq .^ 2) * n_pow2;
+% Divide by 2 to correct for the earlier multiplication by 2
+power(:, 2:(end - 1)) = power(:, 2:(end - 1)) / 2;
 power_cum = cumsum(power, 2);
+power_cum = power_cum ./ repmat(power_cum(:, end), 1, n_pow2_21);
 
 n_signals = size(signals, 1);
 bandlimits_ind = zeros(n_signals, 1);
 bandlimits_mask = power_cum >= threshold;
 for c = 1:n_signals
-    ind = find(bandlimits_mask(c, :), 1);
-    if isempty(ind)
-        bandlimits_ind(c) = size(bandlimits_mask, 2);
-    else
-        bandlimits_ind(c) = ind;
-    end
+    bandlimits_ind(c) = find(bandlimits_mask(c, :), 1);
 end
 
 if verbose
     time_sampling = (0:(sampling_length-1)) * sampling_period;
     
-    figure;
+    fg = figure;
     for c = 1:n_signals
         subplot(n_signals, 1, c)
         plot(time_sampling, [0, signals(c, :)])
@@ -135,13 +134,29 @@ if verbose
         hold off
         title(sprintf('Signal %d power spectrum', c));
         xlabel('Frequency [cycles/(time index increment)]')
-        ylabel('Relative power')
+        ylabel('Power')
         legend('Signal power', 'Bandlimit')
     end
 end
 
-limit_freq = freq_sampling(max(bandlimits_ind));
+max_bandlimit = max(bandlimits_ind);
+limit_freq = freq_sampling(max_bandlimit);
 
 limit_rad = 2 * pi * limit_freq;
+
+if verbose
+    % Look at the bandlimited versions of the input signals
+    freq_bandlimited = freq_two_sided;
+    freq_bandlimited((max_bandlimit + 1):(end - max_bandlimit + 1)) = 0;
+    signals_bandlimited = ifft(freq_bandlimited, n_pow2, 2, 'symmetric');
+    
+    figure(fg);
+    for c = 1:n_signals
+        subplot(n_signals, 1, c)
+        hold on
+        plot(time_sampling, [0, signals_bandlimited(c, 1:n)], ':')
+        hold off
+    end
+end
 
 end
