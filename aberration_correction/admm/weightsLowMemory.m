@@ -1,5 +1,5 @@
-function [ I, weights, in_admm, varargout ] = weightsLowMemory(...
-    J_2D, align, n_bands, admm_options, options, in_admm, varargin...
+function [ I, weights, in, in_admm, varargout ] = weightsLowMemory(...
+    J_2D, align, n_bands, admm_options, options, in, in_admm, varargin...
     )
 % WEIGHTSLOWMEMORY  Select regularization weights using a grid search
 %
@@ -11,40 +11,40 @@ function [ I, weights, in_admm, varargout ] = weightsLowMemory(...
 % entire image, as opposed to on a patch.
 %
 % ## Syntax
-% [ I, weights, in_admm ] = weightsLowMemory(...
-%   J_2D, align, n_bands, admm_options, options, in_admm, I_in [, verbose]...
+% [ I, weights, in, in_admm ] = weightsLowMemory(...
+%   J_2D, align, n_bands, admm_options, options, in, in_admm, I_in [, verbose]...
 % )
-% [ I, weights, in_admm, search ] = weightsLowMemory(...
-%   J_2D, align, n_bands, admm_options, options, in_admm, I_in [, verbose]...
+% [ I, weights, in, in_admm, search ] = weightsLowMemory(...
+%   J_2D, align, n_bands, admm_options, options, in, in_admm, I_in [, verbose]...
 % )
-% [ I, weights, in_admm, in_penalties ] = weightsLowMemory(...
-%   J_2D, align, n_bands, admm_options, options, in_admm, in_penalties [, verbose]...
+% [ I, weights, in, in_admm, in_penalties ] = weightsLowMemory(...
+%   J_2D, align, n_bands, admm_options, options, in, in_admm, in_penalties [, verbose]...
 % )
-% [ I, weights, in_admm, in_penalties, search ] = weightsLowMemory(...
-%   J_2D, align, n_bands, admm_options, options, in_admm, in_penalties [, verbose]...
+% [ I, weights, in, in_admm, in_penalties, search ] = weightsLowMemory(...
+%   J_2D, align, n_bands, admm_options, options, in, in_admm, in_penalties [, verbose]...
 % )
 %
 % ## Description
-% [ I, weights, in_admm ] = weightsLowMemory(...
-%   J_2D, align, n_bands, admm_options, options, in_admm, I_in [, verbose]...
+% [ I, weights, in, in_admm ] = weightsLowMemory(...
+%   J_2D, align, n_bands, admm_options, options, in, in_admm, I_in [, verbose]...
 % )
 %   Returns the regularization weights, selected using the grid search
 %   method of Song et al. 2016, that minimize the true mean-squared error.
 %
-% [ I, weights, in_admm, search ] = weightsLowMemory(...
-%   J_2D, align, n_bands, admm_options, options, in_admm, I_in [, verbose]...
+% [ I, weights, in, in_admm, search ] = weightsLowMemory(...
+%   J_2D, align, n_bands, admm_options, options, in, in_admm, I_in [, verbose]...
 % )
 %   Additionally return the search path taken to select the weights.
 %
-% [ I, weights, in_admm, in_penalties ] = weightsLowMemory(...
-%   J_2D, align, n_bands, admm_options, options, in_admm, in_penalties [, verbose]...
+% [ I, weights, in, in_admm, in_penalties ] = weightsLowMemory(...
+%   J_2D, align, n_bands, admm_options, options, in, in_admm, in_penalties [, verbose]...
 % )
 %   Returns the regularization weights, selected using the grid search
 %   method of Song et al. 2016, that minimize the minimum distance
 %   criterion.
 %
-% [ I, weights, in_admm, in_penalties, search ] = weightsLowMemory(...
-%   J_2D, align, n_bands, admm_options, options, in_admm, in_penalties [, verbose]...
+% [ I, weights, in, in_admm, in_penalties, search ] = weightsLowMemory(...
+%   J_2D, align, n_bands, admm_options, options, in, in_admm, in_penalties [, verbose]...
 % )
 %   Additionally return the search path taken to select the weights.
 %
@@ -119,18 +119,35 @@ function [ I, weights, in_admm, varargout ] = weightsLowMemory(...
 %   as the final regularization weights. In this case, `search` will be
 %   empty (`[]`).
 %
+% in -- Preallocated intermediate data and results
+%   If `I_in` is empty, `in` is a structure with no fields, as created by
+%   'initWeightsLowMemory()'. Otherwise, 'initWeightsLowMemory()' can
+%   create `in` as a structure with the following fields:
+%   - 'Omega_Phi': A matrix mapping the vectorized estimated latent image
+%     to the reference image `I_in.I`.
+%   - 'I_est': A vector containing the estimated version of `I_in.I`,
+%     created by applying 'Omega_Phi' to the vectorized estimated latent
+%     image.
+%
 % in_admm -- Preallocated intermediate data and results for ADMM
 %   The `in` input/output argument of 'baek2017Algorithm2LowMemory()'.
 %   Refer to the documentation of baek2017Algorithm2LowMemory.m.
 %
-% I_in -- True image
-%   A 2D or 3D array containing the ground truth latent image, against
-%   which the estimated latent image will be compared. When `I_in` is
-%   passed, the regularization weights used in image estimation will be
-%   selected to optimize the similarity of the estimated and true images.
-%
-%   `I_in` and `J_2D` must have the same sizes in their first two
-%   dimensions. (i.e. They must have the same image resolutions.)
+% I_in -- True image structure
+%   `I_in` is used to select regularization weights based on similarity
+%   with another image (such as the true image). `I_in` is must be a
+%   structure with the following fields:
+%   - 'I': A 2D or 3D array containing the image, against which the
+%     estimated latent image will be compared. 'I' and `J_2D` must have the
+%     same sizes in their first two dimensions. (i.e. They must have the
+%     same image resolutions.)
+%   - 'spectral_weights': A 2D array, where `spectral_weights(i, j)` is the
+%     sensitivity of the i-th colour channel or spectral band of 'I' to the
+%     j-th colour channel or spectral band of the estimated latent image.
+%     `spectral_weights` is a matrix mapping colours in the estimated
+%     latent image to colours in the representation of 'I'.
+%     `spectral_weights` must account for any numerical intergration that
+%     is part of colour/spectral conversion.
 %
 % in_penalties -- Preallocated intermediate data and results for 'penalties()'
 %   The `in` input/output argument of 'penalties()'. Refer to the
@@ -240,7 +257,8 @@ function [ I, weights, in_admm, varargout ] = weightsLowMemory(...
                 align, n_bands, J_2D, weights_s, admm_options, in_admm...
             );
             if input_I_in
-                criterion_s = immse(I_in(:), in_admm.I);
+                in.I_est = in.Omega_Phi * in_admm.I;
+                criterion_s = immse(I_in.I(:), in.I_est);
                 if criterion_s < criterion
                     criterion = criterion_s;
                     min_ind = s;
@@ -265,29 +283,23 @@ function [ I, weights, in_admm, varargout ] = weightsLowMemory(...
         end
     end
 
-narginchk(8, 9);
+narginchk(9, 10);
 
-input_I_in = ~isstruct(varargin{1});
+input_I_in = isfield(varargin{1}, 'I');
 if input_I_in
-    nargoutchk(1, 4);
-    if ~isfloat(varargin{1})
-        error('If a structure `in_penalties` is not passed, a floating-point array, `I_in` must be passed.');
-    end
-    I_in = varargin{1};
-    if any([size(J_2D, 1), size(J_2D, 2)] ~= [size(I_in, 1), size(I_in, 2)])
-        error('The spatial dimensions of `I_in` must match those of `J_2D`.')
-    end
-    if n_bands ~= size(I_in, 3)
-        error('The number of wavelengths in `lambda` must equal the size of `I_in` in its third dimension.');
-    end
-    output_path = (nargout > 3);
-else
     nargoutchk(1, 5);
-    if ~isscalar(varargin{1})
-        error('`in_penalties` must be a scalar structure.');
+    I_in = varargin{1};
+    if any([size(J_2D, 1), size(J_2D, 2)] ~= [size(I_in.I, 1), size(I_in.I, 2)])
+        error('The spatial dimensions of `I_in.I` must match those of `J_2D`.')
     end
-    in_penalties = varargin{1};
+    if n_bands ~= size(I_in.I, 3)
+        error('The number of wavelengths in `lambda` must equal the size of `I_in.I` in its third dimension.');
+    end
     output_path = (nargout > 4);
+else
+    nargoutchk(1, 6);
+    in_penalties = varargin{1};
+    output_path = (nargout > 5);
     varargout{1} = in_penalties;
 end
 

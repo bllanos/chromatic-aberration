@@ -38,13 +38,10 @@
 % - 'model_from_reference': A parameter of the above scripts, which
 %   determines the frame of reference for the model of chromatic
 %   aberration. It must be set to `false`.
-% The following variables are sometimes required:
 % - 'bands': A vector containing the wavelengths or colour channel indices
 %   to use as the `lambda` input argument of 'dispersionfunToMatrix()'.
 %   `bands` is the wavelength or colour channel information needed to
-%   evaluate the dispersion model. This variable is required only if not
-%   provided in the colour space conversion data file, or directly in this
-%   script (see below).
+%   evaluate the dispersion model.
 %
 % The following two additional variables are optional. If they are present,
 % they will be used for the following purposes:
@@ -70,48 +67,8 @@
 % - 'channel_mode': A Boolean value indicating whether the latent colour
 %   space is a set of colour channels (true) or a set of spectral bands
 %   (false).
-% The following variables are sometimes required:
 % - 'bands': A vector containing the wavelengths or colour channel indices
-%   to use as the `lambda` input argument of 'dispersionfunToMatrix()' when
-%   modelling the chromatic aberration applied to the latent images, in the
-%   forward model of the input images. `bands` is the wavelength or colour
-%   channel information needed to evaluate the dispersion model. This
-%   variable takes precedence over the same variable provided with the
-%   dispersion model (see above), but can be overridden by a version of the
-%   variable provided directly in this script (see below).
-%
-% ### Latent colour space
-%
-% The 'bands' variable defined in 'SetFixedParameters.m' can be empty
-% (`[]`), in which case 'bands' is obtained from the dispersion model data
-% or from the colour space conversion data (see above).
-%
-% The final value of 'bands' is determined according to the following list,
-% in order by decreasing priority:
-% - 'bands' defined in this script
-% - 'bands' loaded from colour space conversion data
-% - 'bands' loaded with the model of dispersion
-%
-% This script assumes that all of the above sources are compatible with
-% respect to the semantics of 'bands'. For instance, they are all using
-% colour channel indices, or they are all using wavelength values.
-%
-% If the final value of 'bands' is not identical to the value of 'bands'
-% loaded from the colour space conversion data, the 'sensor_map' variable
-% from the colour space conversion data must be resampled along its second
-% dimension to correspond to the final value of 'bands'. Note that
-% resampling only makes sense when 'bands' is a set of wavelengths, and it
-% is not possible for this script to programmatically validate that this is
-% the case.
-%
-% If no variable 'bands' was found in the colour space conversion data, but
-% the final value of 'bands' has a length equal to the size of the second
-% dimension of 'sensor_map', 'bands' is assumed to be compatible with
-% 'sensor_map'. Otherwise, 'sensor_map' is resampled along its second
-% dimension, by assuming that its first and last columns correspond to the
-% first and last elements of 'bands', and that its remaining columns
-% correspond to equally-spaced wavelengths in-between the first and last
-% elements of 'bands'.
+%   corresponding to the second dimension of 'sensor_map'.
 %
 % ## Output
 %
@@ -165,22 +122,19 @@
 %
 % A '.mat' file containing the following variables:
 %
-% - 'bands': The final value of the 'bands' variable, determined as
-%   discussed under the section "Latent colour space" above.
+% - 'bands': A vector containing the wavelengths or colour channel
+%   indices at which the latent images are sampled.
 % - 'bands_color': The 'bands' variable loaded from the colour space
-%   conversion data file, for reference. 'bands_color' is empty if no
-%   such variable was found in the data file, or if the value of the loaded
-%   variable was empty.
-% - 'bands_dispersionfun': The 'bands' variable loaded from the dispersion
-%   model data file, for reference. 'bands_dispersionfun' is empty if no
-%   such variable was found in the data file, or if the value of the loaded
-%   variable was empty.
+%   conversion data file.
+% - 'color_weights': A matrix for converting pixels in the latent image to
+%   colour, as determined by the 'sensor_map' variable loaded from the
+%   colour space conversion data file, and by the type of numerical
+%   intergration to perform.
+% - 'spectral_weights': A matrix for converting pixels in the latent image
+%   to the spectral, or colour channel space, described by 'bands_color'.
 % - 'image_filenames': A cell vector containing the input image filenames
 %   retrieved based on the wildcard provided in the parameters section of
 %   the script.
-% - 'sensor_map_resampled': The resampled version of the 'sensor_map'
-%   variable, determined as discussed under the section "Latent colour
-%   space" above.
 % 
 % Additionally, the file contains the values of all parameters in the first
 % section of the script below, for reference. (Specifically, those listed
@@ -191,18 +145,15 @@
 % - The image colour space is not altered by this script; RGB images are
 %   produced in the camera's colour space. See 'imreadRAW()' for code to
 %   convert an image to sRGB after demosaicing.
-% - This script does not distinguish between wavelength bands and colour
-%   channels. One can use this script to estimate either a latent
-%   hyperspectral image, or a latent aberration-free RGB image (free from
-%   lateral chromatic aberration). The latter use case is a baseline that
-%   can be compared with the results of 'CorrectByWarping.m'. A latent
-%   hyperspectral image can be sharper, in theory, whereas a latent RGB
-%   image will retain the within-channel chromatic aberration of the input
-%   image. The reason for this difference is the summation of multiple
-%   spectral bands into each channel of an RGB image, in contrast to the
-%   identity mapping of the colours of a latent RGB image into the colours
-%   of the aberrated RGB image. Summation allows multiple sharp bands to
-%   form a blurred colour channel.
+% - One can use this script to estimate either a latent hyperspectral
+%   image, or a latent aberration-free RGB image (free from lateral
+%   chromatic aberration). A latent hyperspectral image can be sharper, in
+%   theory, whereas a latent RGB image will retain the within-channel
+%   chromatic aberration of the input image. The reason for this difference
+%   is the summation of multiple spectral bands into each channel of an RGB
+%   image, in contrast to the identity mapping of the colours of a latent
+%   RGB image into the colours of the aberrated RGB image. Summation allows
+%   multiple sharp bands to form a blurred colour channel.
 %
 % ## References
 % - Baek, S.-H., Kim, I., Gutierrez, D., & Kim, M. H. (2017). "Compact
@@ -236,6 +187,7 @@ input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/2018081
 input_images_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % Model of dispersion
+% Can be empty
 reverse_dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/BimaterialImagesData.mat';
 
 % Colour space conversion data
@@ -265,14 +217,15 @@ n_images = length(image_filenames);
 
 %% Load calibration data
 
-bands = [];
-[...
-    dispersion_data, bands_dispersionfun, transform_data...
-] = loadDispersionModel(reverse_dispersion_model_filename, false, false);
+has_dispersion = ~isempty(reverse_dispersion_model_filename);
+if has_dispersion
+    [...
+        dispersion_data, bands_dispersionfun, transform_data...
+    ] = loadDispersionModel(reverse_dispersion_model_filename, false, false);
+end
 
-optional_variable = 'bands';
-model_variables_required = { 'sensor_map', 'channel_mode' };
-load(color_map_filename, model_variables_required{:}, optional_variable);
+model_variables_required = { 'sensor_map', 'channel_mode', 'bands' };
+load(color_map_filename, model_variables_required{:});
 if ~all(ismember(model_variables_required, who))
     error('One or more of the required colour space conversion variables is not loaded.')
 end
@@ -280,50 +233,17 @@ end
 bands_color = bands;
 
 if channel_mode
-    solvePatchesADMMOptions.admm_options.int_method = 'none';
-else
-    solvePatchesADMMOptions.admm_options.int_method = int_method;
-end
-
-%% Preprocessing input data
-
-% Select the highest-priority value of `bands`
-if ~isempty(bands_script)
-    bands = bands_script;
-elseif ~isempty(bands_color)
-    bands = bands_color;
-elseif ~isempty(bands_dispersionfun)
-    bands = bands_dispersionfun;
-else
-    error('The variable `bands` is not defined, or is empty');
-end
-
-% Compare with colour space conversion data
-n_bands = length(bands);
-n_bands_sensor_map = size(sensor_map, 2);
-resample_bands = false;
-if ~isempty(bands_color)
-    if n_bands ~= length(bands_color) || any(bands ~= bands_color)
-        % Resampling is needed
-        resample_bands = true;
-        bands_for_interp = bands_color;
+    if has_dispersion && ...
+       ((length(bands_color) ~= length(bands_dispersionfun)) ||...
+       any(bands_color ~= bands_dispersionfun))
+        error('When estimating a colour image, the same colour channels must be used by the model of dispersion.');
     end
-elseif n_bands_sensor_map ~= n_bands
-    % Resampling is needed, but will be "blind"
-    resample_bands = true;
-    bands_for_interp = linspace(bands(1), bands(end), n_bands_sensor_map);
-end
-n_latent_channels = size(sensor_map, 2);
-% Resample colour space conversion data if necessary
-if resample_bands
-    [sensor_map_resampled, bands] = resampleArrays(...
-        bands_for_interp, sensor_map.', bands,...
-        bands_interp_method...
-        );
-    n_bands = length(bands);
-    sensor_map_resampled = sensor_map_resampled.';
+    color_weights = sensor_map;
+    spectral_weights = eye(length(bands_color));
 else
-    sensor_map_resampled = sensor_map;
+    [color_weights, spectral_weights, bands] = samplingWeights(...
+      sensor_map, bands_color, bands_color, samplingWeightsOptions, samplingWeightsVerbose...
+    );
 end
 
 %% Process the images
@@ -346,9 +266,13 @@ for i = 1:n_images
         error('Expected a RAW image, represented as a 2D array, not a higher-dimensional array.');
     end
     
-    [dispersionfun, I_raw] = makeDispersionForImage(...
-        dispersion_data, I_raw, transform_data...
-    );
+    if has_dispersion
+        [dispersionfun, I_raw] = makeDispersionForImage(...
+            dispersion_data, I_raw, transform_data...
+        );
+    else
+        dispersionfun = [];
+    end
     
     image_sampling = size(I_raw);
     
@@ -384,7 +308,7 @@ for i = 1:n_images
                 I_warped...
             ] = solvePatchesADMM(...
               [], I_raw, bayer_pattern, dispersionfun,...
-              sensor_map_resampled, bands,...
+              color_weights, bands,...
               solvePatchesADMMOptions.admm_options,...
               solvePatchesADMMOptions.reg_options,...
               solvePatchesADMMOptions.patch_options,...
@@ -434,11 +358,11 @@ end
 
 %% Save parameters and additional data to a file
 save_variables_list = [ parameters_list, {...
-        'image_filenames',...
-        'bands_dispersionfun',...
-        'bands_color',...
         'bands',...
-        'sensor_map_resampled'...
+        'bands_color',...
+        'color_weights',...
+        'spectral_weights',...
+        'image_filenames'...
     } ];
 save_data_filename = fullfile(output_directory, 'CorrectByHyperspectralADMM.mat');
 save(save_data_filename, save_variables_list{:});

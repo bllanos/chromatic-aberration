@@ -115,10 +115,9 @@ function [Y1_resampled, varargout] = resampleArrays(x1, Y1, x2, varargin)
 %   non-uniformly spaced. As such, the approach taken in this function is
 %   more flexible. Note that PBRT uses Riemann sums for converting spectra
 %   to XYZ colours, for example. The spectral to colour conversion
-%   functions in this codebase, such as 'channelConversionMatrix()' can use
-%   the trapezoid rule for numerical integration, thus implicitly
-%   compensating for the lack of averaging when the spectral data was
-%   resampled.
+%   functions in this codebase, can use the trapezoid rule for numerical
+%   integration, thus implicitly compensating for the lack of averaging
+%   when the spectral data was resampled.
 %
 % See also interp1
 

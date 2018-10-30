@@ -1,70 +1,61 @@
-function varargout = chirpImage(image_sampling, lambda_range, varargin)
+function varargout = chirpImage(image_sampling, lambda, varargin)
 % CHIRPIMAGE  Create an image with spatial and spectral linear chirp, and spectral dispersion
 %
 % ## Syntax
 % I_hyper = chirpImage(...
-%   image_sampling, lambda_range, dispersion_mag, n_samples,...
-%   type [, sensitivity, threshold, verbose]...
+%   image_sampling, lambda, dispersion_mag, n_samples, type...
 % )
 % [I_hyper, I_warped] = chirpImage(...
-%   image_sampling, lambda_range, dispersion_mag, n_samples,...
-%   type [, sensitivity, threshold, verbose]...
+%   image_sampling, lambda, dispersion_mag, n_samples, type...
 % )
 % [I_hyper, I_warped, dispersionfun] = chirpImage(...
-%   image_sampling, lambda_range, dispersion_mag, n_samples,...
-%   type [, sensitivity, threshold, verbose]...
+%   image_sampling, lambda, dispersion_mag, n_samples, type...
 % )
-% [delta_lambda, dispersion_max, bands] = chirpImage(...
-%   image_sampling, lambda_range, 'params'...
+% dispersion_max = chirpImage(...
+%   image_sampling, lambda, 'params'...
 % )
 %
 % ## Description
 % I_hyper = chirpImage(...
-%   image_sampling, lambda_range, dispersion_mag, n_samples,...
-%   type [, sensitivity, threshold, verbose]...
+%   image_sampling, lambda, dispersion_mag, n_samples, type...
 % )
 %   Returns a version of the hyperspectral image without dispersion
 %
 % [I_hyper, I_warped] = chirpImage(...
-%   image_sampling, lambda_range, dispersion_mag, n_samples,...
-%   type [, sensitivity, threshold, verbose]...
+%   image_sampling, lambda, dispersion_mag, n_samples, type...
 % )
 %   Additionally returns a version of the hyperspectral image with
 %   dispersion
 %
 % [I_hyper, I_warped, dispersionfun] = chirpImage(...
-%   image_sampling, lambda_range, dispersion_mag, n_samples,...
-%   type [, sensitivity, threshold, verbose]...
+%   image_sampling, lambda, dispersion_mag, n_samples, type...
 % )
 %   Additionally returns a function model of the dispersion in the second
 %   output image.
 %
-% [delta_lambda, dispersion_max, bands] = chirpImage(...
-%   image_sampling, lambda_range, 'params'...
+% dispersion_max = chirpImage(...
+%   image_sampling, lambda, 'params'...
 % )
 %   Returns intermediate parameters used for image generation.
 %
 % ## Input Arguments
 %
 % image_sampling -- Image dimensions
-%   A three-element vector containing the height, width, and number of
-%   wavelength bands, respectively, of the image.
+%   A two-element vector containing the height and width, respectively, of
+%   the image.
 %
-% lambda_range -- Range of wavelengths
-%   A two element vector containing the minimum and maximum wavelengths
-%   captured in the image. If the spacing between the centers of
-%   consecutive wavelength bands is '`delta_lambda`, then the center of the
-%   first wavelength band is `lambda_range(1) + 0.5 * delta_lambda`, and
-%   the center of the last wavelength band (having index
-%   `image_sampling(3)`) is `lambda_range(2) - 0.5 * delta_lambda`.
+% lambda -- Sampling wavelengths
+%   A vector containing the wavelengths captured in the image. The
+%   wavelengths must be evenly-spaced.
 %
 % dispersion_mag -- Amount of dispersion
 %   The amount of dispersion to add to `I_warped` relative to `I_hyper`,
-%   measured in pixels. `dispersion_mag` is the offset between the
-%   hypothetical images for wavelength `lambda_range(2)` and wavelength
-%   `lambda_range(1)`. The image for `lambda_range(2)` is shifted to the
-%   right with dispersion. Note that the sign of `dispersion_mag` is
-%   ignored.
+%   measured in pixels. If the spacing between consecutive elements of
+%   `lambda` is `delta_lambda`, then `dispersion_mag` is the offset between
+%   the hypothetical images for wavelength `lambda(1) - delta_lambda / 2`
+%   and wavelength `lambda(end) + delta_lambda / 2`. The image for the
+%   latter wavelength is shifted to the right with dispersion. Note that
+%   the sign of `dispersion_mag` is ignored.
 %
 % n_samples -- Number of samples per pixel
 %   As far as I know, there is no analytical form for the integral of the
@@ -98,38 +89,6 @@ function varargout = chirpImage(image_sampling, lambda_range, varargin)
 %   - 'blend-negative-sharp': The equivalent of 'blend-black-sharp' for
 %     blending with an opposite-phase signal, as in 'blend-negative'.
 %
-% sensitivity -- Spectral band conversion matrix
-%   A 2D array, where `sensitivity(i, j)` is the sensitivity of the i-th
-%   colour channel to the j-th spectral band. `sensitivity` is a matrix
-%   with `image_sampling(3)` columns mapping the hyperspectral
-%   representation of the image to a colour image. `sensitivity` and
-%   `threshold` must both be passed together, and are used to determine the
-%   maximum spectral frequency in the image.
-%
-% threshold -- Power spectrum threshold
-%   In the context of hyperspectral reconstruction, a colour image produced
-%   by a camera described by `sensitivity` can be seen as a convolution of
-%   the camera's spectral sensitivity (`sensitivity`) with the spectral
-%   signals of each pixel. Such an interpretation is valid especially for
-%   the 'phase' value of the `type` input argument, as the change in phase
-%   of the spectral signals over the image in the horizontal direction can
-%   be seen as sampling the convolution at all possible wavelengths.
-%   Therefore, reasoning about hyperspectral reconstruction from the
-%   perspective of sampling theory, one cannot expect to recover
-%   frequencies in the spectral signals of pixels which are outside the
-%   bandlimits of the camera's spectral sensitivity functions.
-%
-%   `threshold` is the fraction of the cumulative power spectrum that the
-%   user considers to define the bandlimit (because no signal that is
-%   time-limited is frequency-limited). The output image will be
-%   constrained such that its maximum frequency in the spectral domain (the
-%   third dimension of the output image) is limited to the bandlimit of the
-%   spectral sensitivity function with the highest bandlimit.
-%
-% verbose -- Debugging flag
-%   A Boolean scalar which enables graphical debugging output if `true`.
-%   Defaults to `false` if not passed.
-%
 % ## Output Arguments
 %
 % I_hyper -- Chirp image
@@ -143,13 +102,11 @@ function varargout = chirpImage(image_sampling, lambda_range, varargin)
 %   pixels at the right edge of the image.
 %
 %   As the y-coordinate increases, the frequency of oscillation in the
-%   spectral dimension increases. If `sensitivity` and `threshold` are not
-%   passed, the frequency reaches a maximum of one cycle per two spectral
-%   bands at the bottom edge of the image. Otherwise, if `sensitivity` and
-%   `threshold` are passed, and if the bandlimit of the spectral
-%   sensitivity function in `sensitivity` with the highest bandlimit is
-%   smaller than one cycle per two spectral bands, then this bandlimit is
-%   the maximum frequency in the spectral dimension.
+%   spectral dimension increases. The frequency reaches a maximum of one
+%   cycle per two spectral bands at the bottom edge of the image.
+%   The caller is responsible for ensuring that this maximum frequency is
+%   within the effective bandlimit of the camera spectral response
+%   functions that will be used to convert the image to colour.
 %
 %   The maximum frequencies of spatial and spectral variation are intended
 %   to respect the Whittaker-Shannon sampling theorem (as described by
@@ -170,26 +127,16 @@ function varargout = chirpImage(image_sampling, lambda_range, varargin)
 %
 %   If `dispersion_mag` is zero, this output argument is empty (`[]`).
 %
-% delta_lambda -- Wavelength spacing
-%   The distance between the centre wavelengths of consecutive spectral
-%   bands in the output images, measured in nanometres (assuming
-%   `lambda_range` is measured in nanometres).
-%
 % dispersion_max -- Magnitude of maximum dispersion
-%   The size of the offset between the hypothetical images for wavelength
-%   `lambda_range(2)` and wavelength `lambda_range(1)`, measured in pixels,
-%   at the suggested maximum dispersion. Under the maximum dispersion, the
-%   hypothetical image for wavelength `lambda_range(2)` is shifted to the
-%   right relative to the hypothetical image for wavelength
-%   `lambda_range(1)`, by an amount equal to the distance from the left
-%   border of the latter image to the x-coordinate where it reaches a
+%   The suggested maximum value of `dispersion_mag`. If the spacing between
+%   consecutive elements of `lambda` is `delta_lambda`, then
+%   `dispersion_max` is the offset between the hypothetical images for
+%   wavelength `lambda(1) - delta_lambda / 2` and wavelength `lambda(end) +
+%   delta_lambda / 2`. `dispersion_max` is equal to the distance from the
+%   left border of the former image to the x-coordinate where it reaches a
 %   half-cycle change in phase. As such, the images for the endpoints of
 %   the spectral range are misaligned by half the width of the central
 %   maximum (which extends to both sides of the image's left border).
-%
-% bands -- Centre wavelengths
-%   A column vector containing the centre wavelengths of the spectral bands
-%   in the output images.
 %
 % ## References
 % The chirp function is described in Chapter 2 of:
@@ -197,22 +144,22 @@ function varargout = chirpImage(image_sampling, lambda_range, varargin)
 %   Goodman, J. W. (2005). Introduction to fourier optics (3rd ed.).
 %     Englewood, Colorado: Roberts & Company.
 %
-% See also imageFormation, makeDispersionfun
+% See also samplingWeights, imageFormation, makeDispersionfun
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
 % University of Alberta, Department of Computing Science
 % File created September 20, 2018
 
-narginchk(3, 8);
-nargoutchk(1, 3);
+narginchk(3, 5);
 
-verbose = false;
 output_params = strcmp(varargin{1}, 'params');
 if output_params
+    nargoutchk(1, 1);
     narginchk(3, 3);
 else
-    narginchk(5, 8);
+    nargoutchk(1, 3);
+    narginchk(5, 5);
     dispersion_mag = varargin{1};
     dispersion_mag = abs(dispersion_mag);
     n_samples = varargin{2};
@@ -234,46 +181,26 @@ else
     else
         error('Unrecognized value "%s" of the `type` input argument.', type);
     end
-    clip_spectral_frequency = false;
-    if length(varargin) > 3
-        clip_spectral_frequency = true;
-        sensitivity = varargin{4};
-        if size(sensitivity, 2) ~= image_sampling(3)
-            error('The number of spectral bands must be consistent between `image_sampling` and `sensitivity`.');
-        end
-        if length(varargin) < 5
-            error('Both `sensitivity` and `threshold` must be passed, or neither must be passed.');
-        end
-        threshold = varargin{5};
-        if length(varargin) > 5
-            verbose = varargin{6};
-        end
-    end
+end
+
+diff_lambda = diff(lambda);
+delta_lambda = diff_lambda(1);
+if any(diff_lambda ~= delta_lambda)
+    error('`lambda` must contain equally-spaced values.')
 end
 
 image_height = image_sampling(1);
 image_width = image_sampling(2);
-n_bands = image_sampling(3);
+n_bands = length(lambda);
 
 alpha = pi / (2 * image_width);
-lambda_0 = lambda_range(1);
-lambda_1 = lambda_range(2);
-lambda_span = diff(lambda_range);
-delta_lambda = lambda_span / n_bands;
-
-bands = linspace(lambda_0 + delta_lambda / 2, lambda_1 - delta_lambda / 2, n_bands).';
+lambda_0 = lambda(1) - (delta_lambda / 2);
+lambda_1 = lambda(end) + (delta_lambda / 2);
+lambda_span = lambda_1 - lambda_0;
 
 if ~output_params
     d_scaled = dispersion_mag / lambda_span;
-    if clip_spectral_frequency
-        [limits_freq, delta_theta_max] = bandlimit(sensitivity, threshold, verbose);
-        if verbose
-            fprintf('Maximum spectral frequency will be %g [cycles/(band index increment)].\n', limits_freq);
-        end
-    else
-        delta_theta_max = Inf;
-    end
-    beta = min(pi, delta_theta_max) / (delta_lambda * image_height);
+    beta = pi / (delta_lambda * image_height);
 end
 
     function intensity = imageIntensity(x, y, lambda, d)
@@ -307,24 +234,18 @@ end
     end
 
 if output_params
-    varargout{1} = delta_lambda;
-    if nargout > 1
-        varargout{2} = sqrt(2 * image_width);
-        if nargout > 2
-            varargout{3} = bands;
-        end
-    end
+    varargout{1} = sqrt(2 * image_width);
 else
     if isempty(n_samples) || n_samples == 1
-        [Y, X, Lambda] = ndgrid(0.5:1:image_height, 0.5:1:image_width, bands);
+        [Y, X, Lambda] = ndgrid(0.5:1:image_height, 0.5:1:image_width, lambda);
         varargout{1} = imageIntensity(X, Y, Lambda, 0);
         if output_warped
             varargout{2} = imageIntensity(X, Y, Lambda, d_scaled);
         end
     else
         % Reference points at the corners of each pixel
-        bands = linspace(lambda_0, lambda_1 - delta_lambda, n_bands);
-        [Y, X, Lambda] = ndgrid(0:(image_height - 1), 0:(image_width - 1), bands);
+        lambda_corners = linspace(lambda_0, lambda_1 - delta_lambda, n_bands);
+        [Y, X, Lambda] = ndgrid(0:(image_height - 1), 0:(image_width - 1), lambda_corners);
         I_hyper = zeros(image_sampling);
         if output_warped
             I_warped = zeros(image_sampling);

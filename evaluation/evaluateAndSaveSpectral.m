@@ -3,25 +3,25 @@ function varargout = evaluateAndSaveSpectral(varargin)
 %
 % ## Syntax
 % e_spectral_table = evaluateAndSaveSpectral(...
-%     I_spectral, R_spectral, lambda,...
+%     I_spectral, R_spectral, lambda, spectral_weights,...
 %     dp, I_name, alg_name, name_params [, fg_spectral]...
 % )
 % [e_spectral_table, fg_spectral] = evaluateAndSaveSpectral(...
-%     I_spectral, R_spectral, lambda,...
+%     I_spectral, R_spectral, lambda, spectral_weights,...
 %     dp, I_name, alg_name, name_params [, fg_spectral]...
 % )
 % evaluateAndSaveSpectral(directory, dp, I_name, all_alg_names, fg_spectral)
 %
 % ## Description
 % e_spectral_table = evaluateAndSaveSpectral(...
-%     I_spectral, R_spectral, lambda,...
+%     I_spectral, R_spectral, lambda, spectral_weights,...
 %     dp, I_name, alg_name, name_params [, fg_spectral]...
 % )
 %   Returns a table containing quantitative comparisons between the two
 %   images, and saves all graphical comparisons to files.
 %
 % [e_spectral_table, fg_spectral] = evaluateAndSaveSpectral(...
-%     I_spectral, R_spectral, lambda,...
+%     I_spectral, R_spectral, lambda, spectral_weights,...
 %     dp, I_name, alg_name, name_params [, fg_spectral]...
 % )
 %   Additionally returns some of the graphical comparisons instead of
@@ -39,14 +39,18 @@ function varargout = evaluateAndSaveSpectral(varargin)
 % ## Input Arguments
 %
 % I_spectral -- Estimated spectral image
-%   An h x w x c array containing an estimated spectral image.
+%   An h x w x c2 array containing an estimated spectral image.
 %
 % R_spectral -- Reference spectral image
-%   An h x w x c array containing the ideal/true spectral image.
+%   An h x w x c1 array containing the ideal/true spectral image.
 %
 % lambda -- Wavelengths
-%   A vector of length 'c' containing the wavelengths corresponding to the
+%   A vector of length 'c1' containing the wavelengths corresponding to the
 %   third dimension of `I_spectral` and `R_spectral`.
+%
+% spectral_weights -- Spectral resampling matrix
+%   A matrix of dimensions c1 x c2 defining a mapping from the spectral
+%   space of `I_spectral` to the spectral space of `R_spectral`.
 %
 % dp -- Dataset description
 %   A structure output by 'describeDataset()' providing information about
@@ -134,7 +138,7 @@ if short_call
     save_multi_comparisons = true;
     I_filename = fullfile(directory, I_name);
 else
-    narginchk(7, 8);
+    narginchk(8, 9);
     nargoutchk(0, 2);
     save_multi_comparisons = (nargout < 2);
     all_alg_names = [];
@@ -142,12 +146,13 @@ else
     I_spectral = varargin{1};
     R_spectral = varargin{2};
     lambda = varargin{3};
-	dp = varargin{4};
-    I_name = varargin{5};
-    alg_name = varargin{6};
-    name_params = varargin{7};
-    if length(varargin) > 7
-        fg_spectral = varargin{8};
+    spectral_weights = varargin{4};
+	dp = varargin{5};
+    I_name = varargin{6};
+    alg_name = varargin{7};
+    name_params = varargin{8};
+    if length(varargin) > 8
+        fg_spectral = varargin{9};
     else
         fg_spectral = struct;
     end
@@ -173,7 +178,7 @@ if ~short_call
         options.scanlines_fg = fg_spectral.scanlines;
     end
     [e_spectral, fg_spectral_current] = evaluateSpectral(...
-        I_spectral, R_spectral, lambda, options...
+        I_spectral, R_spectral, lambda, spectral_weights, options...
     );
 
     % Save figures for this algorithm to files
@@ -274,8 +279,7 @@ if ~short_call
         'GOF_mean', e_spectral.gof.mean,...
         'GOF_median', e_spectral.gof.median...
     );
-    n_bands = length(lambda);
-    for c = 1:n_bands
+    for c = 1:length(lambda)
         e_spectral_formatted.(sprintf('MI_band%d', c)) = e_spectral.mi_between(c);
     end
     if isfield(e_spectral, 'radiance')

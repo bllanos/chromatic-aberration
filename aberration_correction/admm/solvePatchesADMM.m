@@ -56,16 +56,25 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %
 % ## Input Arguments
 %
-% I_in -- True image
-%   A 2D or 3D array containing the ground truth latent image, against
-%   which the estimated latent image will be compared. When `I_in` is not
-%   empty, the regularization weights used in image estimation will be
-%   selected to optimize the similarity of the estimated and true images.
-%   When `I_in` is empty (`[]`), regularization weights will be selected
-%   using the minimum distance criterion described in Song et al. 2016.
+% I_in -- True image structure
+%   `I_in` is used to select regularization weights based on similarity
+%   with another image (such as the true image). When `I_in` is empty
+%   (`[]`), regularization weights will be selected using the minimum
+%   distance criterion described in Song et al. 2016.
 %
-%   `I_in` and `J` must have the same sizes in their first two dimensions.
-%   (i.e. They must have the same image resolutions.)
+%   When `I_in` is not empty, it must be a structure with the following
+%   fields:
+%   - 'I': A 2D or 3D array containing the image, against which the
+%     estimated latent image will be compared. 'I' and `J` must have the
+%     same sizes in their first two dimensions. (i.e. They must have the
+%     same image resolutions.)
+%   - 'spectral_weights': A 2D array, where `spectral_weights(i, j)` is the
+%     sensitivity of the i-th colour channel or spectral band of 'I' to the
+%     j-th colour channel or spectral band of the estimated latent image.
+%     `spectral_weights` is a matrix mapping colours in the estimated
+%     latent image to colours in the representation of 'I'.
+%     `spectral_weights` must account for any numerical intergration that
+%     is part of colour/spectral conversion.
 %
 % J -- Input RAW image
 %   A 2D array containing the raw colour-filter pattern data of an image,
@@ -98,7 +107,7 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %   indices at which to evaluate the dispersion model encapsulated by
 %   `dispersionfun`. 'c' is the desired number of spectral bands or colour
 %   channels in `I`, and will be the size of `I` in its third dimension.
-%   Note that the `size(I_in, 3)` must equal 'c' if `I_in` is not empty.
+%   Note that the `size(I_in.I, 3)` must equal 'c' if `I_in` is not empty.
 %
 % admm_options -- Image estimation algorithm options
 %   `admm_options` is a structure with the following fields, containing
@@ -115,13 +124,6 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %     Refer to the documentation of 'spectralGradient.m' for details.
 %     'full_GLambda' is not used if spectral regularization is disabled by
 %     `reg_options.enabled`.
-%   - 'int_method': The numerical integration method used for spectral to
-%     colour space conversion. `int_method` is passed to
-%     'channelConversionMatrix()' as its `int_method` argument. Refer to
-%     the documentation of 'channelConversionMatrix.m' for details. If
-%     'int_method' is 'none', numerical integration will not be performed.
-%     'int_method' should be 'none' when `I` contains colour channels as
-%     opposed to spectral bands.
 %   - 'maxit': A two-element vector. The first element contains the maximum
 %     number of iterations to use with MATLAB's 'pcg()' function during the
 %     I-minimization step of the ADMM algorithm. The second element of
@@ -313,7 +315,7 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %   patch-wise image estimation, as explained in the documentation of
 %   'solvePatchesAligned()'.
 % - `patch_options.patch_size`, `patch_options.padding`, and the dimensions
-%   of `I_in` and `J` must all be even integers for the images and image
+%   of `I_in.I` and `J` must all be even integers for the images and image
 %   patches to map to valid Bayer colour-filter array patterns.
 %
 % ## References
@@ -449,12 +451,13 @@ if mod(padding, 2) ~= 0
     error('`patch_options.padding` must be an even integer to produce patches which are valid colour-filter array images.');
 end
 if input_I_in
-    if any(image_sampling ~= [size(I_in, 1), size(I_in, 2)])
-        error('The spatial dimensions of `I_in` must match those of `J`.')
+    if any(image_sampling ~= [size(I_in.I, 1), size(I_in.I, 2)])
+        error('The spatial dimensions of `I_in.I` must match those of `J`.')
     end
-    if n_bands ~= size(I_in, 3)
-        error('The number of wavelengths in `lambda` must equal the size of `I_in` in its third dimension.');
+    if n_bands ~= size(I_in.I, 3)
+        error('The number of wavelengths in `lambda` must equal the size of `I_in.I` in its third dimension.');
     end
+    I_in_j.spectral_weights = I_in.spectral_weights;
 end
 
 if do_single_patch
@@ -532,7 +535,7 @@ for j = 1:n_j
     ];
     columns_in{j} = zeros(image_sampling(1), diff(cols_ind_in) + 1, n_channels_in);
     if input_I_in
-        columns_in{j}(:, :, channels_in.I_in(1):channels_in.I_in(2)) = I_in(:, cols_ind_in(1):cols_ind_in(2), :);
+        columns_in{j}(:, :, channels_in.I_in(1):channels_in.I_in(2)) = I_in.I(:, cols_ind_in(1):cols_ind_in(2), :);
     end
     columns_in{j}(:, :, channels_in.J(1):channels_in.J(2)) = J_2D(:, cols_ind_in(1):cols_ind_in(2), :);
 end
@@ -582,7 +585,7 @@ parfor j = 1:n_j
         % Solve for the output patch
         in_admm = initBaek2017Algorithm2LowMemory(...
             image_sampling_p, align, dispersion_matrix_p,...
-            sensitivity, lambda, enabled_weights, admm_options...
+            sensitivity, n_bands, enabled_weights, admm_options...
         );
         if use_min_norm
             % Minimum-norm least squares solution to the non-regularized problem
@@ -596,46 +599,50 @@ parfor j = 1:n_j
             end
                         
         elseif input_I_in
-            if output_search
-                [...
-                    patches_I_ij, weights, ~, search_out{j}...
-                ] = weightsLowMemory(...
-                    column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)),...
-                    align, n_bands, admm_options, reg_options, in_admm,...
-                    column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.I_in(1):channels_in.I_in(2)),...
-                    verbose...
-                );
-            else
-                [...
-                    patches_I_ij, weights...
-                ] = weightsLowMemory(...
-                    column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)),...
-                    align, n_bands, admm_options, reg_options, in_admm,...
-                    column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.I_in(1):channels_in.I_in(2)),...
-                    verbose...
-                );
-            end
-        
-        else
-            in_penalties = initPenalties(in_admm.M_Omega_Phi, in_admm.G);
+            I_in_p = I_in_j;
+            I_in_p.I = column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.I_in(1):channels_in.I_in(2))
+            in_weightsLowMemory = initWeightsLowMemory(I_in_p);
             if output_search
                 [...
                     patches_I_ij, weights, ~, ~, search_out{j}...
                 ] = weightsLowMemory(...
                     column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)),...
-                    align, n_bands, admm_options, reg_options, in_admm,...
-                    in_penalties, verbose...
+                    align, n_bands, admm_options, reg_options,...
+                    in_weightsLowMemory, in_admm, I_in_p,...
+                    verbose...
                 );
             else
                 [...
                     patches_I_ij, weights...
                 ] = weightsLowMemory(...
                     column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)),...
-                    align, n_bands, admm_options, reg_options, in_admm,...
-                    in_penalties, verbose...
+                    align, n_bands, admm_options, reg_options,...
+                    in_weightsLowMemory, in_admm, I_in_p,...
+                    verbose...
                 );
             end
-        end     
+
+        else
+            in_penalties = initPenalties(in_admm.M_Omega_Phi, in_admm.G);
+            in_weightsLowMemory = initWeightsLowMemory([]);
+            if output_search
+                [...
+                    patches_I_ij, weights, ~, ~, ~, search_out{j}...
+                ] = weightsLowMemory(...
+                    column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)),...
+                    align, n_bands, admm_options, reg_options,...
+                    in_weightsLowMemory, in_admm, in_penalties, verbose...
+                );
+            else
+                [...
+                    patches_I_ij, weights...
+                ] = weightsLowMemory(...
+                    column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)),...
+                    align, n_bands, admm_options, reg_options,...
+                    in_weightsLowMemory, in_admm, in_penalties, verbose...
+                );
+            end
+        end
         
         patches_I_ij_3D = reshape(patches_I_ij, [image_sampling_p n_bands]);
         column_out_j(...

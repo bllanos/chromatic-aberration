@@ -34,7 +34,6 @@ normalization_channel = 2;
 % and RAW images
 imageFormationOptions.patch_size = [100, 100];
 imageFormationOptions.padding = 10;
-imageFormationOptions.int_method = int_method;
 
 %% RGB colour space
 
@@ -64,87 +63,24 @@ end
 if ~has_raw && ~has_rgb && (~has_spectral || (has_spectral && ~has_color_map))
     error('RAW images are not available, and cannot be generated.')
 end
-
-bands_color = [];
-if has_color_map
-    % Load colour conversion data
-    bands_script = bands;
-    bands = [];
-    
-    optional_variable = 'bands';
-    model_variables_required = { 'sensor_map', 'channel_mode' };
-    load(dp.color_map, model_variables_required{:}, optional_variable);
-    if ~all(ismember(model_variables_required, who))
-        error('One or more of the required colour space conversion variables is not loaded.')
-    end
-    bands_color = bands;
-    bands = bands_script;
-    
-    % Compare with colour space conversion data
-    n_bands = length(bands);
-    n_bands_sensor_map = size(sensor_map, 2);
-    resample_bands = false;
-    if ~isempty(bands_color)
-        bands_for_interp = bands_color;
-        if n_bands ~= length(bands_color) || any(bands ~= bands_color)
-            % Resampling is needed
-            resample_bands = true;
-        end
-    elseif n_bands_sensor_map ~= n_bands
-        % Resampling is needed, but will be "blind"
-        resample_bands = true;
-        bands_for_interp = linspace(bands(1), bands(end), n_bands_sensor_map);
-    end
-    % Resample colour space conversion data if necessary
-    if resample_bands
-        [sensor_map_resampled, bands] = resampleArrays(...
-            bands_for_interp, sensor_map.', bands,...
-            bands_interp_method...
-            );
-        n_bands = length(bands);
-        sensor_map_resampled = sensor_map_resampled.';
-    else
-        sensor_map_resampled = sensor_map;
-    end
+if has_spectral && ~has_color_map
+    error('Spectral images are provided, but not the camera''s spectral sensitivity data.');
 end
 
-bands_spectral = [];
-sensor_map_spectral = [];
+bands = [];
+color_weights_reference = [];
+bands_variable = 'bands';
 if has_spectral
     spectral_filenames = listFiles(dp.spectral_images_wildcard);
     n_images_spectral = length(spectral_filenames);
     n_images = n_images_spectral;
     names = trimCommon(spectral_filenames);
     
-    bands = [];
-    load(dp.wavelengths, optional_variable);
+    load(dp.wavelengths, bands_variable);
     if isempty(bands)
         error('No wavelength band information is associated with the spectral images.')
     end
     bands_spectral = bands;
-    bands = bands_script;
-    
-    if has_color_map
-        % Check if quantitative evaluation of spectral images is possible
-        can_evaluate_spectral = (length(bands_spectral) == n_bands) && all(bands_spectral == bands); 
-        if can_evaluate_spectral
-            sensor_map_spectral = sensor_map_resampled;
-        else
-            warning(['Quantitative evaluation of latent images is not possibl'...
-                'e because they will be produced at different wavelength'...
-                's from the true latent images.']...
-            );
-        
-            % Allow for conversion to colour images
-            [sensor_map_spectral, bands_spectral] = resampleArrays(...
-                bands_for_interp, sensor_map.', bands_spectral,...
-                bands_interp_method...
-                );
-            sensor_map_spectral = sensor_map_spectral.';
-        end
-    else
-        can_evaluate_spectral = false;
-    end
 end
 if has_rgb
     rgb_filenames = listFiles(dp.rgb_images_wildcard);
@@ -182,6 +118,42 @@ if has_raw
     end
 end
 
+bands = [];
+if has_color_map
+    % Load colour conversion data
+    
+    model_variables_required = { 'sensor_map', 'channel_mode' };
+    load(dp.color_map, model_variables_required{:}, bands_variable);
+    if ~all(ismember(model_variables_required, who))
+        error('One or more of the required colour space conversion variables is not loaded.')
+    end
+    if isempty(bands)
+        error('No wavelength band information is associated with the colour conversion data.')
+    end
+    bands_color = bands;
+    
+    if channel_mode
+        if (length(bands_spectral) ~= length(bands_color)) ||...
+                any(bands_spectral ~= bands_color)
+            error(['For a colour channel-based colour conversion, the true l'...
+                'atent images must be defined at the same colour channels a'...
+                's the colour conversion data.']);
+        end
+        color_weights = sensor_map;
+        spectral_weights = eye(length(bands_color));
+        color_weights_reference = color_weights;
+    elseif has_spectral
+        [color_weights, spectral_weights, bands, color_weights_reference] = samplingWeights(...
+          sensor_map, bands_color, bands_spectral, samplingWeightsOptions, samplingWeightsVerbose...
+        );
+    else
+        [color_weights, ~, bands] = samplingWeights(...
+          sensor_map, bands_color, bands_color, samplingWeightsOptions, samplingWeightsVerbose...
+        );
+    end
+    n_bands = length(bands);
+end
+
 %% Load dispersion models
 
 has_dispersion_rgb = ~isempty(dp.dispersion_rgb_forward) && ~isempty(dp.dispersion_rgb_reverse);
@@ -189,14 +161,27 @@ has_dispersion_spectral = ~isempty(dp.dispersion_spectral_reverse);
 
 if has_dispersion_rgb
     [...
-        dd_rgb_forward, ~, td_rgb_forward...
+        dd_rgb_forward, bands_dispersionfun, td_rgb_forward...
     ] = loadDispersionModel(dp.dispersion_rgb_forward, true, false);
+    if (n_channels_rgb ~= length(bands_dispersionfun)) ||...
+       any(bands_rgb ~= bands_dispersionfun)
+        error('The forward model of colour dispersion does not have the right colour channels.');
+    end
     [...
-        dd_rgb_reverse, ~, td_rgb_reverse...
+        dd_rgb_reverse, bands_dispersionfun, td_rgb_reverse...
     ] = loadDispersionModel(dp.dispersion_rgb_reverse, false, false);
+    if (n_channels_rgb ~= length(bands_dispersionfun)) ||...
+       any(bands_rgb ~= bands_dispersionfun)
+        error('The reverse model of colour dispersion does not have the right colour channels.');
+    end
 end
 if has_dispersion_spectral
     [...
         dd_spectral_reverse, ~, td_spectral_reverse...
     ] = loadDispersionModel(dp.dispersion_spectral_reverse, false, false);
+    if channel_mode && ...
+       ((length(bands_color) ~= length(bands_dispersionfun)) ||...
+       any(bands_color ~= bands_dispersionfun))
+        error('When estimating colour images, the same colour channels must be used by the model of dispersion.');
+    end
 end

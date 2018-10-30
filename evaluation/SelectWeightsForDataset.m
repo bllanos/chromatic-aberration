@@ -19,31 +19,27 @@
 % seldomly-changed parameters. These parameters are briefly documented in
 % 'SetFixedParameters.m'.
 %
-% In contrast with 'CorrectByHyperspectralADMM.m', the wavelengths at which
-% hyperspectral images are to be sampled are either determined from ground
-% truth hyperspectral data, or are otherwise set by 'SetFixedParameters.m',
-% but are not loaded from colour space conversion data, or dispersion model
-% data.
-%
 % ## Output
 %
 % ### Data and parameters
 % A '.mat' file containing the following variables, as appropriate:
 % - 'bands': A vector containing the wavelengths of the spectral
 %   bands used in hyperspectral image estimation.
+% - 'bands_color': The 'bands' variable loaded from the colour space
+%   conversion data file, for reference.
 % - 'bands_spectral': A vector containing the wavelengths of the spectral
 %   bands associated with ground truth hyperspectral images.
-% - 'sensor_map_resampled': A resampled version of the 'sensor_map'
-%   variable loaded from colour space conversion data, used for
-%   hyperspectral image estimation. 'sensor_map_resampled' is the spectral
-%   response functions of the camera (or, more generally, of the output
-%   3-channel colour space) approximated at the wavelengths in `bands`.
-% - 'sensor_map_spectral': A resampled version of the 'sensor_map'
-%   variable loaded from colour space conversion data, used to convert
-%   ground truth spectral images to color. 'sensor_map_spectral' is the
-%   spectral response functions of the camera (or, more generally, of the
-%   output 3-channel colour space) approximated at the wavelengths in
-%   `bands_spectral`.
+% - 'color_weights': A matrix for converting pixels in the estimated
+%   hyperspectral images to colour, as determined by the 'sensor_map'
+%   variable loaded from the colour space conversion data file, and by the
+%   type of numerical intergration to perform.
+% - 'color_weights_reference': A matrix for converting pixels in the ground
+%   truth hyperspectral images to colour, as determined by the 'sensor_map'
+%   variable loaded from the colour space conversion data file, and by the
+%   type of numerical intergration to perform.
+% - 'spectral_weights': A matrix for converting pixels in the spectral
+%   space of the estimated hyperspectral images to the spectral space of
+%   the true hyperspectral images.
 % - 'admm_algorithms': A structure describing the algorithms for which
 %   regularization weights were selected. 'admm_algorithms' is created by
 %   'SetAlgorithms.m', and then each algorithm is given two additional
@@ -162,10 +158,6 @@ dp = describeDataset(dataset_name);
 
 run('PreprocessDataset.m')
 
-if has_spectral && ~can_evaluate_spectral
-    error('The estimated spectral images must have the same channels as the true spectral images.');
-end
-
 %% Prepare for patch processing
 
 n_weights = length(solvePatchesADMMOptions.reg_options.enabled);
@@ -175,7 +167,7 @@ padding = solvePatchesADMMOptions.patch_options.padding;
 full_patch_size = patch_size + padding * 2;
 
 if has_spectral
-    image_sampling_patch_spectral = [full_patch_size, n_bands];
+    image_sampling_patch_spectral = [full_patch_size, length(bands_spectral)];
     n_spectral_weights = n_weights - 1;
     patch_operators_spectral = cell(n_spectral_weights, 1);
     for w = 1:n_weights
@@ -308,16 +300,7 @@ for i = 1:n_images
     % Run the algorithms   
     for f = 1:n_admm_algorithms
         algorithm = admm_algorithms.(admm_algorithm_fields{f});
-        if ~algorithm.enabled
-            continue;
-        end
-
-        solvePatchesADMMOptions.admm_options.int_method = 'none';
-        if algorithm.spectral && has_color_map
-            if ~channel_mode
-                solvePatchesADMMOptions.admm_options.int_method = int_method;
-            end
-        elseif algorithm.spectral
+        if ~algorithm.enabled || (algorithm.spectral && ~has_color_map)
             continue;
         end
         
@@ -339,18 +322,20 @@ for i = 1:n_images
                     ~, ~, weights_images...
                 ] = solvePatchesADMM(...
                   [], I_raw_gt, bayer_pattern, df_spectral_reverse,...
-                  sensor_map_resampled, bands,...
+                  color_weights, bands,...
                   admm_options_f, reg_options_f,...
                   solvePatchesADMMOptions.patch_options,...
                   solvePatchesADMMVerbose...
                 );
                 mdc_weights_patches(pc, reg_options_f.enabled) = weights_images(1, 1, :);
                 
+                I_in.I = I_spectral_gt;
+                I_in.spectral_weights = spectral_weights;
                 [...
                     ~, ~, weights_images...
                 ] = solvePatchesADMM(...
-                  I_spectral_gt, I_raw_gt, bayer_pattern, df_spectral_reverse,...
-                  sensor_map_resampled, bands,...
+                  I_in, I_raw_gt, bayer_pattern, df_spectral_reverse,...
+                  color_weights, bands,...
                   admm_options_f, reg_options_f,...
                   solvePatchesADMMOptions.patch_options,...
                   solvePatchesADMMVerbose...
@@ -371,10 +356,12 @@ for i = 1:n_images
                 );
                 mdc_weights_patches(pc, reg_options_f.enabled) = weights_images(1, 1, :);
                 
+                I_in.I = I_rgb_gt;
+                I_in.spectral_weights = sensor_map_rgb;
                 [...
                     ~, ~, weights_images...
                 ] = solvePatchesADMM(...
-                  I_rgb_gt, I_raw_gt, bayer_pattern, df_rgb_reverse,...
+                  I_in, I_raw_gt, bayer_pattern, df_rgb_reverse,...
                   sensor_map_rgb, bands_rgb,...
                   admm_options_f, reg_options_f,...
                   solvePatchesADMMOptions.patch_options,...
@@ -550,20 +537,18 @@ end
 
 %% Save parameters and data to a file
 save_variables_list = [ parameters_list, {...
-    'bands', 'admm_algorithms', 'corners',...
+    'admm_algorithms', 'corners',...
     'patch_penalties_rgb_L1', 'patch_penalties_rgb_L2',...
     'all_mdc_weights', 'all_mse_weights'...
 } ];
 if has_spectral
     save_variables_list = [save_variables_list, {...
-        'bands_spectral', 'patch_penalties_spectral_L1', 'patch_penalties_spectral_L2'...
+        'bands_spectral', 'spectral_weights', 'color_weights_reference',...
+        'patch_penalties_spectral_L1', 'patch_penalties_spectral_L2'...
     }];
 end
 if has_color_map
-    save_variables_list = [save_variables_list, {'sensor_map_resampled'}];
-    if has_spectral
-        save_variables_list = [save_variables_list, {'sensor_map_spectral', }];
-    end
+    save_variables_list = [save_variables_list, {'bands', 'bands_color', 'color_weights'}];
 end
 save_data_filename = fullfile(output_directory, ['SelectWeightsForDataset_' dataset_name '.mat']);
 save(save_data_filename, save_variables_list{:});

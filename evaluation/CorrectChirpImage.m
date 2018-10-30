@@ -47,9 +47,7 @@
 %   space is a set of colour channels (true) or a set of spectral bands
 %   (false). 'channel_mode' must be false.
 % - 'bands': A vector containing the wavelengths or colour channel indices
-%   corresponding to the second dimension of 'sensor_map'. 'bands' is
-%   required to resample 'sensor_map' so that it maps from the colour space
-%   of the latent image to the colour space of the input RAW image.
+%   corresponding to the second dimension of 'sensor_map'.
 %
 % ## Output
 %
@@ -108,10 +106,8 @@
 %
 % A '.mat' file containing the following variables:
 %
-% - 'bands': The value of the 'bands' variable defined in
-%   'SetFixedParameters.m', which determines the spectral resolution of the
-%   image. This script requires 'bands' to contain equally-spaced
-%   wavelengths.
+% - 'bands': A vector containing the wavelengths or colour channel
+%   indices at which the latent images are sampled.
 % - 'bands_color': The 'bands' variable loaded from the colour space
 %   conversion data file, for reference.
 % - 'dataset_params': A structure of the form of the `dataset_params`
@@ -121,11 +117,12 @@
 %   'dataset_params' is missing dispersion information, as dispersion is
 %   not the same between images, and so cannot be described with a single
 %   dispersion model.
-% - 'sensor_map_resampled': The resampled version of the 'sensor_map'
-%   variable, generated for compatibility with the true latent image.
-%   'sensor_map' may have been normalized so that colour images will have
-%   values in the appropriate range, as configured in the parameters
-%   section below.
+% - 'color_weights': A matrix for converting pixels in the latent images to
+%   colour, as determined by the 'sensor_map' variable loaded from the
+%   colour space conversion data file, and by the type of numerical
+%   intergration to perform. 'color_weights' may have been normalized so
+%   that colour images will have values in the appropriate range, as
+%   configured in the parameters section below.
 % - 'mdc_time': Execution timing information, stored as a 4D array, for
 %   image estimation and regularization weights selection under the minimum
 %   distance criterion. `mdc_time(pp, ps, no, d)` is the time taken with
@@ -212,7 +209,6 @@ parameters_list = {
     'image_sampling',...
     'n_samples',...
     'chirp_image_type',...
-    'chirp_image_threshold',...
     'n_patch_sizes',...
     'patch_size_min',...
     'patch_size_max',...
@@ -228,7 +224,7 @@ parameters_list = {
 %% Input data and parameters
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180923_TestingChirpImageGeneration/SonyColorMapData.mat';
+color_map_filename = '/home/llanos/Downloads/SonyColorMapData.mat';
 
 % Whether or not to normalize spectral sensitivity functions, assuming an
 % illuminant which has a uniform spectral power distribution. The
@@ -245,11 +241,7 @@ image_sampling = [128, 128];
 n_samples = 1000;
 
 % Type of chirp image to generate
-chirp_image_type = 'blend-black-sharp';
-
-% Threshold used to determine the camera spectral sensitivity functions'
-% bandlimits
-chirp_image_threshold = 0.95;
+chirp_image_type = 'phase';
 
 % Number of patch sizes to test. Patches will be square.
 % Padding sizes will be rounded to the nearest even integers.
@@ -301,30 +293,47 @@ output_directory = '/home/llanos/Downloads';
 run('SetFixedParameters.m')
 
 % ## Debugging flags
-chirp_image_verbose = false;
 verbose_progress = true;
+
+%% Load calibration data
+
+model_variables_required = { 'sensor_map', 'channel_mode', 'bands' };
+load(color_map_filename, model_variables_required{:});
+if ~all(ismember(model_variables_required, who))
+    error('One or more of the required colour space conversion variables is not loaded.')
+end
+if channel_mode
+    error('The input space of the colour conversion data must be a spectral space, not a space of colour channels.')
+end
+bands_color = bands;
+
+% Normalize spectral sensitivities to avoid out-of-range colour values.
+if normalize_color_map
+    ybar = sensor_map(normalize_color_map_reference_index, :);
+    weights = integrationWeights(bands_color, samplingWeightsOptions.int_method);
+    N = dot(ybar, weights);
+    sensor_map = sensor_map ./ N;
+end
+
+[...
+    color_weights, spectral_weights, bands...
+] = samplingWeights(...
+  sensor_map, bands_color, bands_color, samplingWeightsOptions, samplingWeightsVerbose...
+);
+n_bands = length(bands);
 
 %% Validate parameters, and construct intermediate parameters
 if use_fixed_weights
     warning('`use_fixed_weights` is set, so weights will not be automatically selected.');
 end
 
-diff_bands = diff(bands);
-if ~isempty(diff_bands) && any(diff_bands ~= diff_bands(1))
-    error('Expected `bands` to contain equally-spaced wavelengths.');
-end
-n_bands = length(bands);
-delta_lambda = (bands(end) - bands(1)) / (n_bands - 1);
-lambda_range = [bands(1) - delta_lambda / 2, bands(end) + delta_lambda / 2];
-image_sampling_3 = [image_sampling, n_bands];
-
 patch_sizes = repmat(...
     round(logspace(log10(patch_size_min), log10(min([max(image_sampling), patch_size_max])), n_patch_sizes)).', 1, 2 ...
 );
 patch_sizes(mod(patch_sizes, 2) ~= 0) = patch_sizes(mod(patch_sizes, 2) ~= 0) + 1;
 
-[~, dispersion_max] = chirpImage(...
-  image_sampling_3, lambda_range, 'params'...
+dispersion_max = chirpImage(...
+  image_sampling, bands, 'params'...
 );
 paddings = round(logspace(log10(padding_min), log10(padding_ratio_max * dispersion_max), n_padding));
 paddings(mod(paddings, 2) ~= 0) = paddings(mod(paddings, 2) ~= 0) + 1;
@@ -418,49 +427,6 @@ warped_images_variable = 'I_warped';
 rgb_warped_filename_postfix = 'rgb_warped';
 rgb_warped_images_variable = 'I_full';
 
-%% Load calibration data
-
-bands_script = bands;
-bands = [];
-model_variables_required = { 'sensor_map', 'channel_mode', 'bands' };
-load(color_map_filename, model_variables_required{:});
-if ~all(ismember(model_variables_required, who))
-    error('One or more of the required colour space conversion variables is not loaded.')
-end
-if isempty(bands)
-    error('No (non-empty) variable `bands` loaded from colour space conversion data.');
-end
-if channel_mode
-    error('The input space of the colour conversion data must be a spectral space, not a space of colour channels.')
-end
-bands_color = bands;
-bands = bands_script;
-
-% Normalize spectral sensitivities to avoid out-of-range colour values.
-if normalize_color_map
-    ybar = sensor_map(normalize_color_map_reference_index, :);
-    weights = integrationWeights(bands_color, int_method);
-    N = dot(ybar, weights);
-    sensor_map = sensor_map / N;
-end
-
-solvePatchesADMMOptions.admm_options.int_method = int_method;
-imageFormationOptions.int_method = int_method;
-
-% Resample colour space conversion data if necessary
-if n_bands ~= length(bands_color) || any(bands ~= bands_color)
-    [sensor_map_resampled, bands] = resampleArrays(...
-        bands_color, sensor_map.', bands,...
-        bands_interp_method...
-        );
-    if n_bands ~= length(bands)
-        error('The colour space conversion data does not cover a sufficiently large range of wavelengths.');
-    end
-    sensor_map_resampled = sensor_map_resampled.';
-else
-    sensor_map_resampled = sensor_map;
-end
-
 %% Collect results
 
 % Initialize output variables
@@ -505,18 +471,10 @@ for d = 1:n_dispersion
 
     % Synthesize the true image
     [I_spectral_gt, I_warped_gt, dispersionfun] = chirpImage(...
-        image_sampling_3, lambda_range, dispersion_px_d, n_samples,...
-        chirp_image_type, sensor_map_resampled, chirp_image_threshold,...
-        chirp_image_verbose...
+        image_sampling, bands, dispersion_px_d, n_samples, chirp_image_type...
     );
-    I_rgb_gt = imageFormation(...
-        I_spectral_gt, sensor_map_resampled, bands,...
-        imageFormationOptions...
-    );
-    I_rgb_warped_gt = imageFormation(...
-        I_warped_gt, sensor_map_resampled, bands,...
-        imageFormationOptions...
-    );
+    I_rgb_gt = imageFormation(I_spectral_gt, color_weights, imageFormationOptions);
+    I_rgb_warped_gt = imageFormation(I_warped_gt, color_weights, imageFormationOptions);
     I_raw_noNoise_gt = mosaic(I_rgb_warped_gt, bayer_pattern);
     
     name_params_gt = sprintf('dispersion%e_', dispersion_px_d);
@@ -540,7 +498,7 @@ for d = 1:n_dispersion
         dataset_params.evaluation.global_spectral.plot_marker = 'none';
         dataset_params.evaluation.global_spectral.plot_style = '-';
         [e_spectral_table, fg_spectral] = evaluateAndSaveSpectral(...
-            I_warped_gt, I_spectral_gt, bands,...
+            I_warped_gt, I_spectral_gt, bands, spectral_weights,...
             dataset_params, name_params_table_gt, all_name_params_tables{1},...
             fullfile(output_directory, [name_params_gt 'aberrated'])...
         );
@@ -590,7 +548,7 @@ for d = 1:n_dispersion
                     auxiliary_images{4, criterion_index}...
                 ] = solvePatchesADMM(...
                   [], I_raw_gt, bayer_pattern, dispersionfun,...
-                  sensor_map_resampled, bands,...
+                  color_weights, bands,...
                   solvePatchesADMMOptions.admm_options,...
                   solvePatchesADMMOptions.reg_options,...
                   solvePatchesADMMOptions.patch_options,...
@@ -601,6 +559,8 @@ for d = 1:n_dispersion
                 % Image similarity criterion
                 criterion_index = 2;
                 mse_time_start = tic;
+                I_in.I = I_spectral_gt;
+                I_in.spectral_weights = spectral_weights;
                 [...
                     estimated_images{criterion_index},...
                     auxiliary_images{1, criterion_index},...
@@ -609,8 +569,8 @@ for d = 1:n_dispersion
                     auxiliary_images{3, criterion_index},...
                     auxiliary_images{4, criterion_index}...
                 ] = solvePatchesADMM(...
-                  I_spectral_gt, I_raw_gt, bayer_pattern, dispersionfun,...
-                  sensor_map_resampled, bands,...
+                  I_in, I_raw_gt, bayer_pattern, dispersionfun,...
+                  color_weights, bands,...
                   solvePatchesADMMOptions.admm_options,...
                   solvePatchesADMMOptions.reg_options,...
                   solvePatchesADMMOptions.patch_options,...
@@ -941,8 +901,8 @@ for d = 1:n_dispersion
                     color_ind = color_ind + 1;
                     all_name_params_tables{color_ind} = name_params_tables_f;
                     [e_spectral_table_current, fg_spectral] = evaluateAndSaveSpectral(...
-                        estimated_images{f}, I_spectral_gt, bands, dataset_params,...
-                        name_params_table_gt, name_params_tables_f,...
+                        estimated_images{f}, I_spectral_gt, bands, spectral_weights,...
+                        dataset_params, name_params_table_gt, name_params_tables_f,...
                         fullfile(output_directory, name_params_f(1:(end-1))),...
                         fg_spectral...
                         );
@@ -1283,7 +1243,7 @@ save_variables_list = [ parameters_list, {...
         'dataset_params',...
         'bands_color',...
         'bands',...
-        'sensor_map_resampled',...
+        'color_weights',...
         'mdc_time',...
         'mse_time',...
         'num_workers',...

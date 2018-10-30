@@ -33,9 +33,7 @@
 % The true image must be associated with a '.mat' file containing a vector
 % with the variable 'bands'. 'bands' must have the same length as the third
 % dimension of the true image, and must contain the colour channel indices
-% or wavelengths corresponding to the true image. 'bands' is used to
-% evaluate the dispersion model. Note that 'bands' takes precedence over
-% the variable of the same name defined in 'SetFixedParameters.m'.
+% or wavelengths corresponding to the true image.
 %
 % ### Model of dispersion
 %
@@ -49,6 +47,10 @@
 % - 'model_from_reference': A parameter of the above scripts, which
 %   determines the frame of reference for the model of chromatic
 %   aberration. It must be set to `false`.
+% - 'bands': A vector containing the wavelengths or colour channel indices
+%   to use as the `lambda` input argument of 'dispersionfunToMatrix()'.
+%   `bands` is the wavelength or colour channel information needed to
+%   evaluate the dispersion model.
 %
 % The following two additional variables are optional. If they are present,
 % they will be used for the following purposes:
@@ -75,9 +77,7 @@
 %   space is a set of colour channels (true) or a set of spectral bands
 %   (false).
 % - 'bands': A vector containing the wavelengths or colour channel indices
-%   corresponding to the second dimension of 'sensor_map'. 'bands' is
-%   required to resample 'sensor_map' so that it maps from the colour space
-%   of the latent image to the colour space of the input RAW image.
+%   corresponding to the second dimension of 'sensor_map'.
 %
 % ## Output
 %
@@ -100,16 +100,28 @@
 %
 % A '.mat' file containing the following variables:
 %
-% - 'bands': The value of the 'bands' variable loaded with the true latent
-%   image.
+% - 'bands': A vector containing the wavelengths or colour channel
+%   indices at which the estimated latent image is sampled.
 % - 'bands_color': The 'bands' variable loaded from the colour space
 %   conversion data file, for reference.
+% - 'bands_gt': A vector containing the wavelengths or colour channel
+%   indices at which the true latent image is sampled, loaded from the file
+%   referred to by the variable, `true_image_bands_filename`, defined in
+%   the parameters section below.
+% - 'color_weights': A matrix for converting pixels in the latent image to
+%   colour, as determined by the 'sensor_map' variable loaded from the
+%   colour space conversion data file, and by the type of numerical
+%   intergration to perform.
+% - 'spectral_weights': A matrix for converting pixels in the latent image
+%   to the spectral, or colour channel space, of the true latent image.
+% - 'color_weights_reference': A matrix for converting pixels in the true
+%   latent image to colour, as determined by the 'sensor_map' variable
+%   loaded from the colour space conversion data file, and by the type of
+%   numerical intergration to perform.
 % - 'input_image_filename': The input image filename found using the
 %   wildcard provided in the parameters section of the script.
 % - 'true_image_filename': The true latent image filename found using the
 %   wildcard provided in the parameters section of the script.
-% - 'sensor_map_resampled': The resampled version of the 'sensor_map'
-%   variable, generated for compatibility with the true latent image.
 % 
 % Additionally, the file contains the values of all parameters in the first
 % section of the script below, for reference. (Specifically, those listed
@@ -123,17 +135,16 @@
 % - This script does not distinguish between wavelength bands and colour
 %   channels. One can use this script to estimate either a latent
 %   hyperspectral image, or a latent aberration-free RGB image (free from
-%   lateral chromatic aberration). The latter use case is a baseline that
-%   can be compared with the results of 'CorrectByWarping.m'. A latent
-%   hyperspectral image can be sharper, in theory, whereas a latent RGB
-%   image will retain the within-channel chromatic aberration of the input
-%   image. The reason for this difference is the summation of multiple
-%   spectral bands into each channel of an RGB image, in contrast to the
-%   identity mapping of the colours of a latent RGB image into the colours
-%   of the aberrated RGB image. Summation allows multiple sharp bands to
-%   form a blurred colour channel.
-% - This script uses `solvePatchesADMMOptions.reg_options.enabled` defined
-%   in 'SetFixedParameters.m' to determine which regularization weights to
+%   lateral chromatic aberration). A latent hyperspectral image can be
+%   sharper, in theory, whereas a latent RGB image will retain the
+%   within-channel chromatic aberration of the input image. The reason for
+%   this difference is the summation of multiple spectral bands into each
+%   channel of an RGB image, in contrast to the identity mapping of the
+%   colours of a latent RGB image into the colours of the aberrated RGB
+%   image. Summation allows multiple sharp bands to form a blurred colour
+%   channel.
+% - This script uses `solvePatchesADMMOptions.reg_options.enabled`, defined
+%   in 'SetFixedParameters.m', to determine which regularization weights to
 %   set. Note that the number of `true` elements of
 %   `solvePatchesADMMOptions.reg_options.enabled` determines the
 %   dimensionality of the visualizations output by this script.
@@ -209,7 +220,7 @@ plot_hypersurfaces = true;
 % constructing the L-hypersurface
 % This can be a scalar, or a vector with a length equal to the number of
 % weights (not only the number of active weights)
-n_samples = 100;
+n_samples = 30;
 
 % Parameters which do not usually need to be changed
 run('SetFixedParameters.m')
@@ -238,10 +249,9 @@ end
 true_image_filename = listFiles(true_image_wildcard);
 I_gt = loadImage(true_image_filename{1}, true_image_variable_name);
 
-bands = [];
 bands_variable_name = 'bands';
 load(true_image_bands_filename, bands_variable_name);
-if isempty(bands)
+if ~exist(bands_variable_name, 'var')
     error('No wavelength band or colour channel information is associated with the true image.')
 end
 bands_gt = bands;
@@ -251,7 +261,7 @@ bands_gt = bands;
 has_dispersion = ~isempty(reverse_dispersion_model_filename);
 if has_dispersion
     [...
-        dispersion_data, ~, transform_data...
+        dispersion_data, bands_dispersionfun, transform_data...
     ] = loadDispersionModel(reverse_dispersion_model_filename, false, false);
 end
 
@@ -266,35 +276,27 @@ if isempty(bands)
 end
 
 bands_color = bands;
-bands = bands_gt;
 
 if channel_mode
-    solvePatchesADMMOptions.admm_options.int_method = 'none';
-    imageFormationOptions.int_method = 'none';
+    if has_dispersion && ...
+       ((length(bands_color) ~= length(bands_dispersionfun)) ||...
+       any(bands_color ~= bands_dispersionfun))
+        error('When estimating a colour image, the same colour channels must be used by the model of dispersion.');
+    end
+    color_weights = sensor_map;
+    spectral_weights = eye(length(bands_color));
 else
-    solvePatchesADMMOptions.admm_options.int_method = int_method;
-    imageFormationOptions.int_method = int_method;
+    [...
+        color_weights, spectral_weights, bands, color_weights_reference...
+    ] = samplingWeights(...
+      sensor_map, bands_color, bands_gt, samplingWeightsOptions, samplingWeightsVerbose...
+    );
 end
 
 imageFormationOptions.patch_size = [100, 100];
 imageFormationOptions.padding = 10;
 
 %% Preprocess input data
-
-n_bands = length(bands);
-% Resample colour space conversion data if necessary
-if n_bands ~= length(bands_color) || any(bands ~= bands_color)
-    [sensor_map_resampled, bands] = resampleArrays(...
-        bands_color, sensor_map.', bands,...
-        bands_interp_method...
-        );
-    if n_bands ~= length(bands)
-        error('The colour space conversion data does not cover a sufficiently large range of wavelengths.');
-    end
-    sensor_map_resampled = sensor_map_resampled.';
-else
-    sensor_map_resampled = sensor_map;
-end
 
 % Crop images to the region of valid dispersion
 if has_dispersion
@@ -344,7 +346,7 @@ solvePatchesADMMOptions.patch_options.target_patch = target_patch;
     I_patch, ~, ~, ~, ~, ~, weights_search...
 ] = solvePatchesADMM(...
   [], I_raw, bayer_pattern, dispersionfun,...
-  sensor_map_resampled, bands,...
+  color_weights, bands,...
   solvePatchesADMMOptions.admm_options,...
   solvePatchesADMMOptions.reg_options,...
   solvePatchesADMMOptions.patch_options,...
@@ -360,8 +362,8 @@ if plot_image_patch
     [...
         I_rgb_gt, I_rgb_gt_warped,...
     ] = imageFormation(...
-        I_gt, sensor_map_resampled, bands,...
-        imageFormationOptions, dispersionfun...
+        I_gt, color_weights_reference, imageFormationOptions,...
+        dispersionfun, bands_gt...
     );
     image_sampling_patch_exterior = diff(patch_lim, 1, 1) + 1;
     image_sampling_patch_interior = diff(patch_lim_interior, 1, 1) + 1;
@@ -380,10 +382,7 @@ if plot_image_patch
     
     % Compare the input and output patches
     I_patch_rgb_gt = I_rgb_gt(patch_lim_interior(1, 1):patch_lim_interior(2, 1), patch_lim_interior(1, 2):patch_lim_interior(2, 2), :);
-    I_patch_rgb = imageFormation(...
-        I_patch, sensor_map_resampled, bands,...
-        imageFormationOptions...
-    );
+    I_patch_rgb = imageFormation(I_patch, color_weights, imageFormationOptions);
     
     figure;
     imshowpair(I_patch_rgb_gt, I_patch_rgb, 'montage');
@@ -519,9 +518,10 @@ if n_active_weights < 4
             dispersion_f = [];
         end
         I_raw_f = I_raw(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :);
+        n_bands = length(bands);
         in_admm = initBaek2017Algorithm2LowMemory(...
-            image_sampling_f, align_f, dispersion_f, sensor_map_resampled,...
-            bands, enabled_weights, solvePatchesADMMOptions.admm_options...
+            image_sampling_f, align_f, dispersion_f, color_weights,...
+            n_bands, enabled_weights, solvePatchesADMMOptions.admm_options...
         );
         in_penalties = initPenalties(in_admm.M_Omega_Phi, in_admm.G);
         
@@ -780,11 +780,14 @@ end
 
 %% Save parameters and additional data to a file
 save_variables_list = [ parameters_list, {...
-        'input_image_filename',...
-        'true_image_filename',...
-        'bands_color',...
         'bands',...
-        'sensor_map_resampled'...
+        'bands_color',...
+        'bands_gt',...
+        'color_weights',...
+        'spectral_weights',...
+        'color_weights_reference',...
+        'input_image_filename',...
+        'true_image_filename'...
     } ];
 save_data_filename = fullfile(output_directory, 'ValidateGridSearch.mat');
 save(save_data_filename, save_variables_list{:});

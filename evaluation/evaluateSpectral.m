@@ -1,27 +1,27 @@
 function [e_spectral, varargout] = evaluateSpectral(...
-    I_spectral, R_spectral, lambda, options...
+    I_spectral, R_spectral, lambda, spectral_weights, options...
 )
 % EVALUATESPECTRAL  Compare spectral images
 %
 % ## Syntax
 % e_spectral = evaluateSpectral(...
-%     I_spectral, R_spectral, lambda, options...
+%     I_spectral, R_spectral, lambda, spectral_weights, options...
 % )
 % [e_spectral, fg_spectral] = evaluate(...
-%     I_spectral, R_spectral, lambda, options...
+%     I_spectral, R_spectral, lambda, spectral_weights, options...
 % )
 %
 % ## Description
 %
 % e_spectral = evaluateSpectral(...
-%     I_spectral, R_spectral, lambda, options...
+%     I_spectral, R_spectral, lambda, spectral_weights, options...
 % )
 %   Returns a structure containing the values of different evaluation
 %   metrics comparing the two spectral images, and generates corresponding
 %   graphical output, if requested.
 %
 % [e_spectral, fg_spectral] = evaluate(...
-%     I_spectral, R_spectral, lambda, options...
+%     I_spectral, R_spectral, lambda, spectral_weights, options...
 % )
 %   Additionally returns a structure of figure handles from the spectral
 %   image evaluation graphical output.
@@ -29,14 +29,18 @@ function [e_spectral, varargout] = evaluateSpectral(...
 % ## Input Arguments
 %
 % I_spectral -- Test spectral image
-%   An h x w x c array containing an estimated spectral image.
+%   An h x w x c2 array containing an estimated spectral image.
 %
 % R_spectral -- Reference spectral image
-%   An h x w x c array containing the ideal/true spectral image.
+%   An h x w x c1 array containing the ideal/true spectral image.
 %
 % lambda -- Wavelengths
-%   A vector of length 'c' containing the wavelengths corresponding to the
-%   third dimension of `I_spectral` and `R_spectral`.
+%   A vector of length 'c1' containing the wavelengths corresponding to the
+%   third dimension of `R_spectral`.
+%
+% spectral_weights -- Spectral resampling matrix
+%   A matrix of dimensions c1 x c2 defining a mapping from the spectral
+%   space of `I_spectral` to the spectral space of `R_spectral`.
 %
 % options -- Output options for spectral images
 %   A structure which controls graphical output to figures relating to
@@ -99,7 +103,7 @@ function [e_spectral, varargout] = evaluateSpectral(...
 %     - 'mean': The average mean square error over all bands
 %     - 'median': The mean square error for the band with the median mean
 %       square error.
-%     - 'raw': A c-element vector, containing the mean square errors for
+%     - 'raw': A c1-element vector, containing the mean square errors for
 %       each band.
 %   - 'psnr': The peak signal-to-noise ratio between the two images, in the
 %     same format as 'mse', except with 'max' replaced with 'min' (as PSNR
@@ -109,12 +113,12 @@ function [e_spectral, varargout] = evaluateSpectral(...
 %     - 'min': The SSIM value for the band with the lowest SSIM value.
 %     - 'mean': The average SSIM value over all bands
 %     - 'median': The SSIM value for the band with the median mean SSIM value.
-%     - 'raw': A c-element vector, containing the SSIM values for each band.
+%     - 'raw': A c1-element vector, containing the SSIM values for each band.
 %   - 'mi_within': A two element vector, containing the mutual information
 %     between two bands in the reference image, and between two bands in
 %     the test image, respectively. The indices of the bands are given in
 %     `options.mi_bands`.
-%   - 'mi_between': A c-element vector, containing the mutual information
+%   - 'mi_between': A c1-element vector, containing the mutual information
 %     between corresponding bands in the reference image and the test
 %     image.
 %   - 'rmse': The root mean square error between the spectral information
@@ -206,7 +210,7 @@ function [e_spectral, varargout] = evaluateSpectral(...
 %     Schiele B., Tuytelaars T. (eds) Computer Vision – ECCV 2014. ECCV
 %     2014. Lecture Notes in Computer Science, vol 8695. Springer, Cham
 %
-% See also immse, psnr, ssim, evaluateRGB, plot
+% See also immse, psnr, ssim, evaluateRGB, samplingWeights, plot
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -225,10 +229,15 @@ function [e_spectral, varargout] = evaluateSpectral(...
         end
     end
 
-narginchk(4, 4);
+narginchk(5, 5);
 nargoutchk(1, 2);
 
 border = 10;
+
+n_bands = length(lambda);
+if n_bands ~= size(R_spectral, 3)
+    error('The size of `R_spectral` in its third dimension must equal the length of `lambda`.');
+end
 
 class_spectral = class(I_spectral);
 if ~isa(R_spectral, class_spectral)
@@ -242,17 +251,22 @@ else
     error('The two images are of an unexpected datatype.')
 end
 
-I_clipped = I_spectral((border + 1):(end - border), (border + 1):(end - border), :);
-R_clipped = R_spectral((border + 1):(end - border), (border + 1):(end - border), :);
+R_I_clipped = cat(3,...
+    I_spectral((border + 1):(end - border), (border + 1):(end - border), :),...
+    R_spectral((border + 1):(end - border), (border + 1):(end - border), :)...
+);
+image_sampling_clipped = [size(R_I_clipped, 1), size(R_I_clipped, 2)];
 
-n_bands = length(lambda);
 e_spectral.mse = struct('raw', zeros(n_bands, 1));
 e_spectral.psnr = struct('raw', zeros(n_bands, 1));
 e_spectral.ssim = struct('raw', zeros(n_bands, 1));
+I_clipped_resampled = zeros([image_sampling_clipped, n_bands]);
 for c = 1:n_bands
-    e_spectral.mse.raw(c) = immse(I_clipped(:, :, c), R_clipped(:, :, c));
+    I_clipped_resampled(:, :, c) = reshape(channelConversionMatrix(image_sampling_clipped, spectral_weights(c, :))...
+        * reshape(R_I_clipped(:, :, (n_bands + 1):end), [], 1), image_sampling_clipped);
+    e_spectral.mse.raw(c) = immse(I_clipped_resampled(:, :, c), R_I_clipped(:, :, c));
     e_spectral.psnr.raw(c) = peakSignalToNoiseRatio(e_spectral.mse.raw(c), peak_spectral);
-    e_spectral.ssim.raw(c) = ssim(I_clipped(:, :, c), R_clipped(:, :, c));
+    e_spectral.ssim.raw(c) = ssim(I_clipped_resampled(:, :, c), R_I_clipped(:, :, c));
 end
 e_spectral.mse.max = max(e_spectral.mse.raw);
 e_spectral.mse.mean = mean(e_spectral.mse.raw);
@@ -267,11 +281,11 @@ e_spectral.ssim.median = median(e_spectral.ssim.raw);
 mi_class = 'uint8';
 if ~isa(I_spectral, mi_class)
     peak_int = double(intmax(mi_class));
-    I_clipped_int = uint8(I_clipped * peak_int / peak_spectral);
-    R_clipped_int = uint8(R_clipped * peak_int / peak_spectral);
+    I_clipped_int = uint8(I_clipped_resampled * peak_int / peak_spectral);
+    R_clipped_int = uint8(R_I_clipped(:, :, 1:n_bands) * peak_int / peak_spectral);
 else
-    I_clipped_int = I_clipped;
-    R_clipped_int = R_clipped;
+    I_clipped_int = I_clipped_resampled;
+    R_clipped_int = R_I_clipped(:, :, 1:n_bands);
 end
 
 e_spectral.mi_within(1) = MI_GG(...
@@ -291,8 +305,8 @@ for c = 1:n_bands
     );
 end
 
-I_clipped_lin = reshape(I_clipped, [], n_bands);
-R_clipped_lin = reshape(R_clipped, [], n_bands);
+I_clipped_lin = reshape(I_clipped_resampled, [], n_bands);
+R_clipped_lin = reshape(R_I_clipped(:, :, 1:n_bands), [], n_bands);
 
 se = I_clipped_lin - R_clipped_lin;
 se = dot(se, se, 2);
@@ -312,6 +326,7 @@ e_spectral.gof = struct(...
 
 image_height = size(I_spectral, 1);
 image_width = size(I_spectral, 2);
+image_sampling = [image_height, image_width];
 if isfield(options, 'radiance')
     n_patches = size(options.radiance, 1);
     e_spectral.radiance = struct('rmse', cell(n_patches, 1), 'gof', cell(n_patches, 1));
@@ -330,10 +345,10 @@ if isfield(options, 'radiance')
         patch_rectangles(i, 3) = min(image_width, bounds(1) + widthDiv2);
         patch_rectangles(i, 4) = min(image_height, bounds(2) + heightDiv2);
 
-        radiance_average_I = squeeze(mean(mean(I_spectral(...
+        radiance_average_I = (spectral_weights * squeeze(mean(mean(I_spectral(...
             patch_rectangles(i, 2):patch_rectangles(i, 4),...
             patch_rectangles(i, 1):patch_rectangles(i, 3), :...
-            ), 1), 2)).';
+            ), 1), 2))).';
 
         radiance_average_R = squeeze(mean(mean(R_spectral(...
             patch_rectangles(i, 2):patch_rectangles(i, 4),...
@@ -360,7 +375,8 @@ fg_spectral = struct;
 
 if isfield(options, 'error_map') && options.error_map
     ind = find(e_spectral.mse.raw == e_spectral.mse.max, 1);
-    diff_band = I_spectral(:, :, ind) - R_spectral(:, :, ind);
+    diff_band = (reshape(channelConversionMatrix(image_sampling, spectral_weights(ind, :))...
+        * reshape(I_spectral, [], 1), image_sampling)) - R_spectral(:, :, ind);
     fg_spectral.error_map(1) = figure;
     imagesc(diff_band);
     colorbar;
@@ -368,12 +384,12 @@ if isfield(options, 'error_map') && options.error_map
         lambda(ind), e_spectral.mse.max));
     
     fg_spectral.error_map(2) = figure;
-    imagesc(reshape(rmse_per_pixel, size(I_clipped, 1), size(I_clipped, 2)));
+    imagesc(reshape(rmse_per_pixel, image_sampling_clipped));
     colorbar;
     title('Spectral root-mean-square error');
     
     fg_spectral.error_map(3) = figure;
-    imagesc(reshape(goodnessOfFit(I_clipped_lin, R_clipped_lin, false), size(I_clipped, 1), size(I_clipped, 2)));
+    imagesc(reshape(goodnessOfFit(I_clipped_lin, R_clipped_lin, false), image_sampling_clipped));
     colorbar;
     caxis([0 1]);
     title('Spectral goodness-of-fit');
@@ -463,7 +479,8 @@ if isfield(options, 'scanlines')
             repmat(lines_pixels_indices{i}, n_bands, 1) +...
             repelem((0:(n_bands - 1)).' * (image_width * image_height), n_px_line, 1);
 
-        radiance_I = reshape(I_spectral(lines_pixels_indices_spectral), n_px_line, n_bands);
+        radiance_I = reshape(I_spectral(lines_pixels_indices_spectral), n_px_line, []);
+        radiance_I = (spectral_weights * radiance_I.').';
         radiance_R = reshape(R_spectral(lines_pixels_indices_spectral), n_px_line, n_bands);
 
         se = radiance_I - radiance_R;
@@ -549,7 +566,10 @@ if isfield(options, 'bands_diff')
     title(sprintf('Difference image between band %g and band %g in the reference image',...
         lambda(options.bands_diff(1)), lambda(options.bands_diff(2))));
 
-    diff_band = I_spectral(:, :, options.bands_diff(2)) - I_spectral(:, :, options.bands_diff(1));
+    diff_band = reshape(channelConversionMatrix(...
+        image_sampling,...
+        spectral_weights(options.bands_diff(2), :) - spectral_weights(options.bands_diff(1), :)...
+    ) * reshape(I_spectral, [], 1), image_sampling);
     fg_spectral.bands_diff(2) = figure;
     imagesc(diff_band);
     colorbar;

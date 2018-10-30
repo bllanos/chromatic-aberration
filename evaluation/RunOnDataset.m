@@ -11,9 +11,9 @@
 % tested, and the types of evaluations to perform, as encapsulated by the
 % 'describeDataset()' function.
 %
-% The documentation in the scripts 'CorrectByHyperspectralADMM.m' and
-% 'CorrectByWarping.m' contains more information on the formats of the
-% various types of data associated with the datasets.
+% The documentation in the script 'CorrectByHyperspectralADMM.m' contains
+% more information on the formats of the various types of data associated
+% with the datasets.
 %
 % This script also runs 'SetFixedParameters.m' to set the values of
 % seldomly-changed parameters. These parameters are briefly documented in
@@ -25,11 +25,6 @@
 % 'SelectWeightsForDataset.m' will also override the set of ADMM-family
 % algorithms to run, which is otherwise determined by running
 % 'SetAlgorithms.m'.
-%
-% In contrast with 'CorrectByHyperspectralADMM.m', the wavelengths at which
-% hyperspectral images are to be sampled are set by 'SetFixedParameters.m',
-% rather than loaded from colour space conversion data, or dispersion model
-% data.
 %
 % ## Output
 %
@@ -71,19 +66,21 @@
 % A '.mat' file containing the following variables, as appropriate:
 % - 'bands': A vector containing the wavelengths of the spectral
 %   bands used in hyperspectral image estimation.
+% - 'bands_color': The 'bands' variable loaded from the colour space
+%   conversion data file, for reference.
 % - 'bands_spectral': A vector containing the wavelengths of the spectral
 %   bands associated with ground truth hyperspectral images.
-% - 'sensor_map_resampled': A resampled version of the 'sensor_map'
-%   variable loaded from colour space conversion data, used for
-%   hyperspectral image estimation. 'sensor_map_resampled' is the spectral
-%   response functions of the camera (or, more generally, of the output
-%   3-channel colour space) approximated at the wavelengths in `bands`.
-% - 'sensor_map_spectral': A resampled version of the 'sensor_map'
-%   variable loaded from colour space conversion data, used to convert
-%   ground truth spectral images to color. 'sensor_map_spectral' is the
-%   spectral response functions of the camera (or, more generally, of the
-%   output 3-channel colour space) approximated at the wavelengths in
-%   `bands_spectral`.
+% - 'color_weights': A matrix for converting pixels in the estimated
+%   hyperspectral images to colour, as determined by the 'sensor_map'
+%   variable loaded from the colour space conversion data file, and by the
+%   type of numerical intergration to perform.
+% - 'color_weights_reference': A matrix for converting pixels in the ground
+%   truth hyperspectral images to colour, as determined by the 'sensor_map'
+%   variable loaded from the colour space conversion data file, and by the
+%   type of numerical intergration to perform.
+% - 'spectral_weights': A matrix for converting pixels in the spectral
+%   space of the estimated hyperspectral images to the spectral space of
+%   the true hyperspectral images.
 % - 'admm_algorithms': A structure describing the ADMM algorithms being
 %   evaluated, created by 'SetAlgorithms.m' and possibly updated by
 %   'SelectWeightsForDataset.m'.
@@ -227,7 +224,7 @@ for i = 1:n_images
     end
     
     n_spectral_evaluations = 0;
-    if has_spectral && can_evaluate_spectral
+    if has_spectral
         for f = 1:n_admm_algorithms
             algorithm = admm_algorithms.(admm_algorithm_fields{f});
             if algorithm.enabled && algorithm.spectral
@@ -260,7 +257,7 @@ for i = 1:n_images
         all_alg_names = {'Aberrated'};
         [e_spectral_table, fg_spectral] = evaluateAndSaveSpectral(...
             I_spectral_gt_warped, I_spectral_gt, bands_spectral,...
-            dp, names{i}, all_alg_names{1},...
+            spectral_weights, dp, names{i}, all_alg_names{1},...
             fullfile(output_directory, [names{i} '_aberrated'])...
         );
     end
@@ -272,18 +269,9 @@ for i = 1:n_images
     for w_type = 1:n_weight_types
         for f = 1:n_admm_algorithms
             algorithm = admm_algorithms.(admm_algorithm_fields{f});
-            if ~algorithm.enabled
+            if ~algorithm.enabled || (algorithm.spectral && ~has_color_map)
                 continue;
-            end
-            
-            solvePatchesADMMOptions.admm_options.int_method = 'none';
-            if algorithm.spectral && has_color_map
-                if ~channel_mode
-                    solvePatchesADMMOptions.admm_options.int_method = int_method;
-                end
-            elseif algorithm.spectral
-                continue;
-            end                
+            end              
             
             reg_options_f = mergeStructs(...
                 solvePatchesADMMOptions.reg_options, solvePatchesADMMOptions.reg_options, true, false...
@@ -341,7 +329,7 @@ for i = 1:n_images
                     weights_images...
                 ] = solvePatchesADMM(...
                   [], I_raw_gt, bayer_pattern, df_spectral_reverse,...
-                  sensor_map_resampled, bands,...
+                  color_weights, bands,...
                   admm_options_f, reg_options_f,...
                   solvePatchesADMMOptions.patch_options,...
                   solvePatchesADMMVerbose...
@@ -354,7 +342,7 @@ for i = 1:n_images
                 );
             
                 % Spectral evaluation
-                if can_evaluate_spectral
+                if has_spectral
                     dp.evaluation.global_spectral.plot_color =...
                         evaluation_plot_colors_admm(color_ind, :);
                     dp.evaluation.global_spectral.plot_marker =...
@@ -368,8 +356,8 @@ for i = 1:n_images
                     color_ind = color_ind + 1;
                     all_alg_names{end + 1} = alg_name_params;
                     [e_spectral_table_current, fg_spectral] = evaluateAndSaveSpectral(...
-                        I_latent, I_spectral_gt, bands, dp, names{i},...
-                        alg_name_params,...
+                        I_latent, I_spectral_gt, bands, spectral_weights,...
+                        dp, names{i}, alg_name_params,...
                         fullfile(output_directory, name_params(1:(end-1))),...
                         fg_spectral...
                     );
@@ -565,16 +553,13 @@ end
 
 %% Save parameters and additional data to a file
 save_variables_list = [ parameters_list, {...
-    'bands', 'admm_algorithms', 'demosaic_algorithms'...
+    'admm_algorithms', 'demosaic_algorithms'...
 } ];
 if has_spectral
-    save_variables_list = [save_variables_list, {'bands_spectral'}];
+    save_variables_list = [save_variables_list, {'bands_spectral', 'spectral_weights', 'color_weights_reference'}];
 end
 if has_color_map
-    save_variables_list = [save_variables_list, {'sensor_map_resampled'}];
-    if has_spectral
-        save_variables_list = [save_variables_list, {'sensor_map_spectral'}];
-    end
+    save_variables_list = [save_variables_list, {'bands', 'bands_color', 'color_weights'}];
 end
 save_data_filename = fullfile(output_directory, ['RunOnDataset_' dataset_name '.mat']);
 save(save_data_filename, save_variables_list{:});

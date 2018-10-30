@@ -28,9 +28,7 @@ if ~exist('parameters_list', 'var')
 end
 parameters_list = [parameters_list, {
     'bayer_pattern',...
-    'bands_script',...
-    'bands_interp_method',...
-    'int_method',...
+    'samplingWeightsOptions',...
     'patch_sizes',...
     'paddings',...
     'use_fixed_weights',...
@@ -42,21 +40,24 @@ parameters_list = [parameters_list, {
 % Colour-filter pattern
 bayer_pattern = 'gbrg';
 
-%% Hyperspectral image estimation parameters
+%% Spectral resampling parameters
 
-% Override the wavelengths or colour channel indices at which to evaluate
-% the model of dispersion, if desired.
-bands = 420:10:720;
-bands_script = bands;
-
-% Interpolation method used when resampling colour space conversion data
-bands_interp_method = 'linear';
+% Options for 'samplingWeights()'. Refer to the documentation of
+% 'samplingWeights.m' for more details.
 
 % Integration method to use for colour calculations. If the latent space
 % consists of wavelength bands, use this type of numerical integration in
-% 'channelConversionMatrix()'. (Otherwise, a value of 'none' will
-% automatically be used instead.)
-int_method = 'trap';
+% 'integrationWeights()' within 'samplingWeights()'. (Otherwise,
+% 'samplingWeights()' should not even be called.)
+samplingWeightsOptions.int_method = 'trap';
+
+samplingWeightsOptions.power_threshold = 0.99;
+
+samplingWeightsOptions.support_threshold = 0.05;
+
+samplingWeightsOptions.bands_padding = 1000;
+
+%% Hyperspectral image estimation parameters
 
 % ## Image estimation options
 
@@ -137,5 +138,7 @@ solvePatchesADMMOptions.reg_options.tol = 1e-6;
 % what range of regularization weights they were searching within.
 solvePatchesADMMOptions.reg_options.n_iter = [30, 6];
 
-% ## Debugging Flags
+%% ## Debugging Flags
+
 solvePatchesADMMVerbose = true;
+samplingWeightsVerbose = true;

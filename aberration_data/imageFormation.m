@@ -1,48 +1,42 @@
 function varargout = imageFormation(...
-    I_hyper, sensitivity, lambda, options, varargin...
+    I_hyper, sensitivity, options, varargin...
     )
 % IMAGEFORMATION  Patch-wise conversion of a spectral image to RGB and RAW images
 %
 % ## Syntax
 % I_rgb = imageFormation(...
-%   I_hyper, sensitivity, lambda, options [, target_patch]...
+%   I_hyper, sensitivity, options [, target_patch]...
 % )
 % [I_rgb, J_full] = imageFormation(...
-%   I_hyper, sensitivity, lambda,...
-%   options, dispersionfun [, target_patch]...
+%   I_hyper, sensitivity, options, dispersionfun, lambda [, target_patch]...
 % )
 % [I_rgb, J_full, J_est] = imageFormation(...
-%   I_hyper, sensitivity, lambda,...
-%   options, dispersionfun, align [, target_patch]...
+%   I_hyper, sensitivity, options, dispersionfun, lambda, align [, target_patch]...
 % )
 % [I_rgb, J_full, J_est, I_warped] = imageFormation(...
-%   I_hyper, sensitivity, lambda,...
-%   options, dispersionfun, align [, target_patch]...
+%   I_hyper, sensitivity, options, dispersionfun, lambda, align [, target_patch]...
 % )
 %
 % ## Description
 % I_rgb = imageFormation(...
-%   I_hyper, sensitivity, lambda, options [, target_patch]...
+%   I_hyper, sensitivity, options [, target_patch]...
 % )
 %   Returns the colour version of the spectral image.
 %
 % [I_rgb, J_full] = imageFormation(...
-%   I_hyper, sensitivity, lambda,...
-%   options, dispersionfun [, target_patch]...
+%   I_hyper, sensitivity, options, dispersionfun, lambda [, target_patch]...
 % )
 %   Additionally returns a version of the colour image equivalent of the
 %   spectral image, warped according to a dispersion model.
 %
 % [I_rgb, J_full, J_est] = imageFormation(...
-%   I_hyper, sensitivity, lambda,...
-%   options, dispersionfun, align [, target_patch]...
+%   I_hyper, sensitivity, options, dispersionfun, lambda, align [, target_patch]...
 % )
 %   Additionally returns RAW image corresponding to the warped colour
 %   image.
 %
 % [I_rgb, J_full, J_est, I_warped] = imageFormation(...
-%   I_hyper, sensitivity, lambda,...
-%   options, dispersionfun, align [, target_patch]...
+%   I_hyper, sensitivity, options, dispersionfun, lambda, align [, target_patch]...
 % )
 %   Additionally returns a version of the spectral image, warped according
 %   to a dispersion model.
@@ -52,28 +46,15 @@ function varargout = imageFormation(...
 % I_hyper -- Input image
 %   A 2D or 3D array containing the spectral image.
 %
-% sensitivity -- Spectral band conversion matrix
+% sensitivity -- Colour space conversion matrix
 %   A 2D array, where `sensitivity(i, j)` is the sensitivity of the i-th
 %   colour channel of `I_rgb` to the j-th input colour channel or spectral
 %   band of `I_hyper`. `sensitivity` is a matrix mapping colours in
-%   `I_hyper` to colours in `I_rgb`.
-%
-% lambda -- Wavelength bands
-%   A vector of length `size(sensitivity, 2)` containing the wavelengths or
-%   colour channel indices of the spectral bands or colour channels in `I`.
-%   `lambda` is needed for colour conversion to form `I_rgb`, depending on
-%   the value of `options.int_method`, and is also needed to evaluate the
-%   dispersion model in `dispersionfun`.
+%   `I_hyper` to colours in `I_rgb`. `sensitivity` must account for any
+%   numerical intergration that is part of colour conversion.
 %
 % options -- Options and small parameters
 %   A structure with the following fields:
-%   - 'int_method': The numerical integration method used for spectral to
-%     colour space conversion. 'int_method' is passed to
-%     'channelConversionMatrix()' as its 'int_method' argument. Refer to
-%     the documentation of 'channelConversionMatrix.m' for details. If
-%     'int_method' is 'none' or empty (`[]`), as should be the case when
-%     colour conversion is from a set of colour channels, not from a
-%     spectral space, numerical integration will not be performed.
 %   - 'patch_size': A two-element vector containing the height and width,
 %     respectively, of the image patches to be estimated. 'patch_size' does
 %     not include padding used to eliminate artifacts from the patch-wise
@@ -100,6 +81,12 @@ function varargout = imageFormation(...
 %
 %   `dispersionfun` can be empty (`[]`), if there is no model of
 %   dispersion.
+%
+% lambda -- Wavelength bands
+%   A vector of length `size(sensitivity, 2)` containing the wavelengths or
+%   colour channel indices of the spectral bands or colour channels in
+%   `I_hyper`. `lambda` is needed to evaluate the dispersion model in
+%   `dispersionfun`. `lambda` can be empty if `dispersionfun` is empty.
 %
 % align -- Bayer pattern description
 %   A four-character character vector, specifying the Bayer tile pattern of
@@ -165,7 +152,7 @@ single_patch = false;
 output_rgb_warped = (nargout > 1);
 output_raw = (nargout > 2);
 if nargout == 1
-    narginchk(4, 5);
+    narginchk(3, 4);
     if ~isempty(varargin)
         target_patch = varargin{1};
         single_patch = true;
@@ -173,16 +160,18 @@ if nargout == 1
 elseif nargout == 2
     narginchk(5, 6);
     dispersionfun = varargin{1};
-    if length(varargin) > 1
-        target_patch = varargin{2};
+    lambda = varargin{2};
+    if length(varargin) > 2
+        target_patch = varargin{3};
         single_patch = true;
     end
 elseif nargout > 2
     narginchk(6, 7);
     dispersionfun = varargin{1};
-    align = varargin{2};
-    if length(varargin) > 2
-        target_patch = varargin{3};
+    lambda = varargin{2};
+    align = varargin{3};
+    if length(varargin) > 3
+        target_patch = varargin{4};
         single_patch = true;
     end
 end
@@ -193,8 +182,7 @@ end
 
 varargout = cell(1, nargout);
 
-    function I_out = identity(~, ~, ~, ~, ~, I_in)
-        I_out = I_in;
+    function I_in = identity(~, ~, ~, ~, I_in)
     end
 
 if single_patch
@@ -210,7 +198,7 @@ if single_patch
         );
     else
         [~, ~, varargout{:}] = solvePatchesAlignedSerial(...
-            I_hyper, [], [], sensitivity, lambda, options,...
+            I_hyper, [], [], sensitivity, [], options,...
             @identity, {}, target_patch...
         );
     end
@@ -227,7 +215,7 @@ else
         );
     else
         [~, ~, varargout{:}] = solvePatchesAlignedSerial(...
-            I_hyper, [], [], sensitivity, lambda, options,...
+            I_hyper, [], [], sensitivity, [], options,...
             @identity, {}...
         );
     end

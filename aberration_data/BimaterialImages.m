@@ -43,8 +43,8 @@
 %   `dispersion_data` can be converted to a function form using
 %   `dispersionfun = makeDispersionfun(dispersion_data)`.
 % - 'model_from_reference': A parameter of the above scripts, which
-%   determines the frame of reference for the model of chromatic
-%   aberration. It must be set to `false`.
+%   determines the frame of reference for the model of dispersion. It must
+%   be set to `false`.
 % - 'model_space': A structure with same form as the `model_space` input
 %   argument of 'modelSpaceTransform()', required to stretch the valid
 %   domain of the dispersion model to match the output images.
@@ -55,27 +55,11 @@
 % - 'sensor_map': A 2D array, where `sensor_map(i, j)` is the sensitivity
 %   of the i-th colour channel of the output sensor response images to the
 %   j-th spectral band of the synthetic hyperspectral images.
-% - 'bands': A vector containing the wavelengths to use as the `lambda`
-%   input argument of 'dispersionfunToMatrix()' (to evaluate a dispersion
-%   model), and to form hyperspectral images. This variable can be
-%   overridden by a version of the variable provided directly in this
-%   script (see below). However, it is still needed from this file to
-%   normalize spectral radiances, even when overridden in its other
-%   functions.
 % - 'channel_mode': A Boolean value indicating whether the input colour
 %   space is a set of colour channels (true) or a set of spectral bands
 %   (false). A value of `false` is required.
-%
-% ### Discrete spectral space
-%
-% The 'bands' variable defined in the parameters section of the code (in
-% 'SetFixedParameters.m') can be empty (`[]`), in which case it is loaded
-% from the colour space conversion data (see above).
-%
-% The final 'bands' vector is clipped to the intervals defined by the other
-% vectors of wavelengths, to avoid extrapolation when resampling data to
-% conform to the final value of 'bands'. Resampling is needed to express
-% all spectral quantities in the same discrete space of wavelengths.
+% - 'bands': A vector containing the wavelengths corresponding to the
+%   second dimension of 'sensor_map'.
 %
 % ### Illuminant
 % The following two sources of data can be provided:
@@ -91,8 +75,8 @@
 % The Kelvin temperature of the illuminant must be provided in the script
 % parameters section below.
 %
-% The data will be resampled so that it is compatible with the 'bands'
-% variable described above.
+% The data will be resampled so that it is compatible with the spectral
+% reflectances described below.
 %
 % #### Arbitrary illuminant
 % The name of a function of a vector of wavelengths that returns a vector
@@ -146,8 +130,8 @@
 %
 % A '.mat' file containing the following variables:
 %
-% - 'bands': The final value of the 'bands' variable, determined as
-%   discussed under the section "Discrete spectral space" above.
+% - 'bands': A vector containing the wavelengths at which the output
+%   hyperspectral images are sampled.
 % - 'bands_color': The 'bands' variable loaded from the colour space
 %   conversion data file, for reference.
 % - 'chromaticity_filenames': A cell vector containing the input
@@ -156,9 +140,10 @@
 % - 'shading_filenames': A cell vector containing the input shading map
 %   filenames retrieved based on the wildcard provided in the parameters
 %   section of the script.
-% - 'sensor_map_resampled': The resampled version of the 'sensor_map'
-%   variable, determined as discussed under the section "Discrete spectral
-%   space" above.
+% - 'color_weights_reference': A matrix for converting pixels in the output
+%   images to colour, as determined by the 'sensor_map' variable loaded
+%   from the colour space conversion data file, and by the type of
+%   numerical intergration to perform.
 % - 'dispersion_data': A copy of the same variable from the input
 %   model of dispersion
 % - 'model_from_reference': A copy of the same variable from the input
@@ -170,9 +155,9 @@
 %   output image.
 %
 % The dispersion model variables are needed as input for scripts
-% implementing different methods for correcting chromatic aberration.
-% However, they could easily be provided in a separate file, by adding a
-% 'fill' variable to the output of a dispersion model fitting script (e.g.
+% implementing different methods for correcting dispersion. However, they
+% could easily be provided in a separate file, by adding a 'fill' variable
+% to the output of a dispersion model fitting script (e.g.
 % 'RAWDiskDispersion.m').
 % 
 % Additionally, the file contains the values of all parameters in the first
@@ -301,7 +286,7 @@ colorChecker_rgb = reflectanceToColor(...
     lambda_illuminant, spd_illuminant,...
     lambda_colorChecker, reflectances,...
     lambda_xyzbar, xyzbar,...
-    illuminant_name, int_method...
+    illuminant_name, samplingWeightsOptions.int_method...
     );
 
 %% Load dispersion model
@@ -316,13 +301,11 @@ end
 if isfield(dispersion_data, 'reference_channel')
     error('A dispersion model for spectral data, not colour channels, is required.');
 end
+transform_data.fill = true;
 
 %% Load colour space conversion data
 
-bands = [];
-
-optional_variable = 'bands';
-model_variables_required = { 'sensor_map', 'channel_mode', optional_variable };
+model_variables_required = { 'sensor_map', 'channel_mode', 'bands' };
 load(color_map_filename, model_variables_required{:});
 if ~all(ismember(model_variables_required, who))
     error('One or more of the required colour space conversion variables is not loaded.')
@@ -332,33 +315,12 @@ if channel_mode
 end
 
 bands_color = bands;
-
-%% Select a value of 'bands' and resample spectral arrays
-
-% Select the highest-priority value of `bands`
-if ~isempty(bands_script)
-    bands = bands_script;
-else
-    bands = bands_color;
-end
-
-% Use the intersection of all values of `bands` corresponding to arrays
-bands = bands(bands >= min(bands_color) & bands <= max(bands_color));
-bands = bands(bands >= min(lambda_colorChecker) & bands <= max(lambda_colorChecker));
-if isempty(bands)
-    error('Cannot find a spectral interval common to all spectral quantities.');
-end
-
-% Resample colour space conversion data if necessary
-if length(bands) ~= length(bands_color) || any(bands ~= bands_color)
-    [sensor_map_resampled, bands] = resampleArrays(...
-        bands_color, sensor_map.', bands,...
-        bands_interp_method...
-        );
-    sensor_map_resampled = sensor_map_resampled.';
-else
-    sensor_map_resampled = sensor_map;
-end
+[...
+    ~, ~, ~, color_weights_reference...
+] = samplingWeights(...
+  sensor_map, bands_color, lambda_colorChecker, samplingWeightsOptions...
+);
+bands = lambda_colorChecker;
 n_bands = length(bands);
 
 %% Calculate spectral radiances
@@ -367,13 +329,13 @@ n_bands = length(bands);
     lambda_illuminant, spd_illuminant,...
     lambda_colorChecker, reflectances,...
     bands_color, sensor_map.',...
-    normalization_channel, int_method...
+    normalization_channel, samplingWeightsOptions.int_method...
 );
 
 % Resample radiances
 Rad_normalized_resampled = resampleArrays(...
     lambda_Rad, Rad_normalized, bands,...
-    bands_interp_method...
+    'linear'...
     );
 
 %% Find the chromaticity and shading maps
@@ -411,7 +373,6 @@ end
 
 n_channels_rgb = 3;
 n_channels_raw = 3;
-fill = true;
 
 for i = 1:n_images
     % Cluster the colours in the chromaticity map
@@ -500,10 +461,9 @@ for i = 1:n_images
     );
     imageFormationOptions.patch_size = patch_sizes(1, :);
     imageFormationOptions.padding = paddings(1);
-    imageFormationOptions.int_method = int_method;
     [I_3, I_3_warped, I_raw, I_warped] = imageFormation(...
-        I_hyper, sensor_map_resampled, bands,...
-        imageFormationOptions, dispersionfun, bayer_pattern...
+        I_hyper, color_weights_reference, imageFormationOptions,...
+        dispersionfun, bands, bayer_pattern...
     );
             
     % Save the results
@@ -525,7 +485,7 @@ save_variables_list = [ parameters_list, {...
         'shading_filenames',...
         'bands_color',...
         'bands',...
-        'sensor_map_resampled',...
+        'color_weights_reference',...
         'dispersion_data',...
         'model_from_reference',...
         'model_space',...

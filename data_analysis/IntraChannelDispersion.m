@@ -39,9 +39,6 @@ load(color_map_filename, model_variables_required{:});
 if ~all(ismember(model_variables_required, who))
     error('One or more of the required camera sensitivity variables is not loaded.')
 end
-if isempty(bands)
-    error('No (non-empty) variable `bands` loaded from colour space conversion data.');
-end
 if channel_mode
     error('The input space of the camera sensitivity data must be a spectral space, not a space of colour channels.')
 end

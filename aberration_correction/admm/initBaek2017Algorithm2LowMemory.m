@@ -3,18 +3,18 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 %
 % ## Syntax
 % [out, weights] = initBaek2017Algorithm2LowMemory(...
-%   image_sampling, align, dispersion_matrix, sensitivity, lambda,...
+%   image_sampling, align, dispersion_matrix, sensitivity, n_bands,...
 %   weights, options...
 % )
 % out = initBaek2017Algorithm2LowMemory(...
-%   image_sampling, align, dispersion_matrix, sensitivity, lambda,...
+%   image_sampling, align, dispersion_matrix, sensitivity, n_bands,...
 %   enabled_weights, options...
 % )
 % [out, weights] = initBaek2017Algorithm2LowMemory(out, weights, options)
 %
 % ## Description
 % [out, weights] = initBaek2017Algorithm2LowMemory(...
-%   image_sampling, align, dispersion_matrix, sensitivity, lambda,...
+%   image_sampling, align, dispersion_matrix, sensitivity, n_bands,...
 %   weights, options...
 % )
 %   Returns a structure containing arrays to be used by
@@ -22,7 +22,7 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 %   weights for 'baek2017Algorithm2LowMemory()'.
 %
 % out = initBaek2017Algorithm2LowMemory(...
-%   image_sampling, align, dispersion_matrix, sensitivity, lambda,...
+%   image_sampling, align, dispersion_matrix, sensitivity, n_bands,...
 %   enabled_weights, options...
 % )
 %   Omits computations relating to regulariation weights, to be done during
@@ -56,9 +56,9 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 %   or spectral band of `I`. `sensitivity` is a matrix mapping colours in
 %   `I` to colours in `J`.
 %
-% lambda -- Wavelength bands
-%   A vector containing the wavelengths or colour channel indices
-%   corresponding to the spectral bands or colour channels of `I`.
+% n_bands -- Spectral size
+%   The number of colour channels or spectral bands in `I`, the latent
+%   image to be estimated.
 %
 % weights -- Regularization weights
 %   `weights(1)` is the 'alpha' weight on the regularization of the spatial
@@ -100,13 +100,6 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 %     Refer to the documentation of 'spectralGradient.m' for details.
 %     'full_GLambda' is not used if spectral regularization is disabled
 %     (when `weights(2) == 0` is `true`).
-%   - 'int_method': The numerical integration method used for spectral to
-%     colour space conversion. `int_method` is passed to
-%     'channelConversionMatrix()' as its `int_method` argument. Refer to
-%     the documentation of 'channelConversionMatrix.m' for details. If
-%     'int_method' is 'none', numerical integration will not be performed.
-%     'int_method' should be 'none' when `I` contains colour channels as
-%     opposed to spectral bands.
 %   - 'norms': A three-element logical vector, corresponding to the
 %     regularization terms. Each element specifies whether to use the L1
 %     norm (`true`) or an L2 norm (`false`) of the corresponding
@@ -133,6 +126,9 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 %   This function adds fields not used by 'baek2017Algorithm2LowMemory()':
 %   - 'Omega': The colour space conversion matrix, mapping the vectorized
 %     latent image to a vector in the colour space of the input image.
+%   - 'Omega_Phi': The colour space conversion and warping matrix,
+%     which applies dispersion to the vectorized latent image, and converts
+%     the image to the colour space of the input image.
 %   - 'M': The mosaicking matrix, mapping the vectorized form of the full
 %     colour image (`Omega * I`) to a colour-filter array format.
 %   - 'A_const_noWeights': A partial computation of 'A' which is
@@ -162,7 +158,7 @@ if nargin == 7
     align = varargin{2};
     dispersion_matrix = varargin{3};
     sensitivity = varargin{4};
-    lambda = varargin{5};
+    n_bands = varargin{5};
     no_weights = islogical(varargin{6});
     if no_weights
         nargoutchk(1, 1);
@@ -225,21 +221,9 @@ if compute_all
         error('The penalty parameters, `rho`, must be positive numbers.');
     end
 
-    int_method = options.int_method;
-    if isStringScalar(int_method) || ischar(int_method)
-        do_integration = ~strcmp(int_method, 'none');
-    else
-        error('`options.int_method` must be a character vector or a string scalar.');
-    end
-
-    n_bands = length(lambda);
     n_elements_I = prod(image_sampling) * n_bands;
-    if do_integration
-        Omega_Phi = channelConversionMatrix(image_sampling, sensitivity, lambda, int_method);
-    else
-        Omega_Phi = channelConversionMatrix(image_sampling, sensitivity);
-    end
-    out.Omega = Omega_Phi;
+    out.Omega = channelConversionMatrix(image_sampling, sensitivity);
+    out.Omega_Phi = out.Omega;
     if ~isempty(dispersion_matrix)
         if isfloat(dispersion_matrix) && ismatrix(dispersion_matrix)
             if size(dispersion_matrix, 1) ~= n_elements_I
@@ -250,7 +234,7 @@ if compute_all
         else
             error('`dispersion_matrix` must be a floating-point matrix.');
         end
-        Omega_Phi = Omega_Phi * dispersion_matrix;
+        out.Omega_Phi = out.Omega * dispersion_matrix;
     end
 
     out.G = cell(n_priors, 1); 
@@ -272,11 +256,11 @@ if compute_all
             ] * G_xy;
     end
     if enabled_weights(3)
-        out.G{3} = antiMosaicMatrix(image_sampling, align) * Omega_Phi;
+        out.G{3} = antiMosaicMatrix(image_sampling, align) * out.Omega_Phi;
     end
 
     out.M = mosaicMatrix(image_sampling, align);
-    out.M_Omega_Phi = out.M * Omega_Phi;
+    out.M_Omega_Phi = out.M * out.Omega_Phi;
     
     out.J = zeros(size(out.M_Omega_Phi, 1), 1);
 

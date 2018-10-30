@@ -318,13 +318,17 @@ int_weights = integrationWeights(color_bands, options.int_method);
 color_weights = color_map * diag(int_weights) * resampling_map;
 
 % Construct a spectral upsampling matrix
-[other_bands_grid, bands_grid] = ndgrid(spectral_bands, bands_padded);
-spectral_weights = sinc((other_bands_grid - bands_grid) / bands_spacing);
-spectral_weights = [
-    sum(spectral_weights(:, 1:(options.bands_padding + 1)), 2),...
-    spectral_weights(:, (options.bands_padding + 2):(end - options.bands_padding - 1)),...
-    sum(spectral_weights(:, (end - options.bands_padding):end), 2)
-];
+if length(bands) == length(spectral_bands) && all(bands == spectral_bands)
+    spectral_weights = eye(length(spectral_bands));
+else
+    [other_bands_grid, bands_grid] = ndgrid(spectral_bands, bands_padded);
+    spectral_weights = sinc((other_bands_grid - bands_grid) / bands_spacing);
+    spectral_weights = [
+        sum(spectral_weights(:, 1:(options.bands_padding + 1)), 2),...
+        spectral_weights(:, (options.bands_padding + 2):(end - options.bands_padding - 1)),...
+        sum(spectral_weights(:, (end - options.bands_padding):end), 2)
+    ];
+end
 
 % Construct a reference colour conversion matrix
 if output_reference_weights

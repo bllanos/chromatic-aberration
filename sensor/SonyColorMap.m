@@ -56,7 +56,7 @@ parameters_list = {
 %% Input data and parameters
 
 fn_name = 'sonyQuantumEfficiency';
-bands = linspace(200, 1200, 1000).';
+bands = (200:1200).';
 channel_mode = false;
 
 %% Load the data
