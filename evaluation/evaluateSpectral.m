@@ -235,8 +235,14 @@ nargoutchk(1, 2);
 border = 10;
 
 n_bands = length(lambda);
-if n_bands ~= size(R_spectral, 3)
-    error('The size of `R_spectral` in its third dimension must equal the length of `lambda`.');
+if n_bands ~= size(spectral_weights, 1)
+    error('The number of bands in `lambda` must equal the size of `spectral_weights` in its first dimension.');
+end
+if size(spectral_weights, 1) ~= size(R_spectral, 3)
+    error('The number of rows of `spectral_weights` must equal the size of `R_spectral` in its third dimension.');
+end
+if size(spectral_weights, 2) ~= size(I_spectral, 3)
+    error('The number of columns of `spectral_weights` must equal the size of `I_spectral` in its third dimension.');
 end
 
 class_spectral = class(I_spectral);

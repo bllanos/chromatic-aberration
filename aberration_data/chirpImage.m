@@ -185,7 +185,7 @@ end
 
 diff_lambda = diff(lambda);
 delta_lambda = diff_lambda(1);
-if any(diff_lambda ~= delta_lambda)
+if max(abs(diff_lambda - delta_lambda)) > 1e-6
     error('`lambda` must contain equally-spaced values.')
 end
 

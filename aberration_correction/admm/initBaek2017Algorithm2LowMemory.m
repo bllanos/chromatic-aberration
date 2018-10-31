@@ -52,9 +52,9 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 %
 % sensitivity -- Spectral band conversion matrix
 %   A 2D array, where `sensitivity(i, j)` is the sensitivity of the i-th
-%   colour channel of the input image `J` to the j-th input colour channel
-%   or spectral band of `I`. `sensitivity` is a matrix mapping colours in
-%   `I` to colours in `J`.
+%   colour channel of the input image `J` to the j-th colour channel or
+%   spectral band of `I`. `sensitivity` is a matrix mapping colours in `I`
+%   to colours in `J`.
 %
 % n_bands -- Spectral size
 %   The number of colour channels or spectral bands in `I`, the latent

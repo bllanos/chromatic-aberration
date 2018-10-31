@@ -454,10 +454,15 @@ if input_I_in
     if any(image_sampling ~= [size(I_in.I, 1), size(I_in.I, 2)])
         error('The spatial dimensions of `I_in.I` must match those of `J`.')
     end
-    if n_bands ~= size(I_in.I, 3)
-        error('The number of wavelengths in `lambda` must equal the size of `I_in.I` in its third dimension.');
+    if n_bands ~= size(I_in.spectral_weights, 2)
+        error('The number of wavelengths in `lambda` must equal the size of `I_in.spectral_weights` in its second dimension.');
+    end
+    if size(I_in.spectral_weights, 1) ~= size(I_in.I, 3)
+        error('The number of rows of `I_in.spectral_weights` must equal the size of `I_in.I` in its third dimension.');
     end
     I_in_j.spectral_weights = I_in.spectral_weights;
+else
+    I_in_j = struct;
 end
 
 if do_single_patch
@@ -484,7 +489,7 @@ end
 % Channel indices in the input concatenation of images
 n_channels_in = 0;
 if input_I_in
-    channels_in.I_in = [ 1, n_bands ]; % True image
+    channels_in.I_in = [ 1, size(I_in.I, 3) ]; % True image
     n_channels_in = n_channels_in + channels_in.I_in(2);
 end
 channels_in.J = n_channels_in + [1, size(J_2D, 3)]; % Input image

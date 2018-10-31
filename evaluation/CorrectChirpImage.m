@@ -267,7 +267,7 @@ padding_ratio_max = 1;
 % Dispersion magnitudes in pixels to test. Note that zero dispersion will
 % always be tested (and so will be added to the list if it is not specified
 % here). Negative dispersion values are not allowed.
-dispersion_px = 3; %[0.1, 0.3, 1, 2, 3];
+dispersion_px = []; %[0.1, 0.3, 1, 2, 3];
 % Number of additional dispersion magnitudes to test, provided that the
 % largest value in `dispersion_px` is below the suggested maximum
 % dispersion value output by 'chirpImage()'. (Otherwise, no additional
@@ -316,11 +316,13 @@ if normalize_color_map
 end
 
 [...
-    color_weights, spectral_weights, bands...
+    color_weights, ~, bands...
 ] = samplingWeights(...
   sensor_map, bands_color, bands_color, samplingWeightsOptions, samplingWeightsVerbose...
 );
 n_bands = length(bands);
+spectral_weights = eye(n_bands);
+image_sampling_3 = [image_sampling, n_bands];
 
 %% Validate parameters, and construct intermediate parameters
 if use_fixed_weights

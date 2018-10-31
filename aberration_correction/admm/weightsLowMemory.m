@@ -292,8 +292,11 @@ if input_I_in
     if any([size(J_2D, 1), size(J_2D, 2)] ~= [size(I_in.I, 1), size(I_in.I, 2)])
         error('The spatial dimensions of `I_in.I` must match those of `J_2D`.')
     end
-    if n_bands ~= size(I_in.I, 3)
-        error('The number of wavelengths in `lambda` must equal the size of `I_in.I` in its third dimension.');
+    if n_bands ~= size(I_in.spectral_weights, 2)
+        error('The number of wavelengths in `lambda` must equal the size of `I_in.spectral_weights` in its second dimension.');
+    end
+    if size(I_in.spectral_weights, 1) ~= size(I_in.I, 3)
+        error('The number of rows of `I_in.spectral_weights` must equal the size of `I_in.I` in its third dimension.');
     end
     output_path = (nargout > 4);
 else

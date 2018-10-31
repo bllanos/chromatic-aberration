@@ -215,10 +215,10 @@ grey_difference_threshold = 1;
 input_shading_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dtd_images/*.jpg';
 
 % Model of dispersion
-reverse_dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180709_TestingSplineModels/DoubleConvexThickLensDispersionResults_spline_modelFromReference_false.mat';
+reverse_dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181020_DoubleConvexThickLensDispersion_Final/Models/DoubleConvexThickLensDispersionResults_spectral_spline_fromNonReference.mat';
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/NikonD5100ColorMapData.mat';
+color_map_filename = '/home/llanos/Downloads/SonyColorMapData.mat';
 % Colour channel to use for radiance normalization
 normalization_channel = 2;
 
@@ -247,7 +247,7 @@ reflectances_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180604_C
 n_colors = 2;
 
 % Output directory for all images and saved data
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset';
+output_directory = '/home/llanos/Downloads';
 
 % ## Debugging Flags
 segmentColorsVerbose = false;

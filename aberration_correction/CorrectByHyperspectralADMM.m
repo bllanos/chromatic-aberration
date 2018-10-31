@@ -191,7 +191,7 @@ input_images_variable_name = 'I_raw'; % Used only when loading '.mat' files
 reverse_dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/BimaterialImagesData.mat';
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/NikonD5100ColorMapData.mat';
+color_map_filename = '/home/llanos/Downloads/SonyColorMapData.mat';
 
 % Output directory for all images and saved parameters
 output_directory = '/home/llanos/Downloads';

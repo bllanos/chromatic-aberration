@@ -74,7 +74,7 @@ solvePatchesADMMOptions.admm_options.rho = [ 1, 1, 1, 1 ];
 % Weights on the prior terms. Baek et al. (2017) used [1e-5, 0.1]. Setting
 % elements to zero disables the corresponding regularization term during
 % image estimation.
-weights = [ 1e-2, 1e-2, 0 ];
+weights = [ 1e-2, 0, 0 ];
 
 % Convergence tolerances in ADMM. Reasonable values for the third element
 % are 10^-4 to 10^-3 (page 21 of Boyd et al. 2011).
@@ -141,4 +141,4 @@ solvePatchesADMMOptions.reg_options.n_iter = [30, 6];
 %% ## Debugging Flags
 
 solvePatchesADMMVerbose = true;
-samplingWeightsVerbose = true;
+samplingWeightsVerbose = false;

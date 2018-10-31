@@ -238,13 +238,13 @@ spectral_bands = reshape(spectral_bands, 1, []);
 
 diff_color_bands = diff(color_bands);
 color_bands_spacing = diff_color_bands(1);
-if any(diff_color_bands ~= color_bands_spacing)
+if max(abs(diff_color_bands - color_bands_spacing)) > 1e-6
     error('`color_bands` must contain equally-spaced values.')
 end
 
 diff_spectral_bands = diff(spectral_bands);
 spectral_bands_spacing = diff_spectral_bands(1);
-if any(diff_spectral_bands ~= spectral_bands_spacing)
+if max(abs(diff_spectral_bands - spectral_bands_spacing)) > 1e-6
     error('`spectral_bands` must contain equally-spaced values.')
 end
 
@@ -257,20 +257,20 @@ end
 % Find endpoints of domain
 color_map_relative = color_map ./ repmat(max(color_map, [], 2), 1, n_color_bands);
 color_map_relative_logical = any(color_map_relative >= options.support_threshold, 1);
-start_band_ind = find(color_map_relative_logical, 1, 'first');
-start_band = color_bands(start_band_ind);
-end_band_ind = find(color_map_relative_logical, 1, 'last');
-end_band = color_bands(end_band_ind);
+start_domain_ind = find(color_map_relative_logical, 1, 'first');
+start_domain = color_bands(start_domain_ind);
+end_domain_ind = find(color_map_relative_logical, 1, 'last');
+end_domain = color_bands(end_domain_ind);
 
 if verbose
-    figure;
+    fg = figure;
     plot_colors = jet(n_channels);
     hold on
     for c = 1:n_channels
         plot(color_bands, color_map(c, :), 'Color', plot_colors(c, :), 'LineWidth', 2);
     end
-    scatter(start_band, 0, [], [0, 0, 0], 'filled');
-    scatter(end_band, 0, [], [0, 0, 0], 'filled');
+    scatter(start_domain, 0, [], [0, 0, 0], 'filled');
+    scatter(end_domain, 0, [], [0, 0, 0], 'filled');
     hold off
     xlabel('Wavelength [nm]')
     ylabel('Relative quantum efficiency')
@@ -285,10 +285,17 @@ else
     freq_wavelengths = freq / color_bands_spacing; % Units of cycles per unit change in wavelength
     bands_spacing = 1 / (2 * freq_wavelengths); % Nyquist limit sample spacing
 end
-bands = start_band:bands_spacing:end_band;
-% Add one sample to the end if the full range is not covered
-if bands(end) < end_band
-    bands(end + 1) = bands(end) + bands_spacing;
+% Center the bands within the domain
+n_bands = floor((end_domain - start_domain) / bands_spacing) + 1;
+bands_range = (n_bands - 1) * bands_spacing;
+start_band = (end_domain + start_domain - bands_range) / 2;
+bands = start_band + (bands_spacing * (0:(n_bands - 1)));
+
+if verbose
+    figure(fg);
+    hold on
+    scatter(bands, zeros(n_bands, 1), [], [1, 0, 1], 'filled');
+    hold off
 end
 
 if spectral_bands_spacing > bands_spacing

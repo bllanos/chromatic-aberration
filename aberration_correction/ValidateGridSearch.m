@@ -285,6 +285,7 @@ if channel_mode
     end
     color_weights = sensor_map;
     spectral_weights = eye(length(bands_color));
+    color_weights_reference = sensor_map;
 else
     [...
         color_weights, spectral_weights, bands, color_weights_reference...
