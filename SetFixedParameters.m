@@ -35,6 +35,49 @@ parameters_list = [parameters_list, {
     'solvePatchesADMMOptions'...
     }];
 
+%% Output images
+
+% One of each of the following types of images can be created for each
+% input image. The filename of the input image, concatenated with a string
+% of parameter information, is represented by '*' below.
+% - '*_roi.tif' and '*_roi.mat': A cropped version of the input image
+%   (stored in the variable 'I_raw'), containing the portion used as input
+%   for ADMM. This region of interest was determined using the
+%   `model_space` and `fill` variables saved in an input model of
+%   dispersion data file. If these variables were not present, the cropped
+%   region is the entire input image. All of the other output images listed
+%   below are limited to the region shown in '*_roi.tif'.
+% - '*_latent.tif' and '*_latent.mat': The latent image estimated using
+%   ADMM (stored in the variable 'I_latent'). The '.tif' image is only
+%   output if the latent images are greyscale or 3-channel images.
+% - '*_warped.tif' and '*_warped.mat': A version of the latent image
+%   (stored in the variable 'I_warped') created by warping the latent image
+%   according to the dispersion model. The '.tif' image is only output if
+%   the latent images are greyscale or 3-channel images.
+% - '*_rgb.tif': A colour image created by converting the latent image to
+%   the RGB colour space of the camera.
+% - '*_rgb_warped.tif' and '*_rgb_warped.mat': A colour image (stored in
+%   the variable 'J_full') created by warping the latent image according to
+%   the dispersion model, then converting the image to the RGB colour space
+%   of the camera. This output image is, in a sense, a demosaiced version
+%   of the input image.
+% - '*_reestimated.tif' and '*_reestimated.mat': A simulation (stored in
+%   the variable 'J_est') of the input RAW image from the latent image,
+%   useful for visually evaluating the convergence of the ADMM algorithm.
+%
+% Of the above types of images, the following will only be saved if the
+% flag below is `true`:
+% - '*_roi.tif'
+% - '*_warped.tif' and '*_warped.mat'
+% - '*_rgb_warped.tif' and '*_rgb_warped.mat'
+% - '*_reestimated.tif' and '*_reestimated.mat'
+save_all_images = false;
+
+% Not all scripts follow the above guidelines. In particular, image
+% generation scripts may output all possible images regardless of this
+% flag, especially if it will save time later during image estimation and
+% evaluation.
+
 %% Image parameters
 
 % Colour-filter pattern

@@ -34,18 +34,26 @@
 % on the image estimation algorithms. The filename of the input image,
 % concatenated with a string of parameter information, is represented by
 % '*' below:
-% - '*_roi.tif' and '*_roi.mat': A cropped version of the input image
-%   (stored in the variable 'I_raw'), containing the portion used as input.
-%   This region of interest was determined using the domain of the model of
-%   dispersion associated with the dataset. If no model of dispersion is
-%   associated with the dataset, the cropped region is the entire input
-%   image. All of the other output images listed below are limited to the
-%   region shown in this output image.
+% - '*_roi.tif': A cropped version of the input image, containing the
+%   portion used as input. This region of interest was determined using the
+%   domain of the model of dispersion associated with the dataset. If no
+%   model of dispersion is associated with the dataset, the cropped region
+%   is the entire input image. All of the other output images listed below
+%   are limited to the region shown in this output image.
 % - '*_latent.mat': The estimated latent spectral image (stored in the
 %   variable 'I_latent') corresponding to the input image.
-% - '*_rgb.tif' and '*_rgb.mat': A colour image (stored in the variable
-%   'I_rgb'). If it was not estimated directly, it was created by
-%   converting the latent image to the RGB colour space of the input image.
+% - '*_rgb.tif': A colour image. If it was not estimated directly, it was
+%   created by converting the latent image to the RGB colour space of the
+%   input image. Images which are estimated directly are also saved as
+%   '.mat' files (under the variable name 'I_rgb').
+%
+% For demosaicking algorithms, the colour images are saved under the names
+% of the demosaicking algorithms, with no '_rgb' suffix. Furthermore, if
+% there is a model of colour dispersion associated with the dataset,
+% additional images, '_channelWarp.tif' and '_channelWarp.mat' (using the
+% variable name 'I_rgb') are output. These images are corrections of the
+% demosaicking results for chromatic aberration using the colour dispersion
+% model.
 %
 % ### Regularization weights images
 %
@@ -145,7 +153,7 @@ run('SetAlgorithms.m')
 % Optionally override the list of ADMM-family algorithms to run, and the
 % regularization weights to run them with, from the output file of
 % 'SelectWeightsForDataset.m'. (Leave empty otherwise)
-admm_algorithms_filename = '/home/llanos/Downloads/SelectWeightsForDataset_kaist-crop.mat';
+admm_algorithms_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181031_KAIST_RepeatWithNewSpectralSampling/weights_selection/SelectWeightsForDataset_kaist-crop.mat';
 
 % Output directory for all images and saved parameters
 output_directory = '/home/llanos/Downloads';
@@ -208,7 +216,7 @@ for i = 1:n_images
     run('LoadAndConvertImage.m');
         
     saveImages(...
-        output_directory, names{i},...
+        'image', output_directory, names{i},...
         I_raw_gt, '_roi', 'I_raw'...
     );
     
@@ -336,8 +344,11 @@ for i = 1:n_images
                 );
                 
                 saveImages(...
-                    output_directory, name_params,...
-                    I_latent, 'latent', 'I_latent',...
+                    'data', output_directory, name_params,...
+                    I_latent, 'latent', 'I_latent'...
+                );
+                saveImages(...
+                    'image', output_directory, name_params,...
                     I_rgb, 'latent_rgb', 'I_rgb'...
                 );
             

@@ -285,7 +285,7 @@ if compute_all
 
     out.I = zeros(n_elements_I, 1);
 
-    active_constraints = [norms, options.nonneg];
+    active_constraints = [norms, nonneg];
     n_Z = find(active_constraints, 1, 'last');
 
     out.Z = cell(n_Z, 1);

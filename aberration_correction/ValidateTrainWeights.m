@@ -484,7 +484,6 @@ if n_active_weights < 4
             image_sampling_f, align_f, dispersion_f, color_weights,...
             n_bands, enabled_weights, solvePatchesADMMOptions.admm_options...
         );
-        in_penalties = initPenalties(in_admm.M_Omega_Phi, in_admm.G);
         
         % Test the combinations of weights
         all_mse_samples = zeros(n_samples_all, 1);
