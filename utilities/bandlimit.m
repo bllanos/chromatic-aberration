@@ -24,7 +24,8 @@ function [limit_freq, limit_rad] = bandlimit(signals, threshold, varargin)
 % threshold -- Power spectrum threshold
 %   The fraction of the cumulative power spectrum that the user considers
 %   to define the bandlimit (because no signal that is time-limited is
-%   truly frequency-limited).
+%   truly frequency-limited). Note that the zero frequency is omitted from
+%   the cumulative power spectrum.
 %
 % verbose -- Debugging flag
 %   A Boolean scalar which enables graphical debugging output if `true`.
@@ -33,13 +34,14 @@ function [limit_freq, limit_rad] = bandlimit(signals, threshold, varargin)
 % ## Output Arguments
 %
 % limit_freq -- Bandlimit in time units
-%   The cumulative power spectrum is computed for each signal. The i-th
-%   element of a cumulative power spectrum gives the amount of power in a
-%   signal that is represented by frequencies less than or equal to the
-%   i-th frequency in the discrete Fourier transform of the signal. The
-%   bandlimit for a signal is the frequency at or below which a fraction of
-%   at least `threshold` of the total power is contained. `limit_freq` is
-%   the maximum of the bandlimits computed for the rows of `signals`.
+%   The cumulative power spectrum, for all frequencies except the zero
+%   frequency, is computed for each signal. The i-th element of a
+%   cumulative power spectrum gives the amount of power in a signal that is
+%   represented by frequencies less than or equal to the i-th frequency in
+%   the discrete Fourier transform of the signal. The bandlimit for a
+%   signal is the frequency at or below which a fraction of at least
+%   `threshold` of the total power is contained. `limit_freq` is the
+%   maximum of the bandlimits computed for the rows of `signals`.
 %
 %   `limit_freq` is in units of cycles per interval between adjacent sample
 %   points in the discrete representation `signals`.
@@ -72,6 +74,7 @@ if threshold < 0 || threshold > 1
     error('`threshold` must be from 0 to 1.');
 end
 
+n_signals = size(signals, 1);
 n = size(signals, 2);
 n_pow2 = 2 ^ nextpow2(n);
 n_pow2_2 = n_pow2 / 2;
@@ -79,7 +82,7 @@ n_pow2_21 = n_pow2_2 + 1;
 sampling_freq = 1;
 sampling_period = 1 / sampling_freq;
 sampling_length = n + 1;
-freq_sampling = 0:(sampling_freq/n_pow2):sampling_freq/2;
+freq_sampling = linspace(0, sampling_freq/2, n_pow2_21);
 
 freq_two_sided = fft(signals, n_pow2, 2);
 freq = abs(freq_two_sided / n_pow2);
@@ -90,14 +93,15 @@ freq(:, 2:(end - 1)) = 2 * freq(:, 2:(end - 1));
 power = (freq .^ 2) * n_pow2;
 % Divide by 2 to correct for the earlier multiplication by 2
 power(:, 2:(end - 1)) = power(:, 2:(end - 1)) / 2;
-power_cum = cumsum(power, 2);
-power_cum = power_cum ./ repmat(power_cum(:, end), 1, n_pow2_21);
 
-n_signals = size(signals, 1);
-bandlimits_ind = zeros(n_signals, 1);
-bandlimits_mask = power_cum >= threshold;
-for c = 1:n_signals
-    bandlimits_ind(c) = find(bandlimits_mask(c, :), 1);
+bandlimits_ind = repmat(n_pow2_21, n_signals, 1);
+if threshold < 1
+    power_cum = cumsum(power(:, 2:end), 2);
+    power_cum = power_cum ./ repmat(power_cum(:, end), 1, n_pow2_2);
+    bandlimits_mask = power_cum >= threshold;
+    for c = 1:n_signals
+        bandlimits_ind(c) = find(bandlimits_mask(c, :), 1) + 1;
+    end
 end
 
 if verbose

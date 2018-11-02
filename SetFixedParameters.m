@@ -95,6 +95,10 @@ bayer_pattern = 'gbrg';
 samplingWeightsOptions.int_method = 'trap';
 
 samplingWeightsOptions.power_threshold = 0.99;
+% As an alternative to automatically determining the number of spectral
+% bands, according to `samplingWeightsOptions.power_threshold`, set it
+% explicitly (if the following option is an integer greater than zero).
+samplingWeightsOptions.n_bands = 0;
 
 samplingWeightsOptions.support_threshold = 0.05;
 
@@ -184,4 +188,4 @@ solvePatchesADMMOptions.reg_options.n_iter = [30, 6];
 %% ## Debugging Flags
 
 solvePatchesADMMVerbose = true;
-samplingWeightsVerbose = false;
+samplingWeightsVerbose = true;
