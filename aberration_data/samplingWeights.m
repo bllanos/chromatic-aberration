@@ -256,7 +256,8 @@ end
 
 output_reference_weights = nargout > 3;
 
-if options.bands_padding < 0
+padding = options.bands_padding;
+if padding < 0
     error('`options.bands_padding` must be nonnegative.');
 end
 
@@ -365,61 +366,32 @@ for i = 1:n_cells
     end
 end
 
+upsampling_function = @sinc;
+
 % Construct a colour conversion matrix
-% The following code is based on the "Ideal Bandlimited Interpolation"
-% example in the MATLAB Help page for 'sinc()'.
-color_bands_padded = [
-    (color_bands(1) - (options.bands_padding * color_bands_spacing)):color_bands_spacing:(color_bands(1) - color_bands_spacing),...
-    color_bands,...
-    (color_bands(end) + color_bands_spacing):color_bands_spacing:(color_bands(end) + (options.bands_padding * color_bands_spacing))
-];
-bands_padded = [
-    (bands(1) - (options.bands_padding * bands_spacing)):bands_spacing:(bands(1) - bands_spacing),...
-    bands,...
-    (bands(end) + bands_spacing):bands_spacing:(bands(end) + (options.bands_padding * bands_spacing))
-];
 if color_bands_spacing > bands_spacing
     % Upsample the spectral sensitivities
-    [bands_grid, color_bands_grid] = ndgrid(bands, color_bands_padded);
-    resampling_map = sinc((bands_grid - color_bands_grid) / color_bands_spacing);
-    % Adjust the weights of the endpoints to that resampling assumes the
-    % value of the signal outside of its domain is equal to its value at
-    % the nearest endpoint of its domain
-    resampling_map = [
-        sum(resampling_map(:, 1:(options.bands_padding + 1)), 2),...
-        resampling_map(:, (options.bands_padding + 2):(end - options.bands_padding - 1)),...
-        sum(resampling_map(:, (end - options.bands_padding):end), 2)
-    ];
-    color_map_resampled = (resampling_map * (color_map.')).';
+    upsampling_map = upsamplingWeights(...
+        bands, color_bands, upsampling_function, padding...
+    );
+    color_map_upsampled = (upsampling_map * (color_map.')).';
     int_weights = integrationWeights(bands, options.int_method);
-    color_weights = color_map_resampled * diag(int_weights);
+    color_weights = color_map_upsampled * diag(int_weights);
 else
     % Upsample the sampled spectra
-    [color_bands_grid, bands_grid] = ndgrid(color_bands, bands_padded);
-    resampling_map = sinc((color_bands_grid - bands_grid) / bands_spacing);
-    resampling_map = [
-        sum(resampling_map(:, 1:(options.bands_padding + 1)), 2),...
-        resampling_map(:, (options.bands_padding + 2):(end - options.bands_padding - 1)),...
-        sum(resampling_map(:, (end - options.bands_padding):end), 2)
-    ];
+    upsampling_map = upsamplingWeights(...
+        color_bands, bands, upsampling_function, padding...
+    );
     int_weights = integrationWeights(color_bands, options.int_method);
-    color_weights = color_map * diag(int_weights) * resampling_map;
+    color_weights = color_map * diag(int_weights) * upsampling_map;
 end
 
 % Construct a spectral upsampling matrix
 spectral_weights = cell(size(spectral_bands));
 for i = 1:n_cells
-    if length(bands) == length(spectral_bands{i}) && all(bands == spectral_bands{i})
-        spectral_weights{i} = eye(length(spectral_bands{i}));
-    else
-        [other_bands_grid, bands_grid] = ndgrid(spectral_bands{i}, bands_padded);
-        spectral_weights{i} = sinc((other_bands_grid - bands_grid) / bands_spacing);
-        spectral_weights{i} = [
-            sum(spectral_weights{i}(:, 1:(options.bands_padding + 1)), 2),...
-            spectral_weights{i}(:, (options.bands_padding + 2):(end - options.bands_padding - 1)),...
-            sum(spectral_weights{i}(:, (end - options.bands_padding):end), 2)
-        ];
-    end
+    spectral_weights{i} = upsamplingWeights(...
+        spectral_bands{i}, bands, upsampling_function, padding...
+    );
 end
 if ~is_cell_spectral_bands
     spectral_weights = spectral_weights{1};
@@ -431,32 +403,19 @@ if output_reference_weights
     for i = 1:n_cells
         if color_bands_spacing > spectral_bands_spacing(i)
             % Upsample the spectral sensitivities
-            [other_bands_grid, color_bands_grid] = ndgrid(spectral_bands{i}, color_bands_padded);
-            resampling_map = sinc((other_bands_grid - color_bands_grid) / color_bands_spacing);
-            resampling_map = [
-                sum(resampling_map(:, 1:(options.bands_padding + 1)), 2),...
-                resampling_map(:, (options.bands_padding + 2):(end - options.bands_padding - 1)),...
-                sum(resampling_map(:, (end - options.bands_padding):end), 2)
-            ];
-            color_map_resampled = (resampling_map * (color_map.')).';
+            upsampling_map = upsamplingWeights(...
+                spectral_bands{i}, color_bands, upsampling_function, padding...
+            );
+            color_map_upsampled = (upsampling_map * (color_map.')).';
             int_weights = integrationWeights(spectral_bands{i}, options.int_method);
-            color_weights_reference{i} = color_map_resampled * diag(int_weights);
+            color_weights_reference{i} = color_map_upsampled * diag(int_weights);
         else
             % Upsample the reference spectra
-            spectral_bands_padded = [
-                (spectral_bands{i}(1) - (options.bands_padding * spectral_bands_spacing(i))):spectral_bands_spacing(i):(spectral_bands{i}(1) - spectral_bands_spacing(i)),...
-                spectral_bands{i},...
-                (spectral_bands{i}(end) + spectral_bands_spacing(i)):spectral_bands_spacing(i):(spectral_bands{i}(end) + (options.bands_padding * spectral_bands_spacing(i)))
-            ];
-            [other_bands_grid, spectral_bands_grid] = ndgrid(color_bands, spectral_bands_padded);
-            resampling_map = sinc((other_bands_grid - spectral_bands_grid) / spectral_bands_spacing(i));
-            resampling_map = [
-                sum(resampling_map(:, 1:(options.bands_padding + 1)), 2),...
-                resampling_map(:, (options.bands_padding + 2):(end - options.bands_padding - 1)),...
-                sum(resampling_map(:, (end - options.bands_padding):end), 2)
-            ];
+            upsampling_map = upsamplingWeights(...
+                color_bands, spectral_bands{i}, upsampling_function, padding...
+            );
             int_weights = integrationWeights(color_bands, options.int_method);
-            color_weights_reference{i} = color_map * diag(int_weights) * resampling_map;
+            color_weights_reference{i} = color_map * diag(int_weights) * upsampling_map;
         end
     end
 end
