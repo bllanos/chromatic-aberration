@@ -3,18 +3,19 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 %
 % ## Syntax
 % [out, weights] = initBaek2017Algorithm2LowMemory(...
-%   image_sampling, align, dispersion_matrix, sensitivity, n_bands,...
+%   J_2D, align, dispersion_matrix, sensitivity,...
 %   weights, options...
 % )
 % out = initBaek2017Algorithm2LowMemory(...
-%   image_sampling, align, dispersion_matrix, sensitivity, n_bands,...
+%   J_2D, align, dispersion_matrix, sensitivity,...
 %   enabled_weights, options...
 % )
 % [out, weights] = initBaek2017Algorithm2LowMemory(out, weights, options)
+% out = initBaek2017Algorithm2LowMemory(out)
 %
 % ## Description
 % [out, weights] = initBaek2017Algorithm2LowMemory(...
-%   image_sampling, align, dispersion_matrix, sensitivity, n_bands,...
+%   J_2D, align, dispersion_matrix, sensitivity,...
 %   weights, options...
 % )
 %   Returns a structure containing arrays to be used by
@@ -22,7 +23,7 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 %   weights for 'baek2017Algorithm2LowMemory()'.
 %
 % out = initBaek2017Algorithm2LowMemory(...
-%   image_sampling, align, dispersion_matrix, sensitivity, n_bands,...
+%   J_2D, align, dispersion_matrix, sensitivity,...
 %   enabled_weights, options...
 % )
 %   Omits computations relating to regulariation weights, to be done during
@@ -31,12 +32,15 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 % [out, weights] = initBaek2017Algorithm2LowMemory(out, weights, options)
 %   Adjusts the `out` structure to account for the new value of `weights`.
 %
+% out = initBaek2017Algorithm2LowMemory(out)
+%   Re-initializes only the estimated image, `out.I`.
+%
 % ## Input Arguments
 %
-% image_sampling -- Image dimensions
-%   A two-element vector containing the height and width, respectively, of
-%   the latent image `I`, and of the captured input image, `J`, to which
-%   `I` corresponds.
+% J_2D -- Input RAW image
+%   A 2D array containing the raw colour-filter pattern data of an image.
+%   The input image is referred to as `J` below, not `J_2D`, because it is
+%   usually used in column vector form.
 %
 % align -- Bayer pattern description
 %   A four-character character vector, specifying the Bayer tile pattern of
@@ -55,10 +59,6 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 %   colour channel of the input image `J` to the j-th colour channel or
 %   spectral band of `I`. `sensitivity` is a matrix mapping colours in `I`
 %   to colours in `J`.
-%
-% n_bands -- Spectral size
-%   The number of colour channels or spectral bands in `I`, the latent
-%   image to be estimated.
 %
 % weights -- Regularization weights
 %   `weights(1)` is the 'alpha' weight on the regularization of the spatial
@@ -110,6 +110,22 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 %   - 'nonneg': A Boolean scalar specifying whether or not to enable a
 %     non-negativity constraint on the estimated image. If `true`, 'rho'
 %     must have four elements.
+%   - 'maxit': A two-element vector. The first element contains the maximum
+%     number of iterations to use with MATLAB's 'pcg()' function during
+%     image initialization. The second element of `maxit` is not used by
+%     this function.
+%   - 'tol': A three-element vector containing convergence tolerances. The
+%     first element is the tolerance value to use with MATLAB's 'pcg()'
+%     function, such as when solving the I-minimization step of the ADMM
+%     algorithm. The second and third elements are the absolute and
+%     relative tolerance values for the ADMM algorithm, as explained in
+%     Section 3.3.1 of Boyd et al. 2011. This function only uses the first
+%     element.
+%   - 'init': A character vector specifying how to initialize the latent
+%     image `out.I`:
+%     - 'zero': `out.I` will be a zero vector.
+%     - 'uniform': `out.I` will be a pattern of uniform spectral
+%       intensities that best fits the input image `J`.
 %
 % out -- Preallocated arrays and intermediate data
 %   The `in` input/output argument of 'baek2017Algorithm2LowMemory()'.
@@ -134,6 +150,9 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 %   - 'A_const_noWeights': A partial computation of 'A' which is
 %     independent of the ADMM penalty parameters, and of the regularization
 %     weights.
+%   - 'InitMatrix': A matrix, present only if `options.init` is
+%     `'uniform'`, used to project a uniform spectral intensity image onto
+%     the input image `J`.
 %
 %   The 'A_const' field will only be initialized/updated when `weights` is
 %   passed.
@@ -152,22 +171,37 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 % University of Alberta, Department of Computing Science
 % File created October 9, 2018
 
-if nargin == 7
+    function initI()
+        if isfield(out, 'InitMatrix')
+            [out.I(1:size(out.InitMatrix, 2)), ~] = pcg(...
+                out.InitMatrix, out.J, options.tol(1), options.maxit(1)...
+            );
+            out.I((size(out.InitMatrix, 2) + 1):end) = repmat(...
+                out.I(1:size(out.InitMatrix, 2)),...
+                (size(out.Omega, 2) / size(out.InitMatrix, 2) - 1), 1 ...
+            );
+        else
+            out.I = zeros(size(out.I));
+        end
+    end
+
+if nargin == 6
     compute_all = true;
-    image_sampling = varargin{1};
+    J_2D = varargin{1};
+    image_sampling = [size(J_2D, 1), size(J_2D, 2)];
     align = varargin{2};
     dispersion_matrix = varargin{3};
     sensitivity = varargin{4};
-    n_bands = varargin{5};
-    no_weights = islogical(varargin{6});
+    n_bands = size(sensitivity, 2);
+    no_weights = islogical(varargin{5});
     if no_weights
         nargoutchk(1, 1);
-        enabled_weights = varargin{6};
+        enabled_weights = varargin{5};
     else
         nargoutchk(2, 2);
-        weights = varargin{6};
+        weights = varargin{5};
     end
-    options = varargin{7};
+    options = varargin{6};
 elseif nargin == 3
     nargoutchk(2, 2);
     no_weights = false;
@@ -175,6 +209,10 @@ elseif nargin == 3
     out = varargin{1};
     weights = varargin{2};
     options = varargin{3};
+elseif nargin == 1
+    out = varargin{1};
+    initI();
+    return;
 else
     error('Unexpected number of input arguments.')
 end
@@ -224,7 +262,9 @@ if compute_all
     n_elements_I = prod(image_sampling) * n_bands;
     out.Omega = channelConversionMatrix(image_sampling, sensitivity);
     out.Omega_Phi = out.Omega;
-    if ~isempty(dispersion_matrix)
+    
+    has_dispersion = ~isempty(dispersion_matrix);
+    if has_dispersion
         if isfloat(dispersion_matrix) && ismatrix(dispersion_matrix)
             if size(dispersion_matrix, 1) ~= n_elements_I
                 error('`dispersion_matrix` must have as many rows as there are pixels in `J` times bands.');
@@ -262,7 +302,7 @@ if compute_all
     out.M = mosaicMatrix(image_sampling, align);
     out.M_Omega_Phi = out.M * out.Omega_Phi;
     
-    out.J = zeros(size(out.M_Omega_Phi, 1), 1);
+    out.J = reshape(J_2D, [], 1);
 
     out.M_Omega_Phi_J = zeros(n_elements_I, 1);
     out.G_T = cell(n_priors, 1);
@@ -284,6 +324,14 @@ if compute_all
     out.b = zeros(n_elements_I, 1);
 
     out.I = zeros(n_elements_I, 1);
+    if strcmp(options.init, 'uniform')
+        out.InitMatrix = out.M * channelConversionMatrix(image_sampling, sum(sensitivity, 2));
+        if has_dispersion
+            out.InitMatrix = out.InitMatrix * dispersion_matrix;
+        end
+    elseif ~strcmp(options.init, 'zero')
+        error('Unrecognized value of `options.init`.');
+    end
 
     active_constraints = [norms, nonneg];
     n_Z = find(active_constraints, 1, 'last');
@@ -298,7 +346,7 @@ if compute_all
     for z_ind = 1:n_Z
         if active_constraints(z_ind)
             if z_ind == nonneg_ind
-                len_Z = length(out.I);
+                len_Z = n_elements_I;
             else
                 len_Z = size(out.G{z_ind}, 1);
             end
@@ -330,5 +378,7 @@ if ~no_weights
         end
     end
 end
+
+initI();
 
 end

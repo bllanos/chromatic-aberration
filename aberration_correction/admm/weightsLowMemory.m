@@ -1,5 +1,5 @@
 function [ I, weights, in, in_admm, varargout ] = weightsLowMemory(...
-    J_2D, align, n_bands, admm_options, options, in, in_admm, varargin...
+    admm_options, options, in, in_admm, varargin...
     )
 % WEIGHTSLOWMEMORY  Select regularization weights using a grid search
 %
@@ -12,56 +12,43 @@ function [ I, weights, in, in_admm, varargout ] = weightsLowMemory(...
 %
 % ## Syntax
 % [ I, weights, in, in_admm ] = weightsLowMemory(...
-%   J_2D, align, n_bands, admm_options, options, in, in_admm, I_in [, verbose]...
+%   admm_options, options, in, in_admm, I_in [, verbose]...
 % )
 % [ I, weights, in, in_admm, search ] = weightsLowMemory(...
-%   J_2D, align, n_bands, admm_options, options, in, in_admm, I_in [, verbose]...
+%   admm_options, options, in, in_admm, I_in [, verbose]...
 % )
 % [ I, weights, in, in_admm, in_penalties ] = weightsLowMemory(...
-%   J_2D, align, n_bands, admm_options, options, in, in_admm, in_penalties [, verbose]...
+%   admm_options, options, in, in_admm, in_penalties [, verbose]...
 % )
 % [ I, weights, in, in_admm, in_penalties, search ] = weightsLowMemory(...
-%   J_2D, align, n_bands, admm_options, options, in, in_admm, in_penalties [, verbose]...
+%   admm_options, options, in, in_admm, in_penalties [, verbose]...
 % )
 %
 % ## Description
 % [ I, weights, in, in_admm ] = weightsLowMemory(...
-%   J_2D, align, n_bands, admm_options, options, in, in_admm, I_in [, verbose]...
+%   admm_options, options, in, in_admm, I_in [, verbose]...
 % )
 %   Returns the regularization weights, selected using the grid search
 %   method of Song et al. 2016, that minimize the true mean-squared error.
 %
 % [ I, weights, in, in_admm, search ] = weightsLowMemory(...
-%   J_2D, align, n_bands, admm_options, options, in, in_admm, I_in [, verbose]...
+%   admm_options, options, in, in_admm, I_in [, verbose]...
 % )
 %   Additionally return the search path taken to select the weights.
 %
 % [ I, weights, in, in_admm, in_penalties ] = weightsLowMemory(...
-%   J_2D, align, n_bands, admm_options, options, in, in_admm, in_penalties [, verbose]...
+%   admm_options, options, in, in_admm, in_penalties [, verbose]...
 % )
 %   Returns the regularization weights, selected using the grid search
 %   method of Song et al. 2016, that minimize the minimum distance
 %   criterion.
 %
 % [ I, weights, in, in_admm, in_penalties, search ] = weightsLowMemory(...
-%   J_2D, align, n_bands, admm_options, options, in, in_admm, in_penalties [, verbose]...
+%   admm_options, options, in, in_admm, in_penalties [, verbose]...
 % )
 %   Additionally return the search path taken to select the weights.
 %
 % ## Input Arguments
-%
-% J_2D -- Input image
-%   A 2D or 3D array containing the input image for the latent image
-%   estimation problem.
-%
-% align -- Bayer pattern description
-%   A four-character character vector, specifying the Bayer tile pattern of
-%   the input image `J`. For example, 'gbrg'. `align` has the same form
-%   as the `sensorAlignment` input argument of `demosaic()`.
-%
-% n_bands -- Spectral size
-%   The number of colour channels or spectral bands in the latent image to
-%   be estimated.
 %
 % admm_options -- Options for latent image estimation
 %   The `options` input argument of 'baek2017Algorithm2LowMemory()'. Refer
@@ -138,9 +125,7 @@ function [ I, weights, in, in_admm, varargout ] = weightsLowMemory(...
 %   with another image (such as the true image). `I_in` is must be a
 %   structure with the following fields:
 %   - 'I': A 2D or 3D array containing the image, against which the
-%     estimated latent image will be compared. 'I' and `J_2D` must have the
-%     same sizes in their first two dimensions. (i.e. They must have the
-%     same image resolutions.)
+%     estimated latent image will be compared.
 %   - 'spectral_weights': A 2D array, where `spectral_weights(i, j)` is the
 %     sensitivity of the i-th colour channel or spectral band of 'I' to the
 %     j-th colour channel or spectral band of the estimated latent image.
@@ -163,8 +148,7 @@ function [ I, weights, in, in_admm, varargout ] = weightsLowMemory(...
 % ## Output Arguments
 %
 % I -- Estimated latent image
-%   The vectorized form of the estimated latent image corresponding to
-%   `J_2D`.
+%   The vectorized form of the estimated latent image.
 %
 % weights -- Selected regularization weights
 %   The value of the `weights` input argument for
@@ -253,9 +237,7 @@ function [ I, weights, in, in_admm, varargout ] = weightsLowMemory(...
             [in_admm, weights_s] = initBaek2017Algorithm2LowMemory(...
                 in_admm, weights_s, admm_options...
             );
-            in_admm = baek2017Algorithm2LowMemory(...
-                align, n_bands, J_2D, weights_s, admm_options, in_admm...
-            );
+            in_admm = baek2017Algorithm2LowMemory(weights_s, admm_options, in_admm);
             if input_I_in
                 in.I_est = in.Omega_Phi * in_admm.I;
                 criterion_s = immse(I_in.I(:), in.I_est);
@@ -283,18 +265,12 @@ function [ I, weights, in, in_admm, varargout ] = weightsLowMemory(...
         end
     end
 
-narginchk(9, 10);
+narginchk(5, 6);
 
 input_I_in = isfield(varargin{1}, 'I');
 if input_I_in
     nargoutchk(1, 5);
     I_in = varargin{1};
-    if any([size(J_2D, 1), size(J_2D, 2)] ~= [size(I_in.I, 1), size(I_in.I, 2)])
-        error('The spatial dimensions of `I_in.I` must match those of `J_2D`.')
-    end
-    if n_bands ~= size(I_in.spectral_weights, 2)
-        error('The number of wavelengths in `lambda` must equal the size of `I_in.spectral_weights` in its second dimension.');
-    end
     if size(I_in.spectral_weights, 1) ~= size(I_in.I, 3)
         error('The number of rows of `I_in.spectral_weights` must equal the size of `I_in.I` in its third dimension.');
     end
@@ -334,9 +310,7 @@ if all(min_weights == max_weights)
     [in_admm, weights_normalized] = initBaek2017Algorithm2LowMemory(...
         in_admm, weights, admm_options...
     );
-    in_admm = baek2017Algorithm2LowMemory(...
-        align, n_bands, J_2D, weights_normalized, admm_options, in_admm...
-    );
+    in_admm = baek2017Algorithm2LowMemory(weights_normalized, admm_options, in_admm);
     I = in_admm.I;
     if output_path
         if input_I_in

@@ -142,6 +142,9 @@ solvePatchesADMMOptions.admm_options.norms = [false, false, false];
 % have four elements)
 solvePatchesADMMOptions.admm_options.nonneg = true;
 
+% Image initialization method
+solvePatchesADMMOptions.admm_options.init = 'zero';
+
 % ## Options for patch-wise image estimation
 
 % Every combination of rows of `patch_sizes` and elements of `paddings`
