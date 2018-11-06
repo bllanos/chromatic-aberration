@@ -1,58 +1,61 @@
-function [ I_3D, varargout ] = solvePatchesADMM(...
-    I_in, J_2D, align, dispersionfun, sensitivity, lambda,...
+function [ I_3D, varargout ] = solvePatchesMultiADMM(...
+    I_in, J_2D, align, dispersionfun, color_map, color_bands, sampling_options,...
     admm_options, reg_options, patch_options, varargin...
 )
-% SOLVEPATCHESADMM  Run ADMM (loosely) as in Algorithm 2 of Baek et al. 2017, with weight selection and patch-wise decomposition
+% SOLVEPATCHESMULTIADMM  Repeat ADMM at different spectral resolutions
 %
 % ## Usage
 %
-% This is a super function which combines most of the functionality of
-% 'baek2017Algorithm2()`, 'selectWeightsGrid()', 'trainWeights()', and
-% 'solvePatchesAligned()' for improved efficiency.
+% This is a version of 'solvePatchesADMM()' which estimates the image at
+% successively higher spectral resolutions, for improved stability.
+% 'solvePatchesADMM()' estimates the image directly at the given spectral
+% resolution.
 %
 % ## Syntax
-% I = solvePatchesADMM(...
-%   I_in, J, align, dispersionfun, sensitivity, lambda,...
+% [ bands, I ] = solvePatchesMultiADMM(...
+%   I_in, J, align, dispersionfun, color_map, color_bands, sampling_options,...
 %   admm_options, reg_options, patch_options [, verbose]...
 % )
-% [ I, I_rgb ] = solvePatchesADMM(___)
-% [ I, I_rgb, weights_images ] = solvePatchesADMM(___)
-% [ I, I_rgb, weights_images, J_full ] = solvePatchesADMM(___)
-% [ I, I_rgb, weights_images, J_full, J_est ] = solvePatchesADMM(___)
-% [ I, I_rgb, weights_images, J_full, J_est, I_warped ] = solvePatchesADMM(___)
-% [ I, I_rgb, weights_images, J_full, J_est, I_warped, search ] = solvePatchesADMM(...)
+% [ bands, I, I_rgb ] = solvePatchesMultiADMM(___)
+% [ bands, I, I_rgb, weights_images ] = solvePatchesMultiADMM(___)
+% [ bands, I, I_rgb, weights_images, J_full ] = solvePatchesMultiADMM(___)
+% [ bands, I, I_rgb, weights_images, J_full, J_est ] = solvePatchesMultiADMM(___)
+% [ bands, I, I_rgb, weights_images, J_full, J_est, I_warped ] = solvePatchesMultiADMM(___)
+% [ bands, I, I_rgb, weights_images, J_full, J_est, I_warped, search ] = solvePatchesMultiADMM(...)
 %
 % ## Description
-% I = solvePatchesADMM(...
-%   I_in, J, align, dispersionfun, sensitivity, lambda,...
+% [ bands, I ] = solvePatchesMultiADMM(...
+%   I_in, J, align, dispersionfun, color_map, color_bands, sampling_options,...
 %   admm_options, reg_options, patch_options [, verbose]...
 % )
 %   Estimate a latent RGB or hyperspectral image `I` from dispersion in
-%   the input RAW image `J`.
+%   the input RAW image `J`, and also return the wavelengths corresponding
+%   to the spectral bands of `I`.
 %
-% [ I, I_rgb ] = solvePatchesADMM(___)
+% [ bands, I, I_rgb ] = solvePatchesMultiADMM(___)
 %   Additionally returns the RGB equivalent of the latent image.
 %
-% [ I, I_rgb, weights_images ] = solvePatchesADMM(___)
+% [ bands, I, I_rgb, weights_images ] = solvePatchesMultiADMM(___)
 %   Additionally returns images illustrating the weights selected for the
 %   regularization terms in the optimization problem.
 %
-% [ I, I_rgb, weights_images, J_full ] = solvePatchesADMM(___)
+% [ bands, I, I_rgb, weights_images, J_full ] = solvePatchesMultiADMM(___)
 %   Additionally returns a version of the RGB equivalent of the latent
 %   image, warped according to the model of dispersion.
 %
-% [ I, I_rgb, weights_images, J_full, J_est ] = solvePatchesADMM(___)
+% [ bands, I, I_rgb, weights_images, J_full, J_est ] = solvePatchesMultiADMM(___)
 %   Additionally returns the forward model estimate of the input RAW image
 %   `J`.
 %
-% [ I, I_rgb, weights_images, J_full, J_est, I_warped ] = solvePatchesADMM(___)
+% [ bands, I, I_rgb, weights_images, J_full, J_est, I_warped ] = solvePatchesMultiADMM(___)
 %   Additionally returns the version of the latent image warped according
 %   to the model of dispersion.
 %
-% [ I, I_rgb, weights_images, J_full, J_est, I_warped, search ] = solvePatchesADMM(...)
+% [ bands, I, I_rgb, weights_images, J_full, J_est, I_warped, search ] = solvePatchesMultiADMM(...)
 %   Additionally returns the search path taken to select regularizaion
-%   weights for a single image patch. This call syntax is available only
-%   when `patch_options.target_patch` exists.
+%   weights for a single image patch, at the highest spectral resolution.
+%   This call syntax is available only when `patch_options.target_patch`
+%   exists.
 %
 % ## Input Arguments
 %
@@ -68,13 +71,11 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %     estimated latent image will be compared. 'I' and `J` must have the
 %     same sizes in their first two dimensions. (i.e. They must have the
 %     same image resolutions.)
-%   - 'spectral_weights': A 2D array, where `spectral_weights(i, j)` is the
-%     sensitivity of the i-th colour channel or spectral band of 'I' to the
-%     j-th colour channel or spectral band of the estimated latent image.
-%     `spectral_weights` is a matrix mapping colours in the estimated
-%     latent image to colours in the representation of 'I'.
-%     `spectral_weights` must account for any numerical intergration that
-%     is part of colour/spectral conversion.
+%   - 'spectral_bands': A vector containing the wavelengths corresponding
+%     to the third dimension of 'I'. Note that 'I' must have at least as
+%     fine a spectral sampling as the estimated image, otherwise an error
+%     will be thrown, because downsampling in the spectral domain has not
+%     yet been implemented in 'samplingWeights()'.
 %
 % J -- Input RAW image
 %   A 2D array containing the raw colour-filter pattern data of an image,
@@ -96,17 +97,65 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %   to position (x, y). This function will negate dispersion vectors in
 %   order to create a warp matrix from `I` to `J`.
 %
-% sensitivity -- Colour space basis vectors
-%   A 2D array, where `sensitivity(i, j)` is the sensitivity of the i-th
-%   colour channel of `J` to the j-th colour channel or spectral band of
-%   `I`. `sensitivity` is a matrix mapping colours/spectra in `I` to
-%   colours in `J`.
+% color_map -- Colour channel spectral sensitivities
+%   A 2D array, where `color_map(i, j)` is the sensitivity of the i-th
+%   colour channel of `J` to the j-th spectral band in `color_bands`. In
+%   contrast with the `sensitivity` argument of 'solvePatchesADMM()',
+%   `color_map` is not a colour conversion matrix, as it does not
+%   necessarily perform the desired numerical integration, over the
+%   spectrum, that is part of colour conversion.
 %
-% lambda -- Spectral bands or colour channel indices
-%   A vector of length 'c' containing the wavelengths or colour channel
-%   indices at which to evaluate the dispersion model encapsulated by
-%   `dispersionfun`. 'c' is the desired number of spectral bands or colour
-%   channels in `I`, and will be the size of `I` in its third dimension.
+% color_bands -- Wavelength bands for colour channel sensitivities
+%   A vector, of length equal to the size of the second dimension of
+%   `color_map`, containing the wavelengths at which the sensitivity
+%   functions in `color_map` have been sampled. `color_bands(j)` is the
+%   wavelength corresponding to `color_map(:, j)`. The values in
+%   `color_bands` are expected to be evenly-spaced.
+%
+%   The values in `color_bands` are also the wavelengths at which to
+%   evaluate the dispersion model encapsulated by `dispersionfun`. It is
+%   assumed that the dispersion model can also be evaluated at any
+%   wavelength between `color_bands(1)` and `color_bands(end)`, not only at
+%   the values given in `color_bands`.
+%
+% sampling_options -- Spectral sampling options
+%   `sampling_options` is a structure with the following fields used by
+%   'samplingWeights()':
+%   - 'int_method': The numerical integration method to use when
+%     integrating over the responses of colour channels to compute colour
+%     values. `int_method` is passed to `integrationWeights()` as its
+%     `method` input argument.
+%   - 'power_threshold': An option used by 'samplingWeights()' to select
+%     spectral sampling points.
+%   - 'n_bands': An option used by 'samplingWeights()' to select
+%     spectral sampling points.
+%   - 'support_threshold': A fraction indicating what proportion of the
+%     peak magnitude of a colour channel's sensitivity function the user
+%     considers to be effectively zero (i.e. no sensitivity).
+%   - 'bands_padding': An option used by 'samplingWeights()' to control how
+%     spectral signals are extrapolated.
+%
+%   The following fields are in addition to those used by
+%   'samplingWeights()':
+%   - 'progression': A character vector describing how to select the
+%     intermediate numbers of wavelengths at which to estimate the latent
+%     image. The final number of wavelengths, denoted by 'S' below, is
+%     determined by calling 'samplingWeights()' with the options given
+%     above.
+%     - 'sequential': Use the following numbers of wavelengths: 1, 2, 3,
+%       ..., S.
+%     - 'doubling': Use the following numbers of wavelengths: 1, 2, 4, 8,
+%       ..., 2 ^ floor(log_2(S)), S. (If 'S' is equal to `2 ^
+%       floor(log_2(S))`, then the sequence ends with `2 ^
+%       floor(log_2(S))`.)
+%   - 'show_steps': A logical scalar which, if `true`, causes the function
+%     to return the images for all intermediate numbers of wavelengths, not
+%     only for 'S' wavelengths. When 'show_steps' is `true`:
+%     - `bands` and `search` are cell vectors, where the i-th cell contains
+%       the data for the i-th number of wavelengths.
+%     - `I`, `I_rgb`, `weights_images`, `J_full`, `J_est`, and `I_warped`
+%       are extended in the third dimension by stacking results for
+%       individual numbers of wavelengths.
 %
 % admm_options -- Image estimation algorithm options
 %   `admm_options` is a structure with the following fields, containing
@@ -205,9 +254,28 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %     the next. When the change is less than this threshold, and the
 %     minimum number of iterations has been reached, iteration terminates.
 %
-%   If 'minimum_weights' and 'maximum_weights' are identical,
-%   regularization weight selection is disabled, and these values are used
-%   as the final regularization weights.
+%   With 'solvePatchesADMM()', if 'minimum_weights' and 'maximum_weights'
+%   were identical, regularization weight selection was disabled, and these
+%   values were used as the final regularization weights.
+%
+%   With this function, it is not recommended to make 'minimum_weights' and
+%   'maximum_weights' identical, as it will fix the regularization weights
+%   for all spectral resolutions to the same values. Instead, `reg_options`
+%   can be given an additional field:
+%   - 'multi_weights': An optional field, containing a matrix with the same
+%     number of columns as the length of 'enabled'. 'multi_weights' must
+%     have the same number of rows as the length of the sequence of
+%     spectral resolutions used in image estimation. If present,
+%     'multi_weights' is used to fix regularization weights specific to
+%     each spectral resolution.
+%
+%     As it may be hard to know the number of spectral resolutions in
+%     advance, the recommended approach is to call this function on one or
+%     more target patches (see `patch_options.target_patch` below) and set
+%     `sampling_options.show_steps` to `true`. The `weights_images` output
+%     argument for these calls will then give both the number of spectral
+%     resolutions, and the regularization weights selected for each
+%     spectral resolution.
 %
 % patch_options -- Options for patch-wise image estimation
 %   A structure containing the following fields:
@@ -245,14 +313,23 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %
 % ## Output Arguments
 %
+% In the following 'S' is the final number of spectral bands, described in
+% the documentation of `sampling_options` above. The sizes and datatypes of
+% the output arguments are given below for the case where
+% `sampling_options.show_steps` is `false`.
+%
+% bands -- Spectral bands
+%   A vector of length 'S' containing the wavelengths corresponding to the
+%   spectral bands in `I`.
+%
 % I -- Latent image
-%   A size(J, 1) x size(J, 2) x length(lambda) array, storing the estimated
-%   latent image corresponding to `J`.
+%   A size(J, 1) x size(J, 2) x S array, storing the estimated latent image
+%   corresponding to `J`.
 %
 % I_rgb -- Latent colour image
 %   The colour equivalent of the latent image, generated using the colour
-%   space conversion data in `sensitivity`. An size(J, 1) x size(J, 2) x
-%   size(sensitivity, 1) array.
+%   space conversion data in `color_map`. An size(J, 1) x size(J, 2) x
+%   size(color_map, 1) array.
 %
 % weights_images -- Selected regularization weights
 %   A size(J, 1) x size(J, 2) x w array, where 'w' is the number of `true`
@@ -263,12 +340,13 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %
 %   If regularization weights are fixed, i.e. if
 %   `all(reg_options.minimum_weights == reg_options.maximum_weights)` is
-%   `true`, then `weights_images` is empty (`[]`);
+%   `true`, or `reg_options.multi_weights` exists, then `weights_images` is
+%   empty (`[]`);
 %
 % J_full -- Warped latent colour image
 %   A colour image produced by warping `I` according to the dispersion
 %   model, followed by conversion to the colour space of `J`. An size(J, 1)
-%   x size(J, 2) x size(sensitivity, 1) array.
+%   x size(J, 2) x size(color_map, 1) array.
 %
 % J_est -- Re-estimated input RAW image
 %   The mosaiced version of `J_full`, representing the result of passing
@@ -276,129 +354,56 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %   with the same dimensions as `J`.
 %
 % I_warped -- Warped latent image
-%   An size(J, 1) x size(J, 2) x length(lambda) array, storing the latent
-%   image warped according to the dispersion model.
+%   An size(J, 1) x size(J, 2) x S array, storing the latent image warped
+%   according to the dispersion model.
 %
 % search -- Grid search method for regularization weight selection search path
 %   The `search` output argument of 'weightsLowMemory()'. `search` is
 %   specific to a single image patch, and therefore can only be output when
 %   `patch_options.target_patch` exists. When `I_in` is empty, `search`
 %   will have the additional fields that it has in the case where
-%   `in_penalties` is an input argument of 'weightsLowMemory()'.
+%   `in_penalties` is an input argument of 'weightsLowMemory()'. `search`
+%   describes the search path taken under spectral resolution 'S'. If
+%   `sampling_options.show_steps` is `true`, then `search` is a cell
+%   vector, where the i-th cell stores the search path for the i-th
+%   spectral resolution.
 %
 % ## Notes
 %
-% - If all elements of `reg_options.enabled` are `false`, and
-%   `admm_options.nonneg` is `false`, then this function will find a
-%   solution to the problem:
-%     argmin_i (||M * Omega * Phi * i - j||_2) ^ 2
-%   where `M` performs mosaicing, `Omega` converts colours to the colour
-%   space of `J`, and `Phi` warps the image according to the dispersion
-%   model. `i` and `j` are the vectorized versions of the latent and input
-%   images, respectively. If the linear system is underdetermined, the
-%   function will find the minimum-norm least squares solution. If the
-%   problem is sufficiently determined, as it may be in cases where `i` has
-%   fewer spectral bands or colour channels than `j` has colour channels,
-%   then the function will find the iterative approximation to the exact
-%   solution (using MATLAB's 'pcg()' function), or will find a
-%   least-squares solution (in the overdetermined case).
-% - In contrast to 'selectWeightsGrid()', the origin of the minimum
-%   distance criterion is always set using `reg_options.minimum_weights`
-%   and `reg_options.maximum_weights`, rather than chosen
-%   semi-automatically.
-% - This function imitates the behaviour of 'selectWeightsGrid()' with
-%   `'normalized'` as the value of its `options.scaling` argument.
-% - During regularization weight selection, image patches are not stripped
-%   of a border before calculating their data-fitting errors,
-%   regularization errors, or similarity with the true image, for
-%   simplicity. (Contrast with the behaviour of 'trainWeights()' and
-%   'selectWeightsGrid()' in combination with 'baek2017Algorithm2()'.)
-% - The estimated image is spatially-registered with the input image,
-%   conforming to the behaviour of 'baek2017Algorithm2()' with its
-%   `options.add_border` input argument set to `false`. This simplifies
-%   patch-wise image estimation, as explained in the documentation of
-%   'solvePatchesAligned()'.
-% - `patch_options.patch_size`, `patch_options.padding`, and the dimensions
-%   of `I_in.I` and `J` must all be even integers for the images and image
-%   patches to map to valid Bayer colour-filter array patterns.
+% - All notes in the documentation of 'solvePatchesADMM()' apply to this
+%   function as well.
+% - It does not make sense to use this function to estimate images in a
+%   space of colour channels, as opposed to spectral bands. Colour channels
+%   represent overlapping regions of the spectrum, and therefore cannot be
+%   resampled in a physically-meaningful way, unlike spectral bands.
+%   'solvePatchesADMM()' should be used to estimate colour images.
 %
 % ## References
-%
-% This function implements Algorithm 2 in the first set of supplemental
-% material of the following article:
-%
-%   Baek, S.-H., Kim, I., Gutierrez, D., & Kim, M. H. (2017). "Compact
-%     single-shot hyperspectral imaging using a prism." ACM Transactions
-%     on Graphics (Proc. SIGGRAPH Asia 2017), 36(6), 217:1–12.
-%     doi:10.1145/3130800.3130896
-%
-% Depending on the options passed, this function implements variants of the
-% algorithm: L2-norm priors instead of L1-norm priors, an extra prior
-% designed to remove colour-filter array artifacts, and a non-negativity
-% constraint. I implemented the non-negativity constraint by adding an
-% extra term to the ADMM x-minimization step, and an additional
-% z-minimization and dual update step. This is different from the
-% constrained optimization examples in Boyd et. al. 2011, sections 4.2.5
-% and 5.2, but I think it matches the format given at the start of Chapter
-% 5.
-%
-% A non-negativity constraint was used in (among other works):
-%
-%   Park, J.-I., Lee, M.-H., Grossberg, M. D., & Nayar, S. K. (2007).
-%     "Multispectral Imaging Using Multiplexed Illumination." In 2007 IEEE
-%     International Conference on Computer Vision (ICCV).
-%     doi:10.1109/ICCV.2007.4409090
-%
-% The method for initializing the latent image is based on Equation 6 of
-% the following article. Note that this article also briefly discusses
-% methods for combining overlapping image patches, for future reference.
-% This function simply discards the overlapping regions of image patches,
-% which may lead to visible boundaries between patches, but which prevents
-% any poor behaviour of the image estimation algorithm near the edges of
-% patches from affecting the result.
-%
-%   Sun, T., Peng, Y., & Heidrich, W. (2017). "Revisiting cross-channel
-%     information transfer for chromatic aberration correction." In 2017
-%     IEEE International Conference on Computer Vision (ICCV) (pp.
-%     3268–3276). doi:10.1109/ICCV.2017.352
-%
-% For more information on ADMM (Alternating Direction Method of
-% Multipliers), read:
-%
-%   Boyd, S, et al.. "Distributed Optimization and Statistical Learning via
-%     the Alternating Direction Method of Multipliers." Foundations and
-%     Trends in Machine Learning, vol. 3, no. 1, pp. 1-122, 2011.
-%     doi:10.1561/2200000016
-%
-% The following article discusses the grid-search method for minimizing the
-% minimum distance criterion used to select regularization weights. To
-% select regularization weights which maximize the similarity of the
-% estimated and true images, I also use the grid-search method.
-%
-%   Song, Y., Brie, D., Djermoune, E.-H., & Henrot, S.. "Regularization
-%     Parameter Estimation for Non-Negative Hyperspectral Image
-%     Deconvolution." IEEE Transactions on Image Processing, vol. 25, no.
-%     11, pp. 5316-5330, 2016. doi:10.1109/TIP.2016.2601489
+% - See references of 'solvePatchesADMM()'.
 %
 % ## Future Work
 %
-% There are several modifications and expansions which may improve the
-% performance of ADMM:
-% - Section 3.4.1 of Boyd et al. 2011, "Varying Penalty Parameter"
-%   - Now activated by a non-empty `admm_options.varying_penalty_params`
-%     vector.
-%   - Further refinement may be possible by "taking into account
-%     the relative magnitudes of [the primal and dual convergence
-%     thresholds]."
-% - Section 4.3.2 of Boyd et al. 2011, "Early Termination"
+% - See future work for 'solvePatchesADMM()'.
+% - The multi-resolution image estimation approach taken by this function
+%   could be leveraged for more sophisticated regularization methods:
+%   - Anisotropic smoothing: The image spatial gradient could be subject to
+%     a penalty that varies with its direction and with its location in the
+%     image, as a function of the image gradient in a lower spectral
+%     resolution result. For instance, at strong edges in the previous
+%     result, a larger spatial gradient should be allowed, provided that
+%     it is aligned perpendicular to the edges.
+%   - Damping: There could be an additional regularization term
+%     penalizing the difference from the previous, lower spectral
+%     resolution result.
+% - The patch size could be varied as a function of the spectral
+%   resolution.
 %
-% See also baek2017Algorithm2LowMemory, weightsLowMemory,
-% solvePatchesAligned
+% See also solvePatchesADMM, baek2017Algorithm2LowMemory, weightsLowMemory
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
 % University of Alberta, Department of Computing Science
-% File created October 5, 2018
+% File created November 6, 2018
 
 narginchk(9, 10);
 nargoutchk(1, 7);
