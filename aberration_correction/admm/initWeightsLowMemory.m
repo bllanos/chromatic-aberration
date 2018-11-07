@@ -1,11 +1,11 @@
-function out = initWeightsLowMemory(I_in)
+function out = initWeightsLowMemory(I_in, len_I)
 % INITWEIGHTSLOWMEMORY  Allocate memory for 'weightsLowMemory()'
 %
 % ## Syntax
-% out = initWeightsLowMemory(I_in)
+% out = initWeightsLowMemory(I_in, len_I)
 %
 % ## Description
-% out = initWeightsLowMemory(I_in)
+% out = initWeightsLowMemory(I_in, len_I)
 %   Returns a structure containing arrays to be used by 'weightsLowMemory()'
 %
 % ## Input Arguments
@@ -13,6 +13,9 @@ function out = initWeightsLowMemory(I_in)
 % I_in -- True image structure
 %   Refer to the documentation of weightsLowMemory.m. `I_in` can be empty
 %   (`[]`).
+%
+% len_I -- Image size
+%   The number of values in the image being estimated.
 %
 % ## Output Arguments
 %
@@ -28,7 +31,7 @@ function out = initWeightsLowMemory(I_in)
 % File created October 29, 2018
 
 nargoutchk(1, 1);
-narginchk(1, 1);
+narginchk(2, 2);
 
 out = struct;
 if ~isempty(I_in)
@@ -36,5 +39,6 @@ if ~isempty(I_in)
     out.Omega_Phi = channelConversionMatrix(image_sampling, I_in.spectral_weights);
     out.I_est = zeros(numel(I_in.I), 1);
 end
+out.I_init = zeros(len_I, 1);
 
 end

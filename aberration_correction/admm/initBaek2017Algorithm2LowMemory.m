@@ -31,6 +31,7 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 %
 % [out, weights] = initBaek2017Algorithm2LowMemory(out, weights, options)
 %   Adjusts the `out` structure to account for the new value of `weights`.
+%   Does not re-initialize the estimated image, `out.I`.
 %
 % out = initBaek2017Algorithm2LowMemory(out)
 %   Re-initializes only the estimated image, `out.I`.
@@ -332,6 +333,7 @@ if compute_all
     elseif ~strcmp(options.init, 'zero')
         error('Unrecognized value of `options.init`.');
     end
+    initI();
 
     active_constraints = [norms, nonneg];
     n_Z = find(active_constraints, 1, 'last');
@@ -378,7 +380,5 @@ if ~no_weights
         end
     end
 end
-
-initI();
 
 end

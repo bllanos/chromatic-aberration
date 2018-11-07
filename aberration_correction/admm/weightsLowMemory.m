@@ -107,9 +107,15 @@ function [ I, weights, in, in_admm, varargout ] = weightsLowMemory(...
 %   empty (`[]`).
 %
 % in -- Preallocated intermediate data and results
-%   If `I_in` is empty, `in` is a structure with no fields, as created by
-%   'initWeightsLowMemory()'. Otherwise, 'initWeightsLowMemory()' can
-%   create `in` as a structure with the following fields:
+%   `in` is a structure, created by 'initWeightsLowMemory()', with the
+%   following fields that are always present:
+%   - 'I_init': A vector containing the saved initial value of the
+%     estimated latent image, used to reset the image when changing
+%     regularization weights. This function will initialize the value of
+%     this field.
+%
+%   If `I_in` not empty, `in` must have the following additional fields,
+%   also created by 'initWeightsLowMemory()':
 %   - 'Omega_Phi': A matrix mapping the vectorized estimated latent image
 %     to the reference image `I_in.I`.
 %   - 'I_est': A vector containing the estimated version of `I_in.I`,
@@ -119,6 +125,9 @@ function [ I, weights, in, in_admm, varargout ] = weightsLowMemory(...
 % in_admm -- Preallocated intermediate data and results for ADMM
 %   The `in` input/output argument of 'baek2017Algorithm2LowMemory()'.
 %   Refer to the documentation of baek2017Algorithm2LowMemory.m.
+%
+%   This function requires that the value of `in_admm.I` be initialized by
+%   the caller.
 %
 % I_in -- True image structure
 %   `I_in` is used to select regularization weights based on similarity
@@ -237,6 +246,7 @@ function [ I, weights, in, in_admm, varargout ] = weightsLowMemory(...
             [in_admm, weights_s] = initBaek2017Algorithm2LowMemory(...
                 in_admm, weights_s, admm_options...
             );
+            in_admm.I = in.I_init;
             in_admm = baek2017Algorithm2LowMemory(weights_s, admm_options, in_admm);
             if input_I_in
                 in.I_est = in.Omega_Phi * in_admm.I;
@@ -320,6 +330,8 @@ if all(min_weights == max_weights)
         end
     end
     return;
+else
+    in.I_init = in_admm.I;
 end
 
 low_guess = reshape(options.low_guess(enabled_weights), 1, n_active_weights);

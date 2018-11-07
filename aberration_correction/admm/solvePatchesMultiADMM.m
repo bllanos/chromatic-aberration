@@ -692,6 +692,7 @@ parfor j = 1:n_j
 
             % Solve for the output patch
             n_bands_t = n_bands_all{t};
+            numel_p = prod(image_sampling_p) * n_bands_t;
             n_bands_t1 = n_bands_t - 1;
             color_weights_t = color_weights_all{t};
             in_admm = initBaek2017Algorithm2LowMemory(...
@@ -737,7 +738,7 @@ parfor j = 1:n_j
                     'I', column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.I_in(1):channels_in.I_in(2)),...
                 	'spectral_weights', spectral_weights_all{t}...
                 );
-                in_weightsLowMemory = initWeightsLowMemory(I_in_p);
+                in_weightsLowMemory = initWeightsLowMemory(I_in_p, numel_p);
                 if output_search && (show_steps || t == n_steps)
                     [...
                         patches_I_ij, weights, ~, ~, search_out{j}{output_step}...
@@ -756,7 +757,7 @@ parfor j = 1:n_j
 
             else
                 in_penalties = initPenalties(in_admm.M_Omega_Phi, in_admm.G);
-                in_weightsLowMemory = initWeightsLowMemory([]);
+                in_weightsLowMemory = initWeightsLowMemory([], numel_p);
                 if output_search && (show_steps || t == n_steps)
                     [...
                         patches_I_ij, weights, ~, ~, ~, search_out{j}{output_step}...

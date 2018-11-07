@@ -580,6 +580,7 @@ parfor j = 1:n_j
         ];
         patch_end_row = min(corner(1) + patch_size(1) - 1, image_sampling(1));
         image_sampling_p(1) = diff(patch_lim_rows) + 1;
+        numel_p = prod(image_sampling_p) * n_bands;
         
         if has_dispersion
             dispersion_matrix_p = dispersionfunToMatrix(...
@@ -611,7 +612,7 @@ parfor j = 1:n_j
         elseif input_I_in
             I_in_p = I_in_j;
             I_in_p.I = column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.I_in(1):channels_in.I_in(2));
-            in_weightsLowMemory = initWeightsLowMemory(I_in_p);
+            in_weightsLowMemory = initWeightsLowMemory(I_in_p, numel_p);
             if output_search
                 [...
                     patches_I_ij, weights, ~, ~, search_out{j}...
@@ -630,7 +631,7 @@ parfor j = 1:n_j
 
         else
             in_penalties = initPenalties(in_admm.M_Omega_Phi, in_admm.G);
-            in_weightsLowMemory = initWeightsLowMemory([]);
+            in_weightsLowMemory = initWeightsLowMemory([], numel_p);
             if output_search
                 [...
                     patches_I_ij, weights, ~, ~, ~, search_out{j}...
