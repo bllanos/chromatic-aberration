@@ -304,9 +304,7 @@ for i = 1:n_images
             continue;
         end
         
-        reg_options_f = mergeStructs(...
-            solvePatchesADMMOptions.reg_options, solvePatchesADMMOptions.reg_options, true, false...
-        );
+        reg_options_f = reg_options;
         reg_options_f.enabled = algorithm.priors;
 
         admm_options_f = mergeStructs(...

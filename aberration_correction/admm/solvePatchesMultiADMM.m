@@ -1,4 +1,4 @@
-function [ I_3D, varargout ] = solvePatchesMultiADMM(...
+function [ bands, I_3D, varargout ] = solvePatchesMultiADMM(...
     I_in, J_2D, align, dispersionfun, color_map, color_bands, sampling_options,...
     admm_options, reg_options, patch_options, varargin...
 )
@@ -115,7 +115,7 @@ function [ I_3D, varargout ] = solvePatchesMultiADMM(...
 %   The values in `color_bands` are also the wavelengths at which to
 %   evaluate the dispersion model encapsulated by `dispersionfun`. It is
 %   assumed that the dispersion model can also be evaluated at any
-%   wavelength between `color_bands(1)` and `color_bands(end)`, not only at
+%   wavelength from `color_bands(1)` to `color_bands(end)`, not only at
 %   the values given in `color_bands`.
 %
 % sampling_options -- Spectral sampling options
@@ -267,7 +267,8 @@ function [ I_3D, varargout ] = solvePatchesMultiADMM(...
 %     have the same number of rows as the length of the sequence of
 %     spectral resolutions used in image estimation. If present,
 %     'multi_weights' is used to fix regularization weights specific to
-%     each spectral resolution.
+%     each spectral resolution. It takes precedence over 'minimum_weights'
+%     and 'maximum_weights'.
 %
 %     As it may be hard to know the number of spectral resolutions in
 %     advance, the recommended approach is to call this function on one or
@@ -313,7 +314,7 @@ function [ I_3D, varargout ] = solvePatchesMultiADMM(...
 %
 % ## Output Arguments
 %
-% In the following 'S' is the final number of spectral bands, described in
+% In the following, 'S' is the final number of spectral bands, described in
 % the documentation of `sampling_options` above. The sizes and datatypes of
 % the output arguments are given below for the case where
 % `sampling_options.show_steps` is `false`.
@@ -405,8 +406,8 @@ function [ I_3D, varargout ] = solvePatchesMultiADMM(...
 % University of Alberta, Department of Computing Science
 % File created November 6, 2018
 
-narginchk(9, 10);
-nargoutchk(1, 7);
+narginchk(10, 11);
+nargoutchk(2, 8);
 
 verbose = false;
 if ~isempty(varargin)
@@ -419,7 +420,7 @@ end
 
 % Input argument parsing
 
-output_search = nargout > 6;
+output_search = nargout > 7;
 do_single_patch = isfield(patch_options, 'target_patch');
 if output_search && ~do_single_patch
     error('`search` can only be output when `patch_options.target_patch` exists.');
@@ -430,19 +431,27 @@ if has_dispersion && ~isa(dispersionfun, 'function_handle')
     error('`dispersionfun` must be a function handle.');
 end
 
-nargout_before_weights = 2;
-output_weights = (nargout > nargout_before_weights) && ~all(reg_options.minimum_weights == reg_options.maximum_weights);
+nargout_before_weights = 3;
+has_multi_weights = isfield(reg_options, 'multi_weights');
+output_weights = (nargout > nargout_before_weights)...
+    && ~all(reg_options.minimum_weights == reg_options.maximum_weights)...
+    && ~has_multi_weights;
+if has_multi_weights
+    multi_weights = reg_options.multi_weights;
+    reg_options = rmfield(reg_options, 'multi_weights');
+end
+
 input_I_in = ~isempty(I_in);
 if nargout > nargout_before_weights
-    n_auxiliary_images = nargout - 2;
+    n_auxiliary_images = nargout - nargout_before_weights;
 else
     n_auxiliary_images = 1;
 end
 image_sampling = [size(J_2D, 1), size(J_2D, 2)];
 patch_size = patch_options.patch_size;
 padding = patch_options.padding;
-n_bands = length(lambda);
-n_channels_rgb = size(sensitivity, 1);
+n_channels_rgb = size(color_map, 1);
+n_channels_rgb1 = n_channels_rgb - 1;
 enabled_weights = reg_options.enabled;
 n_active_weights = sum(enabled_weights);
 if all(~enabled_weights) && output_weights
@@ -463,15 +472,12 @@ if input_I_in
     if any(image_sampling ~= [size(I_in.I, 1), size(I_in.I, 2)])
         error('The spatial dimensions of `I_in.I` must match those of `J`.')
     end
-    if n_bands ~= size(I_in.spectral_weights, 2)
-        error('The number of wavelengths in `lambda` must equal the size of `I_in.spectral_weights` in its second dimension.');
+    if length(I_in.spectral_bands) ~= size(I_in.I, 3)
+        error('The number of rows of `I_in.spectral_bands` must equal the size of `I_in.I` in its third dimension.');
     end
-    if size(I_in.spectral_weights, 1) ~= size(I_in.I, 3)
-        error('The number of rows of `I_in.spectral_weights` must equal the size of `I_in.I` in its third dimension.');
-    end
-    I_in_j.spectral_weights = I_in.spectral_weights;
-else
-    I_in_j = struct;
+end
+if length(color_bands) ~= size(color_map, 2)
+    error('The number of columns of `color_map` must equal the length of `color_bands`.');
 end
 
 if do_single_patch
@@ -487,8 +493,73 @@ if do_single_patch
     end
 end
 
-if n_bands ~= size(sensitivity, 2)
-    error('The number of wavelengths in `lambda` must equal the size of `sensitivity` in its second dimension.');
+% Choose the desired spectral resolutions
+if input_I_in
+    [...
+      color_weights, spectral_weights_final, bands_final...
+    ] = samplingWeights(...
+      color_map, color_bands, I_in.spectral_bands, sampling_options...
+    );
+else
+    [...
+      color_weights, ~, bands_final...
+    ] = samplingWeights(color_map, color_bands, {}, sampling_options);
+end
+n_bands_final = length(bands_final);
+if strcmp(sampling_options.progression, 'sequential')
+    n_bands_all = 1:n_bands_final;
+elseif strcmp(sampling_options.progression, 'doubling')
+    np2 = nextpow2(n_bands_final);
+    if 2 ^ np2 == n_bands_final
+        n_bands_all = pow2(1:np2);
+    else
+        n_bands_all = [pow2(1:(np2 - 1)) n_bands_final];
+    end
+else
+    error('Unrecognized value of `sampling_options.progression`.');
+end
+n_steps = length(n_bands_all);
+if has_multi_weights
+    if size(multi_weights, 1) ~= n_steps
+        error(['`reg_options.multi_weights` is expected to have as many r'...
+            'ows as there are spectral resolutions, %d.'], n_steps);
+    end
+end
+color_weights_all = cell(n_steps, 1);
+color_weights_all{end} = color_weights;
+upsampling_weights = cell(n_steps - 1, 1);
+if input_I_in
+    spectral_weights_all = cell(n_steps, 1);
+    spectral_weights_all{end} = spectral_weights_final;
+end
+bands_all = cell(n_steps, 1);
+bands_all{end} = bands_final;
+for t = 1:(n_steps - 1)
+    sampling_options.n_bands = n_bands_all(t);
+    if input_I_in
+        [...
+          color_weights_all{t}, spectral_weights_all{t}, bands_all{t}...
+        ] = samplingWeights(...
+          color_map, color_bands, I_in.spectral_bands, sampling_options...
+        );
+    else
+        [...
+          color_weights_all{t}, ~, bands_all{t}...
+        ] = samplingWeights(color_map, color_bands, {}, sampling_options);
+    end
+end
+for t = 1:(n_steps - 1)
+    upsampling_weights{t} = upsamplingWeights(...
+        bands_all{t + 1}, bands_all{t}, @sinc, sampling_options.bands_padding...
+    );
+end
+show_steps = sampling_options.show_steps;
+if show_steps
+    n_bands_total = sum(n_bands_all);
+    n_channels_rgb_total = n_channels_rgb * n_steps;
+else
+    n_bands_total = n_bands_final;
+    n_channels_rgb_total = n_channels_rgb;
 end
 
 if verbose
@@ -501,28 +572,37 @@ if input_I_in
     channels_in.I_in = [ 1, size(I_in.I, 3) ]; % True image
     n_channels_in = n_channels_in + channels_in.I_in(2);
 end
-channels_in.J = n_channels_in + [1, size(J_2D, 3)]; % Input image
+sz_J3 = size(J_2D, 3);
+channels_in.J = n_channels_in + [1, sz_J3]; % Input image
 n_channels_in = n_channels_in + channels_in.J(2);
 
 % Channel indices in the output concatenation of images
 n_channels_out = 0;
-channels_out.I = n_channels_out + [1, n_bands]; % Estimated latent image
+channels_out.I = n_channels_out + [1, n_bands_total]; % Estimated latent image
 n_channels_out = n_channels_out + channels_out.I(2);
 if n_auxiliary_images > 0
-    channels_out.I_rgb = n_channels_out + [1, n_channels_rgb];
+    channels_out.I_rgb = n_channels_out + [1, n_channels_rgb_total];
     n_channels_out = n_channels_out + channels_out.I_rgb(2);
     if output_weights
-        channels_out.I_weights = n_channels_out + [1, n_active_weights];
+        if show_steps
+            channels_out.I_weights = n_channels_out + [1, n_active_weights * n_steps];
+        else
+            channels_out.I_weights = n_channels_out + [1, n_active_weights];
+        end
         n_channels_out = n_channels_out + channels_out.I_weights(2);
     end
     if n_auxiliary_images > 1
-        channels_out.J_full = n_channels_out + [1, n_channels_rgb];
+        channels_out.J_full = n_channels_out + [1, n_channels_rgb_total];
         n_channels_out = n_channels_out + channels_out.J_full(2);
         if n_auxiliary_images > 2
-            channels_out.J_est = n_channels_out + [1, size(J_2D, 3)];
+            if show_steps
+                channels_out.J_est = n_channels_out + [1, sz_J3 * n_steps];
+            else
+                channels_out.J_est = n_channels_out + [1, sz_J3];
+            end
             n_channels_out = n_channels_out + channels_out.J_est(2);
             if n_auxiliary_images > 3
-                channels_out.I_warped = n_channels_out + [1, n_bands];
+                channels_out.I_warped = n_channels_out + [1, n_bands_total];
                 n_channels_out = n_channels_out + channels_out.I_warped(2);
             end
         end
@@ -574,6 +654,14 @@ parfor j = 1:n_j
     col_out_width = diff(cols_trim_out) + 1;
     column_out_j = zeros(size(column_in_j, 1), col_out_width, n_channels_out);
     
+    if output_search
+        if show_steps
+            search_out{j} = cell(n_steps, 1);
+        else
+            search_out{j} = cell(1, 1);
+        end
+    end
+    
     % Process each patch within the column
     for i = 1:n_i
         corner(1) = (i - 1) * patch_size(1) + 1 + patch_offset(1);
@@ -586,123 +674,159 @@ parfor j = 1:n_j
         patch_end_row = min(corner(1) + patch_size(1) - 1, image_sampling(1));
         image_sampling_p(1) = diff(patch_lim_rows) + 1;
         
-        if has_dispersion
-            dispersion_matrix_p = dispersionfunToMatrix(...
-                dispersionfun, lambda, image_sampling_p, image_sampling_p,...
-                [0, 0, image_sampling_p(2), image_sampling_p(1)], true,...
-                flip(corner) - 1 ...
+        spectral_inc = 0;
+        color_inc = 0;
+        raw_inc = 0;
+        weights_inc = 0;
+        output_step = 1;
+        for t = 1:n_steps
+            if has_dispersion
+                dispersion_matrix_p = dispersionfunToMatrix(...
+                    dispersionfun, bands_all{t}, image_sampling_p, image_sampling_p,...
+                    [0, 0, image_sampling_p(2), image_sampling_p(1)], true,...
+                    flip(corner) - 1 ...
+                );
+            else
+                dispersion_matrix_p = [];
+            end
+
+            % Solve for the output patch
+            n_bands_t = n_bands_all{t};
+            n_bands_t1 = n_bands_t - 1;
+            color_weights_t = color_weights_all{t};
+            in_admm = initBaek2017Algorithm2LowMemory(...
+                column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)),...
+                align, dispersion_matrix_p,...
+                color_weights_t, enabled_weights, admm_options...
             );
-        else
-            dispersion_matrix_p = [];
-        end
+            if t > 1
+                % Initialize with the result of the previous step
+                in_admm.I = channelConversionMatrix(image_sampling_p, upsampling_weights{t}) * patches_I_ij;
+            end
+            if show_steps
+                output_step = t;
+                if t > 1
+                    spectral_inc = spectral_inc + n_bands_all{t - 1};
+                    color_inc = color_inc + n_channels_rgb;
+                    raw_inc = raw_inc + sz_J3;
+                    weights_inc = weights_inc + n_active_weights;
+                end
+            end
+            
+            if ~use_min_norm
+                reg_options_p = reg_options;
+                if has_multi_weights
+                    reg_options_p.minimum_weights = multi_weights(t, :);
+                    reg_options_p.maximum_weights = multi_weights(t, :);
+                end
+            end
+            
+            if use_min_norm
+                % Minimum-norm least squares solution to the non-regularized problem
+                if(verbose)
+                    fprintf('Computing the minimum-norm least squares solution...\n');
+                end
+                in_admm.J = reshape(column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)), [], 1);
+                patches_I_ij = lsqminnorm(in_admm.M_Omega_Phi, in_admm.J);
+                if(verbose)
+                    fprintf('\t...done.\n');
+                end
 
-        % Solve for the output patch
-        in_admm = initBaek2017Algorithm2LowMemory(...
-            column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)),...
-            align, dispersion_matrix_p,...
-            sensitivity, enabled_weights, admm_options...
-        );
-        if use_min_norm
-            % Minimum-norm least squares solution to the non-regularized problem
-            if(verbose)
-                fprintf('Computing the minimum-norm least squares solution...\n');
-            end
-            in_admm.J = reshape(column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)), [], 1);
-            patches_I_ij = lsqminnorm(in_admm.M_Omega_Phi, in_admm.J);
-            if(verbose)
-                fprintf('\t...done.\n');
-            end
-                        
-        elseif input_I_in
-            I_in_p = I_in_j;
-            I_in_p.I = column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.I_in(1):channels_in.I_in(2));
-            in_weightsLowMemory = initWeightsLowMemory(I_in_p);
-            if output_search
-                [...
-                    patches_I_ij, weights, ~, ~, search_out{j}...
-                ] = weightsLowMemory(...
-                    admm_options, reg_options, in_weightsLowMemory,...
-                    in_admm, I_in_p, verbose...
+            elseif input_I_in
+                I_in_p = struct(...
+                    'I', column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.I_in(1):channels_in.I_in(2)),...
+                	'spectral_weights', spectral_weights_all{t}...
                 );
-            else
-                [...
-                    patches_I_ij, weights...
-                ] = weightsLowMemory(...
-                    admm_options, reg_options, in_weightsLowMemory,...
-                    in_admm, I_in_p, verbose...
-                );
-            end
-
-        else
-            in_penalties = initPenalties(in_admm.M_Omega_Phi, in_admm.G);
-            in_weightsLowMemory = initWeightsLowMemory([]);
-            if output_search
-                [...
-                    patches_I_ij, weights, ~, ~, ~, search_out{j}...
-                ] = weightsLowMemory(...
-                    admm_options, reg_options, in_weightsLowMemory,...
-                    in_admm, in_penalties, verbose...
-                );
-            else
-                [...
-                    patches_I_ij, weights...
-                ] = weightsLowMemory(...
-                    admm_options, reg_options, in_weightsLowMemory,...
-                    in_admm, in_penalties, verbose...
-                );
-            end
-        end
-        
-        patches_I_ij_3D = reshape(patches_I_ij, [image_sampling_p n_bands]);
-        column_out_j(...
-            corner(1):patch_end_row, :, channels_out.I(1):channels_out.I(2)...
-        ) = patches_I_ij_3D(rows_trim_out(1):rows_trim_out(2), cols_trim_out(1):cols_trim_out(2), :);
-    
-        if n_auxiliary_images > 0
-            patches_I_rgb_ij = in_admm.Omega * patches_I_ij;
-            patches_I_rgb_ij_3D = reshape(patches_I_rgb_ij, [image_sampling_p n_channels_rgb]);
-            column_out_j(...
-                corner(1):patch_end_row, :, channels_out.I_rgb(1):channels_out.I_rgb(2)...
-            ) = patches_I_rgb_ij_3D(rows_trim_out(1):rows_trim_out(2), cols_trim_out(1):cols_trim_out(2), :);
-        
-            if n_auxiliary_images > 1
-                if has_dispersion
-                    patches_I_warped_ij = dispersion_matrix_p * patches_I_ij;
-                    patches_J_full_ij = in_admm.Omega * patches_I_warped_ij;
-                    patches_J_full_ij_3D = reshape(patches_J_full_ij, [image_sampling_p n_channels_rgb]);
-                    column_out_j(...
-                        corner(1):patch_end_row, :, channels_out.J_full(1):channels_out.J_full(2)...
-                    ) = patches_J_full_ij_3D(rows_trim_out(1):rows_trim_out(2), cols_trim_out(1):cols_trim_out(2), :);
+                in_weightsLowMemory = initWeightsLowMemory(I_in_p);
+                if output_search && (show_steps || t == n_steps)
+                    [...
+                        patches_I_ij, weights, ~, ~, search_out{j}{output_step}...
+                    ] = weightsLowMemory(...
+                        admm_options, reg_options_p, in_weightsLowMemory,...
+                        in_admm, I_in_p, verbose...
+                    );
                 else
-                    patches_I_warped_ij = patches_I_ij_3D;
-                    patches_J_full_ij = patches_I_rgb_ij;
-                    column_out_j(...
-                        corner(1):patch_end_row, :, channels_out.J_full(1):channels_out.J_full(2)...
-                    ) = column_out_j(...
-                        corner(1):patch_end_row, :, channels_out.I_rgb(1):channels_out.I_rgb(2)...
+                    [...
+                        patches_I_ij, weights...
+                    ] = weightsLowMemory(...
+                        admm_options, reg_options_p, in_weightsLowMemory,...
+                        in_admm, I_in_p, verbose...
                     );
                 end
-                
-                if n_auxiliary_images > 2
-                    patches_J_est_ij_3D = reshape(in_admm.M * patches_J_full_ij, [image_sampling_p size(J_2D, 3)]);
-                    column_out_j(...
-                        corner(1):patch_end_row, :, channels_out.J_est(1):channels_out.J_est(2)...
-                    ) = patches_J_est_ij_3D(rows_trim_out(1):rows_trim_out(2), cols_trim_out(1):cols_trim_out(2), :);
-                    
-                    if n_auxiliary_images > 3
-                        patches_I_warped_ij_3D = reshape(patches_I_warped_ij, [image_sampling_p n_bands]);
-                        column_out_j(...
-                            corner(1):patch_end_row, :, channels_out.I_warped(1):channels_out.I_warped(2)...
-                        ) = patches_I_warped_ij_3D(rows_trim_out(1):rows_trim_out(2), cols_trim_out(1):cols_trim_out(2), :);
-                    end
+
+            else
+                in_penalties = initPenalties(in_admm.M_Omega_Phi, in_admm.G);
+                in_weightsLowMemory = initWeightsLowMemory([]);
+                if output_search && (show_steps || t == n_steps)
+                    [...
+                        patches_I_ij, weights, ~, ~, ~, search_out{j}{output_step}...
+                    ] = weightsLowMemory(...
+                        admm_options, reg_options_p, in_weightsLowMemory,...
+                        in_admm, in_penalties, verbose...
+                    );
+                else
+                    [...
+                        patches_I_ij, weights...
+                    ] = weightsLowMemory(...
+                        admm_options, reg_options_p, in_weightsLowMemory,...
+                        in_admm, in_penalties, verbose...
+                    );
                 end
             end
-        end
-        
-        if output_weights
-            column_out_j(...
-                corner(1):patch_end_row, :, channels_out.I_weights(1):channels_out.I_weights(2)...
-            ) = repmat(reshape(weights(enabled_weights), 1, 1, n_active_weights), diff(rows_trim_out) + 1, col_out_width, 1);
+
+            if show_steps || t == n_steps
+                patches_I_ij_3D = reshape(patches_I_ij, [image_sampling_p n_bands_t]);
+                column_out_j(...
+                    corner(1):patch_end_row, :, (spectral_inc + channels_out.I(1)):(spectral_inc + channels_out.I(1) + n_bands_t1)...
+                ) = patches_I_ij_3D(rows_trim_out(1):rows_trim_out(2), cols_trim_out(1):cols_trim_out(2), :);
+
+                if n_auxiliary_images > 0
+                    patches_I_rgb_ij = in_admm.Omega * patches_I_ij;
+                    patches_I_rgb_ij_3D = reshape(patches_I_rgb_ij, [image_sampling_p n_channels_rgb]);
+                    column_out_j(...
+                        corner(1):patch_end_row, :, (color_inc + channels_out.I_rgb(1)):(color_inc + channels_out.I_rgb(1) + n_channels_rgb1)...
+                    ) = patches_I_rgb_ij_3D(rows_trim_out(1):rows_trim_out(2), cols_trim_out(1):cols_trim_out(2), :);
+
+                    if n_auxiliary_images > 1
+                        if has_dispersion
+                            patches_I_warped_ij = dispersion_matrix_p * patches_I_ij;
+                            patches_J_full_ij = in_admm.Omega * patches_I_warped_ij;
+                            patches_J_full_ij_3D = reshape(patches_J_full_ij, [image_sampling_p n_channels_rgb]);
+                            column_out_j(...
+                                corner(1):patch_end_row, :, (color_inc + channels_out.J_full(1)):(color_inc + channels_out.J_full(1) + n_channels_rgb1)...
+                            ) = patches_J_full_ij_3D(rows_trim_out(1):rows_trim_out(2), cols_trim_out(1):cols_trim_out(2), :);
+                        else
+                            patches_I_warped_ij = patches_I_ij_3D;
+                            patches_J_full_ij = patches_I_rgb_ij;
+                            column_out_j(...
+                                corner(1):patch_end_row, :, (color_inc + channels_out.J_full(1)):(color_inc + channels_out.J_full(1) + n_channels_rgb1)...
+                            ) = column_out_j(...
+                                corner(1):patch_end_row, :, (color_inc + channels_out.I_rgb(1)):(color_inc + channels_out.I_rgb(1) + n_channels_rgb1)...
+                            );
+                        end
+
+                        if n_auxiliary_images > 2
+                            patches_J_est_ij_3D = reshape(in_admm.M * patches_J_full_ij, [image_sampling_p sz_J3]);
+                            column_out_j(...
+                                corner(1):patch_end_row, :, (raw_inc + channels_out.J_est(1)):(raw_inc + channels_out.J_est(1) + sz_J3 - 1)...
+                            ) = patches_J_est_ij_3D(rows_trim_out(1):rows_trim_out(2), cols_trim_out(1):cols_trim_out(2), :);
+
+                            if n_auxiliary_images > 3
+                                patches_I_warped_ij_3D = reshape(patches_I_warped_ij, [image_sampling_p n_bands_t]);
+                                column_out_j(...
+                                    corner(1):patch_end_row, :, (spectral_inc + channels_out.I_warped(1)):(spectral_inc + channels_out.I_warped(1) + n_bands_t1)...
+                                ) = patches_I_warped_ij_3D(rows_trim_out(1):rows_trim_out(2), cols_trim_out(1):cols_trim_out(2), :);
+                            end
+                        end
+                    end
+                end
+
+                if output_weights
+                    column_out_j(...
+                        corner(1):patch_end_row, :, (weights_inc + channels_out.I_weights(1)):(weights_inc + channels_out.I_weights(1) + n_active_weights - 1)...
+                    ) = repmat(reshape(weights(enabled_weights), 1, 1, n_active_weights), diff(rows_trim_out) + 1, col_out_width, 1);
+                end
+            end
         end
         
         if verbose
@@ -725,8 +849,14 @@ else
 end
 I_3D = images_out(:, :, channels_out.I(1):channels_out.I(2));
 
+if show_steps
+    bands = bands_all;
+else
+    bands = bands_final;
+end
+
 if n_auxiliary_images > 0
-    varargout = cell(1, nargout - 1);
+    varargout = cell(1, nargout - 2);
     varargout{1} = images_out(:, :, channels_out.I_rgb(1):channels_out.I_rgb(2));
     if n_auxiliary_images > 1
         varargout{3} = images_out(:, :, channels_out.J_full(1):channels_out.J_full(2));
@@ -744,7 +874,11 @@ elseif nargout > nargout_before_weights
     varargout{2} = [];
 end
 if output_search
-    varargout(end) = search_out(1);
+    if show_steps
+        varargout(end) = search_out{1};
+    else
+        varargout(end) = search_out{1}(1);
+    end
 end
 
 if verbose

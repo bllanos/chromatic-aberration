@@ -281,9 +281,7 @@ for i = 1:n_images
                 continue;
             end              
             
-            reg_options_f = mergeStructs(...
-                solvePatchesADMMOptions.reg_options, solvePatchesADMMOptions.reg_options, true, false...
-            );
+            reg_options_f = solvePatchesADMMOptions.reg_options;
             if ~use_automatic_weights
                 if w_type == 1
                     weights_f = algorithm.mdc_weights(i, :);
