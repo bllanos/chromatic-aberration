@@ -11,9 +11,9 @@
 % The dataset determines the data to be loaded, and algorithms to be
 % tested, as encapsulated by the 'describeDataset()' function.
 %
-% The documentation in the scripts 'CorrectByHyperspectralADMM.m' and
-% 'CorrectByWarping.m' contains more information on the formats of the
-% various types of data associated with the datasets.
+% The documentation in the script 'CorrectByHyperspectralADMM.m' contains
+% more information on the formats of the various types of data associated
+% with the datasets.
 %
 % This script also runs 'SetFixedParameters.m' to set the values of
 % seldomly-changed parameters. These parameters are briefly documented in
@@ -45,11 +45,13 @@
 %   'SetAlgorithms.m', and then each algorithm is given two additional
 %   fields by this script:
 %   - 'mdc_weights': Regularization weights selected using the minimum
-%     distance criterion of Song et al. 2016. 'mdc_weights' is a 2D array
-%     with one row per image in the dataset.
+%     distance criterion of Song et al. 2016. 'mdc_weights' is a 3D array
+%     with one frame per image in the dataset. The first dimension indexes
+%     spectral resolutions (applicable only for 'solvePatchesMultiADMM()'),
+%     whereas the second dimension indexes regularization weights.
 %   - 'mse_weights': Regularization weights selected to minimize the mean
-%     square error with respect to the true images. 'mse_weights' is a 2D
-%     array with one row per image in the dataset.
+%     square error with respect to the true images. 'mse_weights' is an
+%     array with the same format as 'mdc_weights'.
 % - 'corners': A three-dimensional array containing the top-left corners of
 %   the image patches used to select regularization weights. `corners(pc,
 %   :, i)` is a two-element vector containing the row and column indices,
@@ -68,12 +70,14 @@
 % - 'patch_penalties_rgb_L2': An array similar to 'patch_penalties_rgb_L1',
 %   but which contains L2 norms of regularization penalties.
 % - 'all_mdc_weights': Regularization weights selected using the method of
-%   Song et al. 2016. `all_mdc_weights(pc, :, i, f)` is the vector of
+%   Song et al. 2016. `all_mdc_weights{f}(pc, :, t, i)` is the vector of
 %   regularization weights selected for the f-th algorithm on the pc-th
-%   patch of the i-th image
-% - 'all_mse_weights': An array with the same layout as 'all_mdc_weights',
-%   but which contains regularization weights selected by minimizing the
-%   true mean square error.
+%   patch of the i-th image. `t` is the spectral resolution, which is
+%   relevant only for 'solvePatchesMultiADMM()', but is one for single
+%   spectral resolution approaches (i.e. 'solvePatchesADMM()').
+% - 'all_mse_weights': An cell vector with the same layout as
+%   'all_mdc_weights', but which contains regularization weights selected
+%   by minimizing the true mean square error.
 % 
 % Additionally, the file contains the values of all parameters listed in
 % `parameters_list`, which is initialized in this file, and then augmented
@@ -166,6 +170,8 @@ patch_size = solvePatchesADMMOptions.patch_options.patch_size;
 padding = solvePatchesADMMOptions.patch_options.padding;
 full_patch_size = patch_size + padding * 2;
 
+solvePatchesMultiADMMOptions.sampling_options.show_steps = true;
+
 if has_spectral
     image_sampling_patch_spectral = [full_patch_size, length(bands_spectral)];
     n_spectral_weights = n_weights - 1;
@@ -223,14 +229,6 @@ end
 
 admm_algorithm_fields = fieldnames(admm_algorithms);
 n_admm_algorithms = length(admm_algorithm_fields);
-for f = 1:n_admm_algorithms
-    algorithm = admm_algorithms.(admm_algorithm_fields{f});
-    if ~algorithm.enabled
-        continue;
-    end
-    admm_algorithms.(admm_algorithm_fields{f}).mdc_weights = zeros(n_images, n_weights); 
-    admm_algorithms.(admm_algorithm_fields{f}).mse_weights = zeros(n_images, n_weights);
-end
 
 %% Process the images
 
@@ -241,8 +239,10 @@ end
 patch_penalties_rgb_L1 = zeros(n_patches, n_weights, n_images);
 patch_penalties_rgb_L2 = zeros(n_patches, n_weights, n_images);
 
-all_mdc_weights = zeros(n_patches, n_weights, n_images, n_admm_algorithms);
-all_mse_weights = zeros(n_patches, n_weights, n_images, n_admm_algorithms);
+all_mdc_weights = cell(n_admm_algorithms, 1);
+all_mse_weights = cell(n_admm_algorithms, 1);
+
+n_bands_all = cell(n_admm_algorithms, 1);
 
 for i = 1:n_images
     if verbose
@@ -304,41 +304,98 @@ for i = 1:n_images
             continue;
         end
         
-        reg_options_f = reg_options;
+        true_spectral = algorithm.spectral && ~channel_mode;
+        
+        if true_spectral
+            reg_options_f = solvePatchesMultiADMMOptions.reg_options;
+        else
+            reg_options_f = solvePatchesADMMOptions.reg_options;
+        end
         reg_options_f.enabled = algorithm.priors;
+        enabled_weights = reg_options_f.enabled;
+        n_active_weights = sum(enabled_weights);
 
-        admm_options_f = mergeStructs(...
-            solvePatchesADMMOptions.admm_options, algorithm.options, false, true...
-        );
+        if true_spectral
+            admm_options_f = mergeStructs(...
+                solvePatchesMultiADMMOptions.admm_options, algorithm.options, false, true...
+            );
+        else
+            admm_options_f = mergeStructs(...
+                solvePatchesADMMOptions.admm_options, algorithm.options, false, true...
+            );
+        end
       
         mdc_weights_patches = zeros(n_patches, n_weights);
         mse_weights_patches = zeros(n_patches, n_weights);
+        n_steps = 1;
         if algorithm.spectral
-            for pc = 1:n_patches
-                solvePatchesADMMOptions.patch_options.target_patch = corners(pc, :);
-                [...
-                    ~, ~, weights_images...
-                ] = solvePatchesADMM(...
-                  [], I_raw_gt, bayer_pattern, df_spectral_reverse,...
-                  color_weights, bands,...
-                  admm_options_f, reg_options_f,...
-                  solvePatchesADMMOptions.patch_options,...
-                  solvePatchesADMMVerbose...
-                );
-                mdc_weights_patches(pc, reg_options_f.enabled) = weights_images(1, 1, :);
-                
-                I_in.I = I_spectral_gt;
-                I_in.spectral_weights = spectral_weights;
-                [...
-                    ~, ~, weights_images...
-                ] = solvePatchesADMM(...
-                  I_in, I_raw_gt, bayer_pattern, df_spectral_reverse,...
-                  color_weights, bands,...
-                  admm_options_f, reg_options_f,...
-                  solvePatchesADMMOptions.patch_options,...
-                  solvePatchesADMMVerbose...
-                );
-                mse_weights_patches(pc, reg_options_f.enabled) = weights_images(1, 1, :);                   
+            if true_spectral
+                for pc = 1:n_patches
+                    solvePatchesMultiADMMOptions.patch_options.target_patch = corners(pc, :);
+                    [...
+                        bands_all, ~, ~, weights_images...
+                    ] = solvePatchesMultiADMM(...
+                      [], I_raw_gt, bayer_pattern, df_spectral_reverse,...
+                      sensor_map, bands_color,...
+                      solvePatchesMultiADMMOptions.sampling_options,...
+                      admm_options_f, reg_options_f,...
+                      solvePatchesMultiADMMOptions.patch_options,...
+                      solvePatchesMultiADMMVerbose...
+                    );
+                    if pc == 1
+                        n_steps = size(weights_images, 3) / n_active_weights;
+                        mdc_weights_patches = repmat(mdc_weights_patches, 1, 1, n_steps);
+                        mse_weights_patches = repmat(mse_weights_patches, 1, 1, n_steps);
+                        if n_steps > 1
+                            n_bands_all{f} = zeros(length(bands_all));
+                            for b = 1:length(bands_all)
+                                n_bands_all{f}(b) = length(bands_all{b});
+                            end
+                        end
+                    end
+                    mdc_weights_patches(pc, reg_options_f.enabled, :) = weights_images(1, 1, :);
+
+                    I_in.I = I_spectral_gt;
+                    I_in.spectral_bands = bands_spectral;
+                    [...
+                        ~, ~, ~, weights_images...
+                    ] = solvePatchesMultiADMM(...
+                      I_in, I_raw_gt, bayer_pattern, df_spectral_reverse,...
+                      sensor_map, bands_color,...
+                      solvePatchesMultiADMMOptions.sampling_options,...
+                      admm_options_f, reg_options_f,...
+                      solvePatchesMultiADMMOptions.patch_options,...
+                      solvePatchesMultiADMMVerbose...
+                    );
+                    mse_weights_patches(pc, reg_options_f.enabled, :) = weights_images(1, 1, :);                   
+                end
+            else
+                for pc = 1:n_patches
+                    solvePatchesADMMOptions.patch_options.target_patch = corners(pc, :);
+                    [...
+                        ~, ~, weights_images...
+                    ] = solvePatchesADMM(...
+                      [], I_raw_gt, bayer_pattern, df_spectral_reverse,...
+                      color_weights, bands,...
+                      admm_options_f, reg_options_f,...
+                      solvePatchesADMMOptions.patch_options,...
+                      solvePatchesADMMVerbose...
+                    );
+                    mdc_weights_patches(pc, reg_options_f.enabled) = weights_images(1, 1, :);
+
+                    I_in.I = I_spectral_gt;
+                    I_in.spectral_weights = spectral_weights;
+                    [...
+                        ~, ~, weights_images...
+                    ] = solvePatchesADMM(...
+                      I_in, I_raw_gt, bayer_pattern, df_spectral_reverse,...
+                      color_weights, bands,...
+                      admm_options_f, reg_options_f,...
+                      solvePatchesADMMOptions.patch_options,...
+                      solvePatchesADMMVerbose...
+                    );
+                    mse_weights_patches(pc, reg_options_f.enabled) = weights_images(1, 1, :);                   
+                end
             end
         else
             for pc = 1:n_patches
@@ -370,10 +427,20 @@ for i = 1:n_images
         end
         mdc_weights = geomean(mdc_weights_patches, 1);
         mse_weights = geomean(mse_weights_patches, 1);
-        all_mdc_weights(:, :, i, f) = mdc_weights_patches;
-        all_mse_weights(:, :, i, f) = mse_weights_patches;
-        admm_algorithms.(admm_algorithm_fields{f}).mdc_weights(i, :) = mdc_weights;
-        admm_algorithms.(admm_algorithm_fields{f}).mse_weights(i, :) = mse_weights;
+        if true_spectral && n_steps > 1
+            mdc_weights = squeeze(mdc_weights).';
+            mse_weights = squeeze(mse_weights).';
+        end
+        if i == 1
+            all_mdc_weights{f} = zeros(n_patches, n_weights, n_steps, n_images);
+            all_mse_weights{f} = zeros(n_patches, n_weights, n_steps, n_images);
+            admm_algorithms.(admm_algorithm_fields{f}).mdc_weights = zeros(n_steps, n_weights, n_images); 
+            admm_algorithms.(admm_algorithm_fields{f}).mse_weights = zeros(n_steps, n_weights, n_images);
+        end
+        all_mdc_weights{f}(:, :, :, i) = mdc_weights_patches;
+        all_mse_weights{f}(:, :, :, i) = mse_weights_patches;
+        admm_algorithms.(admm_algorithm_fields{f}).mdc_weights(:, :, i) = mdc_weights;
+        admm_algorithms.(admm_algorithm_fields{f}).mse_weights(:, :, i) = mse_weights;
     end
 
     if verbose
@@ -405,6 +472,8 @@ for f = 1:n_admm_algorithms
         continue;
     end
     
+    true_spectral = algorithm.spectral && ~channel_mode;
+    
     name_params = sprintf(...
         '%s_patch%dx%d_pad%d_',...
         algorithm.file, patch_size(1), patch_size(2), padding...
@@ -418,118 +487,185 @@ for f = 1:n_admm_algorithms
             'RGB_', name_params...
         ];
     end
-    name_params = fullfile(output_directory, name_params);
     
-    admm_options_f = mergeStructs(...
-        solvePatchesADMMOptions.admm_options, algorithm.options, false, true...
-    );
-
-    enabled_weights = algorithm.priors;
-    n_active_weights = sum(enabled_weights);
-    to_all_weights = find(enabled_weights);
-
-    mdc_weights = reshape(permute(all_mdc_weights(:, :, :, f), [1, 3, 2, 4]), [], n_weights);
-    mdc_weights = mdc_weights(:, enabled_weights);
-    log_mdc_weights = log10(mdc_weights);
-    mse_weights = reshape(permute(all_mse_weights(:, :, :, f), [1, 3, 2, 4]), [], n_weights);
-    mse_weights = mse_weights(:, enabled_weights);
-    log_mse_weights = log10(mse_weights);
-
-    fg = figure;
-    hold on
-    if n_active_weights == 1
-        scatter(...
-            log_mse_weights, log_mdc_weights, 'filled'...
-        );
-        line_limits = [...
-            min(min(log_mse_weights, log_mdc_weights));
-            max(max(log_mse_weights, log_mdc_weights))
-        ];
-        line(line_limits, line_limits, 'Color', 'b');
-        legend('Weights', 'y = x');
-        xlabel('Weight selected using the mean square error');
-        ylabel('Weight selected using the minimum distance criterion');
-        xlim(plot_limits)
-        ylim(plot_limits)
-    elseif n_active_weights == 2
-        scatter(...
-            log_mdc_weights(:, 1), log_mdc_weights(:, 2), [], mdc_color, 'filled'...
-        );
-        scatter(...
-            log_mse_weights(:, 1), log_mse_weights(:, 2), [], mse_color, 'filled'...
-        );
-        legend('MDC', 'MSE');
-        xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
-        ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
-        xlim(plot_limits)
-        ylim(plot_limits)
-    elseif n_active_weights == 3
-        scatter3(...
-            log_mdc_weights(:, 1), log_mdc_weights(:, 2), log_mdc_weights(:, 3),...
-            [], mdc_color, 'filled'...
-        );
-        scatter3(...
-            log_mse_weights(:, 1), log_mse_weights(:, 2), log_mse_weights(:, 3),...
-            [], mse_color, 'filled'...
-        );
-        legend('MDC', 'MSE');
-        xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
-        ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
-        zlabel(sprintf('log_{10}(weight %d)', to_all_weights(3)))
-        xlim(plot_limits)
-        ylim(plot_limits)
-        zlim(plot_limits)
-    else
-        error('Unexpected number of active weights.');
-    end
-    title(sprintf(...
-        'Agreement between MDC and MSE weights selected for %s',...
-        algorithm.name...
-    ));
-    hold off
-    
-    savefig(...
-        fg,...
-        [name_params 'weightsCorrelation.fig'], 'compact'...
-    );
-    close(fg);
-
-    for w = 1:n_active_weights
-        aw = to_all_weights(w);
-        if algorithm.spectral && has_color_map
-            if admm_options_f.norms(aw)
-                patch_penalties = log_patch_penalties_spectral_L1(:, w, :);
-            else
-                patch_penalties = log_patch_penalties_spectral_L2(:, w, :);
-            end
+    n_steps = size(all_mdc_weights{f}, 3);
+    for t = 1:n_steps
+        if true_spectral
+            name_params_t = [...
+                name_params, sprintf('step%d_', t), ...
+            ];
         else
-            if admm_options_f.norms(aw)
-                patch_penalties = log_patch_penalties_rgb_L1(:, w, :);
-            else
-                patch_penalties = log_patch_penalties_rgb_L2(:, w, :);
-            end
+            name_params_t = name_params;
         end
-        patch_penalties = reshape(patch_penalties, [], 1);
-        
+        name_params_t = fullfile(output_directory, name_params_t);
+
+        if true_spectral
+            admm_options_f = mergeStructs(...
+                solvePatchesADMMOptions.admm_options, algorithm.options, false, true...
+            );
+        else
+            admm_options_f = mergeStructs(...
+                solvePatchesMultiADMMOptions.admm_options, algorithm.options, false, true...
+            );
+        end
+
+        enabled_weights = algorithm.priors;
+        n_active_weights = sum(enabled_weights);
+        to_all_weights = find(enabled_weights);
+
+        mdc_weights = reshape(permute(all_mdc_weights{f}(:, :, t, :), [1, 4, 2, 3]), [], n_weights);
+        mdc_weights = mdc_weights(:, enabled_weights);
+        log_mdc_weights = log10(mdc_weights);
+        mse_weights = reshape(permute(all_mse_weights{f}(:, :, t, :), [1, 4, 2, 3]), [], n_weights);
+        mse_weights = mse_weights(:, enabled_weights);
+        log_mse_weights = log10(mse_weights);
+
         fg = figure;
         hold on
-        scatter(patch_penalties, log_mdc_weights(:, w), [], mdc_color, 'filled');
-        scatter(patch_penalties, log_mse_weights(:, w), [], mse_color, 'filled');
-        legend('MDC', 'MSE');
-        xlabel(sprintf('log_{10}(Penalty %d)', aw))
-        ylabel(sprintf('log_{10}(Weight %d)', aw))
-        title(sprintf(...
-            'Agreement between MDC and MSE weights selected for %s',...
-            algorithm.name...
-        ));
-        ylim(plot_limits)
+        if n_active_weights == 1
+            scatter(...
+                log_mse_weights, log_mdc_weights, 'filled'...
+            );
+            line_limits = [...
+                min(min(log_mse_weights, log_mdc_weights));
+                max(max(log_mse_weights, log_mdc_weights))
+            ];
+            line(line_limits, line_limits, 'Color', 'b');
+            legend('Weights', 'y = x');
+            xlabel('Weight selected using the mean square error');
+            ylabel('Weight selected using the minimum distance criterion');
+            xlim(plot_limits)
+            ylim(plot_limits)
+        elseif n_active_weights == 2
+            scatter(...
+                log_mdc_weights(:, 1), log_mdc_weights(:, 2), [], mdc_color, 'filled'...
+            );
+            scatter(...
+                log_mse_weights(:, 1), log_mse_weights(:, 2), [], mse_color, 'filled'...
+            );
+            legend('MDC', 'MSE');
+            xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
+            ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
+            xlim(plot_limits)
+            ylim(plot_limits)
+        elseif n_active_weights == 3
+            scatter3(...
+                log_mdc_weights(:, 1), log_mdc_weights(:, 2), log_mdc_weights(:, 3),...
+                [], mdc_color, 'filled'...
+            );
+            scatter3(...
+                log_mse_weights(:, 1), log_mse_weights(:, 2), log_mse_weights(:, 3),...
+                [], mse_color, 'filled'...
+            );
+            legend('MDC', 'MSE');
+            xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
+            ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
+            zlabel(sprintf('log_{10}(weight %d)', to_all_weights(3)))
+            xlim(plot_limits)
+            ylim(plot_limits)
+            zlim(plot_limits)
+        else
+            error('Unexpected number of active weights.');
+        end
+        if true_spectral
+            title(sprintf(...
+                'Agreement between MDC and MSE weights selected for %s, step %d',...
+                algorithm.name, t...
+            ));
+        else
+            title(sprintf(...
+                'Agreement between MDC and MSE weights selected for %s',...
+                algorithm.name...
+            ));
+        end
         hold off
-        
+
         savefig(...
             fg,...
-            [name_params sprintf('weight%d.fig', aw)], 'compact'...
+            [name_params_t 'weightsCorrelation.fig'], 'compact'...
         );
         close(fg);
+
+        for w = 1:n_active_weights
+            aw = to_all_weights(w);
+            if algorithm.spectral && has_color_map
+                if admm_options_f.norms(aw)
+                    patch_penalties = log_patch_penalties_spectral_L1(:, w, :);
+                else
+                    patch_penalties = log_patch_penalties_spectral_L2(:, w, :);
+                end
+            else
+                if admm_options_f.norms(aw)
+                    patch_penalties = log_patch_penalties_rgb_L1(:, w, :);
+                else
+                    patch_penalties = log_patch_penalties_rgb_L2(:, w, :);
+                end
+            end
+            patch_penalties = reshape(patch_penalties, [], 1);
+
+            fg = figure;
+            hold on
+            scatter(patch_penalties, log_mdc_weights(:, w), [], mdc_color, 'filled');
+            scatter(patch_penalties, log_mse_weights(:, w), [], mse_color, 'filled');
+            legend('MDC', 'MSE');
+            xlabel(sprintf('log_{10}(Penalty %d)', aw))
+            ylabel(sprintf('log_{10}(Weight %d)', aw))
+            if true_spectral
+                title(sprintf(...
+                    'Agreement between MDC and MSE weights selected for %s, step %d',...
+                    algorithm.name, t...
+                ));
+            else
+                title(sprintf(...
+                    'Agreement between MDC and MSE weights selected for %s',...
+                    algorithm.name...
+                ));
+            end
+            ylim(plot_limits)
+            hold off
+
+            savefig(...
+                fg,...
+                [name_params_t sprintf('weight%d.fig', aw)], 'compact'...
+            );
+            close(fg);
+        end
+    end
+    
+    % Plot weights vs. image estimation step
+    if true_spectral && n_steps > 1
+        mdc_weights = reshape(permute(all_mdc_weights{f}, [1, 4, 3, 2]), [], n_weights);
+        mdc_weights = mdc_weights(:, enabled_weights);
+        log_mdc_weights = log10(mdc_weights);
+        mse_weights = reshape(permute(all_mse_weights{f}, [1, 4, 3, 2]), [], n_weights);
+        mse_weights = mse_weights(:, enabled_weights);
+        log_mse_weights = log10(mse_weights);
+        
+        n_bands_plot = repelem(n_bands_all{f}, n_patches * n_images);
+        
+        for w = 1:n_active_weights
+            aw = to_all_weights(w);
+
+            fg = figure;
+            hold on
+            scatter(n_bands_plot, log_mdc_weights(:, w), [], mdc_color, 'filled');
+            scatter(n_bands_plot, log_mse_weights(:, w), [], mse_color, 'filled');
+            legend('MDC', 'MSE');
+            xlabel('Number of bands in image estimation step')
+            ylabel(sprintf('log_{10}(Weight %d)', aw))
+            title(sprintf(...
+                'Agreement between MDC and MSE weight %d selected for %s',...
+                aw, algorithm.name...
+            ));
+            ylim(plot_limits)
+            hold off
+
+            savefig(...
+                fg,...
+                fullfile(output_directory, [name_params, sprintf('weight%d.fig', aw)]), 'compact'...
+            );
+            close(fg);
+        end
     end
 end
 

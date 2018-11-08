@@ -32,7 +32,8 @@ parameters_list = [parameters_list, {
     'patch_sizes',...
     'paddings',...
     'use_fixed_weights',...
-    'solvePatchesADMMOptions'...
+    'solvePatchesADMMOptions',...
+    'solvePatchesMultiADMMOptions'...
     }];
 
 %% Output images
@@ -104,6 +105,17 @@ samplingWeightsOptions.support_threshold = 0.05;
 
 samplingWeightsOptions.bands_padding = 1000;
 
+% Additional options for 'solvePatchesMultiADMM()'
+solvePatchesMultiADMMOptions.sampling_options = samplingWeightsOptions;
+
+% How to choose spectral resolutions lower than the one given by
+% 'samplingWeights()' based on the above options.
+solvePatchesMultiADMMOptions.sampling_options.progression = 'sequential';
+
+% Output the results for the lower spectral resolutions. CAUTION: Not
+% recommended when estimating large images, because of memory consumption.
+solvePatchesMultiADMMOptions.sampling_options.show_steps = true;
+
 %% Hyperspectral image estimation parameters
 
 % ## Image estimation options
@@ -145,6 +157,8 @@ solvePatchesADMMOptions.admm_options.nonneg = true;
 % Image initialization method
 solvePatchesADMMOptions.admm_options.init = 'zero';
 
+solvePatchesMultiADMMOptions.admm_options = solvePatchesADMMOptions.admm_options;
+
 % ## Options for patch-wise image estimation
 
 % Every combination of rows of `patch_sizes` and elements of `paddings`
@@ -161,11 +175,17 @@ solvePatchesADMMOptions.patch_options = struct;
 solvePatchesADMMOptions.patch_options.patch_size = patch_sizes(1, :);
 solvePatchesADMMOptions.patch_options.padding = paddings(1);
 
+solvePatchesMultiADMMOptions.patch_options = solvePatchesADMMOptions.patch_options;
+
 % ## Options for selecting regularization weights
 
 solvePatchesADMMOptions.reg_options = struct;
 
 solvePatchesADMMOptions.reg_options.enabled = logical(weights(1, :));
+
+solvePatchesADMMOptions.reg_options.low_guess = [1e-3, 1e-3, 1e-3];
+solvePatchesADMMOptions.reg_options.high_guess = [100, 100, 100];
+solvePatchesADMMOptions.reg_options.tol = 1e-6;
 
 use_fixed_weights = false;
 if use_fixed_weights
@@ -179,16 +199,16 @@ else
     % the origin of the minimum distance function)
     solvePatchesADMMOptions.reg_options.maximum_weights = 1e10 * ones(1, length(weights));
 end
-solvePatchesADMMOptions.reg_options.low_guess = [1e-3, 1e-3, 1e-3];
-solvePatchesADMMOptions.reg_options.high_guess = [100, 100, 100];
-solvePatchesADMMOptions.reg_options.tol = 1e-6;
 
 % Maximum and minimum number of grid search iterations
 % Song et al. 2016 used a fixed number of 6 iterations, but I don't know
 % what range of regularization weights they were searching within.
 solvePatchesADMMOptions.reg_options.n_iter = [30, 6];
 
+solvePatchesMultiADMMOptions.reg_options = solvePatchesADMMOptions.reg_options;
+
 %% ## Debugging Flags
 
 solvePatchesADMMVerbose = true;
+solvePatchesMultiADMMVerbose = true;
 samplingWeightsVerbose = true;
