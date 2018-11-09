@@ -161,7 +161,7 @@ run('SetAlgorithms.m')
 % Optionally override the list of ADMM-family algorithms to run, and the
 % regularization weights to run them with, from the output file of
 % 'SelectWeightsForDataset.m'. (Leave empty otherwise)
-admm_algorithms_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181031_KAIST_RepeatWithNewSpectralSampling/weights_selection/SelectWeightsForDataset_kaist-crop.mat';
+admm_algorithms_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181108_KAIST_MultiStep/weights_selection/SelectWeightsForDataset_kaist-crop.mat';
 
 % Output directory for all images and saved parameters
 output_directory = '/home/llanos/Downloads';
@@ -332,17 +332,20 @@ for i = 1:n_images
                 algorithm.name, patch_size(1), patch_size(2), padding...
                 );
             if use_automatic_weights
-                name_params = [name_params, '_mdc_'];
+                weights_filepart = '_mdc_';
+                name_params = [name_params, weights_filepart];
                 alg_name_params = [alg_name_params, ', MDC'];
                 enabled_weights = reg_options_f.enabled;
                 n_active_weights = sum(enabled_weights);
                 to_all_weights = find(enabled_weights);
             else
                 if w_type == 1
-                    name_params = [name_params, '_MDCFixedweights_'];
+                    weights_filepart = '_MDCFixedweights_';
+                    name_params = [name_params, weights_filepart];
                     alg_name_params = [alg_name_params, ', MDC fixed weights'];
                 elseif w_type == 2
-                    name_params = [name_params, '_MSEFixedweights_'];
+                    weights_filepart = '_MSEFixedweights_';
+                    name_params = [name_params, weights_filepart];
                     alg_name_params = [alg_name_params, ', MSE fixed weights'];
                 else
                     error('Unrecognized type of weight, %d', w_type);
@@ -401,7 +404,7 @@ for i = 1:n_images
 
                             n_bands_t = length(bands_all{t});
                             spectral_weights_step = upsamplingWeights(...
-                                bands_spectral, bands_all{t}, @sinc, solvePatchesMultiADMM.sampling_options.bands_padding...
+                                bands_spectral, bands_all{t}, @sinc, solvePatchesMultiADMMOptions.sampling_options.bands_padding...
                             );
                             [e_spectral_table_step_current, fg_spectral_step] = evaluateAndSaveSpectral(...
                                 I_latent(:, :, (spectral_inc + 1):(spectral_inc + n_bands_t)),...
@@ -419,10 +422,12 @@ for i = 1:n_images
                         end
                         writetable(...
                             e_spectral_table_step,...
-                            fullfile(output_directory, [name_params, '_multiStep_evaluateSpectral.csv'])...
+                            fullfile(output_directory, [name_params, 'multiStep_evaluateSpectral.csv'])...
                         );
+                        name_step = [names{i}, weights_filepart, 'multiStep'];
+                        dp.evaluation.custom_spectral.(name_step) = dp.evaluation.custom_spectral.(names{i});
                         evaluateAndSaveSpectral(...
-                            output_directory, dp, [names{i}, '_multiStep'], step_name_params_tables, fg_spectral_step...
+                            output_directory, dp, name_step, step_name_params_tables, fg_spectral_step...
                         );
 
                         % Retain only the highest spectral resolution data

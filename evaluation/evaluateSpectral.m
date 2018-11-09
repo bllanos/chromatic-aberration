@@ -484,10 +484,13 @@ if isfield(options, 'scanlines')
         lines_pixels_indices_spectral =...
             repmat(lines_pixels_indices{i}, n_bands, 1) +...
             repelem((0:(n_bands - 1)).' * (image_width * image_height), n_px_line, 1);
+        radiance_R = reshape(R_spectral(lines_pixels_indices_spectral), n_px_line, n_bands);
 
+        lines_pixels_indices_spectral =...
+            repmat(lines_pixels_indices{i}, size(I_spectral, 3), 1) +...
+            repelem((0:(size(I_spectral, 3) - 1)).' * (image_width * image_height), n_px_line, 1);
         radiance_I = reshape(I_spectral(lines_pixels_indices_spectral), n_px_line, []);
         radiance_I = (spectral_weights * radiance_I.').';
-        radiance_R = reshape(R_spectral(lines_pixels_indices_spectral), n_px_line, n_bands);
 
         se = radiance_I - radiance_R;
         rmse = sqrt(dot(se, se, 2) / n_bands);

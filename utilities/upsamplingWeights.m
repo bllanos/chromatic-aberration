@@ -67,14 +67,23 @@ function weights = upsamplingWeights(dst, src, f, padding)
 narginchk(4, 4);
 nargoutchk(1, 1);
 
+if length(src) == 1
+    weights = ones(length(dst), 1);
+    return;
+end
+
 if padding < 0 || padding ~= round(padding)
     error('`padding` must be a nonnegative integer.');
 end
 
-diff_dst = diff(dst);
-dst_spacing = diff_dst(1);
-if max(abs(diff_dst - dst_spacing)) > 1e-6
-    error('`dst` must contain equally-spaced values.')
+if length(dst) > 1
+    diff_dst = diff(dst);
+    dst_spacing = diff_dst(1);
+    if max(abs(diff_dst - dst_spacing)) > 1e-6
+        error('`dst` must contain equally-spaced values.')
+    end
+else
+    dst_spacing = Inf;
 end
 
 diff_src = diff(src);
@@ -83,14 +92,14 @@ if max(abs(diff_src - src_spacing)) > 1e-6
     error('`src` must contain equally-spaced values.')
 end
 
-if src_spacing < dst_spacing
-    error(['The spacing of the elements of `dst` is greater than that o'
-        'f `src`, so `weights` cannot be computed without aliasing']);
-end
-
 if length(dst) == length(src) && all(dst == src)
     weights = eye(length(dst));
 else
+    if src_spacing < dst_spacing
+        error(['The spacing of the elements of `dst` is greater than that o'
+               'f `src`, so `weights` cannot be computed without aliasing']);
+    end
+
     src_padded = [
         (src(1) - (padding * src_spacing)):src_spacing:(src(1) - src_spacing),...
         src,...

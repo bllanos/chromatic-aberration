@@ -439,6 +439,8 @@ output_weights = (nargout > nargout_before_weights)...
 if has_multi_weights
     multi_weights = reg_options.multi_weights;
     reg_options = rmfield(reg_options, 'multi_weights');
+else
+    multi_weights = [];
 end
 
 input_I_in = ~isempty(I_in);
@@ -531,6 +533,8 @@ upsampling_weights = cell(n_steps - 1, 1);
 if input_I_in
     spectral_weights_all = cell(n_steps, 1);
     spectral_weights_all{end} = spectral_weights_final;
+else
+    spectral_weights_all = [];
 end
 bands_all = cell(n_steps, 1);
 bands_all{end} = bands_final;
@@ -645,7 +649,7 @@ if output_search
     search_out = cell(1, n_j);
 end
 parfor j = 1:n_j
-    
+    patches_I_ij = [];
     column_in_j = columns_in{j};
     image_sampling_p = [0, size(column_in_j, 2)];
     corner = [0, (j - 1) * patch_size(2) + 1 + patch_offset(2)];
@@ -691,7 +695,7 @@ parfor j = 1:n_j
             end
 
             % Solve for the output patch
-            n_bands_t = n_bands_all{t};
+            n_bands_t = n_bands_all(t);
             numel_p = prod(image_sampling_p) * n_bands_t;
             n_bands_t1 = n_bands_t - 1;
             color_weights_t = color_weights_all{t};
@@ -702,12 +706,12 @@ parfor j = 1:n_j
             );
             if t > 1
                 % Initialize with the result of the previous step
-                in_admm.I = channelConversionMatrix(image_sampling_p, upsampling_weights{t}) * patches_I_ij;
+                in_admm.I = channelConversionMatrix(image_sampling_p, upsampling_weights{t - 1}) * patches_I_ij;
             end
             if show_steps
                 output_step = t;
                 if t > 1
-                    spectral_inc = spectral_inc + n_bands_all{t - 1};
+                    spectral_inc = spectral_inc + n_bands_all(t - 1);
                     color_inc = color_inc + n_channels_rgb;
                     raw_inc = raw_inc + sz_J3;
                     weights_inc = weights_inc + n_active_weights;

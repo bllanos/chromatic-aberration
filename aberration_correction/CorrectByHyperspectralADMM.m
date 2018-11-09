@@ -333,6 +333,8 @@ for i = 1:n_images
             for t = 1:length(bands_all)
                 if multi_step
                     name_params_t = [name_params, sprintf('_step%d', t)];
+                else
+                    name_params_t = name_params;
                 end
                 n_bands = length(bands_all{t});
                 

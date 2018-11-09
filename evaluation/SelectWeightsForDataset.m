@@ -347,7 +347,7 @@ for i = 1:n_images
                         mdc_weights_patches = repmat(mdc_weights_patches, 1, 1, n_steps);
                         mse_weights_patches = repmat(mse_weights_patches, 1, 1, n_steps);
                         if n_steps > 1
-                            n_bands_all{f} = zeros(length(bands_all));
+                            n_bands_all{f} = zeros(length(bands_all), 1);
                             for b = 1:length(bands_all)
                                 n_bands_all{f}(b) = length(bands_all{b});
                             end
@@ -453,8 +453,24 @@ end
 mdc_color = [1, 0, 0];
 mse_color = [0, 1, 0];
 
-min_nz_weight = min(min(all_mdc_weights(all_mdc_weights ~= 0)), min(all_mse_weights(all_mse_weights ~= 0)));
-max_nz_weight = max(max(all_mdc_weights(all_mdc_weights ~= 0)), max(all_mse_weights(all_mse_weights ~= 0)));
+min_nz_weight = Inf;
+max_nz_weight = -Inf;
+for f = 1:n_admm_algorithms
+    if admm_algorithms.(admm_algorithm_fields{f}).enabled
+        min_nz_weight = min(...
+            min_nz_weight, min(...
+                min(all_mdc_weights{f}(all_mdc_weights{f} ~= 0)),...
+                min(all_mse_weights{f}(all_mse_weights{f} ~= 0))...
+                )...
+            );
+        max_nz_weight = max(...
+            max_nz_weight, max(...
+                max(all_mdc_weights{f}(all_mdc_weights{f} ~= 0)),...
+                max(all_mse_weights{f}(all_mse_weights{f} ~= 0))...
+                )...
+            );
+    end
+end
 log_min_nz_weight = log10(min_nz_weight);
 log_max_nz_weight = log10(max_nz_weight);
 plot_limits = [log_min_nz_weight - 1, log_max_nz_weight + 1];

@@ -333,8 +333,8 @@ if options.power_threshold == 1 && use_power_threshold
     bands = color_bands;
 else
     if ~use_power_threshold
-        bands_spacing = (end_domain - start_domain) / (options.n_bands - 1);
         n_bands = options.n_bands;
+        bands_spacing = (end_domain - start_domain) / (n_bands - 1);
     else
         freq = bandlimit(color_map, options.power_threshold, verbose); % Units of cycles per index
         freq_wavelengths = freq / color_bands_spacing; % Units of cycles per unit change in wavelength
@@ -342,9 +342,13 @@ else
         n_bands = floor((end_domain - start_domain) / bands_spacing) + 1;
     end
     % Center the bands within the domain
-    bands_range = (n_bands - 1) * bands_spacing;
-    start_band = (end_domain + start_domain - bands_range) / 2;
-    bands = start_band + (bands_spacing * (0:(n_bands - 1)));    
+    if n_bands > 1
+        bands_range = (n_bands - 1) * bands_spacing;
+        start_band = (end_domain + start_domain - bands_range) / 2;
+        bands = start_band + (bands_spacing * (0:(n_bands - 1)));
+    else
+        bands = (end_domain + start_domain) / 2;
+    end
 end
 
 if verbose
@@ -355,7 +359,8 @@ if verbose
 end
 
 for i = 1:n_cells
-    if spectral_bands_spacing(i) > bands_spacing
+    if spectral_bands_spacing(i) > bands_spacing &&...
+            ~(length(spectral_bands{i}) == length(bands) && all(spectral_bands{i} == bands))
         if is_cell_spectral_bands
             error(['The spacing of `spectral_bands{%d}` is greater than that of `bands`',...
                 ', so `spectral_weights{%d}` cannot be computed without aliasing.'], i, i);
@@ -418,9 +423,9 @@ if output_reference_weights
             color_weights_reference{i} = color_map * diag(int_weights) * upsampling_map;
         end
     end
-end
-if ~is_cell_spectral_bands
-    color_weights_reference = color_weights_reference{1};
+    if ~is_cell_spectral_bands
+        color_weights_reference = color_weights_reference{1};
+    end
 end
 
 end
