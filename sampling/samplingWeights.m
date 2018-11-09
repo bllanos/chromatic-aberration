@@ -110,19 +110,23 @@ function [...
 %   - 'support_threshold': A fraction indicating what proportion of the
 %     peak magnitude of a colour channel's sensitivity function the user
 %     considers to be effectively zero (i.e. no sensitivity).
-%   - 'bands_padding': This function uses bandlimited interpolation to
+%   - 'bands_padding': This function uses interpolation by convolution to
 %     resample spectral signals. (The interpolation is implicitly
-%     represented in the output matrices.) Bandlimited interpolation is
-%     intended for functions which are defined over an infinite domain. As
-%     the spectral signals are defined over finite domains, this function
-%     extends them outside of their domains with values equal to their
-%     values at the endpoints of their domains. The extension is
-%     implemented as an increase in the weight on the values at the
-%     endpoints during interpolation. Unfortunately, I do not know of a
-%     closed-form expression for the increased weights. Therefore, I have
-%     calculated the weights by summing the interpolation weights for
-%     'bands_padding' extra positions to each side of the domains of the
-%     spectral signals. 'bands_padding' must be a nonnegative scalar.
+%     represented in the output matrices.) Convolution is intended for
+%     functions which are defined over an infinite domain. As the spectral
+%     signals are defined over finite domains, this function extends them
+%     outside of their domains with values equal to their values at the
+%     endpoints of their domains. The extension is implemented as an
+%     increase in the weight on the values at the endpoints during
+%     interpolation. Usually, there is no closed-form expression for the
+%     increased weights. Therefore, I have calculated the weights by
+%     summing the interpolation weights for 'bands_padding' extra positions
+%     to each side of the domains of the spectral signals. 'bands_padding'
+%     must be a nonnegative scalar.
+%   - 'interpolant': The function convolved with sampled spectral signals
+%     to interpolate them during upsampling. 'interpolant' is passed to
+%     'upsamplingWeights()' as its `f` input argument. Refer to the
+%     documentation of 'upsamplingWeights.m' for more details.
 %
 % verbose -- Debugging flag
 %   A Boolean scalar which enables graphical debugging output if `true`.
@@ -192,11 +196,14 @@ function [...
 % function can construct `spectral_weights`, a matrix for mapping the
 % spectral data to the sampling space of some other spectral data, given by
 % `spectral_bands`. Each sample in the space of `spectral_bands` is
-% computed by centering a sinc() reconstruction function at the given
-% wavelength, and weighting all of the samples in the original space
-% (`bands`) by the corresponding values of the sinc() function. The weights
-% can be computed in advance, as `spectral_weights`, and then applied to
-% arbitrary spectral data.
+% computed by centering a reconstruction function (`options.interpolant`)
+% at the given wavelength, and weighting all of the samples in the original
+% space (`bands`) by the corresponding values of the reconstruction
+% function. The weights can be computed in advance, as `spectral_weights`,
+% and then applied to arbitrary spectral data. Using sinc() as the
+% reconstruction function corresponds to ideal bandlimited interpolation,
+% but will result in ringing, because the samples are distributed over a
+% finite domain, and are not subject to periodic extrapolation.
 %
 % The conversion to colour is similar: The first step is resampling to the
 % space defined by `color_bands`. Next, the element-wise product is taken
@@ -238,7 +245,7 @@ function [...
 %   Pharr, M., & Humphreys, G. (2010). Physically Based Rendering (2nd
 %   ed.). Burlington, Massachusetts: Elsevier.
 %
-% See also bandlimit, sinc, interp1
+% See also bandlimit, upsamplingWeights, sinc, interp1
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -371,7 +378,7 @@ for i = 1:n_cells
     end
 end
 
-upsampling_function = @sinc;
+upsampling_function = options.interpolant;
 
 % Construct a colour conversion matrix
 if color_bands_spacing > bands_spacing

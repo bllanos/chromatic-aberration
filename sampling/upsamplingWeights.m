@@ -23,9 +23,10 @@ function weights = upsamplingWeights(dst, src, f, padding)
 %   A function handle used to perform the upsampling. `f(x)` must return
 %   the weight of a sample at location `x`, given that the location of the
 %   new sample is at the origin (`x = 0`). Changes of one unit in `x`
-%   represent shifts by one sampling position in `src`. `f(x)` is expected
-%   to be normalized over the integers (i.e. the integral of `f(x)` from `x
-%   = -Inf` to `x = Inf`, where `x` is an integer, should equal `1`).
+%   represent shifts by one sampling position in `src`. `f(x)` need not be
+%   normalized over the integers (i.e. the integral of `f(x)` from `x =
+%   -Inf` to `x = Inf`, where `x` is an integer, need not equal `1`),
+%   because this function will renormalize interpolation weights.
 %
 %   `f` should operate element-wise on an array input.
 %
@@ -51,6 +52,12 @@ function weights = upsamplingWeights(dst, src, f, padding)
 %   in the documentation of `padding` above. In the case where `src` and
 %   `dst` are the same, this function ignores `f` and assumes that
 %   `weights` should be the identity mapping.
+%
+% ## Notes
+% - In the special case where `src` has only one element, `weights` will be
+%   a column vector of ones with the length of `dst`.
+% - In the special case where `src` and `dst` are identical, `weights` will
+%   be an identity matrix.
 %
 % ## References
 % - The code is loosely based on the "Ideal Bandlimited Interpolation"
@@ -115,6 +122,9 @@ else
         weights(:, (padding + 2):(end - padding - 1)),...
         sum(weights(:, (end - padding):end), 2)
     ];
+
+    % Renormalize
+    weights = weights ./ repmat(sum(weights, 2), 1, length(src));
 end
 
 end

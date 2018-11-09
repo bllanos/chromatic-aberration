@@ -99,11 +99,18 @@ samplingWeightsOptions.power_threshold = 0.99;
 % As an alternative to automatically determining the number of spectral
 % bands, according to `samplingWeightsOptions.power_threshold`, set it
 % explicitly (if the following option is an integer greater than zero).
-samplingWeightsOptions.n_bands = 0;
+samplingWeightsOptions.n_bands = 25;
 
 samplingWeightsOptions.support_threshold = 0.05;
 
 samplingWeightsOptions.bands_padding = 1000;
+
+% Interpolation function: `x = 0` is the current interpolation location,
+% and an increment or decrement of one unit in `x` represents a shift equal
+% to the spacing between samples in the sequence of samples being
+% interpolated. The interpolation function `f(x)` returns the weight for a
+% sample at location `x` relative to the current  interpolation location.
+samplingWeightsOptions.interpolant = @triangle;
 
 % Additional options for 'solvePatchesMultiADMM()'
 solvePatchesMultiADMMOptions.sampling_options = samplingWeightsOptions;
@@ -184,7 +191,7 @@ solvePatchesADMMOptions.reg_options = struct;
 solvePatchesADMMOptions.reg_options.enabled = logical(weights(1, :));
 
 solvePatchesADMMOptions.reg_options.low_guess = [1e-3, 1e-3, 1e-3];
-solvePatchesADMMOptions.reg_options.high_guess = [100, 100, 100];
+solvePatchesADMMOptions.reg_options.high_guess = [1e8, 1e8, 1e8];
 solvePatchesADMMOptions.reg_options.tol = 1e-6;
 
 use_fixed_weights = false;

@@ -513,9 +513,9 @@ if strcmp(sampling_options.progression, 'sequential')
 elseif strcmp(sampling_options.progression, 'doubling')
     np2 = nextpow2(n_bands_final);
     if 2 ^ np2 == n_bands_final
-        n_bands_all = pow2(1:np2);
+        n_bands_all = pow2(0:np2);
     else
-        n_bands_all = [pow2(1:(np2 - 1)) n_bands_final];
+        n_bands_all = [pow2(0:(np2 - 1)) n_bands_final];
     end
 else
     error('Unrecognized value of `sampling_options.progression`.');
@@ -554,7 +554,8 @@ for t = 1:(n_steps - 1)
 end
 for t = 1:(n_steps - 1)
     upsampling_weights{t} = upsamplingWeights(...
-        bands_all{t + 1}, bands_all{t}, @sinc, sampling_options.bands_padding...
+        bands_all{t + 1}, bands_all{t},...
+        sampling_options.interpolant, sampling_options.bands_padding...
     );
 end
 show_steps = sampling_options.show_steps;

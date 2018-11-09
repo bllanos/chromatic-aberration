@@ -43,6 +43,7 @@ options.power_threshold = 0.99;
 options.n_bands = 0;
 options.support_threshold = 0.05;
 options.bands_padding = 1000;
+options.interpolant = @normpdf;
 
 % Create colour channel sensitivities
 n_color_bands = 50;
