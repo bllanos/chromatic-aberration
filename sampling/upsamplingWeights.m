@@ -99,32 +99,28 @@ if max(abs(diff_src - src_spacing)) > 1e-6
     error('`src` must contain equally-spaced values.')
 end
 
-if length(dst) == length(src) && all(dst == src)
-    weights = eye(length(dst));
-else
-    if src_spacing < dst_spacing
-        error(['The spacing of the elements of `dst` is greater than that o'
-               'f `src`, so `weights` cannot be computed without aliasing']);
-    end
-
-    src_padded = [
-        (src(1) - (padding * src_spacing)):src_spacing:(src(1) - src_spacing),...
-        src,...
-        (src(end) + src_spacing):src_spacing:(src(end) + (padding * src_spacing))
-    ];
-    [dst_grid, src_grid] = ndgrid(dst, src_padded);
-    weights = f((dst_grid - src_grid) / src_spacing);
-    % Adjust the weights of the endpoints so that upsampling assumes the
-    % value of the signal outside of its domain is equal to its value at
-    % the nearest endpoint of its domain
-    weights = [
-        sum(weights(:, 1:(padding + 1)), 2),...
-        weights(:, (padding + 2):(end - padding - 1)),...
-        sum(weights(:, (end - padding):end), 2)
-    ];
-
-    % Renormalize
-    weights = weights ./ repmat(sum(weights, 2), 1, length(src));
+if src_spacing < dst_spacing && ~(length(dst) == length(src) && all(dst == src))
+    error(['The spacing of the elements of `dst` is greater than that o'
+           'f `src`, so `weights` cannot be computed without aliasing']);
 end
+
+src_padded = [
+    (src(1) - (padding * src_spacing)):src_spacing:(src(1) - src_spacing),...
+    src,...
+    (src(end) + src_spacing):src_spacing:(src(end) + (padding * src_spacing))
+];
+[dst_grid, src_grid] = ndgrid(dst, src_padded);
+weights = f((dst_grid - src_grid) / src_spacing);
+% Adjust the weights of the endpoints so that upsampling assumes the
+% value of the signal outside of its domain is equal to its value at
+% the nearest endpoint of its domain
+weights = [
+    sum(weights(:, 1:(padding + 1)), 2),...
+    weights(:, (padding + 2):(end - padding - 1)),...
+    sum(weights(:, (end - padding):end), 2)
+];
+
+% Renormalize
+weights = weights ./ repmat(sum(weights, 2), 1, length(src));
 
 end

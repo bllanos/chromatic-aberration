@@ -110,7 +110,7 @@ samplingWeightsOptions.bands_padding = 1000;
 % to the spacing between samples in the sequence of samples being
 % interpolated. The interpolation function `f(x)` returns the weight for a
 % sample at location `x` relative to the current  interpolation location.
-samplingWeightsOptions.interpolant = @triangle;
+samplingWeightsOptions.interpolant = @normpdf;
 
 % Additional options for 'solvePatchesMultiADMM()'
 solvePatchesMultiADMMOptions.sampling_options = samplingWeightsOptions;
