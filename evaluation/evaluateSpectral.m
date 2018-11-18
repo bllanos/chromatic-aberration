@@ -80,6 +80,7 @@ function [e_spectral, varargout] = evaluateSpectral(...
 %     dispersion between wavelengths). The band with the first index will
 %     be subtracted from the band with the second index. Two figures will
 %     be created, one for the reference image, and one for the test image.
+%     If this field does not exist, the figures will not be created.
 %   - 'plot_color': A 3-element vector containing the RGB triplet to use
 %     for plotlines for the test image. The plotlines for the reference
 %     image will always be black.

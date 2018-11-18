@@ -63,7 +63,9 @@ function [ bands, I_3D, varargout ] = solvePatchesMultiADMM(...
 %   `I_in` is used to select regularization weights based on similarity
 %   with another image (such as the true image). When `I_in` is empty
 %   (`[]`), regularization weights will be selected using the minimum
-%   distance criterion described in Song et al. 2016.
+%   distance criterion described in Song et al. 2016, or, if
+%   `reg_options.demosaic` is `true`, based on similarity with a demosaiced
+%   version of `J`.
 %
 %   When `I_in` is not empty, it must be a structure with the following
 %   fields:
@@ -218,6 +220,14 @@ function [ bands, I_3D, varargout ] = solvePatchesMultiADMM(...
 %
 %   `reg_options` is a structure with the following fields, controlling
 %   regularization, and regularization weight selection:
+%   - 'demosaic': A logical scalar indicating whether or not to select
+%     regularization weights based on similarity with a demosaicking
+%     result. Presently, the demosaicing result is the bilinear
+%     interpolation of the Green channel (the second channel) of `J`. If
+%     `I_in` is not empty, and 'demosaic' is `true`, regularization weights
+%     will still be selected based on similarity with `I_in.I`. If `I_in`
+%     is empty, and 'demosaic' is `false`, then regularization weights will
+%     be selected using the minimum distance criterion.
 %   - 'enabled': A logical vector, where each element indicates whether the
 %     corresponding regularization term listed above is enabled.
 %   - 'n_iter': A two-element vector, where the first element is the
@@ -226,22 +236,22 @@ function [ bands, I_3D, varargout ] = solvePatchesMultiADMM(...
 %     to perform (even if the process has converged, as specified by
 %     'tol'). Note that an iterative grid search is used regardless of the
 %     criterion being optimized (either the minimum distance criterion, or
-%     similarity with the true image).
+%     similarity with an image).
 %   - 'minimum_weights': A vector containing minimum values for the
-%     regularization weights. If `I_in` is not empty, 'minimum_weights' can
-%     contain any values thought to be reasonable values for producing a
-%     good image. In contrast, if `I_in` is empty, the minimum distance
-%     criterion will be used to select regularization weights, and the
-%     origin of the minimum distance criterion will be set using
-%     'minimum_weights'. Therefore, in this case, 'minimum_weights' should
-%     contain the smallest values that make the image estimation problem
-%     solvable.
+%     regularization weights. If `I_in` is not empty or 'demosaic' is
+%     `true`, 'minimum_weights' can contain any values thought to be
+%     reasonable values for producing a good image. In contrast, if `I_in`
+%     is empty, and 'demosaic' is `false`, the minimum distance criterion
+%     will be used to select regularization weights, and the origin of the
+%     minimum distance criterion will be set using 'minimum_weights'.
+%     Therefore, in this case, 'minimum_weights' should contain the
+%     smallest values that make the image estimation problem solvable.
 %   - 'maximum_weights': A vector containing maximum values for the
-%     regularization weights. 'maximum_weights' is also used to set the
+%     regularization weights. 'maximum_weights' may be used to set the
 %     origin of the minimum distance criterion, like 'minimum_weights', and
-%     so needs to contain very large values if `I_in` is empty. If `I_in`
-%     is not empty, 'maximum_weights' can contain any values thought to be
-%     reasonable values for producing a good image.
+%     so needs to contain very large values if `I_in` is empty, and
+%     'demosaic' is `false`. Otherwise, 'maximum_weights' can contain any
+%     values thought to be reasonable values for producing a good image.
 %   - 'low_guess': A vector containing predicted lower bounds for the
 %     regularization weights. The search algorithm will examine
 %     regularization weights smaller than these values if necessary (as
@@ -738,12 +748,24 @@ parfor j = 1:n_j
                     fprintf('\t...done.\n');
                 end
 
-            elseif input_I_in
-                I_in_p = struct(...
-                    'I', column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.I_in(1):channels_in.I_in(2)),...
-                	'spectral_weights', spectral_weights_all{t}...
-                );
-                in_weightsLowMemory = initWeightsLowMemory(I_in_p, numel_p);
+            elseif input_I_in  || reg_options_p.demosaic
+                if input_I_in
+                    dispersion_matrix_p_weights = [];
+                    I_in_p = struct(...
+                        'I', column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.I_in(1):channels_in.I_in(2)),...
+                        'spectral_weights', spectral_weights_all{t}...
+                    );
+                else
+                    dispersion_matrix_p_weights = dispersion_matrix_p;
+                    I_in_p = struct(...
+                        'I', reshape(bilinearDemosaic(...
+                                column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)),...
+                                align, [false, true, false]...
+                             ), [], 1),...
+                        'spectral_weights', spectral_weights_all{t}(2, :)...
+                    );
+                end
+                in_weightsLowMemory = initWeightsLowMemory(I_in_p, dispersion_matrix_p_weights, numel_p);
                 if output_search && (show_steps || t == n_steps)
                     [...
                         patches_I_ij, weights, ~, ~, search_out{j}{output_step}...

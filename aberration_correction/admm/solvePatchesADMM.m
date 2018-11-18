@@ -60,7 +60,9 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %   `I_in` is used to select regularization weights based on similarity
 %   with another image (such as the true image). When `I_in` is empty
 %   (`[]`), regularization weights will be selected using the minimum
-%   distance criterion described in Song et al. 2016.
+%   distance criterion described in Song et al. 2016, or, if
+%   `reg_options.demosaic` is `true`, based on similarity with a demosaiced
+%   version of `J`.
 %
 %   When `I_in` is not empty, it must be a structure with the following
 %   fields:
@@ -169,6 +171,14 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %
 %   `reg_options` is a structure with the following fields, controlling
 %   regularization, and regularization weight selection:
+%   - 'demosaic': A logical scalar indicating whether or not to select
+%     regularization weights based on similarity with a demosaicking
+%     result. Presently, the demosaicing result is the bilinear
+%     interpolation of the Green channel (the second channel) of `J`. If
+%     `I_in` is not empty, and 'demosaic' is `true`, regularization weights
+%     will still be selected based on similarity with `I_in.I`. If `I_in`
+%     is empty, and 'demosaic' is `false`, then regularization weights will
+%     be selected using the minimum distance criterion.
 %   - 'enabled': A logical vector, where each element indicates whether the
 %     corresponding regularization term listed above is enabled.
 %   - 'n_iter': A two-element vector, where the first element is the
@@ -177,22 +187,22 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %     to perform (even if the process has converged, as specified by
 %     'tol'). Note that an iterative grid search is used regardless of the
 %     criterion being optimized (either the minimum distance criterion, or
-%     similarity with the true image).
+%     similarity with an image).
 %   - 'minimum_weights': A vector containing minimum values for the
-%     regularization weights. If `I_in` is not empty, 'minimum_weights' can
-%     contain any values thought to be reasonable values for producing a
-%     good image. In contrast, if `I_in` is empty, the minimum distance
-%     criterion will be used to select regularization weights, and the
-%     origin of the minimum distance criterion will be set using
-%     'minimum_weights'. Therefore, in this case, 'minimum_weights' should
-%     contain the smallest values that make the image estimation problem
-%     solvable.
+%     regularization weights. If `I_in` is not empty or 'demosaic' is
+%     `true`, 'minimum_weights' can contain any values thought to be
+%     reasonable values for producing a good image. In contrast, if `I_in`
+%     is empty, and 'demosaic' is `false`, the minimum distance criterion
+%     will be used to select regularization weights, and the origin of the
+%     minimum distance criterion will be set using 'minimum_weights'.
+%     Therefore, in this case, 'minimum_weights' should contain the
+%     smallest values that make the image estimation problem solvable.
 %   - 'maximum_weights': A vector containing maximum values for the
-%     regularization weights. 'maximum_weights' is also used to set the
+%     regularization weights. 'maximum_weights' may be used to set the
 %     origin of the minimum distance criterion, like 'minimum_weights', and
-%     so needs to contain very large values if `I_in` is empty. If `I_in`
-%     is not empty, 'maximum_weights' can contain any values thought to be
-%     reasonable values for producing a good image.
+%     so needs to contain very large values if `I_in` is empty, and
+%     'demosaic' is `false`. Otherwise, 'maximum_weights' can contain any
+%     values thought to be reasonable values for producing a good image.
 %   - 'low_guess': A vector containing predicted lower bounds for the
 %     regularization weights. The search algorithm will examine
 %     regularization weights smaller than these values if necessary (as
@@ -373,7 +383,7 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 % The following article discusses the grid-search method for minimizing the
 % minimum distance criterion used to select regularization weights. To
 % select regularization weights which maximize the similarity of the
-% estimated and true images, I also use the grid-search method.
+% estimated and true/demosaiced images, I also use the grid-search method.
 %
 %   Song, Y., Brie, D., Djermoune, E.-H., & Henrot, S.. "Regularization
 %     Parameter Estimation for Non-Negative Hyperspectral Image
@@ -465,6 +475,8 @@ if input_I_in
         error('The number of rows of `I_in.spectral_weights` must equal the size of `I_in.I` in its third dimension.');
     end
     I_in_j.spectral_weights = I_in.spectral_weights;
+elseif reg_options.demosaic
+    I_in_j.spectral_weights = I_in.spectral_weights(2, :);
 else
     I_in_j = struct;
 end
@@ -609,10 +621,19 @@ parfor j = 1:n_j
                 fprintf('\t...done.\n');
             end
                         
-        elseif input_I_in
+        elseif input_I_in || reg_options.demosaic
             I_in_p = I_in_j;
-            I_in_p.I = column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.I_in(1):channels_in.I_in(2));
-            in_weightsLowMemory = initWeightsLowMemory(I_in_p, numel_p);
+            if input_I_in
+                dispersion_matrix_p_weights = [];
+                I_in_p.I = column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.I_in(1):channels_in.I_in(2));
+            else
+                dispersion_matrix_p_weights = dispersion_matrix_p;
+                I_in_p.I = reshape(bilinearDemosaic(...
+                    column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)),...
+                    align, [false, true, false]...
+                ), [], 1);
+            end
+            in_weightsLowMemory = initWeightsLowMemory(I_in_p, dispersion_matrix_p_weights, numel_p);
             if output_search
                 [...
                     patches_I_ij, weights, ~, ~, search_out{j}...

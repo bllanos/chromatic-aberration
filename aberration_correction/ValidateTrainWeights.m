@@ -1,6 +1,7 @@
 %% Demosaicing and hyperspectral ADMM-based correction of chromatic aberration
 % Test the grid search method of Song et al. 2016 for selecting
-% regularization weights, but minimizing the true error
+% regularization weights, but minimizing the true error, or the error with
+% respect to a demosaicking result.
 %
 % ## Usage
 % Modify the parameters, the first code section below, then run.
@@ -26,8 +27,8 @@
 %
 % #### True image
 % A spectral or colour image serving as the ground truth for image
-% estimation. The true image is needed to select the weights giving the
-% lowest error relative to the true image.
+% estimation. If `use_demosaic` is `false`, the reference image is also
+% used to select the weights giving the lowest error.
 %
 % The true image must be associated with a '.mat' file containing a vector
 % with the variable 'bands'. 'bands' must have the same length as the third
@@ -165,6 +166,7 @@ parameters_list = {
     'true_image_bands_filename',...
     'reverse_dispersion_model_filename',...
     'color_map_filename',...
+    'use_demosaic',...
     'output_directory',...
     'target_patch',...
     'n_samples'...
@@ -193,6 +195,10 @@ reverse_dispersion_model_filename = [];
 % Colour space conversion data
 color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180828_Kodak_TestingLHypersurface/RGBColorMapData.mat';
 
+% Select regularization weights by comparing with the true image (`false`)
+% or with a demosaicking result (`true`)
+use_demosaic = false;
+
 % Output directory for all images and saved parameters
 output_directory = '/home/llanos/Downloads';
 
@@ -218,7 +224,9 @@ n_samples = 30;
 % Parameters which do not usually need to be changed
 run('SetFixedParameters.m')
 
-%% Validate parameters
+%% Validate and adjust parameters
+
+solvePatchesADMMOptions.reg_options.demosaic = use_demosaic;
 
 if use_fixed_weights
     error('Automatic regularization weight selection is disabled by `use_fixed_weights`.');
@@ -336,18 +344,31 @@ if isempty(target_patch)
 end
 solvePatchesADMMOptions.patch_options.target_patch = target_patch;
 
-I_in.I = I_gt;
-I_in.spectral_weights = spectral_weights;
-[...
-    I_patch, ~, ~, ~, ~, ~, weights_search...
-] = solvePatchesADMM(...
-  I_in, I_raw, bayer_pattern, dispersionfun,...
-  color_weights, bands,...
-  solvePatchesADMMOptions.admm_options,...
-  solvePatchesADMMOptions.reg_options,...
-  solvePatchesADMMOptions.patch_options,...
-  solvePatchesADMMVerbose...
-);
+if use_demosaic
+    [...
+        I_patch, ~, ~, ~, ~, ~, weights_search...
+    ] = solvePatchesADMM(...
+      [], I_raw, bayer_pattern, dispersionfun,...
+      color_weights, bands,...
+      solvePatchesADMMOptions.admm_options,...
+      solvePatchesADMMOptions.reg_options,...
+      solvePatchesADMMOptions.patch_options,...
+      solvePatchesADMMVerbose...
+    );
+else
+    I_in.I = I_gt;
+    I_in.spectral_weights = spectral_weights;
+    [...
+        I_patch, ~, ~, ~, ~, ~, weights_search...
+    ] = solvePatchesADMM(...
+      I_in, I_raw, bayer_pattern, dispersionfun,...
+      color_weights, bands,...
+      solvePatchesADMMOptions.admm_options,...
+      solvePatchesADMMOptions.reg_options,...
+      solvePatchesADMMOptions.patch_options,...
+      solvePatchesADMMVerbose...
+    );
+end
 [patch_lim, trim] = patchBoundaries(image_sampling, patch_size, padding, target_patch);
 patch_lim_interior = [patch_lim(1, :) + trim(1, :) - 1; patch_lim(1, :) + trim(2, :) - 1];
 
@@ -361,6 +382,7 @@ if plot_image_patch
         I_gt, color_weights_reference, imageFormationOptions,...
         dispersionfun, bands_gt...
     );
+
     image_sampling_patch_exterior = diff(patch_lim, 1, 1) + 1;
     image_sampling_patch_interior = diff(patch_lim_interior, 1, 1) + 1;
     I_annotated = insertShape(...
@@ -386,169 +408,187 @@ if plot_image_patch
 end
 
 n_active_weights = sum(enabled_weights);
-if n_active_weights < 4
-    
-    to_all_weights = find(enabled_weights);
-    n_iter = size(weights_search.weights, 1);
-    
-    % Display the search path for the chosen weights
-    if plot_search_path
-        weights_path = weights_search.weights(:, enabled_weights);
-        log_weights = log10(weights_path);
-        log_weights_diff = [diff(log_weights, 1, 1); zeros(1, n_active_weights)];
-        log_err_path = log10(weights_search.criterion);
-        log_err_path_diff = [diff(log_err_path, 1, 1); zeros(1, size(log_err_path, 2))];
-        
-        figure;
-        hold on
-        if n_active_weights == 1
-            iter_index = 1:n_iter;
-            plot(...
-                iter_index,...
-                log_weights,...
-                'Marker', 'o'...
-            );
-            xlabel('Iteration number')
-            ylabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
-        elseif n_active_weights == 2
-            quiver(...
-                log_weights(:, 1), log_weights(:, 2),...
-                log_weights_diff(:, 1), log_weights_diff(:, 2),...
-                'AutoScale', 'off'...
-            );
-            xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
-            ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
-        elseif n_active_weights == 3
-            quiver3(...
-                log_weights(:, 1), log_weights(:, 2), log_weights(:, 3),...
-                log_weights_diff(:, 1), log_weights_diff(:, 2), log_weights_diff(:, 3),...
-                'AutoScale', 'off'...
-            );
-            xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
-            ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
-            zlabel(sprintf('log_{10}(weight %d)', to_all_weights(3)))
-        else
-            error('Unexpected number of active weights.');
-        end
-        title('Search path for the selected weights, in weights space')
-        hold off
-    end
-    
-    % Sample the true error hypersurface
-    if plot_hypersurface && n_active_weights < 3
-        
-        % Generate combinations of weights to test
-        if isscalar(n_samples)
-            n_samples_full = repmat(n_samples, n_active_weights, 1);
-        else
-            n_samples_full = n_samples(enabled_weights);
-        end
-        active_weights_samples = cell(n_active_weights, 1);
-        for w = 1:n_active_weights
-            active_weights_samples{w} = logspace(...
-                log10(solvePatchesADMMOptions.reg_options.minimum_weights(to_all_weights(w))),...
-                log10(solvePatchesADMMOptions.reg_options.maximum_weights(to_all_weights(w))),...
-                n_samples_full(w)...
-            ).';
-        end
-        n_samples_all = prod(n_samples_full);
-        all_weights_samples = zeros(n_samples_all, n_weights);
-        for w = 1:n_active_weights
-            all_weights_samples(:, to_all_weights(w)) = repmat(...
-                repelem(active_weights_samples{w}, prod(n_samples_full((w + 1):end))),...
-                prod(n_samples_full(1:(w-1))), 1 ...
-            );
-        end
-        all_weights_samples_plot = all_weights_samples(:, enabled_weights);
-        log_all_weights_samples = log10(all_weights_samples_plot);
-        
-        % Construct arguments for the image estimation algorithm
-        if isempty(bayer_pattern)
-            align_f = [];
-        else
-            align_f = offsetBayerPattern(patch_lim(1, :), bayer_pattern);
-        end
-        image_sampling_f = diff(patch_lim, 1, 1) + 1;
-        if has_dispersion
-            dispersion_f = dispersionfunToMatrix(...
-                dispersionfun, bands, image_sampling_f, image_sampling_f,...
-                [0, 0, image_sampling_f(2), image_sampling_f(1)], true,...
-                [patch_lim(2, 1), patch_lim(1, 1)] - 1 ...
-                );
-        else
-            dispersion_f = [];
-        end
-        I_raw_f = I_raw(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :);
-        n_bands = length(bands);
-        in_admm = initBaek2017Algorithm2LowMemory(...
-            I_raw_f, align_f, dispersion_f, color_weights,...
-            enabled_weights, solvePatchesADMMOptions.admm_options...
-        );
-        
-        % Test the combinations of weights
-        all_mse_samples = zeros(n_samples_all, 1);
-        I_patch_gt = reshape(I_gt(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :), [], 1);
-        for s = 1:n_samples_all
-            weights_s = all_weights_samples(s, :);
-            [in_admm, weights_s] = initBaek2017Algorithm2LowMemory(...
-                in_admm, weights_s, solvePatchesADMMOptions.admm_options...
-            );
-            in_admm = initBaek2017Algorithm2LowMemory(in_admm);
-            in_admm = baek2017Algorithm2LowMemory(...
-                weights_s, solvePatchesADMMOptions.admm_options, in_admm...
-            );
-            all_mse_samples(s) = immse(in_admm.I, I_patch_gt);
-        end
-        log_all_mse_samples = log10(all_mse_samples);
-        
-        % Plotting
-        figure;
-        hold on
-        title('Patch log_{10}(MSE) surface with search path for the selected weights')
-        if n_active_weights == 1
-            plot(...
-                log_all_weights_samples(:, 1), log_all_mse_samples,...
-                'Marker', 'o'...
-            );
-        elseif n_active_weights == 2
-            tri = delaunay(log_all_weights_samples(:, 1), log_all_weights_samples(:, 2));
-            trisurf(...
-                tri, log_all_weights_samples(:, 1), log_all_weights_samples(:, 2),...
-                log_all_mse_samples,...
-                'FaceAlpha', 0.5 ...
-            );
-        else
-            error('Unexpected number of active weights.');
-        end
-        if n_active_weights == 1
-            quiver(...
-                log_weights(:, 1), log_err_path,...
-                log_weights_diff(:, 1), log_err_path_diff,...
-                'AutoScale', 'off'...
-            );
-            xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
-            ylabel('log_{10}(Mean square error) wrt ground truth patch')
-        elseif n_active_weights == 2
-            quiver3(...
-                log_weights(:, 1), log_weights(:, 2), log_err_path,...
-                log_weights_diff(:, 1), log_weights_diff(:, 2), log_err_path_diff,...
-                'AutoScale', 'off'...
-            );
-            xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
-            ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
-            zlabel('log_{10}(Mean square error) wrt ground truth patch')
-        else
-            error('Unexpected number of active weights.');
-        end
-        legend('Patch log_{10}(MSE) surface', 'Search path');
-        hold off
-        
-    elseif plot_hypersurface
-        warning('The response surface and the MSE hypersurface cannot be plotted when there are more than two active regularization terms.');
-    end
+to_all_weights = find(enabled_weights);
+n_iter = size(weights_search.weights, 1);
 
-elseif plot_search_path || plot_hypersurface
-    warning('Graphical output cannot be generated when there are more than four active regularization terms.');
+% Display the search path for the chosen weights
+if n_active_weights < 4 && plot_search_path
+    weights_path = weights_search.weights(:, enabled_weights);
+    log_weights = log10(weights_path);
+    log_weights_diff = [diff(log_weights, 1, 1); zeros(1, n_active_weights)];
+    log_err_path = log10(weights_search.criterion);
+    log_err_path_diff = [diff(log_err_path, 1, 1); zeros(1, size(log_err_path, 2))];
+
+    figure;
+    hold on
+    if n_active_weights == 1
+        iter_index = 1:n_iter;
+        plot(...
+            iter_index,...
+            log_weights,...
+            'Marker', 'o', 'Color', zeros(1, 3)...
+        );
+        xlabel('Iteration number')
+        ylabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
+    elseif n_active_weights == 2
+        quiver(...
+            log_weights(:, 1), log_weights(:, 2),...
+            log_weights_diff(:, 1), log_weights_diff(:, 2),...
+            'AutoScale', 'off', 'Color', zeros(1, 3)...
+        );
+        xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
+        ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
+    elseif n_active_weights == 3
+        quiver3(...
+            log_weights(:, 1), log_weights(:, 2), log_weights(:, 3),...
+            log_weights_diff(:, 1), log_weights_diff(:, 2), log_weights_diff(:, 3),...
+            'AutoScale', 'off', 'Color', zeros(1, 3)...
+        );
+        xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
+        ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
+        zlabel(sprintf('log_{10}(weight %d)', to_all_weights(3)))
+    else
+        error('Unexpected number of active weights.');
+    end
+    title('Search path for the selected weights, in weights space')
+    hold off
+    
+elseif plot_search_path
+    warning('The search path cannot be plotted in weights space when there are more than three active regularization terms.');
+end
+
+% Sample the error hypersurface
+if n_active_weights < 3 && plot_hypersurface
+    
+    I_green_gt = bilinearDemosaic(I_raw, bayer_pattern, [false, true, false]);
+
+    % Generate combinations of weights to test
+    if isscalar(n_samples)
+        n_samples_full = repmat(n_samples, n_active_weights, 1);
+    else
+        n_samples_full = n_samples(enabled_weights);
+    end
+    active_weights_samples = cell(n_active_weights, 1);
+    for w = 1:n_active_weights
+        active_weights_samples{w} = logspace(...
+            log10(solvePatchesADMMOptions.reg_options.minimum_weights(to_all_weights(w))),...
+            log10(solvePatchesADMMOptions.reg_options.maximum_weights(to_all_weights(w))),...
+            n_samples_full(w)...
+        ).';
+    end
+    n_samples_all = prod(n_samples_full);
+    all_weights_samples = zeros(n_samples_all, n_weights);
+    for w = 1:n_active_weights
+        all_weights_samples(:, to_all_weights(w)) = repmat(...
+            repelem(active_weights_samples{w}, prod(n_samples_full((w + 1):end))),...
+            prod(n_samples_full(1:(w-1))), 1 ...
+        );
+    end
+    all_weights_samples_plot = all_weights_samples(:, enabled_weights);
+    log_all_weights_samples = log10(all_weights_samples_plot);
+
+    % Construct arguments for the image estimation algorithm
+    if isempty(bayer_pattern)
+        align_f = [];
+    else
+        align_f = offsetBayerPattern(patch_lim(1, :), bayer_pattern);
+    end
+    image_sampling_f = diff(patch_lim, 1, 1) + 1;
+    if has_dispersion
+        dispersion_f = dispersionfunToMatrix(...
+            dispersionfun, bands, image_sampling_f, image_sampling_f,...
+            [0, 0, image_sampling_f(2), image_sampling_f(1)], true,...
+            [patch_lim(2, 1), patch_lim(1, 1)] - 1 ...
+            );
+    else
+        dispersion_f = [];
+    end
+    I_raw_f = I_raw(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :);
+    n_bands = length(bands);
+    in_admm = initBaek2017Algorithm2LowMemory(...
+        I_raw_f, align_f, dispersion_f, color_weights,...
+        enabled_weights, solvePatchesADMMOptions.admm_options...
+    );
+
+    % Test the combinations of weights
+    all_mse_samples = zeros(n_samples_all, 1);
+    all_green_mse_samples = zeros(n_samples_all, 1);
+    I_patch_gt = reshape(I_gt(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :), [], 1);
+    I_green_patch_gt = I_green_gt(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2));
+    image_sampling_f = [size(I_raw_f, 1), size(I_raw_f, 2)];
+    for s = 1:n_samples_all
+        weights_s = all_weights_samples(s, :);
+        [in_admm, weights_s] = initBaek2017Algorithm2LowMemory(...
+            in_admm, weights_s, solvePatchesADMMOptions.admm_options...
+        );
+        in_admm = initBaek2017Algorithm2LowMemory(in_admm);
+        in_admm = baek2017Algorithm2LowMemory(...
+            weights_s, solvePatchesADMMOptions.admm_options, in_admm...
+        );
+        all_mse_samples(s) = immse(in_admm.I, I_patch_gt);
+        I_patch = reshape(in_admm.I, image_sampling_f(1), image_sampling_f(2), []);
+        I_green = imageFormation(I_patch, color_weights(2, :), imageFormationOptions);
+        all_green_mse_samples(s) = immse(I_green, I_green_patch_gt);
+    end
+    log_all_mse_samples = log10(all_mse_samples);
+    log_all_green_mse_samples = log10(all_green_mse_samples);
+
+    % Plotting
+    spectral_mse_color = [1, 0, 0];
+    green_mse_color = [0, 1, 0];
+    
+    figure;
+    hold on
+    title('Patch log_{10}(MSE) surface with search path for the selected weights')
+    if n_active_weights == 1
+        plot(...
+            log_all_weights_samples(:, 1), log_all_mse_samples,...
+            'Marker', 'o', 'Color', spectral_mse_color...
+        );
+        plot(...
+            log_all_weights_samples(:, 1), log_all_green_mse_samples,...
+            'Marker', 'o', 'Color', green_mse_color...
+        );
+    elseif n_active_weights == 2
+        tri = delaunay(log_all_weights_samples(:, 1), log_all_weights_samples(:, 2));
+        trisurf(...
+            tri, log_all_weights_samples(:, 1), log_all_weights_samples(:, 2),...
+            log_all_mse_samples,...
+            'FaceAlpha', 0.5, 'FaceColor', spectral_mse_color...
+        );
+        trisurf(...
+            tri, log_all_weights_samples(:, 1), log_all_weights_samples(:, 2),...
+            log_all_green_mse_samples,...
+            'FaceAlpha', 0.5, 'FaceColor', green_mse_color...
+        );
+    else
+        error('Unexpected number of active weights.');
+    end
+    if n_active_weights == 1
+        quiver(...
+            log_weights(:, 1), log_err_path,...
+            log_weights_diff(:, 1), log_err_path_diff,...
+            'AutoScale', 'off', 'Color', [0, 0, 1]...
+        );
+        xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
+        ylabel('log_{10}(Mean square error) wrt ground truth patch')
+    elseif n_active_weights == 2
+        quiver3(...
+            log_weights(:, 1), log_weights(:, 2), log_err_path,...
+            log_weights_diff(:, 1), log_weights_diff(:, 2), log_err_path_diff,...
+            'AutoScale', 'off', 'Color', [0, 0, 1]...
+        );
+        xlabel(sprintf('log_{10}(weight %d)', to_all_weights(1)))
+        ylabel(sprintf('log_{10}(weight %d)', to_all_weights(2)))
+        zlabel('log_{10}(Mean square error) wrt ground truth patch')
+    else
+        error('Unexpected number of active weights.');
+    end
+    legend('Patch log_{10}(MSE) surface', 'Patch log_{10}(Green MSE) surface', 'Search path');
+    hold off
+    
+elseif plot_search_path
+    warning('The error surfaces cannot be plotted when there are more than two active regularization terms.');
 end
 
 %% Save parameters and additional data to a file

@@ -1,11 +1,11 @@
-function out = initWeightsLowMemory(I_in, len_I)
+function out = initWeightsLowMemory(I_in, dispersion_matrix, len_I)
 % INITWEIGHTSLOWMEMORY  Allocate memory for 'weightsLowMemory()'
 %
 % ## Syntax
-% out = initWeightsLowMemory(I_in, len_I)
+% out = initWeightsLowMemory(I_in, dispersion_matrix, len_I)
 %
 % ## Description
-% out = initWeightsLowMemory(I_in, len_I)
+% out = initWeightsLowMemory(I_in, dispersion_matrix, len_I)
 %   Returns a structure containing arrays to be used by 'weightsLowMemory()'
 %
 % ## Input Arguments
@@ -13,6 +13,13 @@ function out = initWeightsLowMemory(I_in, len_I)
 % I_in -- True image structure
 %   Refer to the documentation of weightsLowMemory.m. `I_in` can be empty
 %   (`[]`).
+%
+% dispersion_matrix -- Model of dispersion
+%   `dispersion_matrix` can be empty (`[]`), if there is no model of
+%   dispersion. Otherwise, `dispersion_matrix` must be a matrix for warping
+%   `I`, the estimated latent image, to the space `I_in.I`, which is
+%   affected by dispersion. If `I_in.I` is not affected by dispersion, then
+%   `dispersion_matrix` should be empty.
 %
 % len_I -- Image size
 %   The number of values in the image being estimated.
@@ -31,12 +38,18 @@ function out = initWeightsLowMemory(I_in, len_I)
 % File created October 29, 2018
 
 nargoutchk(1, 1);
-narginchk(2, 2);
+narginchk(3, 3);
 
 out = struct;
 if ~isempty(I_in)
+    if size(I_in.spectral_weights, 1) ~= size(I_in.I, 3)
+        error('The number of rows of `I_in.spectral_weights` must equal the size of `I_in.I` in its third dimension.');
+    end
     image_sampling = [size(I_in.I, 1), size(I_in.I, 2)];
     out.Omega_Phi = channelConversionMatrix(image_sampling, I_in.spectral_weights);
+    if ~isempty(dispersion_matrix)
+        out.Omega_Phi = out.Omega_Phi * dispersion_matrix;
+    end
     out.I_est = zeros(numel(I_in.I), 1);
 end
 out.I_init = zeros(len_I, 1);

@@ -143,6 +143,9 @@ function [ I, weights, in, in_admm, varargout ] = weightsLowMemory(...
 %     `spectral_weights` must account for any numerical intergration that
 %     is part of colour/spectral conversion.
 %
+%     This field is actually required by 'initWeightsLowMemory()', but is
+%     not used by this function.
+%
 % in_penalties -- Preallocated intermediate data and results for 'penalties()'
 %   The `in` input/output argument of 'penalties()'. Refer to the
 %   documentation of penalties.m.
@@ -281,9 +284,6 @@ input_I_in = isfield(varargin{1}, 'I');
 if input_I_in
     nargoutchk(1, 5);
     I_in = varargin{1};
-    if size(I_in.spectral_weights, 1) ~= size(I_in.I, 3)
-        error('The number of rows of `I_in.spectral_weights` must equal the size of `I_in.I` in its third dimension.');
-    end
     output_path = (nargout > 4);
 else
     nargoutchk(1, 6);

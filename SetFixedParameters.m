@@ -27,6 +27,8 @@ if ~exist('parameters_list', 'var')
     error('`parameters_list` should be initialized prior to running SetFixedParameters.m');
 end
 parameters_list = [parameters_list, {
+    'criteria',...
+    'save_all_images',...
     'bayer_pattern',...
     'samplingWeightsOptions',...
     'patch_sizes',...
@@ -36,7 +38,34 @@ parameters_list = [parameters_list, {
     'solvePatchesMultiADMMOptions'...
     }];
 
-%% Output images
+%% Evaluation parameters
+
+% Enable or disable different methods for selecting regularization weights.
+% All enabled methods will be run in 'SelectWeightsForDataset.m'. In
+% 'RunOnDataset.m', if regularization weights selected using
+% 'SelectWeightsForDataset.m' are used, then this array is ignored.
+% Otherwise, if regularization weights are automatically selected, then all
+% enabled methods are run.
+criteria = [
+    false; % Minimum distance criterion
+    true; % Similarity with the true image
+    true % Similarity with a demosaicing result
+    ];
+mdc_index = 1;
+mse_index = 2;
+dm_index = 3;
+
+% Fields used for saving regularization weights in
+% 'SelectWeightsForDataset.m'
+criteria_fields = {'mdc_weights', 'mse_weights', 'dm_weights'};
+
+% Visualization and file output variables common to multiple scripts
+criteria_names = {'Minimum distance criterion', 'Mean square error', 'Demosaic mean square error'};
+criteria_abbrev = {'MDC', 'MSE', 'DM'};
+criteria_filenames = {'mdc_', 'mse_', 'dm_'};
+criteria_colors = eye(3);
+
+% ### Output images
 
 % One of each of the following types of images can be created for each
 % input image. The filename of the input image, concatenated with a string
@@ -211,6 +240,13 @@ end
 % Song et al. 2016 used a fixed number of 6 iterations, but I don't know
 % what range of regularization weights they were searching within.
 solvePatchesADMMOptions.reg_options.n_iter = [30, 6];
+
+% Select regularization weights based on similarity to a demosaicking
+% result, instead of using the minimum distance criterion, if no true image
+% is provided for regularization weight selection. Scripts which use
+% multiple regularization weight selection methods will override this
+% option.
+solvePatchesADMMOptions.reg_options.demosaic = true;
 
 solvePatchesMultiADMMOptions.reg_options = solvePatchesADMMOptions.reg_options;
 

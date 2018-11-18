@@ -51,9 +51,8 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 % dispersion_matrix -- Model of dispersion
 %   `dispersion_matrix` can be empty (`[]`), if there is no model of
 %   dispersion. Otherwise, `dispersion_matrix` must be a matrix for warping
-%   `I`, the latent image, to `J`, which is affected by dispersion. The
-%   k-th row of `dispersion_matrix` contains the weights of pixels in `I`
-%   used to re-estimate the k-th pixel in `J`.
+%   `I`, the latent image, to the space of `J`, which is affected by
+%   dispersion.
 %
 % sensitivity -- Spectral band conversion matrix
 %   A 2D array, where `sensitivity(i, j)` is the sensitivity of the i-th

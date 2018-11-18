@@ -59,9 +59,8 @@ function [ weights, patch_lim, I_patch, varargout ] = selectWeights(...
 %   function will negate the dispersion vectors of `dispersion` in order to
 %   create a warp matrix from the latent image to `J`.
 %
-%   `dispersion` can be a matrix for warping the latent image to `J`, where
-%   the k-th row contains the weights of pixels in the latent image used to
-%   re-estimate the k-th pixel in `J`.
+%   `dispersion` can be a matrix for warping the latent image to the space
+%   of `J`.
 %
 % sensitivity -- Spectral band conversion matrix
 %   A 2D array, where `sensitivity(i, j)` is the sensitivity of the i-th
