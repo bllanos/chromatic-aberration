@@ -149,6 +149,13 @@
 % - This script only uses the first row of `patch_sizes`, and the first
 %   element of `paddings`, defined in 'SetFixedParameters.m', by using
 %   `solvePatchesADMMOptions.patch_options`.
+% - When `use_demosaic` is `true`, regularization weights are selected such
+%   that the estimated image, once converted to colour, matches the Green
+%   channel of the demosaicked RAW image. The error surface plotted around
+%   the search path, however, is plotted for the error with respect to the
+%   RGB version of the true image. Therefore, the search path, which lies
+%   on the error surface for the error with respect to the demosaicked RAW
+%   image, will not lie on the plotted error surface.
 %
 % ## References
 % - Song, Y., Brie, D., Djermoune, E.-H., & Henrot, S.. "Regularization
@@ -176,28 +183,28 @@ parameters_list = {
 
 % Wildcard for 'ls()' to find the image to process.
 % '.mat' or image files can be loaded
-input_image_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180828_Kodak_TestingLHypersurface/kodim19raw.mat';
+input_image_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/lacelike*raw.tif';
 input_image_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % Wildcard for 'ls()' to find the true image.
 % '.mat' or image files can be loaded
-true_image_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180726_Demosaicking_Kodak/PNG_Richard W Franzen/kodim19.png';
+true_image_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/lacelike_0016_hyper.mat';
 true_image_variable_name = 'I_hyper'; % Used only when loading '.mat' files
 
 % Data file containing the colour channels or wavelengths associated with
 % the true image
-true_image_bands_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180828_Kodak_TestingLHypersurface/RGBColorMapData.mat';
+true_image_bands_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/BimaterialImagesData.mat';
 
 % Model of dispersion
 % Can be empty
-reverse_dispersion_model_filename = [];
+reverse_dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/BimaterialImagesData.mat';
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180828_Kodak_TestingLHypersurface/RGBColorMapData.mat';
+color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/NikonD5100ColorMapData.mat';
 
 % Select regularization weights by comparing with the true image (`false`)
 % or with a demosaicking result (`true`)
-use_demosaic = false;
+use_demosaic = true;
 
 % Output directory for all images and saved parameters
 output_directory = '/home/llanos/Downloads';
@@ -207,7 +214,7 @@ output_directory = '/home/llanos/Downloads';
 % The top-left corner (row, column) of the image patch to use for
 % regularization weights selection. If empty (`[]`), the patch will be
 % selected by the user.
-target_patch = [335, 321]; %[473, 346];
+target_patch = [239, 157];
 
 % ## Parameters controlling graphical output
 
@@ -337,9 +344,10 @@ if isempty(target_patch)
     title('Choose the center of the image patch')
     [x,y] = ginput(1);
     target_patch = [
-        max(1, round(y) - floor(options.patch_size(1) / 2)),...
-        max(1, round(x) - floor(options.patch_size(2) / 2))...
+        max(1, round(y) - floor(patch_size(1) / 2)),...
+        max(1, round(x) - floor(patch_size(2) / 2))...
     ];
+    target_patch(mod(target_patch, 2) ~= 1) = target_patch(mod(target_patch, 2) ~= 1) + 1;
     close(fg);
 end
 solvePatchesADMMOptions.patch_options.target_patch = target_patch;
@@ -514,8 +522,10 @@ if n_active_weights < 3 && plot_hypersurface
     all_mse_samples = zeros(n_samples_all, 1);
     all_green_mse_samples = zeros(n_samples_all, 1);
     I_patch_gt = reshape(I_gt(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :), [], 1);
-    I_green_patch_gt = I_green_gt(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2));
+    I_green_patch_gt = reshape(I_green_gt(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2)), [], 1);
     image_sampling_f = [size(I_raw_f, 1), size(I_raw_f, 2)];
+    to_spectral_matrix = channelConversionMatrix(image_sampling_f, spectral_weights);
+    to_green_matrix = channelConversionMatrix(image_sampling_f, color_weights(2, :));
     for s = 1:n_samples_all
         weights_s = all_weights_samples(s, :);
         [in_admm, weights_s] = initBaek2017Algorithm2LowMemory(...
@@ -525,10 +535,14 @@ if n_active_weights < 3 && plot_hypersurface
         in_admm = baek2017Algorithm2LowMemory(...
             weights_s, solvePatchesADMMOptions.admm_options, in_admm...
         );
-        all_mse_samples(s) = immse(in_admm.I, I_patch_gt);
-        I_patch = reshape(in_admm.I, image_sampling_f(1), image_sampling_f(2), []);
-        I_green = imageFormation(I_patch, color_weights(2, :), imageFormationOptions);
-        all_green_mse_samples(s) = immse(I_green, I_green_patch_gt);
+        all_mse_samples(s) = immse(...
+            to_spectral_matrix * in_admm.I,...
+            I_patch_gt...
+        );
+        all_green_mse_samples(s) = immse(...
+             to_green_matrix * in_admm.I,...
+             I_green_patch_gt...
+         );
     end
     log_all_mse_samples = log10(all_mse_samples);
     log_all_green_mse_samples = log10(all_green_mse_samples);

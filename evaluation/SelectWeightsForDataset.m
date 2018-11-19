@@ -313,7 +313,6 @@ for i = 1:n_images
         if ~algorithm.enabled || (algorithm.spectral && ~has_color_map)
             continue;
         end
-        have_steps = false;
         for cr = 1:n_criteria
             if ~criteria(cr)
                 continue;
@@ -348,6 +347,7 @@ for i = 1:n_images
             
             weights_patches = zeros(n_patches, n_weights);
             n_steps = 1;
+            have_steps = false;
             if algorithm.spectral
                 if true_spectral
                     for pc = 1:n_patches
@@ -356,7 +356,7 @@ for i = 1:n_images
                             I_in.I = I_spectral_gt;
                             I_in.spectral_bands = bands_spectral;
                             [...
-                                ~, ~, ~, weights_images...
+                                bands_all, ~, ~, weights_images...
                             ] = solvePatchesMultiADMM(...
                               I_in, I_raw_gt, bayer_pattern, df_spectral_reverse,...
                               sensor_map, bands_color,...
@@ -453,7 +453,7 @@ for i = 1:n_images
             if true_spectral && n_steps > 1
                 field_weights = squeeze(field_weights).';
             end
-            if i == 1
+            if i == 1 && cr == 1
                 all_weights{f} = zeros(n_patches, n_weights, n_steps, n_images, n_criteria);
                 admm_algorithms.(admm_algorithm_fields{f}).(criteria_fields{cr}) = zeros(n_steps, n_weights, n_images); 
             end
@@ -559,11 +559,7 @@ for f = 1:n_admm_algorithms
         fg = figure;
         hold on
         if n_active_weights == 1
-            line_limits = [...
-                min(reshape(all_weights{f}(:, :, t, :, :), [], 1));
-                max(reshape(all_weights{f}(:, :, t, :, :), [], 1))
-            ];
-            line(line_limits, line_limits, 'Color', 'b');
+            line(plot_limits, plot_limits, 'Color', 'b');
         end
         for cr = 1:n_criteria
             if ~criteria(cr)
@@ -575,7 +571,7 @@ for f = 1:n_admm_algorithms
 
             if n_active_weights == 1
                 scatter(...
-                    log_ref_weights, log_weights, 'filled'...
+                    log_ref_weights, log_weights, [], criteria_colors(cr, :), 'filled'...
                 );
                 xlabel('Weight selected using the reference method');
                 ylabel('Weight selected using the other method');

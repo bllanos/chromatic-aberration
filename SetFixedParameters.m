@@ -47,7 +47,7 @@ parameters_list = [parameters_list, {
 % Otherwise, if regularization weights are automatically selected, then all
 % enabled methods are run.
 criteria = [
-    false; % Minimum distance criterion
+    true; % Minimum distance criterion
     true; % Similarity with the true image
     true % Similarity with a demosaicing result
     ];
@@ -146,7 +146,7 @@ solvePatchesMultiADMMOptions.sampling_options = samplingWeightsOptions;
 
 % How to choose spectral resolutions lower than the one given by
 % 'samplingWeights()' based on the above options.
-solvePatchesMultiADMMOptions.sampling_options.progression = 'sequential';
+solvePatchesMultiADMMOptions.sampling_options.progression = 'doubling';
 
 % Output the results for the lower spectral resolutions. CAUTION: Not
 % recommended when estimating large images, because of memory consumption.
@@ -252,6 +252,6 @@ solvePatchesMultiADMMOptions.reg_options = solvePatchesADMMOptions.reg_options;
 
 %% ## Debugging Flags
 
+samplingWeightsVerbose = false;
 solvePatchesADMMVerbose = true;
 solvePatchesMultiADMMVerbose = true;
-samplingWeightsVerbose = true;

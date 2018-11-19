@@ -476,7 +476,7 @@ if input_I_in
     end
     I_in_j.spectral_weights = I_in.spectral_weights;
 elseif reg_options.demosaic
-    I_in_j.spectral_weights = I_in.spectral_weights(2, :);
+    I_in_j.spectral_weights = sensitivity(2, :);
 else
     I_in_j = struct;
 end
@@ -652,7 +652,7 @@ parfor j = 1:n_j
 
         else
             in_penalties = initPenalties(in_admm.M_Omega_Phi, in_admm.G);
-            in_weightsLowMemory = initWeightsLowMemory([], numel_p);
+            in_weightsLowMemory = initWeightsLowMemory([], [], numel_p);
             if output_search
                 [...
                     patches_I_ij, weights, ~, ~, ~, search_out{j}...
