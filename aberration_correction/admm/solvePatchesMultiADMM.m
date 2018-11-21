@@ -717,7 +717,7 @@ parfor j = 1:n_j
             );
             if t > 1
                 % Initialize with the result of the previous step
-                in_admm.I = channelConversionMatrix(image_sampling_p, upsampling_weights{t - 1}) * patches_I_ij;
+                in_admm.I = channelConversion(patches_I_ij, upsampling_weights{t - 1}, 1);
             end
             if show_steps
                 output_step = t;

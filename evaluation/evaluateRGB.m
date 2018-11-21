@@ -30,17 +30,20 @@ function [e_rgb, varargout] = evaluateRGB(...
 %   relating to the input colour images. `options` has the following
 %   fields:
 %   - 'error_map': If `true`, then this function will produce figures
-%     showing the absolute error between the two colour images. One figure
+%     showing the relative error between the two colour images. One figure
 %     will be produced per channel.
 %
 % ## Output Arguments
 %
 % e_rgb -- Colour error statistics
 %   A structure with the following fields:
-%   - 'mse': The mean square error between the two images. 'mse' is a
-%     three-element vector, with one element per colour channel.
+%   - 'mrae': The mean relative absolute error between the two images.
+%     'mrae' is a three-element vector, with one element per colour
+%     channel.
+%   - 'rmse': The root mean square error between the two images, in the
+%     same format as 'mrae'.
 %   - 'psnr': The peak signal-to-noise ratio between the two images, in the
-%     same format as 'mse'.
+%     same format as 'mrae'.
 %   - 'cpsnr': A scalar storing the CPSNR value. CPSNR is an extension of
 %     PSNR to colour images, computed by taking the mean square error over
 %     all colour channels instead of one.
@@ -99,16 +102,12 @@ function [e_rgb, varargout] = evaluateRGB(...
 %     Algorithms." IEEE Transactions on Image Processing, 17(12),
 %     2368-2380. doi:10.1109/TIP.2008.2006605
 %
-% See also immse, psnr, ssim, evaluateSpectral
+% See also metrics, immse, psnr, ssim, evaluateSpectral
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
 % University of Alberta, Department of Computing Science
 % File created August 14, 2018
-
-    function psnr = peakSignalToNoiseRatio(mse, peak)
-        psnr = 10 * log10((peak ^ 2) / mse);
-    end
 
 narginchk(3, 3);
 nargoutchk(1, 2);
@@ -131,15 +130,18 @@ I_rgb_clipped = I_rgb((border + 1):(end - border), (border + 1):(end - border), 
 R_rgb_clipped = R_rgb((border + 1):(end - border), (border + 1):(end - border), :);
 
 n_channels_rgb = 3;
-e_rgb.mse = zeros(n_channels_rgb, 1);
+e_rgb.mrae = zeros(n_channels_rgb, 1);
+e_rgb.rmse = zeros(n_channels_rgb, 1);
 e_rgb.psnr = zeros(n_channels_rgb, 1);
 e_rgb.ssim = zeros(n_channels_rgb + 1, 1);
 for c = 1:n_channels_rgb
-    e_rgb.mse(c) = immse(I_rgb_clipped(:, :, c), R_rgb_clipped(:, :, c));
-    e_rgb.psnr(c) = peakSignalToNoiseRatio(e_rgb.mse(c), peak_rgb);
+    [~, mrae, e_rgb.psnr(c), e_rgb.rmse(c)] = metrics(...
+        I_rgb_clipped(:, :, c), R_rgb_clipped(:, :, c), 3, peak_rgb, true...
+    );
+    e_rgb.mrae(c) = mean(mrae(:));
     e_rgb.ssim(c) = ssim(I_rgb_clipped(:, :, c), R_rgb_clipped(:, :, c));
 end
-e_rgb.cpsnr = peakSignalToNoiseRatio(mean(e_rgb.mse), peak_rgb);
+e_rgb.cpsnr = 10 * log10((peak_rgb ^ 2) / mean(e_rgb.rmse .^ 2));
 e_rgb.ssim(end) = mean(e_rgb.ssim(1:(end - 1)));
 
 mi_class = 'uint8';
@@ -171,12 +173,12 @@ end
 
 fg_rgb = struct;
 if isfield(options, 'error_map') && options.error_map
-    diff_rgb = I_rgb - R_rgb;
+    diff_rgb = abs(I_rgb - R_rgb) ./ R_rgb;
     for c = 1:n_channels_rgb
         fg_rgb.error_map(c) = figure;
         imagesc(diff_rgb(:, :, c));
         colorbar;
-        title(sprintf('Difference image for channel %d', c));
+        title(sprintf('Relative difference image for channel %d', c));
     end
 end
 

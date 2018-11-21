@@ -46,11 +46,13 @@ function [e_spectral, varargout] = evaluateSpectral(...
 %   A structure which controls graphical output to figures relating to
 %   the spectral images, and also determines some of the output in
 %   `e_spectral`. `options` has the following fields:
-%   - 'error_map': If `true`, then this function will produce three figures
-%     containing error maps. The first shows the absolute error between the
-%     two images. The figure will be produced for the band having the
-%     highest mean squared error. The second shows spectral RMSE error,
-%     whereas the third shows spectral goodness-of-fit.
+%   - 'metric': The preferred evaluation metric. 'metric' is a character
+%     vector with the following possible values:
+%     - 'rmse': Root mean squared error
+%     - 'mrae': Mean relative absolute error
+%     - 'gof': Goodness-of-fit
+%   - 'error_map': If `true`, then this function will produce a 'metric'
+%     error map figure.
 %   - 'radiance': A matrix, where each row is a four-element vector
 %     describing an image patch (center pixel x-coordinate, center pixel
 %     y-coordinate, width, and height). Image patches widths and heights
@@ -65,22 +67,21 @@ function [e_spectral, varargout] = evaluateSpectral(...
 %   - 'scanlines': A matrix, where each row is a four-element vector
 %     describing a line segment (start pixel x-coordinate, start pixel
 %     y-coordinate, end pixel x-coordinate, and end pixel y-coordinate).
-%     For each line segment, two figures will be generated, containing a
-%     plot of spectral root mean square error along the line, and a plot of
-%     spectral goodness-of-fit coefficient along the line, respectively.
-%   - 'scanlines_fg': A structure vector where each element has fields
-%     'rmse' and 'gof' storing the root mean square error and
-%     goodness-of-fit coefficient figure handles, respectively.
-%     'scanlines_fg' has the same role with respect to 'scanlines' as
-%     'radiance_fg' has for 'radiance'.
+%     For each line segment, a figure will be generated, containing a plot
+%     of 'metric' error along the line.
+%   - 'scanlines_fg': A vector of figure handles. 'scanlines_fg' has the
+%     same role with respect to 'scanlines' as 'radiance_fg' has for
+%     'radiance'.
 %   - 'mi_bands': A two-element vector containing the indices of the
-%     spectral bands to compute mutual information between.
+%     spectral bands (in the spectral space of the reference image) to
+%     compute mutual information between.
 %   - 'bands_diff': A two-element vector containing the indices of the
-%     spectral bands to create difference images between (to show
-%     dispersion between wavelengths). The band with the first index will
-%     be subtracted from the band with the second index. Two figures will
-%     be created, one for the reference image, and one for the test image.
-%     If this field does not exist, the figures will not be created.
+%     spectral bands (in the spectral space of the reference image) to
+%     create difference images between (to show dispersion between
+%     wavelengths). The band with the first index will be subtracted from
+%     the band with the second index. Two figures will be created, one for
+%     the reference image, and one for the test image. If this field does
+%     not exist, then the figures will not be created.
 %   - 'plot_color': A 3-element vector containing the RGB triplet to use
 %     for plotlines for the test image. The plotlines for the reference
 %     image will always be black.
@@ -97,18 +98,15 @@ function [e_spectral, varargout] = evaluateSpectral(...
 %
 % e_spectral -- Spectral error statistics
 %   A structure with the following fields:
-%   - 'mse': The mean square error between the two images. 'mse' is a
-%     structure with the following fields:
-%     - 'max': The mean square error for the band with the highest mean
-%       square error.
-%     - 'mean': The average mean square error over all bands
-%     - 'median': The mean square error for the band with the median mean
-%       square error.
-%     - 'raw': A c1-element vector, containing the mean square errors for
-%       each band.
-%   - 'psnr': The peak signal-to-noise ratio between the two images, in the
-%     same format as 'mse', except with 'max' replaced with 'min' (as PSNR
-%     decreases when mean square error increases).
+%   - 'psnr': The peak signal-to-noise ratio between the two images. 'psnr'
+%     is a structure with the following fields:
+%     - 'min': The peak signal-to-noise ratio for the band with the lowest
+%       peak signal-to-noise ratio.
+%     - 'mean': The average peak signal-to-noise ratio over all bands
+%     - 'median': The peak signal-to-noise ratio for the band with the
+%       median peak signal-to-noise ratio.
+%     - 'raw': A c1-element vector, containing the peak signal-to-noise
+%       ratios for each band.
 %   - 'ssim': The Structural Similarity Index Measure computed between the
 %     two images. 'ssim' is a structure with the following fields:
 %     - 'min': The SSIM value for the band with the lowest SSIM value.
@@ -128,10 +126,23 @@ function [e_spectral, varargout] = evaluateSpectral(...
 %     - 'max': The highest RMSE value in the image
 %     - 'mean': The average RMSE value over all pixels
 %     - 'median': The median RMSE value over all pixels
+%     - 'global': The RMSE value computed over all pixels, in contrast to
+%       'mean', which is the average of per-pixel RMSE values.
+%   - 'mrae': The mean relative absolute error between the spectral
+%     information of pixels in the test image and in the reference image.
+%     'mrae' is a structure with the following fields:
+%     - 'max': The highest mean relative absolute error in the image
+%     - 'mean': The average mean relative absolute error value over all
+%       pixels. Note that this value is the same as would be computed
+%       globally over all pixels, so there is no need for a 'global' field.
+%     - 'median': The median mean relative absolute error over all pixels
 %   - 'gof': The goodness-of-fit coefficient between the spectral
 %     information of pixels in the test image and in the reference image.
-%     'gof' is a structure with the same format as 'rmse', but with 'max'
-%     replaced with 'min'.
+%     'gof' is a structure with the following fields:
+%     - 'min': The lowest goodness-of-fit value in the image
+%     - 'mean': The average goodness-of-fit value over all pixels. This is
+%       the same value which should be used as a 'global' value.
+%     - 'median': The median goodness-of-fit value over all pixels
 %   - 'radiance': A structure vector, with the same length as the number of
 %     rows in `options.radiance`. Each element contains metrics describing
 %     the image patch given by the corresponding element of
@@ -139,6 +150,9 @@ function [e_spectral, varargout] = evaluateSpectral(...
 %     - 'rmse': The root mean square error of the average spectral radiance
 %       in the test patch relative to the average spectral radiance in the
 %       reference patch
+%     - 'mrae': The mean relative absolute error of the average spectral
+%       radiance in the test patch relative to the average spectral
+%       radiance in the reference patch
 %     - 'gof': The goodness-of-fit coefficient of the average spectral
 %       radiance in the test patch relative to the average spectral
 %       radiance in the reference patch.
@@ -146,17 +160,15 @@ function [e_spectral, varargout] = evaluateSpectral(...
 % fg_spectral -- Spectral error evaluation figures
 %   A structure with the following fields, all of which store figure
 %   handles:
-%   - 'error_map': A vector of figure handles corresponding to the output
-%     triggered by `options.error_map`.
+%   - 'error_map': A figure handle corresponding to the output triggered by
+%     `options.error_map`.
 %   - 'radiance': A vector of figure handles corresponding to the output
 %     triggered by `options.radiance`.
 %   - 'patches': A figure showing the image locations of all patches
 %     described by `options.radiance`, produced only if `options` does not
 %     have a 'radiance_fg' field.
-%   - 'scanlines': A structure vector corresponding to the output triggered
-%     by `options.scanlines`. Each structure has fields 'rmse' and
-%     'gof' storing the root mean square error and goodness-of-fit
-%     coefficient figure handles, respectively.
+%   - 'scanlines': A vector corresponding to the output triggered by
+%     `options.scanlines`.
 %   - 'scanlines_locations': A figure showing the image locations of all
 %     line segments described by `options.scanlines`, produced only if
 %     `options` does not have a 'scanlines_fg' field.
@@ -171,7 +183,7 @@ function [e_spectral, varargout] = evaluateSpectral(...
 %   excluded from the images when calculating image-wide statistics, to
 %   ignore artifacts in image estimation arising from the image borders.
 % - Figures will not be generated if the corresponding fields of
-%   `options` are missing.
+%   `options` are absent.
 % - Figures are produced with titles and axis labels, but without legends.
 % - Images can be input in integer or floating-point formats. For peak
 %   signal-to-noise ratio calculations, the peak value will be 1.0 for
@@ -211,24 +223,19 @@ function [e_spectral, varargout] = evaluateSpectral(...
 %     Schiele B., Tuytelaars T. (eds) Computer Vision – ECCV 2014. ECCV
 %     2014. Lecture Notes in Computer Science, vol 8695. Springer, Cham
 %
-% See also immse, psnr, ssim, evaluateRGB, samplingWeights, plot
+% - Root mean squared error and mean relative absolute error are defined
+%   in:
+%
+%   B. Arad, O. Ben-Shahar and R. Timofte, "NTIRE 2018 challenge on
+%     spectral reconstruction from RGB images," in The IEEE Conference on
+%     Computer Vision and Pattern Recognition (CVPR) Workshops, 2018.
+%
+% See also metrics, psnr, ssim, evaluateRGB, samplingWeights, plot
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
 % University of Alberta, Department of Computing Science
 % File created August 15, 2018
-
-    function psnr = peakSignalToNoiseRatio(mse, peak)
-        psnr = 10 * log10((peak ^ 2) / mse);
-    end
-
-    function gof = goodnessOfFit(rad_1, rad_2, varargin)
-        gof = abs(dot(rad_1, rad_2, 2)) ./...
-            sqrt(dot(rad_1, rad_1, 2) .* dot(rad_2, rad_2, 2));
-        if isempty(varargin) || varargin{1}
-            gof = gof(isfinite(gof));
-        end
-    end
 
 narginchk(5, 5);
 nargoutchk(1, 2);
@@ -258,26 +265,27 @@ else
     error('The two images are of an unexpected datatype.')
 end
 
-R_I_clipped = cat(3,...
-    I_spectral((border + 1):(end - border), (border + 1):(end - border), :),...
-    R_spectral((border + 1):(end - border), (border + 1):(end - border), :)...
-);
-image_sampling_clipped = [size(R_I_clipped, 1), size(R_I_clipped, 2)];
+if strcmp(options.metric, 'rmse')
+    metric_ind = 1;
+elseif strcmp(options.metric, 'mrae')
+    metric_ind = 2;
+elseif strcmp(options.metric, 'gof')
+    metric_ind = 3;
+else
+    error('Unrecognized value, "%s", of `options.metric`.', options.metric);
+end
 
-e_spectral.mse = struct('raw', zeros(n_bands, 1));
+I_spectral = channelConversion(I_spectral, spectral_weights);
+
+I_clipped = I_spectral((border + 1):(end - border), (border + 1):(end - border), :);
+R_clipped = R_spectral((border + 1):(end - border), (border + 1):(end - border), :);
+
 e_spectral.psnr = struct('raw', zeros(n_bands, 1));
 e_spectral.ssim = struct('raw', zeros(n_bands, 1));
-I_clipped_resampled = zeros([image_sampling_clipped, n_bands]);
 for c = 1:n_bands
-    I_clipped_resampled(:, :, c) = reshape(channelConversionMatrix(image_sampling_clipped, spectral_weights(c, :))...
-        * reshape(R_I_clipped(:, :, (n_bands + 1):end), [], 1), image_sampling_clipped);
-    e_spectral.mse.raw(c) = immse(I_clipped_resampled(:, :, c), R_I_clipped(:, :, c));
-    e_spectral.psnr.raw(c) = peakSignalToNoiseRatio(e_spectral.mse.raw(c), peak_spectral);
-    e_spectral.ssim.raw(c) = ssim(I_clipped_resampled(:, :, c), R_I_clipped(:, :, c));
+    [~, ~, e_spectral.psnr.raw(c)] = metrics(I_clipped, R_clipped, 3, peak_spectral, true);
+    e_spectral.ssim.raw(c) = ssim(I_clipped(:, :, c), R_clipped(:, :, c));
 end
-e_spectral.mse.max = max(e_spectral.mse.raw);
-e_spectral.mse.mean = mean(e_spectral.mse.raw);
-e_spectral.mse.median = median(e_spectral.mse.raw);
 e_spectral.psnr.min = min(e_spectral.psnr.raw);
 e_spectral.psnr.mean = mean(e_spectral.psnr.raw);
 e_spectral.psnr.median = median(e_spectral.psnr.raw);
@@ -288,11 +296,11 @@ e_spectral.ssim.median = median(e_spectral.ssim.raw);
 mi_class = 'uint8';
 if ~isa(I_spectral, mi_class)
     peak_int = double(intmax(mi_class));
-    I_clipped_int = uint8(I_clipped_resampled * peak_int / peak_spectral);
-    R_clipped_int = uint8(R_I_clipped(:, :, 1:n_bands) * peak_int / peak_spectral);
+    I_clipped_int = uint8(I_clipped * peak_int / peak_spectral);
+    R_clipped_int = uint8(R_clipped * peak_int / peak_spectral);
 else
-    I_clipped_int = I_clipped_resampled;
-    R_clipped_int = R_I_clipped(:, :, 1:n_bands);
+    I_clipped_int = I_clipped;
+    R_clipped_int = R_clipped;
 end
 
 e_spectral.mi_within(1) = MI_GG(...
@@ -312,31 +320,33 @@ for c = 1:n_bands
     );
 end
 
-I_clipped_lin = reshape(I_clipped_resampled, [], n_bands);
-R_clipped_lin = reshape(R_I_clipped(:, :, 1:n_bands), [], n_bands);
-
-se = I_clipped_lin - R_clipped_lin;
-se = dot(se, se, 2);
-rmse_per_pixel = sqrt(se / n_bands);
+[rmse, mrae, gof, global_rmse] = metrics(I_clipped, R_clipped, 3, 0, true);
 e_spectral.rmse = struct(...
-    'max', max(rmse_per_pixel),...
-	'mean', mean(rmse_per_pixel),...
-	'median', median(rmse_per_pixel)...
+    'max', max(rmse(:)),...
+	'mean', mean(rmse(:)),...
+	'median', median(rmse(:)),...
+    'global', global_rmse...
 );
-
-gof_per_pixel = goodnessOfFit(I_clipped_lin, R_clipped_lin);
+e_spectral.mrae = struct(...
+    'max', max(mrae(:)),...
+	'mean', mean(mrae(:)),...
+	'median', median(mrae(:))...
+);
 e_spectral.gof = struct(...
-    'min', min(gof_per_pixel),...
-	'mean', mean(gof_per_pixel),...
-	'median', median(gof_per_pixel)...
+    'min', min(gof(:)),...
+	'mean', mean(gof(:)),...
+	'median', median(gof(:))...
 );
 
 image_height = size(I_spectral, 1);
 image_width = size(I_spectral, 2);
-image_sampling = [image_height, image_width];
 if isfield(options, 'radiance')
     n_patches = size(options.radiance, 1);
-    e_spectral.radiance = struct('rmse', cell(n_patches, 1), 'gof', cell(n_patches, 1));
+    e_spectral.radiance = struct(...
+        'rmse', cell(n_patches, 1),...
+        'mrae', cell(n_patches, 1),...
+        'gof', cell(n_patches, 1)...
+    );
     radiance_averages_I = zeros(n_patches, n_bands);
     radiance_averages_R = zeros(n_patches, n_bands);
     patch_rectangles = zeros(n_patches, 4);
@@ -352,10 +362,10 @@ if isfield(options, 'radiance')
         patch_rectangles(i, 3) = min(image_width, bounds(1) + widthDiv2);
         patch_rectangles(i, 4) = min(image_height, bounds(2) + heightDiv2);
 
-        radiance_average_I = (spectral_weights * squeeze(mean(mean(I_spectral(...
+        radiance_average_I = squeeze(mean(mean(I_spectral(...
             patch_rectangles(i, 2):patch_rectangles(i, 4),...
             patch_rectangles(i, 1):patch_rectangles(i, 3), :...
-            ), 1), 2))).';
+            ), 1), 2)).';
 
         radiance_average_R = squeeze(mean(mean(R_spectral(...
             patch_rectangles(i, 2):patch_rectangles(i, 4),...
@@ -368,12 +378,11 @@ if isfield(options, 'radiance')
         radiance_averages_I(i, :) = radiance_average_I;
         radiance_averages_R(i, :) = radiance_average_R;
 
-        se = radiance_average_I - radiance_average_R;
-        e_spectral.radiance(i).rmse = sqrt(dot(se, se) / n_bands);
-
-        e_spectral.radiance(i).gof = goodnessOfFit(...
-            radiance_average_I, radiance_average_R, false...
-        );
+        [...
+            e_spectral.radiance(i).rmse,...
+            e_spectral.radiance(i).mrae,...
+            e_spectral.radiance(i).gof...
+        ] = metrics(radiance_average_I, radiance_average_R, 2, 0, false);
     end
 end
 
@@ -381,25 +390,23 @@ end
 fg_spectral = struct;
 
 if isfield(options, 'error_map') && options.error_map
-    ind = find(e_spectral.mse.raw == e_spectral.mse.max, 1);
-    diff_band = (reshape(channelConversionMatrix(image_sampling, spectral_weights(ind, :))...
-        * reshape(I_spectral, [], 1), image_sampling)) - R_spectral(:, :, ind);
-    fg_spectral.error_map(1) = figure;
-    imagesc(diff_band);
+    fg_spectral.error_map = figure;
+    switch metric_ind
+        case 1
+            map = metrics(I_spectral, R_spectral, 3, 0, false);
+            title('Spectral root-mean-square error');
+        case 2
+            [~, map] = metrics(I_spectral, R_spectral, 3, 0, false);
+            title('Spectral mean relative absolute error');
+        case 3
+            [~, ~, map] = metrics(I_spectral, R_spectral, 3, 0, false);
+            title('Spectral goodness-of-fit');
+    end
+    imagesc(map);
     colorbar;
-    title(sprintf('Difference image for the %g band, MSE %g',...
-        lambda(ind), e_spectral.mse.max));
-    
-    fg_spectral.error_map(2) = figure;
-    imagesc(reshape(rmse_per_pixel, image_sampling_clipped));
-    colorbar;
-    title('Spectral root-mean-square error');
-    
-    fg_spectral.error_map(3) = figure;
-    imagesc(reshape(goodnessOfFit(I_clipped_lin, R_clipped_lin, false), image_sampling_clipped));
-    colorbar;
-    caxis([0 1]);
-    title('Spectral goodness-of-fit');
+    if metric_ind == 3
+        caxis([0 1]);
+    end 
 end
 
 background = [];
@@ -479,7 +486,6 @@ if isfield(options, 'scanlines')
     end
     
     % Plot spectral radiance error
-    fg_spectral.scanlines = struct('rmse', cell(n_lines, 1), 'gof', cell(n_lines, 1));
     for i = 1:n_lines
         n_px_line = length(lines_pixels_indices{i});
         lines_pixels_indices_spectral =...
@@ -491,47 +497,47 @@ if isfield(options, 'scanlines')
             repmat(lines_pixels_indices{i}, size(I_spectral, 3), 1) +...
             repelem((0:(size(I_spectral, 3) - 1)).' * (image_width * image_height), n_px_line, 1);
         radiance_I = reshape(I_spectral(lines_pixels_indices_spectral), n_px_line, []);
-        radiance_I = (spectral_weights * radiance_I.').';
 
-        se = radiance_I - radiance_R;
-        rmse = sqrt(dot(se, se, 2) / n_bands);
-
-        gof = goodnessOfFit(radiance_I, radiance_R, false);
+        
+        switch metric_ind
+            case 1
+                line_error = metrics(radiance_I, radiance_R, 2, 0, false);
+            case 2
+                [~, line_error] = metrics(radiance_I, radiance_R, 2, 0, false);
+            case 3
+                [~, ~, line_error] = metrics(radiance_I, radiance_R, 2, 0, false);
+            otherwise
+                error('Unrecognized value of `metric_ind`.');
+        end
         
         if isfield(options, 'scanlines_fg')
-            fg_spectral.scanlines(i).rmse = options.scanlines_fg(i).rmse;
-            figure(fg_spectral.scanlines(i).rmse);
+            fg_spectral.scanlines(i) = options.scanlines_fg(i);
+            figure(fg_spectral.scanlines(i));
         else
-            fg_spectral.scanlines(i).rmse = figure;
+            fg_spectral.scanlines(i) = figure;
             xlabel('Image x-coordinate');
-            ylabel('Spectral radiance RMSE');
+            switch metric_ind
+                case 1
+                    ylabel('Spectral root-mean-square error');
+                case 2
+                    ylabel('Spectral mean relative absolute error');
+                case 3
+                    ylabel('Spectral goodness-of-fit');
+                otherwise
+                    error('Unrecognized value of `metric_ind`.');
+            end
             title(sprintf('Spectral radiance error along line %d', i));
         end
         hold on
         plot(...
-                line_pixels_x{i}, rmse,...
+                line_pixels_x{i}, line_error,...
                 'Color', options.plot_color, 'LineWidth', 2,...
                 'Marker', options.plot_marker, 'LineStyle', options.plot_style...
             );
         hold off
-        
-        if isfield(options, 'scanlines_fg')
-            fg_spectral.scanlines(i).gof = options.scanlines_fg(i).gof;
-            figure(fg_spectral.scanlines(i).gof);
-        else
-            fg_spectral.scanlines(i).gof = figure;
-            xlabel('Image x-coordinate');
-            ylabel('Spectral radiance goodness-of-fit');
+        if metric_ind == 3
             ylim([0, 1]);
-            title(sprintf('Spectral radiance error along line %d', i));
         end
-        hold on
-        plot(...
-                line_pixels_x{i}, gof,...
-                'Color', options.plot_color, 'LineWidth', 2,...
-                'Marker', options.plot_marker, 'LineStyle', options.plot_style...
-            );
-        hold off
     end
     
     % Generate a figure showing all lines
@@ -576,10 +582,7 @@ if isfield(options, 'bands_diff')
     title(sprintf('Difference image between band %g and band %g in the reference image',...
         lambda(options.bands_diff(1)), lambda(options.bands_diff(2))));
 
-    diff_band = reshape(channelConversionMatrix(...
-        image_sampling,...
-        spectral_weights(options.bands_diff(2), :) - spectral_weights(options.bands_diff(1), :)...
-    ) * reshape(I_spectral, [], 1), image_sampling);
+    diff_band = I_spectral(:, :, options.bands_diff(2)) - I_spectral(:, :, options.bands_diff(1));
     fg_spectral.bands_diff(2) = figure;
     imagesc(diff_band);
     colorbar;

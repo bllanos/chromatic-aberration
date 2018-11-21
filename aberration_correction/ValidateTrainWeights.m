@@ -149,13 +149,6 @@
 % - This script only uses the first row of `patch_sizes`, and the first
 %   element of `paddings`, defined in 'SetFixedParameters.m', by using
 %   `solvePatchesADMMOptions.patch_options`.
-% - When `use_demosaic` is `true`, regularization weights are selected such
-%   that the estimated image, once converted to colour, matches the Green
-%   channel of the demosaicked RAW image. The error surface plotted around
-%   the search path, however, is plotted for the error with respect to the
-%   RGB version of the true image. Therefore, the search path, which lies
-%   on the error surface for the error with respect to the demosaicked RAW
-%   image, will not lie on the plotted error surface.
 %
 % ## References
 % - Song, Y., Brie, D., Djermoune, E.-H., & Henrot, S.. "Regularization
@@ -522,10 +515,8 @@ if n_active_weights < 3 && plot_hypersurface
     all_mse_samples = zeros(n_samples_all, 1);
     all_green_mse_samples = zeros(n_samples_all, 1);
     I_patch_gt = reshape(I_gt(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :), [], 1);
-    I_green_patch_gt = reshape(I_green_gt(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2)), [], 1);
-    image_sampling_f = [size(I_raw_f, 1), size(I_raw_f, 2)];
-    to_spectral_matrix = channelConversionMatrix(image_sampling_f, spectral_weights);
-    to_green_matrix = channelConversionMatrix(image_sampling_f, color_weights(2, :));
+    I_in_f.I = I_green_gt(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2));
+    in_weightsLowMemory = initWeightsLowMemory(I_in_f, dispersion_f, numel_p, 0);
     for s = 1:n_samples_all
         weights_s = all_weights_samples(s, :);
         [in_admm, weights_s] = initBaek2017Algorithm2LowMemory(...
@@ -536,12 +527,12 @@ if n_active_weights < 3 && plot_hypersurface
             weights_s, solvePatchesADMMOptions.admm_options, in_admm...
         );
         all_mse_samples(s) = immse(...
-            to_spectral_matrix * in_admm.I,...
+            channelConversion(in_admm.I, spectral_weights, 1),...
             I_patch_gt...
         );
         all_green_mse_samples(s) = immse(...
-             to_green_matrix * in_admm.I,...
-             I_green_patch_gt...
+             in_weightsLowMemory.Omega_Phi * in_admm.I,...
+             reshape(I_in_f.I, [], 1)...
          );
     end
     log_all_mse_samples = log10(all_mse_samples);

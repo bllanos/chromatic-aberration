@@ -137,8 +137,6 @@ function varargout = imageFormation(...
 %   If `target_patch` is passed, then `I_warped` has the same spatial
 %   dimensions as `I_rgb`.
 %
-% ## References
-%
 % See also solvePatchesAlignedSerial, mosaicMatrix, channelConversionMatrix,
 % dispersionfunToMatrix
 

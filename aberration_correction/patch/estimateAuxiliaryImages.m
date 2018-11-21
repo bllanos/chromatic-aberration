@@ -20,9 +20,7 @@ if n_images > 0
     n_channels_rgb = 3;
 
     I = I_3D(:);
-    image_sampling_patch = [size(I_3D, 1), size(I_3D, 2)];
-    Omega = channelConversionMatrix(image_sampling_patch, sensitivity);
-    I_rgb = Omega * I;
+    I_rgb = channelConversion(I, sensitivity, 1);
     padding_filter_rgb = repmat(padding_filter, 1, 1, n_channels_rgb);
     images{1} = reshape(I_rgb(padding_filter_rgb), [I_size, n_channels_rgb]);
 
@@ -32,7 +30,7 @@ if n_images > 0
         else
             I_warped = I;
         end
-        J_full = Omega * I_warped;
+        J_full = channelConversion(I_warped, sensitivity, 1);
         J_full = reshape(J_full(padding_filter_rgb), [I_size, n_channels_rgb]);
         images{2} = J_full;
 

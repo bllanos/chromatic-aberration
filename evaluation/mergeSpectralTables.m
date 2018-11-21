@@ -35,10 +35,22 @@ nargoutchk(1, 1);
 
 % Strip image-specific variables
 n_tables = length(ts);
-variables = ts{1}.Properties.VariableNames;
+variables_1 = ts{1}.Properties.VariableNames;
 for i = 2:n_tables
-    variables = intersect(variables, ts{i}.Properties.VariableNames, 'stable');
+    variables_1 = intersect(variables_1, ts{i}.Properties.VariableNames, 'stable');
 end
+variables = cell(length(variables_1), 1);
+search_strings = {'Patch'};
+k = 1;
+for i = 1:length(variables_1)
+    for j = 1:length(search_strings)
+        if ~strcmp(variables_1{i}(1:length(search_strings{j})), search_strings{j})
+            variables{k} = variables_1{i};
+            k = k + 1;
+        end
+    end
+end
+variables = variables(1:k);
 
 % Merge tables
 t_all = ts{1}(:, variables);
@@ -50,7 +62,7 @@ for i = 2:n_tables
 end
 
 % Compute summary statistics
-max_variables = {'MSE_max', 'RMSE_max'};
+max_variables = {'MRAE_max', 'RMSE_max'};
 t_max = varfun(...
     @max, t_all, 'GroupingVariables', 'Algorithm', 'InputVariables',...
     max_variables...
@@ -60,7 +72,7 @@ t_min = varfun(...
     @min, t_all, 'GroupingVariables', 'Algorithm', 'InputVariables',...
     min_variables...
 );
-median_variables = {'MSE_median', 'PSNR_median', 'SSIM_median', 'RMSE_median', 'GOF_median'};
+median_variables = {'MRAE_median', 'PSNR_median', 'SSIM_median', 'RMSE_median', 'GOF_median'};
 t_median = varfun(...
     @median, t_all, 'GroupingVariables', 'Algorithm', 'InputVariables',...
     median_variables...
