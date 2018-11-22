@@ -50,7 +50,7 @@ for i = 1:length(variables_1)
         end
     end
 end
-variables = variables(1:k);
+variables = variables(1:(k - 1));
 
 % Merge tables
 t_all = ts{1}(:, variables);

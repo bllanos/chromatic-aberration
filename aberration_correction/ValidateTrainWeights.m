@@ -516,7 +516,8 @@ if n_active_weights < 3 && plot_hypersurface
     all_green_mse_samples = zeros(n_samples_all, 1);
     I_patch_gt = reshape(I_gt(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :), [], 1);
     I_in_f.I = I_green_gt(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2));
-    in_weightsLowMemory = initWeightsLowMemory(I_in_f, dispersion_f, numel_p, 0);
+    I_in_f.spectral_weights = color_weights(2, :);
+    in_weightsLowMemory = initWeightsLowMemory(I_in_f, dispersion_f, 0);
     for s = 1:n_samples_all
         weights_s = all_weights_samples(s, :);
         [in_admm, weights_s] = initBaek2017Algorithm2LowMemory(...

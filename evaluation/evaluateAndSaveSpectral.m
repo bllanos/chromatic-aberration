@@ -165,6 +165,7 @@ if isfield(dp.evaluation.custom_spectral, I_name)
         dp.evaluation.custom_spectral.(I_name), false, true...
     );
 end
+metric_name = upper(options.metric);
     
 if ~short_call
     filepath = fileparts(name_params);
@@ -182,7 +183,6 @@ if ~short_call
     );
 
     % Save figures for this algorithm to files
-    metric_name = upper(options.metric);
     if isfield(fg_spectral_current, 'error_map')
         savefig(...
             fg_spectral_current.error_map,...

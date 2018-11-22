@@ -283,7 +283,7 @@ R_clipped = R_spectral((border + 1):(end - border), (border + 1):(end - border),
 e_spectral.psnr = struct('raw', zeros(n_bands, 1));
 e_spectral.ssim = struct('raw', zeros(n_bands, 1));
 for c = 1:n_bands
-    [~, ~, e_spectral.psnr.raw(c)] = metrics(I_clipped, R_clipped, 3, peak_spectral, true);
+    [~, ~, e_spectral.psnr.raw(c)] = metrics(I_clipped(:, :, c), R_clipped(:, :, c), 3, peak_spectral, true);
     e_spectral.ssim.raw(c) = ssim(I_clipped(:, :, c), R_clipped(:, :, c));
 end
 e_spectral.psnr.min = min(e_spectral.psnr.raw);
