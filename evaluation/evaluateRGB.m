@@ -176,7 +176,7 @@ if isfield(options, 'error_map') && options.error_map
     diff_rgb = abs(I_rgb - R_rgb) ./ R_rgb;
     for c = 1:n_channels_rgb
         fg_rgb.error_map(c) = figure;
-        imagesc(diff_rgb(:, :, c));
+        imagesc(min(max(diff_rgb(:, :, c), 0), 1));
         colorbar;
         title(sprintf('Relative difference image for channel %d', c));
     end

@@ -402,9 +402,13 @@ if isfield(options, 'error_map') && options.error_map
             [~, ~, map] = metrics(I_spectral, R_spectral, 3, 0, false);
             title('Spectral goodness-of-fit');
     end
-    imagesc(map);
+    if metric_ind == 1
+        imagesc(map);
+    else
+        imagesc(min(max(map, 0), 1));
+    end
     colorbar;
-    if metric_ind == 3
+    if metric_ind ~= 1
         caxis([0 1]);
     end 
 end

@@ -334,28 +334,22 @@ if verbose
 end
 
 % Find bandlimit, and construct bands
-if options.power_threshold == 1 && use_power_threshold
-    bands_spacing = color_bands_spacing;
-    n_bands = n_color_bands;
-    bands = color_bands;
+if ~use_power_threshold
+    n_bands = options.n_bands;
+    bands_spacing = (end_domain - start_domain) / (n_bands - 1);
 else
-    if ~use_power_threshold
-        n_bands = options.n_bands;
-        bands_spacing = (end_domain - start_domain) / (n_bands - 1);
-    else
-        freq = bandlimit(color_map, options.power_threshold, verbose); % Units of cycles per index
-        freq_wavelengths = freq / color_bands_spacing; % Units of cycles per unit change in wavelength
-        bands_spacing = 1 / (2 * freq_wavelengths); % Nyquist limit sample spacing
-        n_bands = floor((end_domain - start_domain) / bands_spacing) + 1;
-    end
-    % Center the bands within the domain
-    if n_bands > 1
-        bands_range = (n_bands - 1) * bands_spacing;
-        start_band = (end_domain + start_domain - bands_range) / 2;
-        bands = start_band + (bands_spacing * (0:(n_bands - 1)));
-    else
-        bands = (end_domain + start_domain) / 2;
-    end
+    freq = bandlimit(color_map, options.power_threshold, verbose); % Units of cycles per index
+    freq_wavelengths = freq / color_bands_spacing; % Units of cycles per unit change in wavelength
+    bands_spacing = 1 / (2 * freq_wavelengths); % Nyquist limit sample spacing
+    n_bands = floor((end_domain - start_domain) / bands_spacing) + 1;
+end
+% Center the bands within the domain
+if n_bands > 1
+    bands_range = (n_bands - 1) * bands_spacing;
+    start_band = (end_domain + start_domain - bands_range) / 2;
+    bands = start_band + (bands_spacing * (0:(n_bands - 1)));
+else
+    bands = (end_domain + start_domain) / 2;
 end
 
 if verbose

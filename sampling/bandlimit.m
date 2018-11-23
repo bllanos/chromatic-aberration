@@ -62,7 +62,7 @@ function [limit_freq, limit_rad] = bandlimit(signals, threshold, varargin)
 % University of Alberta, Department of Computing Science
 % File created October 26, 2018
 
-narginchk(3, 3);
+narginchk(2, 3);
 nargoutchk(1, 2);
 
 verbose = false;
