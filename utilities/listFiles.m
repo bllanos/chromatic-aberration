@@ -46,6 +46,12 @@ if ispc
 else
     names = strtrim(strsplit(ls(wildcard), {'  ','\f','\n','\r','\t','\v'}));
     names = names(1:(end - 1)); % There is always a terminating newline
+    % Filepaths that contain spaces will be padded with single quotes
+    for i = 1:length(names)
+        if names{i}(1) == '''' && names{i}(end) == ''''
+            names{i} = names{i}(2:(end - 1));
+        end
+    end
 end
 
 end
