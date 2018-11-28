@@ -123,10 +123,14 @@ function [...
 %     summing the interpolation weights for 'bands_padding' extra positions
 %     to each side of the domains of the spectral signals. 'bands_padding'
 %     must be a nonnegative scalar.
-%   - 'interpolant': The function convolved with sampled spectral signals
-%     to interpolate them during upsampling. 'interpolant' is passed to
-%     'upsamplingWeights()' as its `f` input argument. Refer to the
-%     documentation of 'upsamplingWeights.m' for more details.
+%   - 'interpolant': The function convolved with spectral signals, sampled
+%     according to `bands`, to interpolate them during upsampling.
+%     'interpolant' is passed to 'upsamplingWeights()' as its `f` input
+%     argument. Refer to the documentation of 'upsamplingWeights.m' for
+%     more details.
+%   - 'interpolant_ref': Similar to 'interpolant', but used for upsampling
+%     other spectral data. 'interpolant_ref' is used to generate
+%     `color_weights_reference`, for example.
 %
 % verbose -- Debugging flag
 %   A Boolean scalar which enables graphical debugging output if `true`.
@@ -372,13 +376,11 @@ for i = 1:n_cells
     end
 end
 
-upsampling_function = options.interpolant;
-
 % Construct a colour conversion matrix
 if color_bands_spacing > bands_spacing
     % Upsample the spectral sensitivities
     upsampling_map = upsamplingWeights(...
-        bands, color_bands, upsampling_function, padding...
+        bands, color_bands, options.interpolant_ref, padding...
     );
     color_map_upsampled = (upsampling_map * (color_map.')).';
     int_weights = integrationWeights(bands, options.int_method);
@@ -386,7 +388,7 @@ if color_bands_spacing > bands_spacing
 else
     % Upsample the sampled spectra
     upsampling_map = upsamplingWeights(...
-        color_bands, bands, upsampling_function, padding...
+        color_bands, bands, options.interpolant, padding...
     );
     int_weights = integrationWeights(color_bands, options.int_method);
     color_weights = color_map * diag(int_weights) * upsampling_map;
@@ -396,7 +398,7 @@ end
 spectral_weights = cell(size(spectral_bands));
 for i = 1:n_cells
     spectral_weights{i} = upsamplingWeights(...
-        spectral_bands{i}, bands, upsampling_function, padding...
+        spectral_bands{i}, bands, options.interpolant, padding...
     );
 end
 if ~is_cell_spectral_bands
@@ -410,7 +412,7 @@ if output_reference_weights
         if color_bands_spacing > spectral_bands_spacing(i)
             % Upsample the spectral sensitivities
             upsampling_map = upsamplingWeights(...
-                spectral_bands{i}, color_bands, upsampling_function, padding...
+                spectral_bands{i}, color_bands, options.interpolant_ref, padding...
             );
             color_map_upsampled = (upsampling_map * (color_map.')).';
             int_weights = integrationWeights(spectral_bands{i}, options.int_method);
@@ -418,7 +420,7 @@ if output_reference_weights
         else
             % Upsample the reference spectra
             upsampling_map = upsamplingWeights(...
-                color_bands, spectral_bands{i}, upsampling_function, padding...
+                color_bands, spectral_bands{i}, options.interpolant_ref, padding...
             );
             int_weights = integrationWeights(color_bands, options.int_method);
             color_weights_reference{i} = color_map * diag(int_weights) * upsampling_map;

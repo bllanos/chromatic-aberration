@@ -245,7 +245,7 @@ parameters_list = {
 %% Input data and parameters
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/Downloads/SonyColorMapData.mat';
+color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/NikonD5100ColorMapData.mat';
 
 % Whether or not to normalize spectral sensitivity functions, assuming an
 % illuminant which has a uniform spectral power distribution. The

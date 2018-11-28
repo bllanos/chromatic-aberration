@@ -134,12 +134,18 @@ samplingWeightsOptions.support_threshold = 0.05;
 
 samplingWeightsOptions.bands_padding = 1000;
 
-% Interpolation function: `x = 0` is the current interpolation location,
-% and an increment or decrement of one unit in `x` represents a shift equal
-% to the spacing between samples in the sequence of samples being
-% interpolated. The interpolation function `f(x)` returns the weight for a
-% sample at location `x` relative to the current  interpolation location.
+% Interpolation function for estimated spectral data:
+%
+% `x = 0` is the current interpolation location, and an increment or
+% decrement of one unit in `x` represents a shift equal to the spacing
+% between samples in the sequence of samples being interpolated. The
+% interpolation function `f(x)` returns the weight for a sample at location
+% `x` relative to the current  interpolation location.
 samplingWeightsOptions.interpolant = @normpdf;
+
+% Interpolation function for other spectral data, such as sensor spectral
+% sensitivities or ground truth spectral radiances
+samplingWeightsOptions.interpolant_ref = @triangle;
 
 % Additional options for 'solvePatchesMultiADMM()'
 solvePatchesMultiADMMOptions.sampling_options = samplingWeightsOptions;

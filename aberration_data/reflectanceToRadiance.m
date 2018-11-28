@@ -106,7 +106,7 @@ function [lambda_Rad, Rad, varargout] = reflectanceToRadiance(lambda_L, L, lambd
 % Rad_normalized -- Normalized radiances
 %   A version of `Rad` which has been normalized by the response of the
 %   `C` function to the illuminant spectral power distribution.
-%   Normalied radiances are required when computing the corresponding
+%   Normalized radiances are required when computing the corresponding
 %   colours.
 %
 % lambda_C_resampled -- Resampled reference wavelength values

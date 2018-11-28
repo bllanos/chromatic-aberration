@@ -112,6 +112,9 @@ function [dataset_params] = describeDataset(name)
 % only, such as:
 % - 'kaist-crop': The color checker chart from Scene 30 of the KAIST
 %   dataset.
+% - 'choi-test': A dataset used to test the conversion from reflectance
+%   images to radiance images, and to test modifications to the method of
+%   Choi et al. 2017 (cited above).
 %
 % ## Notes
 % - In order to compare results across images, the 'mi_bands' field of the
@@ -159,7 +162,7 @@ elseif strcmp(name, 'kaist')
     dataset_params.dispersion_rgb_forward = [];
     dataset_params.dispersion_rgb_reverse = [];
     dataset_params.dispersion_spectral_reverse = [];
-    dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/SonyColorMapData.mat';
+    dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/NikonD5100ColorMapData.mat';
     dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/wavelengths.mat';
 elseif strcmp(name, '20180817_TestSpectralDataset')
     dataset_params.raw_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/*raw.mat';
@@ -205,8 +208,8 @@ elseif strcmp(name, 'kaist-crop')
     dataset_params.dispersion_rgb_forward = [];
     dataset_params.dispersion_rgb_reverse = [];
     dataset_params.dispersion_spectral_reverse = [];
-    dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181019_KAIST_ForPDFAResearchDayPoster/dataset/CIE1931ColorMapData.mat';
-    dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181019_KAIST_ForPDFAResearchDayPoster/dataset/wavelengths.mat';
+    dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/NikonD5100ColorMapData.mat';
+    dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/wavelengths.mat';
     dataset_params.evaluation = struct(...
         'global_rgb', struct('error_map', true),...
         'custom_rgb', struct,...
@@ -243,6 +246,59 @@ elseif strcmp(name, 'kaist-crop')
                     431, 436, 51, 51;
                     541, 435, 51, 51;
                     643, 434, 51, 51
+                ]...
+            )...
+        )...
+    );
+elseif strcmp(name, 'choi-test')
+    dataset_params.raw_images_wildcard = [];
+    dataset_params.raw_images_variable = [];
+    dataset_params.rgb_images_wildcard = [];
+    dataset_params.rgb_images_variable = [];
+    dataset_params.spectral_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/Original/colorIDs_hyper.mat';
+    dataset_params.spectral_images_variable = 'I_hyper';
+    dataset_params.spectral_reflectances = false;
+    dataset_params.dispersion_rgb_forward = [];
+    dataset_params.dispersion_rgb_reverse = [];
+    dataset_params.dispersion_spectral_reverse = [];
+    dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/NikonD5100ColorMapData.mat';
+    dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/Original/BimaterialImagesData.mat';
+    dataset_params.evaluation = struct(...
+        'global_rgb', struct('error_map', true),...
+        'custom_rgb', struct,...
+        'global_spectral', struct(...
+            'metric', 'mrae',...
+            'error_map', true,...
+            'mi_bands', [4, 24],...
+            'bands_diff', [4, 24]...
+            ),...
+        'custom_spectral', struct(...
+            'colorIDs_hyper', struct(...
+                'radiance', [ % Colour checker patches
+                10    10    11    11
+                30    10    11    11
+                50    10    11    11
+                70    10    11    11
+                90    10    11    11
+                110    10    11    11
+                10    30    11    11
+                30    30    11    11
+                50    30    11    11
+                70    30    11    11
+                90    30    11    11
+                110    30    11    11
+                10    50    11    11
+                30    50    11    11
+                50    50    11    11
+                70    50    11    11
+                90    50    11    11
+                110    50    11    11
+                10    70    11    11
+                30    70    11    11
+                50    70    11    11
+                70    70    11    11
+                90    70    11    11
+                110    70    11    11
                 ]...
             )...
         )...

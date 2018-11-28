@@ -24,6 +24,9 @@
 % A chromaticity map describes the blending between two different
 % reflectances in the output images.
 %
+% There is also an option available for monochromatic images, `is_classes`,
+% which bypasses clustering, by treating pixels as colour class IDs.
+%
 % #### Shading maps
 % A directory containing either monochromatic or RGB images. Monochromatic
 % images will be used directly as shading maps, whereas the CIE 1976 L*a*b*
@@ -34,7 +37,7 @@
 % Shading can be disabled, in which case the full power of the illuminant
 % will be applied throughout the image.
 %
-% ### Model of dispersion
+% ### Model of dispersion (Optional)
 %
 % A '.mat' file containing several variables, which is the output of
 % 'RAWDiskDispersion.m', for example. The following variables are required:
@@ -104,12 +107,17 @@
 %   weights in the soft segmentation of the chromaticity map, and then by
 %   illuminating the spectra according to the shading weights in the
 %   shading map. Image values are normalized radiances.
+% - '*_hyper_rfl.mat': A hyperspectral reflectance image (stored in the
+%   variable 'I_hyper') produced by blending two reflectance spectra
+%   according to the per-pixel weights in the soft segmentation of the
+%   chromaticity map.
 % - '*_3.tif' and '*_3.mat': A colour image (stored in the variable 'I_3')
 %   created by converting the hyperspectral image to the raw colour space
 %   of the camera.
 % - '*_warped.mat': A warped version of the hyperspectral image (stored in
 %   the variable 'I_warped') created by applying the dispersion model to
-%   the image.
+%   the image. If there is no dispersion model, then this image is the same
+%   as the hyperspectral image.
 % - '*_3_warped.tif' and '*_3_warped.mat': A colour image (stored in the
 %   variable 'I_3_warped') created by converting the warped hyperspectral
 %   image to the raw colour space of the camera.
@@ -144,6 +152,9 @@
 %   images to colour, as determined by the 'sensor_map' variable loaded
 %   from the colour space conversion data file, and by the type of
 %   numerical intergration to perform.
+%
+% The following additional variables are output to the '.mat' file if a
+% model of dispersion is provided:
 % - 'dispersion_data': A copy of the same variable from the input
 %   model of dispersion
 % - 'model_from_reference': A copy of the same variable from the input
@@ -188,6 +199,7 @@
 % List of parameters to save with results
 parameters_list = {
         'grey_difference_threshold',...
+        'is_classes',...
         'reverse_dispersion_model_filename',...
         'color_map_filename',...
         'normalization_channel',...
@@ -205,20 +217,25 @@ parameters_list = {
 %% Input data and parameters
 
 % Wildcard for 'ls()' to find the chromaticity maps.
-input_chromaticity_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dtd_images/*.jpg';
+input_chromaticity_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_ColorCheckerReflectanceImages/colorIDs.png';
 
 % Threshold for assuming that an RGB image is actually a greyscale image
 grey_difference_threshold = 1;
 
+% Treat greyscale images as colour class IDs rather than pictures. An error
+% will be thrown if the images are not greyscale, and this option is
+% `true`.
+is_classes = true;
+
 % Wildcard for 'ls()' to find the shading maps.
 % Set to an empty array to use constant shading
-input_shading_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dtd_images/*.jpg';
+input_shading_maps_wildcard = [];
 
-% Model of dispersion
-reverse_dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181020_DoubleConvexThickLensDispersion_Final/Models/DoubleConvexThickLensDispersionResults_spectral_spline_fromNonReference.mat';
+% Model of dispersion (can be empty, for no dispersion)
+reverse_dispersion_model_filename = []; %'/home/llanos/GoogleDrive/ThesisResearch/Results/20181020_DoubleConvexThickLensDispersion_Final/Models/DoubleConvexThickLensDispersionResults_spectral_spline_fromNonReference.mat';
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/Downloads/SonyColorMapData.mat';
+color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/NikonD5100ColorMapData.mat';
 % Colour channel to use for radiance normalization
 normalization_channel = 2;
 
@@ -231,7 +248,7 @@ if use_cie_illuminant
     illuminant_function_name = []; % Unused
 else
     % Arbitrary illuminant function
-    illuminant_function_name = 'sqrt';
+    illuminant_function_name = 'one';
     illuminant_filename = []; % Unused
     illuminant_temperature = []; % Unused
     illuminant_name = []; % Unused
@@ -243,7 +260,8 @@ xyzbar_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180614_ASTM_E3
 % ColorChecker spectral reflectances
 reflectances_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180604_ColorCheckerSpectralData_BabelColor/ColorChecker_spectra_reformatted_llanos.csv';
 
-% Number of colours to blend in each output image
+% Number of colours to blend in each output image (overridden by the actual
+% number of colour classes in the image, if `is_classes` is `true`)
 n_colors = 2;
 
 % Output directory for all images and saved data
@@ -291,17 +309,20 @@ colorChecker_rgb = reflectanceToColor(...
 
 %% Load dispersion model
 
-model_from_reference = false;
-[...
-    dispersion_data, ~, transform_data...
-] = loadDispersionModel(reverse_dispersion_model_filename, model_from_reference, false);
-if isempty(transform_data)
-    error('The dispersion model must be associated with coordinate space information.')
+has_dispersion = ~isempty(reverse_dispersion_model_filename);
+if has_dispersion
+    model_from_reference = false;
+    [...
+        dispersion_data, ~, transform_data...
+    ] = loadDispersionModel(reverse_dispersion_model_filename, model_from_reference, false);
+    if isempty(transform_data)
+        error('The dispersion model must be associated with coordinate space information.')
+    end
+    if isfield(dispersion_data, 'reference_channel')
+        error('A dispersion model for spectral data, not colour channels, is required.');
+    end
+    transform_data.fill = true;
 end
-if isfield(dispersion_data, 'reference_channel')
-    error('A dispersion model for spectral data, not colour channels, is required.');
-end
-transform_data.fill = true;
 
 %% Load colour space conversion data
 
@@ -396,7 +417,12 @@ for i = 1:n_images
     image_sampling = [image_height, image_width];
     n_channels = size(C_map, 3);
     n_px = image_height * image_width;
-    [C_centers, ~, C_softSegmentation] = segmentColors(C_map, n_colors, segmentColorsVerbose);    
+    if is_classes
+        [C_centers, ~, C_softSegmentation] = segmentColors(C_map, 'classes', segmentColorsVerbose);
+        n_colors = size(C_softSegmentation, 3);
+    else 
+        [C_centers, ~, C_softSegmentation] = segmentColors(C_map, n_colors, segmentColorsVerbose);
+    end
     
     if n_channels == n_channels_rgb
         % Select matching colours to blend
@@ -413,12 +439,19 @@ for i = 1:n_images
         end
     elseif n_channels == 1
         % Select random colours to blend
-        color_indices = randperm(n_patches, n_colors).';
+        color_indices = randperm(n_patches, n_colors).'; %(1:n_patches).';
     end
     
     % Blend radiances together: Sum weighted radiances
     Rad_per_pixel = sum(repmat(...
         permute(Rad_normalized_resampled(:, color_indices), [3, 1, 2]),...
+        n_px, 1, 1 ...
+    ) .* repmat(...
+        permute(reshape(C_softSegmentation, n_px, n_colors, 1), [1, 3, 2]),...
+        1, n_bands, 1 ...
+    ), 3);
+    Ref_per_pixel = sum(repmat(...
+        permute(reflectances(:, color_indices), [3, 1, 2]),...
         n_px, 1, 1 ...
     ) .* repmat(...
         permute(reshape(C_softSegmentation, n_px, n_colors, 1), [1, 3, 2]),...
@@ -453,12 +486,17 @@ for i = 1:n_images
     
     % Multiply by the shading map and reshape into a hyperspectral image
     H = reshape(Rad_per_pixel .* repmat(reshape(S_map, n_px, 1), 1, n_bands), [], 1);
-    I_hyper = reshape(H, image_height, image_width, n_bands);
+    I_hyper = reshape(H, image_height, image_width, n_bands);    
+    I_hyper_rfl = reshape(Ref_per_pixel, image_height, image_width, n_bands);
     
     % Simulate image formation
-    dispersionfun = makeDispersionForImage(...
-        dispersion_data, I_hyper, transform_data...
-    );
+    if has_dispersion
+        dispersionfun = makeDispersionForImage(...
+            dispersion_data, I_hyper, transform_data...
+        );
+    else
+        dispersionfun = [];
+    end
     imageFormationOptions.patch_size = patch_sizes(1, :);
     imageFormationOptions.padding = paddings(1);
     [I_3, I_3_warped, I_raw, I_warped] = imageFormation(...
@@ -470,6 +508,7 @@ for i = 1:n_images
     saveImages(...
         output_directory, chromaticity_names{i},...
         I_hyper, '_hyper', 'I_hyper',...
+        I_hyper_rfl, '_hyper_rfl', 'I_hyper',...
         I_3, '_3', 'I_3',...
         I_warped, '_warped', 'I_warped',...
         I_3_warped, '_3_warped', 'I_3_warped',...
@@ -478,18 +517,22 @@ for i = 1:n_images
 end
 
 %% Save parameters and additional data to a file
-model_space = transform_data.model_space;
-fill = transform_data.fill;
 save_variables_list = [ parameters_list, {...
         'chromaticity_filenames',...
         'shading_filenames',...
         'bands_color',...
         'bands',...
         'color_weights_reference',...
+    } ];
+if has_dispersion
+    model_space = transform_data.model_space;
+    fill = transform_data.fill;
+    save_variables_list = [ save_variables_list, {...
         'dispersion_data',...
         'model_from_reference',...
         'model_space',...
         'fill'...
     } ];
+end
 save_data_filename = fullfile(output_directory, 'BimaterialImagesData.mat');
 save(save_data_filename, save_variables_list{:});

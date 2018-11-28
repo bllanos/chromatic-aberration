@@ -86,6 +86,12 @@
 %   truth hyperspectral images to colour, as determined by the 'sensor_map'
 %   variable loaded from the colour space conversion data file, and by the
 %   type of numerical intergration to perform.
+% - 'radiance_normalized_weights': This variable is only output for
+%   datasets of reflectance images. It is a matrix for converting pixels in
+%   the ground truth reflectance images to normalized radiances. As such,
+%   it accounts for both the illuminant used to generate radiances from
+%   reflectances, and the image sensor for which the radiances are
+%   normalized.
 % - 'spectral_weights': A matrix for converting pixels in the spectral
 %   space of the estimated hyperspectral images to the spectral space of
 %   the true hyperspectral images.
@@ -153,7 +159,7 @@ parameters_list = {
 
 %% Input data and parameters
 
-dataset_name = 'kaist-crop';
+dataset_name = 'choi-test';
 
 % Describe algorithms to run
 run('SetAlgorithms.m')
@@ -738,6 +744,9 @@ save_variables_list = [ parameters_list, {...
 } ];
 if has_spectral
     save_variables_list = [save_variables_list, {'bands_spectral', 'spectral_weights', 'color_weights_reference'}];
+    if dp.spectral_reflectances
+        save_variables_list = [save_variables_list, {'radiance_normalized_weights'}];
+    end
 end
 if has_color_map
     save_variables_list = [save_variables_list, {'bands', 'bands_color', 'color_weights'}];

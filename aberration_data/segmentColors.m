@@ -5,6 +5,7 @@ function [centers, I_segmented, I_soft] = segmentColors(I, K, varargin)
 % centers = segmentColors(I, K [, verbose])
 % [centers, I_segmented] = segmentColors(I, K [, verbose])
 % [centers, I_segmented, I_soft] = segmentColors(I, K [, verbose])
+% [____] = segmentColors(I, 'classes' [, verbose])
 %
 % ## Description
 % centers = segmentColors(I, K [, verbose])
@@ -17,6 +18,11 @@ function [centers, I_segmented, I_soft] = segmentColors(I, K, varargin)
 % [centers, I_segmented, I_soft] = segmentColors(I, K [, verbose])
 %   Additionally returns a membership probabilities for K chromaticity
 %   clusters.
+%
+% [____] = segmentColors(I, 'classes' [, verbose])
+%   Treats the input image as containing class indices instead of colours,
+%   allowing for direct control over clustering (but only for hard
+%   clustering). An error will be thrown if `I` has more than one channel.
 %
 % ## Input Arguments
 %
@@ -47,7 +53,9 @@ function [centers, I_segmented, I_soft] = segmentColors(I, K, varargin)
 % I_soft -- Cluster probabilities
 %   An image_height x image_width x K array, where `I_soft(:, :, i)` stores
 %   the probabilities that the pixels in the input image are members of the
-%   i-th chromaticity cluster.
+%   i-th chromaticity cluster. For the syntax where `'classes'` is passed
+%   instead of `K`, `I_soft` will be a binary image, as the input image `I`
+%   represents a hard clustering.
 %
 % ## Notes
 % - If `I` is a greyscale image, its values are used directly for
@@ -77,6 +85,15 @@ else
     verbose = false;
 end
 
+is_classes = false;
+if isStringScalar(K) || ischar(K)
+    if strcmp(K, 'classes')
+        is_classes = true;
+    else
+        error('The second argument must be either an integer, or `''classes''`.');
+    end
+end
+
 I = im2double(I);
 
 % Convert to a single-channel image
@@ -87,6 +104,10 @@ if n_channels == 1
     I_mono = I;
     I_mono_linear = I_mono(:);
 elseif n_channels == 3
+    if is_classes
+        error('The second argument cannot be `''classes''` when `I` has three channels.');
+    end
+    
     I_lab = rgb2lab(I);
     I_a = I_lab(:, :, 2);
     I_b = I_lab(:, :, 3);
@@ -130,10 +151,20 @@ else
     error('The input image `I` must have one or three colour channels.')
 end
 
-% Threshold into classes
-t = multithresh(I, K - 1);
-I_segmented = imquantize(I_mono, t);
-I_segmented_linear = I_segmented(:);
+if is_classes
+    % Remap class indices to consecutive integers
+    [ids_old, ~, map] = unique(I_mono_linear);
+    K = length(ids_old);
+    ids_new = (1:K).';
+    I_segmented_linear = ids_new(map);
+    I_segmented = reshape(I_segmented_linear, image_height, image_width);
+else
+    % Threshold into classes
+    t = multithresh(I, K - 1);
+    I_segmented = imquantize(I_mono, t);
+    I_segmented_linear = I_segmented(:);
+end
+
 class_instances_color = cell(K, 1);
 centers = zeros(K, n_channels);
 for k = 1:K
@@ -163,13 +194,19 @@ end
 % B = mnrfit(I_mono_linear, I_segmented_linear);
 % I_soft = mnrval(B, I_mono_linear);
 
-% Soft threshold by fitting a Naive Bayes model, replacing class labels by
-% class probabilities
-B = fitcnb(...
-    I_mono_linear, I_segmented_linear,...
-    'DistributionNames', 'normal', 'CrossVal', 'off');
-[ ~, I_soft ] = predict(B, I_mono_linear);
-I_soft = reshape(I_soft, image_height, image_width, K);
+if is_classes
+    I_soft = zeros(image_height, image_width, K);
+    n_px = image_height * image_width;
+    I_soft((I_segmented_linear - 1) * n_px + (1:n_px).') = 1;
+else
+    % Soft threshold by fitting a Naive Bayes model, replacing class labels by
+    % class probabilities
+    B = fitcnb(...
+        I_mono_linear, I_segmented_linear,...
+        'DistributionNames', 'normal', 'CrossVal', 'off');
+    [ ~, I_soft ] = predict(B, I_mono_linear);
+    I_soft = reshape(I_soft, image_height, image_width, K);
+end
 
 if verbose
     for k = 1:K

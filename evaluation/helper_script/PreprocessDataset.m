@@ -41,15 +41,6 @@ n_channels_rgb = 3;
 bands_rgb = 1:n_channels_rgb;
 sensor_map_rgb = eye(n_channels_rgb);
 
-%% Load the illuminant
-
-illuminant_data = csvread(illuminant_filename);
-bands_illuminant = illuminant_data(:, 1);
-S_illuminant = illuminant_data(:, 2:end);
-spd_illuminant = ciedIlluminant(...
-    illuminant_temperature, bands_illuminant, S_illuminant, bands_illuminant...
-);
-
 %% Find and/or prepare to generate the dataset images
 
 has_raw = ~isempty(dp.raw_images_wildcard);
@@ -184,4 +175,24 @@ if has_dispersion_spectral
        any(bands_color ~= bands_dispersionfun))
         error('When estimating colour images, the same colour channels must be used by the model of dispersion.');
     end
+end
+
+%% Load the illuminant and create a conversion matrix from reflectances to radiances
+
+if dp.spectral_reflectances
+    illuminant_data = csvread(illuminant_filename);
+    bands_illuminant = illuminant_data(:, 1);
+    S_illuminant = illuminant_data(:, 2:end);
+    spd_illuminant = ciedIlluminant(...
+        illuminant_temperature, bands_illuminant, S_illuminant, bands_illuminant...
+    );
+
+    reflectances = eye(length(bands_spectral));
+
+    [bands_spectral, ~, radiance_normalized_weights] = reflectanceToRadiance(...
+        bands_illuminant, spd_illuminant,...
+        bands_spectral, reflectances,...
+        bands_color, sensor_map.',...
+        normalization_channel, samplingWeightsOptions.int_method...
+    );
 end

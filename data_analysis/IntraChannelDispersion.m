@@ -19,7 +19,7 @@
 spectral_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181020_DoubleConvexThickLensDispersion_Final/Models/DoubleConvexThickLensDispersionResults_spectral_spline_fromNonReference.mat';
 
 % Camera spectral sensitivity data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180923_TestingChirpImageGeneration/SonyColorMapData.mat';
+color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180923_TestingChirpImageGeneration/NikonD5100ColorMapData.mat';
 
 % Threshold in relative sensitivty within a colour channel at which to mark
 % the "edges" of the colour channel in the spectrum
