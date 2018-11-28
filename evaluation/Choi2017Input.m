@@ -183,9 +183,8 @@ for i = 1:n_images
     if any(mod([image_height, image_width], 2) ~= 0)
         error('The image dimensions must be even integers in order for the image to be a valid color filter array.');
     end
-    if isempty(crop)
-        postfix = '';
-    else
+    postfix = '_choiIn';
+    if ~isempty(crop)
         if crop(2) < 1 || crop(2) > image_height ||...
            crop(1) < 1 || crop(1) > image_width
             error('The top-left corner of the crop region is outside image %d.', i);
@@ -196,7 +195,7 @@ for i = 1:n_images
             error('The bottom-right corner of the crop region is outside image %d.', i);
         end
         I = I(crop(2):crop_end(2), crop(1):crop_end(1), :);
-        postfix = sprintf('_X%dY%dW%dH%d', crop(1), crop(2), crop(3), crop(4));
+        postfix = [postfix, sprintf('_X%dY%dW%dH%d', crop(1), crop(2), crop(3), crop(4))];
     end
     
     if resample_images
