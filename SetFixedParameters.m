@@ -47,7 +47,7 @@ parameters_list = [parameters_list, {
 % Otherwise, if regularization weights are automatically selected, then all
 % enabled methods are run.
 criteria = [
-    true; % Minimum distance criterion
+    false; % Minimum distance criterion
     true; % Similarity with the true image
     true % Similarity with a demosaicing result
     ];
@@ -128,7 +128,7 @@ samplingWeightsOptions.power_threshold = 0.99;
 % As an alternative to automatically determining the number of spectral
 % bands, according to `samplingWeightsOptions.power_threshold`, set it
 % explicitly (if the following option is an integer greater than zero).
-samplingWeightsOptions.n_bands = 25;
+samplingWeightsOptions.n_bands = 24;
 
 samplingWeightsOptions.support_threshold = 0.05;
 
@@ -226,7 +226,7 @@ solvePatchesADMMOptions.reg_options = struct;
 solvePatchesADMMOptions.reg_options.enabled = logical(weights(1, :));
 
 solvePatchesADMMOptions.reg_options.low_guess = [1e-3, 1e-3, 1e-3];
-solvePatchesADMMOptions.reg_options.high_guess = [1e8, 1e8, 1e8];
+solvePatchesADMMOptions.reg_options.high_guess = [1e3, 1e3, 1e3];
 solvePatchesADMMOptions.reg_options.tol = 1e-6;
 
 use_fixed_weights = false;
@@ -245,7 +245,7 @@ end
 % Maximum and minimum number of grid search iterations
 % Song et al. 2016 used a fixed number of 6 iterations, but I don't know
 % what range of regularization weights they were searching within.
-solvePatchesADMMOptions.reg_options.n_iter = [30, 6];
+solvePatchesADMMOptions.reg_options.n_iter = [24, 6];
 
 % Select regularization weights based on similarity to a demosaicking
 % result, instead of using the minimum distance criterion, if no true image

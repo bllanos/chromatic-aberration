@@ -94,6 +94,11 @@ function [dataset_params] = describeDataset(name)
 %       Fields for storing figure handles should not be included. The
 %       fields 'plot_*' should also be omitted. 'custom_spectral' is needed
 %       only for datasets with spectral images.
+%   - 'choi_rgb_wildcard': A wildcard for 'ls()' to find RGB images
+%     estimated by the method of Choi et al. 2017. This field is optional.
+%   - 'choi_spectral_wildcard': A wildcard for 'ls()' to find spectral
+%     images estimated by the method of Choi et al. 2017. This field is
+%     optional.
 %
 % ## Recognized (high-quality) datasets
 % - 'kodak': The Kodak Lossless True Color Image Suite dataset, often
@@ -123,6 +128,12 @@ function [dataset_params] = describeDataset(name)
 %   values of `dataset_params.evaluation.custom_spectral`. This will affect
 %   how 'mergeSpectralTables()' aggregates evaluation results across
 %   images.
+%
+% ## References
+% - Choi, I., Jeon, D. S., Gutierrez, D., & Kim, M. H. (2017).
+%   "High-Quality Hyperspectral Reconstruction Using a Spectral Prior." ACM
+%   Transactions on Graphics (Proc. SIGGRAPH Asia 2017), 36(6), 218:1-13.
+%   10.1145/3130800.3130810
 %
 % See also evaluateRGB, evaluateSpectral, mergeSpectralTables
 
@@ -303,6 +314,8 @@ elseif strcmp(name, 'choi-test')
             )...
         )...
     );
+    dataset_params.choi_rgb_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/ChoiEtAl2017_OutputConverted/recon_choiOutConverted_rgb.mat';
+    dataset_params.choi_spectral_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/ChoiEtAl2017_OutputConverted/recon_choiOutConverted_latent.mat';
 else
     error('Unrecognized dataset name.');
 end

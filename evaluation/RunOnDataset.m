@@ -144,6 +144,13 @@
 %   Yusuke Monno, Daisuke Kiku, Masayuki Tanaka, and Masatoshi Okutomi,
 %   "Adaptive Residual Interpolation for Color and Multispectral Image
 %   Demosaicking," Sensors, vol.17, no.12, pp.2787-1-21, 2017.
+%
+% The RGB-to-spectral image estimation comparison methods are:
+%
+%   Choi, I., Jeon, D. S., Gutierrez, D., & Kim, M. H. (2017).
+%   "High-Quality Hyperspectral Reconstruction Using a Spectral Prior." ACM
+%   Transactions on Graphics (Proc. SIGGRAPH Asia 2017), 36(6), 218:1-13.
+%   10.1145/3130800.3130810
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -167,7 +174,7 @@ run('SetAlgorithms.m')
 % Optionally override the list of ADMM-family algorithms to run, and the
 % regularization weights to run them with, from the output file of
 % 'SelectWeightsForDataset.m'. (Leave empty otherwise)
-admm_algorithms_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181122_KAIST_L1vsL2/weights_selection/SelectWeightsForDataset_kaist-crop.mat';
+admm_algorithms_filename = [];
 
 % Output directory for all images and saved parameters
 output_directory = '/home/llanos/Downloads';
@@ -265,17 +272,22 @@ for i = 1:n_images
             end
         end
         n_spectral_evaluations = n_spectral_evaluations * n_active_criteria;
+        n_spectral_evaluations_admm = n_spectral_evaluations;
     end
+    evaluation_ind = 0;
     if ~isempty(I_spectral_gt_warped)
         n_spectral_evaluations = n_spectral_evaluations + 1;
+        evaluation_ind = evaluation_ind + 1;
+        aberrated_evaluation_ind = evaluation_ind;
+    end
+    if has_choi_spectral
+        n_spectral_evaluations = n_spectral_evaluations + 1;
+        evaluation_ind = evaluation_ind + 1;
+        choi_evaluation_ind = evaluation_ind;
     end
     if n_spectral_evaluations > 0
         evaluation_plot_colors = jet(n_spectral_evaluations);
-        if isempty(I_spectral_gt_warped)
-            evaluation_plot_colors_admm = evaluation_plot_colors;
-        else
-            evaluation_plot_colors_admm = evaluation_plot_colors(2:end, :);
-        end
+        evaluation_plot_colors_admm = evaluation_plot_colors((end - n_spectral_evaluations_admm + 1):end, :);
         evaluation_plot_markers = {'v', 'o', '+', '*', '<', '.', 'x', 's', 'd', '^', 'p', 'h', '>'};
         evaluation_plot_styles = {'--', ':', '-.'};
     end
@@ -284,18 +296,50 @@ for i = 1:n_images
         fg_spectral = struct;
         all_alg_names = {};
     else
-        dp.evaluation.global_spectral.plot_color = evaluation_plot_colors(1, :);
+        dp.evaluation.global_spectral.plot_color = evaluation_plot_colors(aberrated_evaluation_ind, :);
         dp.evaluation.global_spectral.plot_marker = 'none';
         dp.evaluation.global_spectral.plot_style = '-';
         all_alg_names = {'Aberrated'};
         [e_spectral_table, fg_spectral] = evaluateAndSaveSpectral(...
             I_spectral_gt_warped, I_spectral_gt, bands_spectral,...
-            eye(length(bands_spectral)), dp, names{i}, all_alg_names{1},...
+            eye(length(bands_spectral)), dp, names{i}, all_alg_names{aberrated_evaluation_ind},...
             fullfile(output_directory, [names{i} '_aberrated'])...
         );
     end
     
-    % Run the algorithms
+    % Evaluate comparison methods
+    if has_choi_spectral
+        dp.evaluation.global_spectral.plot_color = evaluation_plot_colors(choi_evaluation_ind, :);
+        dp.evaluation.global_spectral.plot_marker = 'none';
+        dp.evaluation.global_spectral.plot_style = '--';
+        all_alg_names{choi_evaluation_ind} = 'Choi et al. 2017';
+        choi_img = loadImage(choi_spectral_filenames{i}, 'I_latent');
+        [e_spectral_table_current, fg_spectral] = evaluateAndSaveSpectral(...
+            choi_img, I_spectral_gt, bands_spectral,...
+            eye(length(bands_spectral)), dp, names{i}, all_alg_names{choi_evaluation_ind},...
+            fullfile(output_directory, [names{i} '_choi']), fg_spectral...
+        );
+        if ~isempty(e_spectral_table)
+            e_spectral_table = union(e_spectral_table_current, e_spectral_table);
+        else
+            e_spectral_table = e_spectral_table_current;
+        end
+    end
+    
+    if has_choi_rgb
+        choi_img = loadImage(choi_rgb_filenames{i}, 'I_rgb');
+        e_rgb_table_current = evaluateAndSaveRGB(...
+            choi_img, I_rgb_gt, dp, names{i}, all_alg_names{choi_evaluation_ind},...
+            fullfile(output_directory, [names{i} '_choi'])...
+        );
+        if ~isempty(e_rgb_table)
+            e_rgb_table = union(e_rgb_table_current, e_rgb_table);
+        else
+            e_rgb_table = e_rgb_table_current;
+        end
+    end
+    
+    % Run own algorithms
     
     % ADMM
     color_ind = 1;

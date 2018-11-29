@@ -196,3 +196,46 @@ if dp.spectral_reflectances
         normalization_channel, samplingWeightsOptions.int_method...
     );
 end
+
+%% Check for comparison methods
+
+has_choi_rgb = isfield(dp, 'choi_rgb_wildcard');
+has_choi_spectral = isfield(dp, 'choi_spectral_wildcard');
+
+if has_choi_rgb
+    image_type = 'colour';
+    choi_rgb_filenames = listFiles(dp.choi_rgb_wildcard);
+    n_choi = length(choi_rgb_filenames);
+    choi_names = trimCommon(choi_rgb_filenames);
+    if (n_images ~= n_choi)
+        error('Expected %d %s images from Choi et al. 2017, not %d.', n_images, image_type, n_choi);
+    end
+    if n_images > 1
+        for i = 1:n_images
+            str_found = strfind(choi_names{i}, names{i});
+            if length(str_found) ~= 1 || str_found ~= 1
+                error('The %s image from Choi et al. 2017,\n"%s", does not have the name of the %d-th dataset image,\n"".',...
+                    image_type, choi_rgb_filenames{i}, names{i});
+            end
+        end
+    end
+end
+
+if has_choi_spectral
+    image_type = 'spectral';
+    choi_spectral_filenames = listFiles(dp.choi_spectral_wildcard);
+    n_choi = length(choi_spectral_filenames);
+    choi_names = trimCommon(choi_spectral_filenames);
+    if (n_images ~= n_choi)
+        error('Expected %d %s images from Choi et al. 2017, not %d.', n_images, image_type, n_choi);
+    end
+    if n_images > 1
+        for i = 1:n_images
+            str_found = strfind(choi_names{i}, names{i});
+            if length(str_found) ~= 1 || str_found ~= 1
+                error('The %s image from Choi et al. 2017,\n"%s", does not have the name of the %d-th dataset image,\n"".',...
+                    image_type, choi_spectral_filenames{i}, names{i});
+            end
+        end
+    end
+end
