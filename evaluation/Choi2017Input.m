@@ -6,6 +6,13 @@
 % ## Usage
 % Modify the parameters, the first code section below, then run.
 %
+% ## Notes
+% - If the spectral sampling of the reference images does not match the
+%   spectral sampling used by Choi et al. 2017, then this script will
+%   resample in the spectral space when generating input images for Choi et
+%   al. 2017. The conversion matrices mapping between the two spaces will
+%   pad spectral signals with zeros outside of their domains.
+%
 % ## References
 % - Choi, I., Jeon, D. S., Gutierrez, D., & Kim, M. H. (2017).
 %   "High-Quality Hyperspectral Reconstruction Using a Spectral Prior." ACM
@@ -118,7 +125,7 @@ if resample_images
     % Compare sampling frequencies
     if (desired_bands_spectral(2) - desired_bands_spectral(1)) > (bands_spectral(2) - bands_spectral(1))
         spectral_weights_output = upsamplingWeights(...
-            bands_spectral, desired_bands_spectral, samplingWeightsOptions.interpolant_ref, samplingWeightsOptions.bands_padding...
+            bands_spectral, desired_bands_spectral, samplingWeightsOptions.interpolant_ref, 0 ...
         );
         spectral_weights_input = resampleArrays(...
             bands_spectral, eye(length(bands_spectral)), desired_bands_spectral,...
@@ -130,7 +137,7 @@ if resample_images
             'spline', 0 ...
         );
         spectral_weights_input = upsamplingWeights(...
-            desired_bands_spectral, bands_spectral, samplingWeightsOptions.interpolant_ref, samplingWeightsOptions.bands_padding...
+            desired_bands_spectral, bands_spectral, samplingWeightsOptions.interpolant_ref, 0 ...
         );
     end
 else

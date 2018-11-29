@@ -121,6 +121,8 @@ weights = [
 ];
 
 % Renormalize
-weights = weights ./ repmat(sum(weights, 2), 1, length(src));
+sum_weights = sum(weights, 2);
+sum_weights(sum_weights == 0) = 1;
+weights = weights ./ repmat(sum_weights, 1, length(src));
 
 end
