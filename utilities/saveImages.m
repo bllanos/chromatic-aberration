@@ -143,7 +143,7 @@ for i = 1:n_images
         used_filepaths(i * 2 - 1) = true;
     end
 end
-filepaths = filepaths(used_filepaths);
+filepaths = filepaths{used_filepaths};
 
 end
 

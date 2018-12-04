@@ -14,8 +14,8 @@
 % A RAW image to be demosaiced and corrected for chromatic aberration.
 %
 % The image is expected to have been preprocessed, such as using
-% 'AverageRAWImages.m', so that it does not need to be linearized after
-% being loaded.  For image format files, the image will simply be loaded
+% 'PreprocessRAWImages.m', so that it does not need to be linearized after
+% being loaded. For image format files, the image will simply be loaded
 % with the Image Processing Toolbox 'imread()' function. For '.mat' files,
 % the variable to be loaded must be provided in the script parameters.
 %

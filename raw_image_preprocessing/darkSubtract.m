@@ -196,7 +196,7 @@ for i = 1:n_other_grouping
         end
     end
     if do_average
-        I = I_sum ./ n_m;
+        I = I_sum ./ n_i;
         if do_subtract
             I_out = I - I_dark;
         else

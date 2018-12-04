@@ -269,7 +269,9 @@ for r = 1:length(regex)
         end
         
         % Filter to pixels in the desired range
-        pixels{c}{s} = pixels{c}{s}(all((pixels{c}{s} > range(1)) & (pixels{c}{s} < range(2)), 2));
+        for c = 1:n_channels
+            pixels{c}{s} = pixels{c}{s}(all((pixels{c}{s} > range(1)) & (pixels{c}{s} < range(2)), 2), :);
+        end
     end
     for c = 1:n_channels
         pixels{c} = cell2mat(pixels{c});
@@ -314,9 +316,9 @@ for r = 1:length(regex)
                 end
                 for c = 1:n_channels
                     mask_c = mask_channels(:, :, c) & mask_saturation;
+                    mask_saturation(mask_c) = (I(mask_c) >= range(2));
                     I_out(mask_c) = I(mask_c) * factors(ri, c);
                 end
-                mask_saturation = (I_out >= range(2));
             end
             I_out = I_out / peaks(r);
             if i == 1

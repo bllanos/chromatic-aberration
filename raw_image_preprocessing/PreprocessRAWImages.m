@@ -95,27 +95,44 @@ wildcards.dark = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_Light
 darkSubtract_regex.dedup = '_\d{4}-\d{2}-\d{2}-\d{6}-\d{4}';
 % Regular expression for extracting the portion of a filename that must
 % match between an image and the corresponding dark frame
-darkSubtract_regex.dedup = '(pos\d+).*(\d+ms)';
+darkSubtract_regex.dark_match = '(pos\d+_).*(_\d+ms)';
 
 % ## Input arguments for 'blendExposures()'
 
 % Directories in which to store final images
 blendExposures_dir.out_reference = '/home/llanos/Downloads/data/blended_averaged'; % Averaged images
-blendExposures_dir.other_paths = '/home/llanos/Downloads/data/blended_original'; % Non-averaged images
+% Non-averaged images would need to have identical filenames other than the
+% exposures in order, to be processed correctly by 'blendExposures()'
+% (otherwise they are identified as from different "scenes"). This would
+% mean selecting one replicant at random per exposure, to avoid filename
+% conflicts after removing the timestamps and sequence numbers from
+% filenames. But, in any case, merging images across exposures changes
+% image noise characteristics, whereas the point of having non-averaged
+% images is to preserve noise characteristics.
+%blendExposures_dir.other_paths = '/home/llanos/Downloads/data/blended_original';
 
 % Regular expressions identifying exposure settings. Each cell vector is a
 % group of exposures that can be blended together. Within each group, the
 % exposures must be ordered from lowest to highest.
 blendExposures_regex = {...
-    {'50ms', '200ms', '400ms', '600ms'},...
+    {'200ms', '400ms', '600ms'},...
     {'0030ms', '0325ms'}...
 };
+
+blendExposures_dir.out_reference = repmat({blendExposures_dir.out_reference}, length(blendExposures_regex), 1);
+%blendExposures_dir.other_paths = repmat({blendExposures_dir.other_paths}, length(blendExposures_regex), 1);
 
 % Range of pixel values used to calibrate scaling factors between exposures
 range = [0, 1];
 
 % Colour-filter pattern code
 align = 'gbrg';
+
+% ## Other parameters
+
+% Directory in which to save the final output '.mat' file containing
+% parameters and saved variables
+output_directory = '/home/llanos/Downloads/data';
 
 %% Load and preprocess the images
 
@@ -126,7 +143,7 @@ darkSubtract_output_files = darkSubtract(...
 [output_files, peaks] = blendExposures(...
     blendExposures_dir, var_name,...
     darkSubtract_output_files.out_averaged,...
-    darkSubtract_output_files.out_single,...
+    {},... %darkSubtract_output_files.out_single,...
     blendExposures_regex, range, align...
 );
 

@@ -12,8 +12,8 @@
 % aberration.
 %
 % Images are expected to have been preprocessed, such as using
-% 'AverageRAWImages.m', so that they do not need to be linearized after
-% being loaded.  For image format files, images will simply be loaded with
+% 'PreprocessRAWImages.m', so that they do not need to be linearized after
+% being loaded. For image format files, images will simply be loaded with
 % the Image Processing Toolbox 'imread()' function. For '.mat' files, the
 % variable to be loaded must be provided in the script parameters.
 %
