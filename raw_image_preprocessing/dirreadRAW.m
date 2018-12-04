@@ -38,7 +38,8 @@ function [ output_files ] = dirreadRAW(...
 %
 % wildcard -- Input filename wildcard
 %   A wildcard expression for `ls()`. `wildcard` determines which files in
-%   the input directory will be processed.
+%   the input directory will be processed. `wildcard` should not contain
+%   the directory path.
 %
 % regex -- Deduplicating regular expression
 %   A regular expression which will be removed from the filenames of the
@@ -72,7 +73,7 @@ function [ output_files ] = dirreadRAW(...
 % - Note that image averaging induced by `regex` will occur after any
 %   requested linearization.
 %
-% See also ls, imreadRAW, imwrite
+% See also listFiles, imreadRAW, imwrite
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -83,16 +84,11 @@ nargoutchk(0,1)
 % `narginchk` is done by `imreadRAW`
 
 % Find all filenames
-names = ls(fullfile(in_directory, wildcard));
-n = size(names, 1);
-cleaned_names = cell(n, 1);
-for i = 1:n
-    cleaned_names{i} = strtrim(names(i, :));
-end
-cleaned_names = string(cleaned_names);
+names = listFiles(fullfile(in_directory, wildcard));
+n = length(names);
 
 % Remove filename extensions
-processed_names = cleaned_names;
+processed_names = names;
 for i = 1:n
     [~, processed_names{i}, ~] = fileparts(processed_names{i});
 end
@@ -110,14 +106,14 @@ m = length(unique_names);
 % Process images in batches by name root
 output_files = cell(m, 1);
 for i = 1:m
-    names_i = cleaned_names(unique_name_indices == i);
-    I = imreadRAW( fullfile(in_directory, char(names_i(1))), ops, varargin{:} );
+    names_i = names(unique_name_indices == i);
+    I = imreadRAW( names_i{1}, ops, varargin{:} );
     n_m = length(names_i);
     for j = 2:n_m
-        I = I + imreadRAW( fullfile(in_directory, char(names_i(j))), ops, varargin{:} );
+        I = I + imreadRAW( names_i{j}, ops, varargin{:} );
     end
     I = I ./ n_m;
-    output_files{i} = fullfile(out_directory, [char(unique_names(i)) '.' ext]);
+    output_files{i} = fullfile(out_directory, [unique_names{i} '.' ext]);
     imwrite(I, output_files{i});
 end
 

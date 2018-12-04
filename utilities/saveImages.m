@@ -1,4 +1,4 @@
-function saveImages(varargin)
+function filepaths = saveImages(varargin)
 % SAVEIMAGES Save images to image files and data files
 %
 % ## Syntax
@@ -14,6 +14,7 @@ function saveImages(varargin)
 %   'image', directory, name [, I1, I1_postfix, I1_variable, I2, I2_postfix,
 %   I2_variable, ...] ...
 % )
+% filepaths = saveImages(____)
 %
 % ## Description
 % saveImages(...
@@ -34,6 +35,9 @@ function saveImages(varargin)
 % )
 %   Saves the images to image files only, except that images with more than
 %   three channels are saved to '.mat' files only.
+%
+% filepaths = saveImages(____)
+%   Returns the paths and names of the saved files.
 %
 % ## Input Arguments
 %
@@ -66,6 +70,12 @@ function saveImages(varargin)
 % to '.mat' files, and will be saved to '.mat' files even if the first
 % input argument is 'image'.
 %
+% filepaths -- File paths and names
+%   A cell array of character vectors containing the full filepaths and
+%   names of the output files. The elements of `filepaths` will be ordered
+%   first by image, and then by output file type ('.mat' file and/or image
+%   file).
+%
 % See also loadImage, imwrite, save
 
 % Bernard Llanos
@@ -73,7 +83,7 @@ function saveImages(varargin)
 % University of Alberta, Department of Computing Science
 % File created July 31, 2018
 
-nargoutchk(0, 0);
+nargoutchk(0, 1);
 if isempty(varargin)
     error('No input arguments passed.')
 elseif ~isStringScalar(varargin{1}) && ~ischar(varargin{1})
@@ -108,6 +118,8 @@ image_arguments = varargin((offset + 1):end);
 n_images = round(length(image_arguments) / 3);
 
 output = struct;
+filepaths = cell(n_images * 2, 1);
+used_filepaths = false(n_images * 2, 1);
 for i = 1:n_images
     filename = fullfile(directory, [name image_arguments{i * 3 - 1}]);
     I = image_arguments{i * 3 - 2};
@@ -115,18 +127,23 @@ for i = 1:n_images
     if length(sz) < 2
         error('Image %d is one-dimensional.', i)
     elseif length(sz) > 3
-        error('Image %d is four-dimensional.', i)
+        error('Image %d is four (or more) dimensional.', i)
     end
     can_write_image = (length(sz) == 2 || sz(3) == 1 || sz(3) == 3);
     if can_write_image && ~data_only
-        imwrite(I, [filename img_ext]);
+        filepaths{i * 2} = [filename img_ext];
+        imwrite(I, filepaths{i * 2});
+        used_filepaths(i * 2) = true;
     end
     if ~can_write_image || ~images_only
         I1_variable = image_arguments{i * 3};
         output.(I1_variable) = I;
-        save([filename mat_ext], '-struct', 'output', I1_variable);
+        filepaths{(i * 2) - 1} = [filename mat_ext];
+        save(filepaths{(i * 2) - 1}, '-struct', 'output', I1_variable);
+        used_filepaths(i * 2 - 1) = true;
     end
 end
+filepaths = filepaths(used_filepaths);
 
 end
 

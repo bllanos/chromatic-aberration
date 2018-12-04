@@ -1,5 +1,6 @@
 %% Average RAW images
-% Use the `dirreadRAW()` function to average together raw images.
+% Use the `dirreadRAW()` function to average together raw images, and
+% optionally perform demosaicing.
 %
 % ## Usage
 % Modify the parameters, the first code section below, then run.
@@ -41,10 +42,10 @@ end
 verbose = false;
 
 % Directory containing the input images
-in_directory = 'C:\Users\llanos\Google Drive\ThesisResearch\Data and Results\20170808_OpticalTableMatrix\original';
+in_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/images_withProjector';
 
 % Directory in which to save the output images
-out_directory = 'C:\Users\llanos\Downloads\averaged';
+out_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/averaged_images';
 
 % Output filename extension (no dot)
 ext = 'tif';

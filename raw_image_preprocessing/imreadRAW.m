@@ -69,6 +69,7 @@ function [ I_bayer, I_color ] = imreadRAW( filename, ops, varargin )
 %   image, subject to the operations indicated in `ops`.
 %
 % ## Notes
+% - Images are output as double-precision variables.
 % - The image is scaled to the range 0-1, following any linearization,
 %   using on the black, and saturation values indicated in the image file's
 %   tags. Presently, the code will ignore per-channel black, and saturation
