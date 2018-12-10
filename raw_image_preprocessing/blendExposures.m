@@ -1,4 +1,4 @@
-function [ output_files, peaks ] = blendExposures(...
+function [ output_files, peaks, scaling_factors ] = blendExposures(...
     dir, var_name, reference_paths, other_paths, regex, range, align...
 )
 % BLENDEXPOSURES  Combine images taken under different exposure settings
@@ -8,6 +8,9 @@ function [ output_files, peaks ] = blendExposures(...
 %   dir, var_name, reference_paths, other_paths, regex, range, align...
 % )
 % [output_files, peaks] = blendExposures(...
+%   dir, var_name, reference_paths, other_paths, regex, range, align...
+% )
+% [output_files, peaks, scaling_factors] = blendExposures(...
 %   dir, var_name, reference_paths, other_paths, regex, range, align...
 % )
 %
@@ -23,6 +26,12 @@ function [ output_files, peaks ] = blendExposures(...
 %   dir, var_name, reference_paths, other_paths, regex, range, align...
 % )
 %   Additionally returns the peak values used to normalize the images.
+%
+% [output_files, peaks, scaling_factors] = blendExposures(...
+%   dir, var_name, reference_paths, other_paths, regex, range, align...
+% )
+%   Additionally returns the scaling factors used to convert between
+%   exposures.
 %
 % ## Input Arguments
 %
@@ -105,6 +114,19 @@ function [ output_files, peaks ] = blendExposures(...
 %   `regex`. `peaks` is a vector, with the same length as `regex`,
 %   containing the peak values used for normalization.
 %
+% scaling_factors -- Exposure scaling factors
+%   A cell vector of matrices, where `scaling_factors{i}` corresponds to
+%   `regex{i}`, and contains a matrix of scaling factors for converting
+%   pixels between the exposures referred to by the elements of `regex{i}`.
+%   `scaling_factors{i}` is an n x 3 matrix, where 'n' is the length of
+%   `regex{i}`, and the columns index colour channels.
+%   `scaling_factors{i}(j, k)` is the scaling factor by which pixels, in
+%   the k-th colour channel, subject to exposure `regex{i}{j}`, should be
+%   multiplied to convert them to exposure `regex{i}{end}`.
+%
+%   Note that `peaks(i)` is equal to the maximum value in
+%   `scaling_factors{i}`.
+%
 % ## Detailed description
 %
 % This function iterates over the elements of `regex`. For each element,
@@ -167,7 +189,7 @@ function [ output_files, peaks ] = blendExposures(...
 % University of Alberta, Department of Computing Science
 % File created December 3, 2018
 
-nargoutchk(0, 2)
+nargoutchk(0, 3)
 narginchk(7, 7)
 
 n_path_types = 2;
@@ -198,6 +220,7 @@ end
 
 n_channels = 3; % RGB channels
 peaks = zeros(n_exposure_groups, 1);
+scaling_factors = cell(n_exposure_groups, 1);
 
 for r = 1:length(regex)
     n_exposures = length(regex{r});
@@ -278,14 +301,15 @@ for r = 1:length(regex)
     end
     
     % Find per-channel exposure conversion factors
-    factors = zeros(n_exposures, n_channels);
+    factors_r = zeros(n_exposures, n_channels);
     for c = 1:n_channels
         component = pca(pixels{c}, 'NumComponents', 1);
         for ri = 1:n_exposures
-            factors(ri, c) = component(end) / component(ri);
+            factors_r(ri, c) = component(end) / component(ri);
         end
     end
-    peaks(r) = max(max(factors));
+    peaks(r) = max(max(factors_r));
+    scaling_factors{r} = factors_r;
     
     % Blend across exposures
     for i = 1:n_path_types
@@ -317,7 +341,7 @@ for r = 1:length(regex)
                 for c = 1:n_channels
                     mask_c = mask_channels(:, :, c) & mask_saturation;
                     mask_saturation(mask_c) = (I(mask_c) >= range(2));
-                    I_out(mask_c) = I(mask_c) * factors(ri, c);
+                    I_out(mask_c) = I(mask_c) * factors_r(ri, c);
                 end
             end
             I_out = I_out / peaks(r);
