@@ -1,5 +1,5 @@
 function [...
-    lambda, theta, t, k, lightness...
+    lambda, theta, t, k, lightness, result...
 ] = refineDisk(...
     I, channel_mask, lambda0, theta0, t0, k0, lightness0, r_max, varargin...
 )
@@ -11,6 +11,11 @@ function [...
 % ] = refineDisk(...
 %    I, channel_mask, lambda0, theta0, t0, k0, lightness0, r_max [, verbose]...
 % )
+% [...
+%    lambda, theta, t, k, lightness, result...
+% ] = refineDisk(...
+%    I, channel_mask, lambda0, theta0, t0, k0, lightness0, r_max [, verbose]...
+% )
 %
 % ## Description
 % [...
@@ -19,6 +24,14 @@ function [...
 %    I, channel_mask, lambda0, theta0, t0, k0, lightness0, r_max [, verbose]...
 % )
 %   Returns one to all parameters of a refined parametric ellipse
+%
+% [...
+%    lambda, theta, t, k, lightness, result...
+% ] = refineDisk(...
+%    I, channel_mask, lambda0, theta0, t0, k0, lightness0, r_max [, verbose]...
+% )
+%   Additionally indicates whether the refinement likely produced spurious
+%   results.
 %
 % ## Input Arguments
 %
@@ -87,6 +100,20 @@ function [...
 %   outside the ellipse, respectively. The different rows correspond to the
 %   colour channels in `channel_mask`.
 %
+% result -- Success flag
+%   A logical scalar indicating whether or not the refined ellipse seems to
+%   be valid. `result` is false if any of the following occur:
+%   - The ellipse has one or more semi-axis lengths which exceed `r_max`,
+%     or which are zero or negative.
+%   - The ellipse protrudes outside the circle of radius `r_max`
+%     surrounding the point `t0`. The test used in this case is an
+%     approximation, however, which is warranted since `r_max` is
+%     understood to be a loose estimate.
+%   - `k` is negative
+%   - The columns of `lightness` do not respect the order of the columns of
+%     `lightness0`. For example, `lightness0(1, 1) < lightness0(1, 2)`, but
+%     `lightness(1, 1) > lightness(1, 2)`.
+%
 % ## Algorithm
 %
 % The refined ellipse is obtained using the Levenberg-Marquardt algorithm
@@ -107,7 +134,7 @@ function [...
 % University of Alberta, Department of Computing Science
 % File created April 24, 2018
 
-nargoutchk(1, 5);
+nargoutchk(1, 6);
 narginchk(8, 9);
 
 if ~isempty(varargin)
@@ -214,8 +241,23 @@ end
 p = lsqnonlin(@costFunction, p0, [], [], options);
 parseSolution(p);
 
-if any(lambda > r_max)
-    warning('Ellipse exceeded bounding radius.')
+result = all(lambda > 0) && all(lambda <= r_max);
+if result
+    separation = t0 - t;
+    separation = sqrt(dot(separation, separation));
+    % The ellipse center should be inside the initial bounding circle
+    result = (separation <= (r_max ^ 2));
+    if result
+        % Test if the ellipse definitely protrudes outside the initial bounding
+        % circle
+        result = ((separation + min(lambda)) <= r_max);
+        if result
+            result = (k > 0);
+            if result
+                result = all(sign(diff(lightness0, 1, 2)) == sign(diff(lightness, 1, 2)));
+            end
+        end
+    end
 end
 
 if verbose

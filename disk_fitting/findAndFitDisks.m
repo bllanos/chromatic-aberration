@@ -275,7 +275,12 @@ for c = 1:n_channels
         if b == 1
             channel_values = I(bw(:, :, c));
         else
-            channel_values = I(~bw(:, :, c));
+            if isempty(mask)
+                mask_c = channel_mask(:, :, c);
+            else
+                mask_c = mask & channel_mask(:, :, c);
+            end
+            channel_values = I(~bw(:, :, c) & mask_c);
         end
         [counts_cb,edges_cb] = histcounts(channel_values);
         [~, ind_cb] = max(counts_cb);
@@ -307,12 +312,13 @@ else
 end
 
 % Refine the disks
+refine_filter = true(n_ellipses, 1);
 for i = 1:n_ellipses
     % Assume that no colour channel has an entirely zero response in bright
     % areas of other colour channels
     for c = 1:n_channels_out
         [...
-            ~, ~, center_ic...
+            ~, ~, center_ic, ~, ~, result...
         ] = refineDisk(...
             I,...
             channel_masks_refinement{c},...
@@ -324,6 +330,7 @@ for i = 1:n_ellipses
             r_max,...
             verbose_disk_refinement...
         );
+        refine_filter(i) = result && refine_filter(i);
         centers_matrix(i, :, c) = center_ic;
         if convert_coordinates
             center_ic = image_bounds(1:2) + [
@@ -341,14 +348,21 @@ if display_final_centers
         imshow(I);
         hold on
         scatter(centers_matrix(:, 1, c), centers_matrix(:, 2, c), 'bo');
+        scatter(...
+            centers_matrix(refine_filter, 1, c),...
+            centers_matrix(refine_filter, 2, c),...
+            'go'...
+        );
         hold off
         if split_channels
-            title(sprintf('Refined disk centres for channel %d', c));
+            title(sprintf('Refined disk centres (blue) and final centres (green) for channel %d', c));
         else
-            title('Refined disk centres');
+            title('Refined disk centres (blue) and final centres (green) ');
         end
     end
 end
+
+centers = centers(refine_filter, :);
 
 end
 
