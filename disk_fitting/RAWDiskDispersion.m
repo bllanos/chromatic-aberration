@@ -5,8 +5,7 @@
 % Modify the parameters, the first code section below, then run.
 %
 % This script can either model dispersion between colour channels, or
-% dispersion between images taken under different optical bandpass
-% filters.
+% dispersion between images taken under different optical filters.
 %
 % ## Input
 %
@@ -21,6 +20,9 @@
 %
 % Four '.mat' files, each containing the following variables:
 %
+% - 'image_filenames': A cell vector containing the input image filenames
+%   retrieved based on the wildcard provided in the parameters section of
+%   the script.
 % - 'centers': The independent variables data used for fitting the
 %   model of dispersion. `centers` is a structure array, with one field
 %   containing the image positions of the centres of disks fitted to image
@@ -91,12 +93,12 @@
 
 % List of parameters to save with results
 parameters_list = {
-        'partial_filepaths',...
-        'ext',...
         'mask_ext',...
         'mask_threshold',...
         'rgb_mode',...
+        'bands_regex',...
         'bands',...
+        'reference_wavelength',...
         'reference_index',...
         'bands_to_rgb',...
         'bayer_pattern',...
@@ -113,36 +115,28 @@ parameters_list = {
 
 % ## Input images
 %
+% Wildcard for 'ls()' to find the images to process.
+%
 % Images are expected to have been preprocessed, such as using
-% 'AverageRAWImages.m', so that they do not need to be linearized after
-% being loaded. Images will simply be loaded with the Image Processing
-% Toolbox 'imread()' function.
+% 'PreprocessRAWImages.m', so that they do not need to be linearized after
+% being loaded. For image format files, images will simply be loaded with
+% the Image Processing Toolbox 'imread()' function. For '.mat' files, the
+% variable to be loaded must be provided in the script parameters.
 %
 % RAW (non-demosaicked) images are expected.
-
-% Partial filepaths containing the paths of the input images, and the
-% portions of the filenames excluding the extension and the wavelengths.
-% This script will append wavelength numbers and the extension to the
-% partial filepaths. Each partial filepath is expected to correspond to all
-% of the wavelengths in `wavelengths` below.
-%
-% If colour channels are to be treated as separate wavelengths, only the
-% extension will be appended to the partial filepaths.
 %
 % This script will also search for image masks, using filenames which are
-% constructed by appending '_mask' and `mask_ext` (below) to the partial
-% filepaths. Masks are used to avoid processing irrelevant portions of
-% images.
-partial_filepaths = {
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20170808_OpticalTableMatrix/averaged/d44_a22_far_disksBlack'
-    };
+% constructed by appending '_mask' and `mask_ext` (below) to the filepaths
+% (after stripping file extensions and wavelength information). Masks are
+% used to avoid processing irrelevant portions of images.
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/preprocessed/blended_averaged/pos1_1mmDots.mat';
+input_images_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
-% Filename extension (excluding the leading '.')
-ext = 'tif';
 % Mask filename extension
 mask_ext = 'png';
 
-% Threshold used to binarize mask images
+% Threshold used to binarize mask images, if they are not already binary
+% images.
 mask_threshold = 0.5; % In a range of intensities from 0 to 1
 
 % ## Spectral information
@@ -151,19 +145,17 @@ mask_threshold = 0.5; % In a range of intensities from 0 to 1
 % taken under different spectral bands
 rgb_mode = true;
 
-% `bands_to_rgb` is used for visualization purposes only, and so does not
-% need to be accurate
 if rgb_mode
+    bands_regex = []; % Not used
     bands = 1:3;
+    reference_wavelength = []; % Not used
     reference_index = 2; % Green colour channel
     bands_to_rgb = eye(3);
 else
-    % Wavelengths will be expected at the end of filenames
-    bands = [400, 500, 600];
-    reference_index = 2;
-    bands_to_rgb = sonyQuantumEfficiency(bands);
-    % Normalize, for improved colour saturation
-    bands_to_rgb = bands_to_rgb ./ max(max(bands_to_rgb));
+    % Wavelengths will be expected within filenames, extracted using this
+    % regular expression
+    bands_regex = '_(\d+)nm';
+    reference_wavelength = 587.6;
 end
 
 % ## Disk fitting
@@ -195,7 +187,7 @@ spline_smoothing_options = struct(...
 output_directory = '/home/llanos/Downloads';
 
 % ## Debugging Flags
-findAndFitDisksVerbose.verbose_disk_search = false;
+findAndFitDisksVerbose.verbose_disk_search = true;
 findAndFitDisksVerbose.verbose_disk_refinement = false;
 findAndFitDisksVerbose.display_final_centers = true;
 
@@ -207,70 +199,124 @@ statsToDisparityVerbose.filter = struct(...
 
 xylambdaFitVerbose = true;
 plot_model = true;
-if plot_model && ~rgb_mode
-    n_lambda_plot = min(20, length(bands));
+
+%% Find the images
+
+image_filenames = listFiles(input_images_wildcard);
+n_images = length(image_filenames);
+
+% Remove filename paths and extensions
+names = cell(n_images, 1);
+paths = cell(n_images, 1);
+for i = 1:n_images
+    [paths{i}, names{i}, ~] = fileparts(image_filenames{i});
+end
+
+if rgb_mode
+    group_names = names;
+    group_names_indices = 1:n_images;
+    n_groups = n_images;
+    n_bands = length(bands);
+else
+    % Find wavelength information
+    bands = zeros(n_images, 1);
+    tokens = regexp(names, bands_regex, 'tokens', 'forceCellOutput');
+    for i = 1:n_images
+        if isempty(tokens{i}) || isempty(tokens{i}{1}{1})
+            error('No wavelength information found in filename "%s".', image_filenames{i});
+        end
+        [bands(i), result] = str2num(tokens{i}{1}{1});
+        if ~result
+            error('Error converting wavelength information, "%s", from filename "%s", to a number.',...
+                tokens{i}{1}{1}, image_filenames{i});
+        end
+    end
+    [bands, ~, bands_filenames_map] = unique(bands);
+    n_bands = length(bands);
+    
+    % Group images according to wavelength
+    names_stripped = regexprep(names{1}, bands_regex, '');
+    [group_names, ~, group_names_indices] = unique(names_stripped);
+    n_groups = length(group_names);
+    
+    % Make sure there are images for every band in every scene
+    for g = 1:n_groups
+        group_filter = (group_names_indices == g);
+        bands_in_group = bands_filenames_map(group_filter);
+        if (length(bands_in_group) ~= n_bands) || any(sort(bands_in_group) ~= 1:n_bands)
+            error('Not all spectral bands are represented exactly once in scene "%s".',...
+                group_names{g});
+        end
+    end
+    
+    [~, reference_index] = min(abs(lbands - reference_wavelength));
+    
+    % `bands_to_rgb` is used for visualization purposes only, and so does
+    % not need to be accurate
+    bands_to_rgb = sonyQuantumEfficiency(bands);
+    % Normalize, for improved colour saturation
+    bands_to_rgb = bands_to_rgb ./ max(max(bands_to_rgb));
+
+    if plot_model
+        n_lambda_plot = min(20, length(bands));
+    end
 end
 
 %% Process the images
 
-n_images = length(partial_filepaths);
-n_bands = length(bands);
-if ~rgb_mode
-    wavelength_postfixes = cell(n_bands, 1);
-    for j = 1:n_bands
-        wavelength_postfixes{j} = num2str(bands(j), '%d');
-    end
-end
-
-centers_cell = cell(n_images, 1);
-for i = 1:n_images
+centers_cell = cell(n_groups, 1);
+image_size = [];
+for g = 1:n_groups
+    image_indices = find(group_names_indices == g);
+    
     % Find any mask
-    mask_filename = strcat(partial_filepaths(i), {'_mask.'}, {mask_ext});
-    mask_filename = mask_filename{1};
+    mask_filename = fullfile(paths{i}, [group_names{g}, '_mask.', mask_ext]);
     mask_listing = dir(mask_filename);
     if isempty(mask_listing)
         mask = [];
     else
         mask = imread(mask_filename);
         if size(mask, 3) ~= 1
-            error('Expected the mask, %s, to have only one channel.')
+            error('Expected the mask, "%s", to have only one channel.', mask_filename);
         end
-        mask = imbinarize(imread(mask_filename), mask_threshold);
+        if ~islogical(mask)
+            mask = imbinarize(mask, mask_threshold);
+        end
+    end
+    
+    I = loadImage(image_filenames{image_indices(1)}, input_images_variable_name);
+    if isempty(image_size)
+        image_size = size(I);
+    elseif any(image_size ~= size(I))
+        error('Not all images have the same dimensions.');
     end
     
     if rgb_mode
-        filenames = strcat(partial_filepaths(i), {'.'}, {ext});
-    else
-        filenames = strcat(partial_filepaths(i), wavelength_postfixes, {'.'}, {ext});
-    end
-    
-    if rgb_mode
-        I = imread(filenames{1});
-        if i == 1
-            image_size = size(I);
-        elseif any(image_size ~= size(I))
-            error('Not all images have the same dimensions.');
-        end
-        centers_i = findAndFitDisks(...
+        centers_cell{i} = findAndFitDisks(...
             I, mask, bayer_pattern, [], cleanup_radius, k0,...
             findAndFitDisks_options, findAndFitDisksVerbose...
         );
     else
-        centers_i = cell(n_bands, 1);
-        for j = 1:n_bands
-            I = imread(filenames{j});
-            if i == 1 && j == 1
-                image_size = size(I);
-            elseif any(image_size ~= size(I))
+        centers_g = cell(n_bands, 1);
+        centers_g{1} = findAndFitDisks(...
+            I, mask, bayer_pattern, [], cleanup_radius, k0,...
+            findAndFitDisks_options, findAndFitDisksVerbose...
+        );
+
+        for i = 2:n_bands
+            I = loadImage(image_filenames{image_indices(i)}, input_images_variable_name);
+            if any(image_size ~= size(I))
                 error('Not all images have the same dimensions.');
             end
-            centers_i{j} = findAndFitDisks(...
+            centers_g{i} = findAndFitDisks(...
                 I, mask, bayer_pattern, [], cleanup_radius, k0,...
                 findAndFitDisks_options, findAndFitDisksVerbose...
             );
         end
-    end
-    centers_cell{i} = centers_i;
+        
+        [~, sorting_map] = sort(bands_filenames_map(image_indices));
+        centers_cell{i} = centers_g(sorting_map);
+    end     
 end
         
 %% Fit dispersion models to the results
@@ -301,6 +347,7 @@ model_space.image_size = image_size;
 model_space.system = 'image';
 
 save_variables_list = [ parameters_list, {...
+    'image_filenames',...
     'centers',...
     'disparity',...
     'dispersion_data',...

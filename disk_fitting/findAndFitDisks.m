@@ -165,8 +165,9 @@ for c = 1:n_channels
     elseif isempty(mask) && options.mask_as_threshold
         error('`mask` is empty, but `options.mask_as_threshold` is true.');
     else
-        counts_c = histcounts(I(mask_c));
+        [counts_c, edges_c] = histcounts(I(mask_c));
         threshold_c = otsuthresh(counts_c);
+        threshold_c = threshold_c * (edges_c(end) - edges_c(1)) + edges_c(1);
         if options.bright_disks
             bw(:, :, c) = imbinarize(I,threshold_c) & mask_c;
         else
