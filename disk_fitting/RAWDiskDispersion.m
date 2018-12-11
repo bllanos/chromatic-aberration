@@ -235,7 +235,7 @@ else
     n_bands = length(bands);
     
     % Group images according to wavelength
-    names_stripped = regexprep(names{1}, bands_regex, '');
+    names_stripped = regexprep(names, bands_regex, '');
     [group_names, ~, group_names_indices] = unique(names_stripped);
     n_groups = length(group_names);
     
@@ -243,13 +243,13 @@ else
     for g = 1:n_groups
         group_filter = (group_names_indices == g);
         bands_in_group = bands_filenames_map(group_filter);
-        if (length(bands_in_group) ~= n_bands) || any(sort(bands_in_group) ~= 1:n_bands)
+        if (length(bands_in_group) ~= n_bands) || any(sort(bands_in_group) ~= (1:n_bands).')
             error('Not all spectral bands are represented exactly once in scene "%s".',...
                 group_names{g});
         end
     end
     
-    [~, reference_index] = min(abs(lbands - reference_wavelength));
+    [~, reference_index] = min(abs(bands - reference_wavelength));
     
     % `bands_to_rgb` is used for visualization purposes only, and so does
     % not need to be accurate
@@ -315,7 +315,7 @@ for g = 1:n_groups
         end
         
         [~, sorting_map] = sort(bands_filenames_map(image_indices));
-        centers_cell{i} = centers_g(sorting_map);
+        centers_cell{g} = centers_g(sorting_map);
     end     
 end
         
@@ -343,6 +343,9 @@ model_space.corners = [
     min(centers_unpacked(:, 1)), min(centers_unpacked(:, 2));
     max(centers_unpacked(:, 1)), max(centers_unpacked(:, 2))
     ];
+model_space.corners = max(model_space.corners, 1);
+model_space.corners(model_space.corners(:, 1) > image_size(2), 1) = image_size(2);
+model_space.corners(model_space.corners(:, 2) > image_size(1), 2) = image_size(1);
 model_space.image_size = image_size;
 model_space.system = 'image';
 
