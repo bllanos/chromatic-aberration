@@ -129,7 +129,7 @@ parameters_list = {
 % constructed by appending '_mask' and `mask_ext` (below) to the filepaths
 % (after stripping file extensions and wavelength information). Masks are
 % used to avoid processing irrelevant portions of images.
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/preprocessed/blended_averaged/pos1_1mmDots.mat';
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/preprocessed/blended_averaged/pos1_1mmDots_*.mat';
 input_images_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % Mask filename extension
@@ -143,7 +143,7 @@ mask_threshold = 0.5; % In a range of intensities from 0 to 1
 
 % Find dispersion between colour channels, as opposed to between images
 % taken under different spectral bands
-rgb_mode = true;
+rgb_mode = false;
 
 if rgb_mode
     bands_regex = []; % Not used
@@ -202,53 +202,16 @@ plot_model = true;
 
 %% Find the images
 
-image_filenames = listFiles(input_images_wildcard);
-n_images = length(image_filenames);
-
-% Remove filename paths and extensions
-names = cell(n_images, 1);
-paths = cell(n_images, 1);
-for i = 1:n_images
-    [paths{i}, names{i}, ~] = fileparts(image_filenames{i});
-end
-
 if rgb_mode
-    group_names = names;
-    group_names_indices = 1:n_images;
-    n_groups = n_images;
-    n_bands = length(bands);
+    [...
+        grouped_filenames, path, group_names...
+    ] = findAndGroupImages(input_images_wildcard);
+
 else
-    % Find wavelength information
-    bands = zeros(n_images, 1);
-    tokens = regexp(names, bands_regex, 'tokens', 'forceCellOutput');
-    for i = 1:n_images
-        if isempty(tokens{i}) || isempty(tokens{i}{1}{1})
-            error('No wavelength information found in filename "%s".', image_filenames{i});
-        end
-        [bands(i), result] = str2num(tokens{i}{1}{1});
-        if ~result
-            error('Error converting wavelength information, "%s", from filename "%s", to a number.',...
-                tokens{i}{1}{1}, image_filenames{i});
-        end
-    end
-    [bands, ~, bands_filenames_map] = unique(bands);
-    n_bands = length(bands);
-    
-    % Group images according to wavelength
-    names_stripped = regexprep(names, bands_regex, '');
-    [group_names, ~, group_names_indices] = unique(names_stripped);
-    n_groups = length(group_names);
-    
-    % Make sure there are images for every band in every scene
-    for g = 1:n_groups
-        group_filter = (group_names_indices == g);
-        bands_in_group = bands_filenames_map(group_filter);
-        if (length(bands_in_group) ~= n_bands) || any(sort(bands_in_group) ~= (1:n_bands).')
-            error('Not all spectral bands are represented exactly once in scene "%s".',...
-                group_names{g});
-        end
-    end
-    
+    [...
+        grouped_filenames, path, group_names, bands...
+    ] = findAndGroupImages(input_images_wildcard, bands_regex);
+
     [~, reference_index] = min(abs(bands - reference_wavelength));
     
     % `bands_to_rgb` is used for visualization purposes only, and so does
@@ -261,16 +224,17 @@ else
         n_lambda_plot = min(20, length(bands));
     end
 end
+n_groups = length(grouped_filenames);
+n_bands = length(bands);
 
 %% Process the images
 
 centers_cell = cell(n_groups, 1);
 image_size = [];
 for g = 1:n_groups
-    image_indices = find(group_names_indices == g);
     
     % Find any mask
-    mask_filename = fullfile(paths{i}, [group_names{g}, '_mask.', mask_ext]);
+    mask_filename = fullfile(path, [group_names{g}, '_mask.', mask_ext]);
     mask_listing = dir(mask_filename);
     if isempty(mask_listing)
         mask = [];
@@ -284,7 +248,7 @@ for g = 1:n_groups
         end
     end
     
-    I = loadImage(image_filenames{image_indices(1)}, input_images_variable_name);
+    I = loadImage(grouped_filenames{g}{1}, input_images_variable_name);
     if isempty(image_size)
         image_size = size(I);
     elseif any(image_size ~= size(I))
@@ -292,7 +256,7 @@ for g = 1:n_groups
     end
     
     if rgb_mode
-        centers_cell{i} = findAndFitDisks(...
+        centers_cell{g} = findAndFitDisks(...
             I, mask, bayer_pattern, [], cleanup_radius, k0,...
             findAndFitDisks_options, findAndFitDisksVerbose...
         );
@@ -304,7 +268,7 @@ for g = 1:n_groups
         );
 
         for i = 2:n_bands
-            I = loadImage(image_filenames{image_indices(i)}, input_images_variable_name);
+            I = loadImage(grouped_filenames{g}{i}, input_images_variable_name);
             if any(image_size ~= size(I))
                 error('Not all images have the same dimensions.');
             end
@@ -314,8 +278,7 @@ for g = 1:n_groups
             );
         end
         
-        [~, sorting_map] = sort(bands_filenames_map(image_indices));
-        centers_cell{g} = centers_g(sorting_map);
+        centers_cell{g} = centers_g;
     end     
 end
         
