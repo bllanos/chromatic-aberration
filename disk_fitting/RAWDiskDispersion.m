@@ -20,9 +20,12 @@
 %
 % Four '.mat' files, each containing the following variables:
 %
-% - 'image_filenames': A cell vector containing the input image filenames
-%   retrieved based on the wildcard provided in the parameters section of
-%   the script.
+% - 'grouped_filenames': A cell vector of cell vectors of input image
+%   filenames retrieved based on the wildcard provided in the parameters
+%   section of the script. Each of the inner cell vectors groups the images
+%   of the same scene taken under different spectral filters, if spectral
+%   dispersion is being modelled. Otherwise, the inner cell vectors are of
+%   length one.
 % - 'centers': The independent variables data used for fitting the
 %   model of dispersion. `centers` is a structure array, with one field
 %   containing the image positions of the centres of disks fitted to image
@@ -115,7 +118,8 @@ parameters_list = {
 
 % ## Input images
 %
-% Wildcard for 'ls()' to find the images to process.
+% Wildcard for 'ls()' to find the images to process. All images are
+% expected to be in one directory.
 %
 % Images are expected to have been preprocessed, such as using
 % 'PreprocessRAWImages.m', so that they do not need to be linearized after
@@ -313,7 +317,7 @@ model_space.image_size = image_size;
 model_space.system = 'image';
 
 save_variables_list = [ parameters_list, {...
-    'image_filenames',...
+    'grouped_filenames',...
     'centers',...
     'disparity',...
     'dispersion_data',...
