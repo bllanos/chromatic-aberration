@@ -259,54 +259,40 @@ for r = 1:length(regex)
         end
     end
     
-    % Load reference images by scene, then by exposure
-    pixels = cell(n_channels, 1);
-    for c = 1:n_channels
-        pixels{c} = cell(n_scenes(1), 1);
-    end
-    for s = 1:n_scenes(1)
-        scene_filter = (scene_indices{1} == s);
-        for ri = 1:n_exposures
-            filter = (exposure_indices{1} == ri) & scene_filter;
-            if sum(filter) ~= 1
-                error('Expected one and only one image per exposure per scene.');
-            end
-            filepath = reference_paths{filter};
-            I = loadImage(filepath, var_name);
-            if size(I, 3) ~= 1
-                error('The input image "%s" is not a RAW image.', filepath);
-            end
-            if ri == 1
-                mask = reshape(bayerMask(size(I, 1), size(I, 2), align), [], n_channels);
-                for c = 1:n_channels
-                    mask_c = mask(:, c);
-                    pixels{c}{s} = zeros(sum(mask_c), n_exposures);
-                    pixels{c}{s}(:, ri) = I(mask_c);
-                end
-            else
-                for c = 1:n_channels
-                    mask_c = mask(:, c);
-                    pixels{c}{s}(:, ri) = I(mask_c);
-                end
-            end
-        end
-        
-        % Filter to pixels in the desired range
-        for c = 1:n_channels
-            pixels{c}{s} = pixels{c}{s}(all((pixels{c}{s} > range(1)) & (pixels{c}{s} < range(2)), 2), :);
-        end
-    end
-    for c = 1:n_channels
-        pixels{c} = cell2mat(pixels{c});
-    end
-    
-    % Find per-channel exposure conversion factors
+    % For each colour channel, load reference images by scene, then by exposure
     factors_r = zeros(n_exposures, n_channels);
     for c = 1:n_channels
-        component = pca(pixels{c}, 'NumComponents', 1);
-        for ri = 1:n_exposures
-            factors_r(ri, c) = component(end) / component(ri);
+        pixels = cell(n_scenes(1), 1);
+        for s = 1:n_scenes(1)
+            scene_filter = (scene_indices{1} == s);
+            for ri = 1:n_exposures
+                filter = (exposure_indices{1} == ri) & scene_filter;
+                if sum(filter) ~= 1
+                    error('Expected one and only one image per exposure per scene.');
+                end
+                filepath = reference_paths{filter};
+                I = loadImage(filepath, var_name);
+                if size(I, 3) ~= 1
+                    error('The input image "%s" is not a RAW image.', filepath);
+                end
+                if ri == 1
+                    mask = reshape(bayerMask(size(I, 1), size(I, 2), align), [], n_channels);
+                    mask_c = mask(:, c);
+                    pixels{s} = zeros(sum(mask_c), n_exposures);
+                    pixels{s}(:, ri) = I(mask_c);
+                else
+                    pixels{s}(:, ri) = I(mask_c);
+                end
+            end
+
+            % Filter to pixels in the desired range
+            pixels{s} = pixels{s}(all((pixels{s} > range(1)) & (pixels{s} < range(2)), 2), :);
         end
+        pixels = cell2mat(pixels);
+
+        % Find per-channel exposure conversion factors
+        component = pca(pixels, 'NumComponents', 1);
+        factors_r(:, c) = component(end) ./ component;
     end
     peaks(r) = max(max(factors_r));
     scaling_factors{r} = factors_r;

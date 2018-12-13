@@ -82,7 +82,7 @@ parameters_list = {
 
 % Directories in which to store dark-subtracted images
 darkSubtract_dir.out_averaged = '/home/llanos/Downloads/data/dark_subtracted_averaged'; % Averaged images
-darkSubtract_dir.out_single = '/home/llanos/Downloads/data/dark_subtracted_original'; % Non-averaged images
+%darkSubtract_dir.out_single = '/home/llanos/Downloads/data/dark_subtracted_original'; % Non-averaged images
 
 % Image variable name
 var_name = 'I_raw';
@@ -126,7 +126,7 @@ blendExposures_dir.out_reference = repmat({blendExposures_dir.out_reference}, le
 %blendExposures_dir.other_paths = repmat({blendExposures_dir.other_paths}, length(blendExposures_regex), 1);
 
 % Range of pixel values used to calibrate scaling factors between exposures
-range = [0, 1];
+range = [0.05, 0.95];
 
 % Colour-filter pattern code
 align = 'gbrg';
