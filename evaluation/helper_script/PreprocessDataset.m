@@ -133,14 +133,24 @@ if has_color_map
         color_weights = sensor_map;
         spectral_weights = eye(length(bands_color));
         color_weights_reference = color_weights;
-    elseif has_spectral
-        [color_weights, spectral_weights, bands, color_weights_reference] = samplingWeights(...
-          sensor_map, bands_color, bands_spectral, samplingWeightsOptions, samplingWeightsVerbose...
-        );
     else
-        [color_weights, ~, bands] = samplingWeights(...
-          sensor_map, bands_color, bands_color, samplingWeightsOptions, samplingWeightsVerbose...
-        );
+        if isfield(dp, 'fix_bands') && dp.fix_bands
+            samplingWeightsOptions.power_threshold = 1;
+            samplingWeightsOptions.n_bands = 0;
+            samplingWeightsOptions.support_threshold = 0;
+            solvePatchesMultiADMMOptions.sampling_options.power_threshold = samplingWeightsOptions.power_threshold;
+            solvePatchesMultiADMMOptions.sampling_options.n_bands = samplingWeightsOptions.n_bands;
+            solvePatchesMultiADMMOptions.sampling_options.support_threshold = samplingWeightsOptions.support_threshold;
+        end
+        if has_spectral
+            [color_weights, spectral_weights, bands, color_weights_reference] = samplingWeights(...
+              sensor_map, bands_color, bands_spectral, samplingWeightsOptions, samplingWeightsVerbose...
+            );
+        else
+            [color_weights, ~, bands] = samplingWeights(...
+              sensor_map, bands_color, bands_color, samplingWeightsOptions, samplingWeightsVerbose...
+            );
+        end
     end
     n_bands = length(bands);
 end

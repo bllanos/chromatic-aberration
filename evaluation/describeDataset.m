@@ -21,27 +21,32 @@ function [dataset_params] = describeDataset(name)
 %   algorithms to run on the dataset, and how to evaluate the results of
 %   the image estimation algorithms. `dataset_params` has the following
 %   fields, all of which are either empty, or store character vectors:
+%
 %   - 'raw_images_wildcard': A wildcard for 'ls()' to find the input RAW
 %     images of the dataset. If empty, the RAW images are to be generated
 %     from RGB images.
 %   - 'raw_images_variable': The variable name to use for loading RAW
 %     images from '.mat' files, where applicable.
+%
 %   - 'rgb_images_wildcard': A wildcard for 'ls()' to find the true RGB
 %     images of the dataset. If empty, the RGB images are to be generated
 %     from spectral images.
 %   - 'rgb_images_variable': The variable name to use for loading RGB
 %     images from '.mat' files, where applicable.
+%
 %   - 'spectral_images_wildcard': A wildcard for 'ls()' to find the true
 %     spectral images of the dataset. If empty, the dataset lacks spectral
 %     images.
 %   - 'spectral_images_variable': The variable name to use for loading
 %     spectral images from '.mat' files, where applicable.
+%
 %   - 'spectral_reflectances': A Boolean field, required only if the
 %     dataset has spectral images. If 'spectral_reflectances' is `true`,
 %     then the spectral images are reflectance images. Otherwise, the
 %     spectral images are radiance images. Reflectance images need to be
 %     preprocessed by multiplying them by the spectral power distribution
 %     of an illuminant.
+%
 %   - 'dispersion_rgb_forward': The filename and path of the model of
 %     dispersion of the RGB channels relative to the reference channel,
 %     stored in a '.mat' file. The dispersion model is a function of
@@ -57,14 +62,24 @@ function [dataset_params] = describeDataset(name)
 %     in the given band. If empty, any correction of lateral chromatic
 %     aberration in the spectral domain will be based on priors only, not
 %     on calibration data.
+%
 %   - 'color_map': The filename and path of the colour space conversion
 %     '.mat' data file. This data file is used to convert spectral
 %     information to RGB (or other input colour space), and has the form
 %     described in the documentation of 'CorrectByHyperspectralADMM.m'.
+%   - 'fix_bands': An optional field containing a logical scalar. If this
+%     field is present and `true`, then spectral image estimation must
+%     estimate all spectral bands loaded from the data file referred to by
+%     'color_map', rather than estimating a different set of spectral
+%     bands, determined by the parameters in 'SetFixedParameters.m'. This
+%     setting is only used when 'color_map' describes spectral to colour
+%     conversion, not conversion between colour channels.
+%
 %   - 'wavelengths': The filename and path of a '.mat' file containing a
 %     variable, `bands`, storing the wavelengths which determine the
 %     spectral sampling of spectral images. This field is required only if
 %     the dataset has spectral images.
+%
 %   - 'evaluation': Evaluation parameters, a structure with the following
 %     fields:
 %     - 'global_rgb': A structure of the form of the `options` input
@@ -94,6 +109,7 @@ function [dataset_params] = describeDataset(name)
 %       Fields for storing figure handles should not be included. The
 %       fields 'plot_*' should also be omitted. 'custom_spectral' is needed
 %       only for datasets with spectral images.
+%
 %   - 'choi_rgb_wildcard': A wildcard for 'ls()' to find RGB images
 %     estimated by the method of Choi et al. 2017. This field is optional.
 %   - 'choi_spectral_wildcard': A wildcard for 'ls()' to find spectral
@@ -316,6 +332,55 @@ elseif strcmp(name, 'choi-test')
     );
     dataset_params.choi_rgb_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/ChoiEtAl2017_OutputConverted/recon_choiOutConverted_rgb.mat';
     dataset_params.choi_spectral_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/ChoiEtAl2017_OutputConverted/recon_choiOutConverted_latent.mat';
+elseif strcmp(name, '20181212_RealData_spectralAsRAW')
+    dataset_params.raw_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dataset/*raw.mat';
+    dataset_params.raw_images_variable = 'I_raw';
+    dataset_params.rgb_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dataset/*d3.mat';
+    dataset_params.rgb_images_variable = 'I_3';
+    dataset_params.spectral_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dataset/*dHyper.mat';
+    dataset_params.spectral_images_variable = 'I_hyper';
+    dataset_params.spectral_reflectances = false;
+    dataset_params.dispersion_rgb_forward = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dispersion/RAWDiskDispersionResults_RGB_spline_fromReference.mat';
+    dataset_params.dispersion_rgb_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dispersion/RAWDiskDispersionResults_RGB_spline_fromNonReference.mat';
+    dataset_params.dispersion_spectral_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dispersion/RAWDiskDispersionResults_spectral_spline_fromNonReference.mat';
+    dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dataset/sensor.mat';
+    dataset_params.fix_bands = true;
+    dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dataset/sensor.mat';
+    dataset_params.evaluation = struct(...
+        'global_rgb', struct('error_map', true),...
+        'custom_rgb', struct,...
+        'global_spectral', struct(...
+            'metric', 'mrae',...
+            'error_map', true,...
+            'mi_bands', [1, 2],...
+            'bands_diff', [1, 2]...
+            ),...
+        'custom_spectral', struct...
+    );
+elseif strcmp(name, '20181212_RealData_RGBAsRAW')
+    dataset_params.raw_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/preprocessed/blended_averaged/pos1_1mmDots.mat';
+    dataset_params.raw_images_variable = 'I_raw';
+    dataset_params.rgb_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dataset/*d3.mat';
+    dataset_params.rgb_images_variable = 'I_3';
+    dataset_params.spectral_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dataset/*dHyper.mat';
+    dataset_params.spectral_images_variable = 'I_hyper';
+    dataset_params.spectral_reflectances = false;
+    dataset_params.dispersion_rgb_forward = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dispersion/RAWDiskDispersionResults_RGB_spline_fromReference.mat';
+    dataset_params.dispersion_rgb_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dispersion/RAWDiskDispersionResults_RGB_spline_fromNonReference.mat';
+    dataset_params.dispersion_spectral_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dispersion/RAWDiskDispersionResults_spectral_spline_fromNonReference.mat';
+    dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dataset/SonyColorMapData.mat';
+    dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dataset/sensor.mat';
+    dataset_params.evaluation = struct(...
+        'global_rgb', struct('error_map', true),...
+        'custom_rgb', struct,...
+        'global_spectral', struct(...
+            'metric', 'mrae',...
+            'error_map', true,...
+            'mi_bands', [1, 2],...
+            'bands_diff', [1, 2]...
+            ),...
+        'custom_spectral', struct...
+    );
 else
     error('Unrecognized dataset name.');
 end
