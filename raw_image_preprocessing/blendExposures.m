@@ -260,39 +260,46 @@ for r = 1:length(regex)
     end
     
     % For each colour channel, load reference images by scene, then by exposure
-    factors_r = zeros(n_exposures, n_channels);
+    % Calculate conversion factors between pairs of consecutive exposures
+    factors_r = ones(n_exposures, n_channels);
     for c = 1:n_channels
-        pixels = cell(n_scenes(1), 1);
-        for s = 1:n_scenes(1)
-            scene_filter = (scene_indices{1} == s);
-            for ri = 1:n_exposures
-                filter = (exposure_indices{1} == ri) & scene_filter;
-                if sum(filter) ~= 1
-                    error('Expected one and only one image per exposure per scene.');
+        for ri = 1:(n_exposures - 1)
+            pixels = cell(n_scenes(1), 1);
+            for s = 1:n_scenes(1)
+                scene_filter = (scene_indices{1} == s);
+                for rij = 0:1
+                    filter = (exposure_indices{1} == (ri + rij)) & scene_filter;
+                    if sum(filter) ~= 1
+                        error('Expected one and only one image per exposure per scene.');
+                    end
+                    filepath = reference_paths{filter};
+                    I = loadImage(filepath, var_name);
+                    if size(I, 3) ~= 1
+                        error('The input image "%s" is not a RAW image.', filepath);
+                    end
+                    if rij == 0
+                        mask = reshape(bayerMask(size(I, 1), size(I, 2), align), [], n_channels);
+                        mask_c = mask(:, c);
+                        pixels{s} = zeros(sum(mask_c), 2);
+                        pixels{s}(:, rij + 1) = I(mask_c);
+                    else
+                        pixels{s}(:, rij + 1) = I(mask_c);
+                    end
                 end
-                filepath = reference_paths{filter};
-                I = loadImage(filepath, var_name);
-                if size(I, 3) ~= 1
-                    error('The input image "%s" is not a RAW image.', filepath);
-                end
-                if ri == 1
-                    mask = reshape(bayerMask(size(I, 1), size(I, 2), align), [], n_channels);
-                    mask_c = mask(:, c);
-                    pixels{s} = zeros(sum(mask_c), n_exposures);
-                    pixels{s}(:, ri) = I(mask_c);
-                else
-                    pixels{s}(:, ri) = I(mask_c);
-                end
+
+                % Filter to pixels in the desired range
+                pixels{s} = pixels{s}(all((pixels{s} > range(1)) & (pixels{s} < range(2)), 2), :);
             end
+            pixels = cell2mat(pixels);
 
-            % Filter to pixels in the desired range
-            pixels{s} = pixels{s}(all((pixels{s} > range(1)) & (pixels{s} < range(2)), 2), :);
+            % Find per-channel exposure conversion factors
+            component = pca(pixels, 'NumComponents', 1);
+            factors_r(ri, c) = component(end) ./ component(1);
         end
-        pixels = cell2mat(pixels);
-
-        % Find per-channel exposure conversion factors
-        component = pca(pixels, 'NumComponents', 1);
-        factors_r(:, c) = component(end) ./ component;
+    end
+    % Convert pairwise conversion factors to global conversion factors
+    for ri = (n_exposures - 2):(-1):1
+        factors_r(ri, :) = factors_r(ri, :) .* factors_r(ri + 1, :);
     end
     peaks(r) = max(max(factors_r));
     scaling_factors{r} = factors_r;
