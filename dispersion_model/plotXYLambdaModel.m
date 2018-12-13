@@ -141,7 +141,10 @@ for k = 1:n_plot
     
     disparity_points_mag_dataset = sqrt(dot(dataset(:, 4:5), dataset(:, 4:5), 2));
     
-    % Visualization
+    disparity_grid_theta = atan2d(disparity_grid(:, 2), disparity_grid(:, 1));
+    disparity_grid_theta_matrix = reshape(disparity_grid_theta, size(x_grid));
+    
+    % Visualization of the disparity magnitude
     figure;
     hold on
     s = surf(x_grid, y_grid, disparity_grid_mag_matrix);
@@ -158,6 +161,25 @@ for k = 1:n_plot
     else
         zlabel(sprintf('Magnitude of dispersion wrt \\lambda = %g', index_ref))
     end
+    legend('Model', 'Model', 'Measured dispersion');
+    if channel_mode
+        title(sprintf('Evaluation of the model of dispersion for Channel %d', lambda_samples(k)));
+    else
+        title(sprintf('Evaluation of the model of dispersion for \\lambda = %g', lambda_samples(k)));
+    end
+    
+    % Visualization of the disparity direction
+    figure;
+    hold on
+    s = pcolor(x_grid, y_grid, disparity_grid_theta_matrix);
+    set(s, 'EdgeColor', 'none');
+    c = colorbar;
+    c.Label.String = 'Disparity direction [degrees]';
+    quiver(dataset(:, 1), dataset(:, 2), disparity_points(:, 1), disparity_points(:, 2), 'r');
+    quiver(dataset(:, 1), dataset(:, 2), dataset(:, 4), dataset(:, 5), 'g');
+    hold off
+    xlabel('Image x-coordinate')
+    ylabel('Image y-coordinate')
     legend('Model', 'Model', 'Measured dispersion');
     if channel_mode
         title(sprintf('Evaluation of the model of dispersion for Channel %d', lambda_samples(k)));
