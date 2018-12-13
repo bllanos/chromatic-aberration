@@ -87,6 +87,23 @@
 % camera with the spectral sensitivity of the Green channel. The resulting
 % images are then concatenated to form a hyperspectral image.
 %
+% #### Demosaiced hyperspectral images
+%
+% '*_dHyper.mat' contains a spectral radiance image, stored in the variable
+% 'I_hyper'. This image is created from the demosaiced green channels of
+% the spectral band images taken for the scene. Demosaicing is an
+% alternative method to the channel scaling approach for creating images
+% from a hypothetical monochromatic camera with the spectral sensitivity of
+% the Green channel. While the demosaicing algorithm introduces some error,
+% the resulting images should be less noisy.
+%
+% #### Demosaiced RGB images
+%
+% '*_d3.tif' and '*_d3.mat' contain a 3-channel colour image (stored in the
+% variable 'I_3'). This image is created by converting the demosaiced
+% hyperspectral image (described above) to colour, according to the
+% relative spectral sensitivities of the sensor (described above).
+%
 % ### Parameters and intermediate variables
 %
 % The 'sensor.mat' file also contains the values of all parameters in the
@@ -103,7 +120,7 @@
 % ## Notes
 % - The approach for computing relative spectral sensitivities works well
 %   only in the event that all colour channels have non-negligible
-%   sensitivities at all spectral bands. If some colour channels have zero
+%   sensitivities in all spectral bands. If some colour channels have zero
 %   spectral sensitivity in certain spectral bands, a better approach may
 %   be to compute hyperspectral images without using spectral
 %   sensitivities. For example, each spectral band of a hyperspectral image
@@ -248,29 +265,41 @@ legend('Red', 'Green', 'Blue')
 
 imageFormationOptions.patch_size = patch_sizes(1, :);
 imageFormationOptions.padding = paddings(1);
+demosaic_channels = false(n_channels_rgb, 1);
+demosaic_channels(reference_index) = true;
 
 for g = 1:n_groups
-    I_hyper = zeros(image_height, image_width, n_bands);
+    I_hyper_q = zeros(image_height, image_width, n_bands);
+    I_hyper_d = zeros(image_height, image_width, n_bands);
     for i = 1:n_bands
         I = loadImage(grouped_filenames{g}{i}, input_images_variable_name);
         I(I < 0) = 0;
+        
+        I_d = bilinearDemosaic(I, bayer_pattern, demosaic_channels);
+        I_hyper_d(:, :, i) = I_d;
+            
         for c = 1:n_channels_rgb
             I(channel_mask(:, :, c)) = I(channel_mask(:, :, c)) ./ sensor_map(c, i);
         end
-        I_hyper(:, :, i) = I;
+        I_hyper_q(:, :, i) = I;
     end
     
     % Convert to colour
-    [I_3, ~, I_raw] = imageFormation(...
-        I_hyper, color_weights, imageFormationOptions,...
+    [I_3_q, ~, I_raw] = imageFormation(...
+        I_hyper_q, color_weights, imageFormationOptions,...
         [], bands, bayer_pattern...
+    );
+    I_3_d = imageFormation(...
+        I_hyper_d, color_weights, imageFormationOptions...
     );
 
     % Save the results
     saveImages(...
         'data', output_directory, group_names{g},...
-        I_hyper, '_qHyper', 'I_hyper',...
-        I_3, '_q3', 'I_3',...
+        I_hyper_q, '_qHyper', 'I_hyper',...
+        I_hyper_d, '_dHyper', 'I_hyper',...
+        I_3_q, '_q3', 'I_3',...
+        I_3_d, '_d3', 'I_3',...
         I_raw, '_raw', 'I_raw'...
     );
 end
