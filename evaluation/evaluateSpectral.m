@@ -93,6 +93,15 @@ function [e_spectral, varargout] = evaluateSpectral(...
 %     plotlines for the test image. The plotlines for the reference image
 %     will have solid lines. 'plot_style' is used for the 'LineStyle' line
 %     property.
+%   - 'reference_patch': An optional field containing a four-element vector
+%     describing an image patch (center pixel x-coordinate, center pixel
+%     y-coordinate, width, and height). Image patches widths and heights
+%     must be odd integers. If this field exists, the average spectral
+%     signal will be computed within this patch, for each of `I_spectral`
+%     and `R_spectral`. `I_spectral` will be divided by its average
+%     spectral signal, then multiplied by the average spectral signal of
+%     `R_spectral`. 'reference_patch' is intended to allow for comparisions
+%     between spectral images that differ in illumination.
 %
 % ## Output Arguments
 %
@@ -277,6 +286,32 @@ end
 
 I_spectral = channelConversion(I_spectral, spectral_weights);
 
+image_height = size(I_spectral, 1);
+image_width = size(I_spectral, 2);
+if isfield(options, 'reference_patch')
+    bounds = options.reference_patch;
+    if mod(bounds(3), 2) == 0 || mod(bounds(4), 2) == 0
+        error('Reference patch dimensions must be odd integers.');
+    end
+    widthDiv2 = (bounds(3) - 1) / 2;
+    heightDiv2 = (bounds(4) - 1) / 2;
+    rectangle = [...
+        max(1, bounds(1) - widthDiv2);
+        max(1, bounds(2) - heightDiv2);
+        min(image_width, bounds(1) + widthDiv2);
+        min(image_height, bounds(2) + heightDiv2)
+    ];
+
+    radiance_average_I = mean(mean(I_spectral(...
+        rectangle(2):rectangle(4), rectangle(1):rectangle(3), :...
+    ), 1), 2);
+    radiance_average_R = squeeze(mean(mean(R_spectral(...
+        rectangle(2):rectangle(4), rectangle(1):rectangle(3), :...
+    ), 1), 2));
+    radiance_ratio = radiance_average_R ./ radiance_average_I;
+    I_spectral = I_spectral .* repmat(radiance_ratio, image_height, image_width, 1);
+end
+
 I_clipped = I_spectral((border + 1):(end - border), (border + 1):(end - border), :);
 R_clipped = R_spectral((border + 1):(end - border), (border + 1):(end - border), :);
 
@@ -338,8 +373,6 @@ e_spectral.gof = struct(...
 	'median', median(gof(:))...
 );
 
-image_height = size(I_spectral, 1);
-image_width = size(I_spectral, 2);
 if isfield(options, 'radiance')
     n_patches = size(options.radiance, 1);
     e_spectral.radiance = struct(...
