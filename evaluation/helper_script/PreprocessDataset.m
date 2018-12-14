@@ -159,6 +159,8 @@ end
 
 has_dispersion_rgb = ~isempty(dp.dispersion_rgb_forward) && ~isempty(dp.dispersion_rgb_reverse);
 has_dispersion_spectral = ~isempty(dp.dispersion_spectral_reverse);
+evaluate_aberrated_rgb = (has_dispersion_rgb || has_dispersion_spectral) && dp.is_aberrated;
+evaluate_aberrated_spectral = has_dispersion_spectral && dp.is_aberrated;
 
 if has_dispersion_rgb
     [...

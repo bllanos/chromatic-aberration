@@ -62,6 +62,16 @@ function [dataset_params] = describeDataset(name)
 %     in the given band. If empty, any correction of lateral chromatic
 %     aberration in the spectral domain will be based on priors only, not
 %     on calibration data.
+%   - 'is_aberrated': A logical scalar indicating if the images in the
+%     dataset are affected by dispersion. If `true`, the models of
+%     dispersion will not be used when generating "ground truth" RGB and/or
+%     RAW images. Moreover, the number of evaluations for dispersion-aware
+%     image estimation algorithms will be doubled in cases where the
+%     dataset includes models of dispersion: The dataset images will still
+%     be used to evaluate images estimated with dispersion correction, even
+%     though the comparison is not strictly valid. The dataset images will
+%     also be used to evaluated the versions of the estimated images with
+%     dispersion re-applied.
 %
 %   - 'color_map': The filename and path of the colour space conversion
 %     '.mat' data file. This data file is used to convert spectral
@@ -171,6 +181,7 @@ if strcmp(name, 'kodak')
     dataset_params.dispersion_rgb_forward = [];
     dataset_params.dispersion_rgb_reverse = [];
     dataset_params.dispersion_spectral_reverse = [];
+    dataset_params.is_aberrated = true;
     dataset_params.color_map = [];
     dataset_params.wavelengths = [];
     dataset_params.evaluation = struct(...
@@ -189,6 +200,7 @@ elseif strcmp(name, 'kaist')
     dataset_params.dispersion_rgb_forward = [];
     dataset_params.dispersion_rgb_reverse = [];
     dataset_params.dispersion_spectral_reverse = [];
+    dataset_params.is_aberrated = true;
     dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/NikonD5100ColorMapData.mat';
     dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/wavelengths.mat';
 elseif strcmp(name, '20180817_TestSpectralDataset')
@@ -202,6 +214,7 @@ elseif strcmp(name, '20180817_TestSpectralDataset')
     dataset_params.dispersion_rgb_forward = [];
     dataset_params.dispersion_rgb_reverse = [];
     dataset_params.dispersion_spectral_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/BimaterialImagesData.mat';
+    dataset_params.is_aberrated = false;
     dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/NikonD5100ColorMapData.mat';
     dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/BimaterialImagesData.mat';
     dataset_params.evaluation = struct(...
@@ -235,6 +248,7 @@ elseif strcmp(name, 'kaist-crop')
     dataset_params.dispersion_rgb_forward = [];
     dataset_params.dispersion_rgb_reverse = [];
     dataset_params.dispersion_spectral_reverse = [];
+    dataset_params.is_aberrated = true;
     dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/NikonD5100ColorMapData.mat';
     dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/wavelengths.mat';
     dataset_params.evaluation = struct(...
@@ -288,6 +302,7 @@ elseif strcmp(name, 'choi-test')
     dataset_params.dispersion_rgb_forward = [];
     dataset_params.dispersion_rgb_reverse = [];
     dataset_params.dispersion_spectral_reverse = [];
+    dataset_params.is_aberrated = true;
     dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/NikonD5100ColorMapData.mat';
     dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/Original/BimaterialImagesData.mat';
     dataset_params.evaluation = struct(...
@@ -343,6 +358,7 @@ elseif strcmp(name, '20181212_RealData_spectralAsRAW')
     dataset_params.dispersion_rgb_forward = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dispersion/RAWDiskDispersionResults_RGB_spline_fromReference.mat';
     dataset_params.dispersion_rgb_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dispersion/RAWDiskDispersionResults_RGB_spline_fromNonReference.mat';
     dataset_params.dispersion_spectral_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dispersion/RAWDiskDispersionResults_spectral_spline_fromNonReference.mat';
+    dataset_params.is_aberrated = true;
     dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dataset/sensor.mat';
     dataset_params.fix_bands = true;
     dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dataset/sensor.mat';
@@ -368,6 +384,7 @@ elseif strcmp(name, '20181212_RealData_RGBAsRAW')
     dataset_params.dispersion_rgb_forward = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dispersion/RAWDiskDispersionResults_RGB_spline_fromReference.mat';
     dataset_params.dispersion_rgb_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dispersion/RAWDiskDispersionResults_RGB_spline_fromNonReference.mat';
     dataset_params.dispersion_spectral_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dispersion/RAWDiskDispersionResults_spectral_spline_fromNonReference.mat';
+    dataset_params.is_aberrated = true;
     dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dataset/SonyColorMapData.mat';
     dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dataset/sensor.mat';
     dataset_params.evaluation = struct(...

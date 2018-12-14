@@ -30,12 +30,17 @@ elseif has_color_map
 end
 
 if has_spectral && has_color_map
+    if dp.is_aberrated
+        df_spectral_reverse_imageFormation = [];
+    else
+        df_spectral_reverse_imageFormation = df_spectral_reverse;
+    end
     [...
         I_rgb_gt_simulated, I_rgb_gt_warped, I_raw_gt_simulated,...
         I_spectral_gt_warped...
     ] = imageFormation(...
         I_spectral_gt, color_weights_reference, imageFormationOptions,...
-        df_spectral_reverse, bands_spectral, bayer_pattern...
+        df_spectral_reverse_imageFormation, bands_spectral, bayer_pattern...
     );
 else
     I_rgb_gt_warped = [];
@@ -104,7 +109,7 @@ if has_raw
     end
 else
     if has_rgb
-        if has_dispersion_rgb
+        if has_dispersion_rgb && ~dp.is_aberrated
             if verbose
                 fprintf('[image %d] Calculating the reverse colour dispersion matrix...\n', i);
             end
