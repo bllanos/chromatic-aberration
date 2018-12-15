@@ -74,7 +74,7 @@ rows = repelem((1:n_px_c_nonzero).', n_offsets);
 % Each element of the forward difference gradient is calculated from two
 % colour channel values
 channel_indices = repmat(offsets, n_px_c_nonzero, 1) +...
-    repelem((1:c_nonzero).', n_px * n_offsets);
+    reshape(repelem((1:c_nonzero).', n_px * n_offsets), [], 1);
 
 % Convert to linear indices
 columns = repmat(repelem((1:n_px).', n_offsets), c_nonzero, 1) +...

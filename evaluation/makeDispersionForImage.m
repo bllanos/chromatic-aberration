@@ -2,13 +2,13 @@ function [dispersionfun, varargout] = makeDispersionForImage(dispersion_data, va
 % MAKEDISPERSIONFORIMAGE Create an image-specific dispersion model
 %
 % ## Syntax
-% dispersionfun = makeDispersionForImage(dispersion_data [, I, transform_data])
-% [dispersionfun, I_roi] = makeDispersionForImage(dispersion_data, I, transform_data)
+% dispersionfun = makeDispersionForImage(dispersion_data [, I, transform_data, for_raw])
+% [dispersionfun, I_roi] = makeDispersionForImage(dispersion_data, I, transform_data [, for_raw])
 %
 % ## Description
-% dispersionfun = makeDispersionForImage(dispersion_data [, I, transform_data])
+% dispersionfun = makeDispersionForImage(dispersion_data [, I, transform_data, for_raw])
 %   Returns a functional form of the dispersion model
-% [dispersionfun, I_roi] = makeDispersionForImage(dispersion_data, I, transform_data)
+% [dispersionfun, I_roi] = makeDispersionForImage(dispersion_data, I, transform_data [, for_raw])
 %   Additionally returns the portion of the image within the domain of the
 %   dispersion model
 %
@@ -26,6 +26,12 @@ function [dispersionfun, varargout] = makeDispersionForImage(dispersion_data, va
 % transform_data -- Spatial coordinate conversion information
 %   The `transform_data` output argument of 'loadDispersionModel()', used
 %   to create the input arguments for 'modelSpaceTransform()'.
+%
+% for_raw -- Flag for RAW images
+%   If `for_raw` is `true`, `I_roi` will be created such it has the same
+%   colour filter array pattern as `I`, and such that it is a valid colour
+%   filter array image (i.e. having even pixel dimensions). Defaults to
+%   `false` if not passed.
 %
 % ## Output Arguments
 %
@@ -51,7 +57,7 @@ function [dispersionfun, varargout] = makeDispersionForImage(dispersion_data, va
 % University of Alberta, Department of Computing Science
 % File created July 26, 2018
 
-narginchk(1, 3);
+narginchk(1, 4);
 
 if isempty(varargin)
     nargoutchk(1, 1);
@@ -61,10 +67,15 @@ else
     if length(varargin) < 2
         error('Either both the image `I` and the coordinate conversion data `transform_data` must be passed, or neither must be passed.');
     end
+    if length(varargin) > 2
+        for_raw = varargin{3};
+    else
+        for_raw = false;
+    end
     I = varargin{1};
     transform_data = varargin{2};
     [roi, T_roi] = modelSpaceTransform(...
-        [size(I, 1), size(I, 2)], transform_data.model_space, transform_data.fill...
+        [size(I, 1), size(I, 2)], transform_data.model_space, transform_data.fill, for_raw...
     );
     dispersionfun = makeDispersionfun(dispersion_data, T_roi);
     if nargout > 1

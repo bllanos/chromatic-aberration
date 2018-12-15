@@ -7,6 +7,16 @@
 % University of Alberta, Department of Computing Science
 % File created September 10, 2018
 
+% Make sure dispersion models give the same region of interest
+if has_dispersion_rgb
+    td_image = mergeDispersionModelROI(td_rgb_reverse, td_rgb_forward);
+end
+if has_dispersion_spectral && has_dispersion_rgb
+    td_image = mergeDispersionModelROI(td_spectral_reverse, td_image);
+elseif has_dispersion_spectral
+    td_image = td_spectral_reverse;
+end
+
 if has_spectral
     I_spectral_gt = loadImage(spectral_filenames{i}, dp.spectral_images_variable);
 
@@ -17,7 +27,7 @@ if has_spectral
 
     if has_dispersion_spectral
         [df_spectral_reverse, I_spectral_gt] = makeDispersionForImage(...
-            dd_spectral_reverse, I_spectral_gt, td_spectral_reverse...
+            dd_spectral_reverse, I_spectral_gt, td_image, true...
         );
     else
         df_spectral_reverse = [];
@@ -51,10 +61,10 @@ if has_rgb
     I_rgb_gt = loadImage(rgb_filenames{i}, dp.rgb_images_variable);
     if has_dispersion_rgb
         [df_rgb_reverse, I_rgb_gt] = makeDispersionForImage(...
-                dd_rgb_reverse, I_rgb_gt, td_rgb_reverse...
+                dd_rgb_reverse, I_rgb_gt, td_image, true...
             );
         df_rgb_forward = makeDispersionForImage(...
-                dd_rgb_forward, I_rgb_gt, td_rgb_forward...
+                dd_rgb_forward, I_rgb_gt, td_image, true...
             );
     else
         df_rgb_reverse = [];
@@ -89,13 +99,9 @@ if has_raw
 
     % Crop to the region of valid dispersion
     roi = [];
-    if has_spectral && has_dispersion_spectral
+    if has_dispersion_rgb || has_dispersion_spectral
         roi = modelSpaceTransform(...
-            [size(I_raw_gt, 1), size(I_raw_gt, 2)], td_spectral_reverse.model_space, td_spectral_reverse.fill...
-            );
-    elseif has_rgb && has_dispersion_rgb
-        roi = modelSpaceTransform(...
-            [size(I_raw_gt, 1), size(I_raw_gt, 2)], td_rgb_reverse.model_space, td_rgb_reverse.fill...
+            [size(I_raw_gt, 1), size(I_raw_gt, 2)], td_image.model_space, td_image.fill, true...
             );
     end
     if ~isempty(roi)

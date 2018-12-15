@@ -139,7 +139,7 @@ parameters_list = {
 
 %% Input data and parameters
 
-dataset_name = 'kaist-crop';
+dataset_name = '20181212_RealData_spectralAsRAW';
 
 % Describe algorithms to run
 run('SetAlgorithms.m')
@@ -148,7 +148,7 @@ run('SetAlgorithms.m')
 n_patches = 10;
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/Downloads';
+output_directory = '/home/llanos/Downloads/results';
 
 % Produce console output to describe the processing in this script
 verbose = true;

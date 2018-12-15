@@ -189,7 +189,7 @@ run('SetAlgorithms.m')
 admm_algorithms_filename = [];
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/Downloads';
+output_directory = '/home/llanos/Downloads/results';
 
 % Produce console output to describe the processing in this script
 verbose = true;

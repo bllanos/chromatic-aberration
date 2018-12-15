@@ -48,7 +48,7 @@ parameters_list = [parameters_list, {
 % enabled methods are run.
 criteria = [
     false; % Minimum distance criterion
-    true; % Similarity with the true image
+    false; % Similarity with the true image
     true % Similarity with a demosaicing result
     ];
 mdc_index = 1;
@@ -124,11 +124,11 @@ bayer_pattern = 'gbrg';
 % 'samplingWeights()' should not even be called.)
 samplingWeightsOptions.int_method = 'trap';
 
-samplingWeightsOptions.power_threshold = 0.99;
+samplingWeightsOptions.power_threshold = 0.95;
 % As an alternative to automatically determining the number of spectral
 % bands, according to `samplingWeightsOptions.power_threshold`, set it
 % explicitly (if the following option is an integer greater than zero).
-samplingWeightsOptions.n_bands = 24;
+samplingWeightsOptions.n_bands = 0;
 
 samplingWeightsOptions.support_threshold = 0.05;
 
@@ -258,6 +258,6 @@ solvePatchesMultiADMMOptions.reg_options = solvePatchesADMMOptions.reg_options;
 
 %% ## Debugging Flags
 
-samplingWeightsVerbose = false;
+samplingWeightsVerbose = true;
 solvePatchesADMMVerbose = true;
 solvePatchesMultiADMMVerbose = true;

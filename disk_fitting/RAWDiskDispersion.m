@@ -310,9 +310,9 @@ model_space.corners = [
     min(centers_unpacked(:, 1)), min(centers_unpacked(:, 2));
     max(centers_unpacked(:, 1)), max(centers_unpacked(:, 2))
     ];
-model_space.corners = max(model_space.corners, 1);
-model_space.corners(model_space.corners(:, 1) > image_size(2), 1) = image_size(2);
-model_space.corners(model_space.corners(:, 2) > image_size(1), 2) = image_size(1);
+model_space.corners = max(model_space.corners, 0.5);
+model_space.corners(model_space.corners(:, 1) > (image_size(2) - 0.5), 1) = (image_size(2) - 0.5);
+model_space.corners(model_space.corners(:, 2) > (image_size(1) - 0.5), 2) = (image_size(1) - 0.5);
 model_space.image_size = image_size;
 model_space.system = 'image';
 

@@ -2,15 +2,15 @@ function [roi, T_roi] = modelSpaceTransform(image_size, model_space, varargin)
 % MODELSPACETRANSFORM  Create a transformation from pixel to dispersion model coordinates
 %
 % ## Syntax
-% roi = modelSpaceTransform(image_size, model_space [, fill])
-% [roi, T_roi] = modelSpaceTransform(image_size, model_space [, fill])
+% roi = modelSpaceTransform(image_size, model_space [, fill, for_raw])
+% [roi, T_roi] = modelSpaceTransform(image_size, model_space [, fill, for_raw])
 %
 % ## Description
-% roi = modelSpaceTransform(image_size, model_space [, fill])
+% roi = modelSpaceTransform(image_size, model_space [, fill, for_raw])
 %   Returns a region in the image corresponding to the valid range of the
 %   dispersion model.
 %
-% [roi, T_roi] = modelSpaceTransform(image_size, model_space [, fill])
+% [roi, T_roi] = modelSpaceTransform(image_size, model_space [, fill, for_raw])
 %   Additionally returns a transformation matrix for converting image pixel
 %   coordinates within the region to the coordinate space of the dispersion
 %   model.
@@ -48,6 +48,15 @@ function [roi, T_roi] = modelSpaceTransform(image_size, model_space, varargin)
 %
 %   Defaults to `false` if not passed.
 %
+% for_raw -- Flag for RAW images
+%   If `for_raw` is `true`, `roi` will be created such that the colour
+%   filter array pattern of the cropped image is the same as the colour
+%   filter array pattern of the full image, and so such that the cropped
+%   image is a valid colour filter array image (i.e. having even pixel
+%   dimensions).
+%
+%   Defaults to `false` if not passed.
+%
 % ## Output Arguments
 %
 % roi -- Model domain in image subscripts
@@ -68,7 +77,7 @@ function [roi, T_roi] = modelSpaceTransform(image_size, model_space, varargin)
 % T_roi -- Coordinate transformation
 %   A 3 x 3 transformation matrix for converting pixel coordinates to model
 %   space coordinates. The homogenous vector `[x; y; 1]`, with 'x' and 'y'
-%   in pixel coordinates, maps to the homogenous vector `T * [x; y; 1]` in
+%   in pixel coordinates, maps to the homogenous vector `T_roi * [x; y; 1]` in
 %   the coordinate space of the dispersion model. 'x' and 'y' are relative
 %   to the sub-image defined by `roi`. For instance, the point `T * [0.5,
 %   0.5, 1]` is the transformation of the pixel at the top left of the
@@ -87,11 +96,15 @@ function [roi, T_roi] = modelSpaceTransform(image_size, model_space, varargin)
 % File created July 1, 2018
 
 nargoutchk(1, 2);
-narginchk(2, 3);
+narginchk(2, 4);
 
 fill = false;
+for_raw = false;
 if ~isempty(varargin)
     fill = varargin{1};
+    if length(varargin) > 1
+        for_raw = varargin{2};
+    end
 end
 
 if strcmp(model_space.system, 'image')
@@ -155,6 +168,33 @@ else
     end
     
     roi = round(roi + 0.5); % Convert from pixel coordinates to pixel indices
+    
+    if for_raw
+        % The following code assumes that the region of interest is at
+        % least 4 pixels by 4 pixels.
+        if mod(roi(3), 2) ~= 1
+            T_roi = T_roi * [
+                1, 0, 1;
+                0, 1, 0;
+                0, 0, 1
+            ];
+            roi(3) = roi(3) + 1;
+        end
+        if mod(roi(1), 2) ~= 1
+            T_roi = T_roi * [
+                1, 0, 0;
+                0, 1, 1;
+                0, 0, 1
+            ];
+            roi(1) = roi(1) + 1;
+        end
+        if mod(roi(2) - roi(1), 2) ~= 1
+            roi(2) = roi(2) - 1;
+        end
+        if mod(roi(4) - roi(3), 2) ~= 1
+            roi(4) = roi(4) - 1;
+        end
+    end
 end
 
 end
