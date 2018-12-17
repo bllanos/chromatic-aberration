@@ -25,10 +25,10 @@
 % Disk radius in millimetres
 % Unfortunately, 'diskImagePrint()' seems to produce disks which are
 % slightly smaller than specified here.
-disk_radius = 4;
+disk_radius = 2;
 
 % Disk separation in millimetres
-disk_separation = 11;
+disk_separation = 8;
 
 % Output Directory
 output_directory = '/home/llanos/Downloads';
@@ -36,7 +36,7 @@ output_directory = '/home/llanos/Downloads';
 % ## Printing parameters
 
 % Paper size (width, height), in inches
-paper_size_inches = [8.5, 11];
+paper_size_inches = [18, 28];
 
 % Paper orientation
 paper_orientation = 'landscape';
@@ -44,7 +44,7 @@ paper_orientation = 'landscape';
 % Image size on page (width, height), in inches, independent of how the
 % paper is oriented (portrait or landscape). (Allow at least 0.25 inches on
 % all sides)
-image_size = [11 8.5] - 0.25 * 2;
+image_size = [28, 18] - 0.25 * 2;
 
 % Filename Suffix
 filename_suffix = '_print';
@@ -67,7 +67,7 @@ fg_disks_white = diskImagePrint(...
 
 %% Save images
 
-extension = [filename_suffix '.pdf'];
+extension = [filename_suffix '.eps'];
 
 param_str = [
     '_', num2str(image_size(1)), 'x', num2str(image_size(2))
