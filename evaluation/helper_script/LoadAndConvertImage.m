@@ -19,6 +19,7 @@ end
 
 if has_spectral
     I_spectral_gt = loadImage(spectral_filenames{i}, dp.spectral_images_variable);
+    image_sampling_full = [size(I_spectral_gt, 1), size(I_spectral_gt, 2)];
 
     % Convert to radiance images, if required
     if dp.spectral_reflectances
@@ -59,6 +60,15 @@ end
 
 if has_rgb
     I_rgb_gt = loadImage(rgb_filenames{i}, dp.rgb_images_variable);
+    if has_spectral
+        if any([size(I_rgb_gt, 1), size(I_rgb_gt, 2)] ~= image_sampling_full)
+            error('The colour version of %s has different spatial dimensions from its spectral version.',...
+                names{i}...
+            );
+        end
+    else
+        image_sampling_full = [size(I_rgb_gt, 1), size(I_rgb_gt, 2)];
+    end
     if has_dispersion_rgb
         [df_rgb_reverse, I_rgb_gt] = makeDispersionForImage(...
                 dd_rgb_reverse, I_rgb_gt, td_image, true...
@@ -70,13 +80,7 @@ if has_rgb
         df_rgb_reverse = [];
         df_rgb_forward = [];
     end
-    if has_spectral
-        if any([size(I_rgb_gt, 1), size(I_rgb_gt, 2)] ~= image_sampling)
-            error('The colour version of %s has different spatial dimensions from its spectral version.',...
-                names{i}...
-            );
-        end
-    else
+    if ~has_spectral
         image_sampling = [size(I_rgb_gt, 1), size(I_rgb_gt, 2)];
     end
 elseif has_spectral && has_color_map
@@ -96,22 +100,71 @@ if has_raw
     if ~ismatrix(I_raw_gt)
         error('Expected a RAW image, represented as a 2D array, not a higher-dimensional array.');
     end
-
-    % Crop to the region of valid dispersion
-    roi = [];
-    if has_dispersion_rgb || has_dispersion_spectral
-        roi = modelSpaceTransform(...
-            [size(I_raw_gt, 1), size(I_raw_gt, 2)], td_image.model_space, td_image.fill, true...
-            );
-    end
-    if ~isempty(roi)
-        I_raw_gt = I_raw_gt(roi(1):roi(2), roi(3):roi(4), :);
-    end
-
-    if any([size(I_raw_gt, 1), size(I_raw_gt, 2)] ~= image_sampling)
+    if any([size(I_raw_gt, 1), size(I_raw_gt, 2)] ~= image_sampling_full)
         error('The RAW version of %s has different spatial dimensions from its other versions.',...
             names{i}...
             );
+    end
+end
+
+% Convert image evaluation patches and lines to the new coordinate system
+roi = [];
+if has_dispersion_rgb || has_dispersion_spectral
+    roi = modelSpaceTransform(...
+        image_sampling_full, td_image.model_space, td_image.fill, true...
+        );
+    if isfield(dp.evaluation.custom_spectral, names{i})
+        eval_options = dp.evaluation.custom_spectral.(names{i});
+        if isfield(eval_options, 'radiance')
+            eval_options_radiance = eval_options.radiance;
+            eval_options_radiance(:, 1) = eval_options_radiance(:, 1) - roi(3) + 1;
+            eval_options_radiance(:, 2) = eval_options_radiance(:, 2) - roi(1) + 1;
+            if any(...
+                    (eval_options_radiance(:, 1) < 1) | ...
+                    (eval_options_radiance(:, 1) > image_sampling(2)) | ...
+                    (eval_options_radiance(:, 2) < 1) | ...
+                    (eval_options_radiance(:, 2) > image_sampling(1))...
+                )
+                error('The evaluation patches for image %s are outside the region of valid dispersion.',...
+                    names{i}...
+                    );
+            end
+            dp.evaluation.custom_spectral.(names{i}).radiance = eval_options_radiance;
+        end
+        if isfield(eval_options, 'scanlines')
+            eval_options_scanlines = eval_options.scanlines;
+            eval_options_scanlines(:, [1 3]) = eval_options_scanlines(:, [1 3]) - roi(3) + 1;
+            eval_options_scanlines(:, [2 4]) = eval_options_scanlines(:, [2 4]) - roi(1) + 1;
+            if any(any(eval_options_scanlines < 1)) || any(any(...
+                    (eval_options_scanlines(:, [1 3]) > image_sampling(2)) |...
+                    (eval_options_scanlines(:, [2 4]) > image_sampling(1))...
+                    ))
+                error('The evaluation lines for image %s are outside the region of valid dispersion.',...
+                    names{i}...
+                    );
+            end
+            dp.evaluation.custom_spectral.(names{i}).scanlines = eval_options_scanlines;
+        end
+        if isfield(eval_options, 'reference_patch')
+            reference_patch = eval_options.reference_patch;
+            reference_patch(1) = reference_patch(1) - roi(3) + 1;
+            reference_patch(2) = reference_patch(2) - roi(1) + 1;
+            if any(reference_patch(:, 1:2) < 1) || ...
+               (reference_patch(1) > image_sampling(2)) || ...
+               (reference_patch(2) > image_sampling(1))
+                error('The reference patch for image %s is outside the region of valid dispersion.',...
+                    names{i}...
+                    );
+            end
+            dp.evaluation.custom_spectral.(names{i}).reference_patch = reference_patch;
+        end
+    end
+end
+
+if has_raw
+    % Crop to the region of valid dispersion
+    if ~isempty(roi)
+        I_raw_gt = I_raw_gt(roi(1):roi(2), roi(3):roi(4), :);
     end
 else
     if has_rgb

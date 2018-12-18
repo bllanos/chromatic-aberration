@@ -106,9 +106,9 @@ function [dataset_params] = describeDataset(name)
 %     - 'global_spectral': A structure of the form of the `options` input
 %       argument of 'evaluateSpectral()', describing default evaluation
 %       options for all spectral images. Fields for storing figure handles
-%       should not be included. The fields 'plot_*' should also be
-%       omitted. 'global_spectral' is needed only for datasets with
-%       spectral images.
+%       should not be included. The fields 'plot_*', 'radiance',
+%       'scanlines', and 'reference_patch' should also be omitted.
+%       'global_spectral' is needed only for datasets with spectral images.
 %     - 'custom_spectral': A structure, where the value of each field is
 %       of the form of the `options` input argument of
 %       'evaluateSpectral()', and describes custom evaluation options for a

@@ -139,7 +139,7 @@ parameters_list = {
 
 %% Input data and parameters
 
-dataset_name = '20181212_RealData_spectralAsRAW';
+dataset_name = '20181212_RealData_RGBAsRAW';
 
 % Describe algorithms to run
 run('SetAlgorithms.m')
@@ -612,6 +612,7 @@ for f = 1:n_admm_algorithms
                 algorithm.name...
             ));
         end
+        legend(criteria_abbrev{criteria});
         savefig(...
             fg,...
             [name_params_t 'weightsCorrelation.fig'], 'compact'...
@@ -661,7 +662,7 @@ for f = 1:n_admm_algorithms
             ylim(plot_limits)
             xlabel(sprintf('log_{10}(Penalty %d)', aw))
             ylabel(sprintf('log_{10}(Weight %d)', aw))
-            
+            legend(criteria_abbrev{criteria});
             savefig(...
                 fg,...
                 [name_params_t sprintf('weight%d.fig', aw)], 'compact'...

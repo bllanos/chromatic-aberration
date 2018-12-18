@@ -39,7 +39,9 @@
 %   domain of the model of dispersion associated with the dataset. If no
 %   model of dispersion is associated with the dataset, the cropped region
 %   is the entire input image. All of the other output images listed below
-%   are limited to the region shown in this output image.
+%   are limited to the region shown in this output image. Note that this
+%   image is normalized by its maximum value - It is intended for viewing,
+%   not for quantitative analysis.
 % - '*_latent.mat': The estimated latent spectral image (stored in the
 %   variable 'I_latent') corresponding to the input image.
 % - '*_rgb.tif': A colour image. If it was not estimated directly, it was
@@ -178,7 +180,7 @@ parameters_list = {
 
 %% Input data and parameters
 
-dataset_name = 'choi-test';
+dataset_name = '20181212_RealData_spectralAsRAW';
 
 % Describe algorithms to run
 run('SetAlgorithms.m')
@@ -186,10 +188,10 @@ run('SetAlgorithms.m')
 % Optionally override the list of ADMM-family algorithms to run, and the
 % regularization weights to run them with, from the output file of
 % 'SelectWeightsForDataset.m'. (Leave empty otherwise)
-admm_algorithms_filename = [];
+admm_algorithms_filename = '/home/llanos/Downloads/results/SelectWeightsForDataset_20181212_RealData_spectralAsRAW.mat';
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/Downloads/results';
+output_directory = '/home/llanos/Downloads/results/RunOnDataset';
 
 % Produce console output to describe the processing in this script
 verbose = true;
@@ -267,7 +269,7 @@ for i = 1:n_images
         
     saveImages(...
         'image', output_directory, names{i},...
-        I_raw_gt, '_roi', 'I_raw'...
+        I_raw_gt ./ max(I_raw_gt(:)), '_roi', 'I_raw'...
     );
     
     % Compare the aberrated image to the original
@@ -453,7 +455,7 @@ for i = 1:n_images
                 n_active_weights = sum(enabled_weights);
                 to_all_weights = find(enabled_weights);
             else
-                weights_filepart = ['_', criteria_abbrev{cr} 'Fixedweights_'];
+                weights_filepart = ['_', criteria_abbrev{cr} 'fw_'];
                 name_params = [name_params, weights_filepart];
                 alg_name_params = [alg_name_params, sprintf(', %s fixed weights', criteria_abbrev{cr})];
             end
@@ -581,13 +583,13 @@ for i = 1:n_images
                                 fullfile(output_directory, [name_params, 'multiStep_evaluateSpectral_ab.csv'])...
                             );
                         end
-                        name_step = [name_params, 'multiStep'];
+                        name_step = [name_params, 'MS'];
                         dp.evaluation.custom_spectral.(name_step) = dp.evaluation.custom_spectral.(names{i});
                         evaluateAndSaveSpectral(...
                             output_directory, dp, name_step, step_name_params_tables, fg_spectral_step...
                         );
                         if evaluate_aberrated_spectral
-                            name_step_ab = [name_params, 'multiStep_ab'];
+                            name_step_ab = [name_params, 'MSab'];
                             dp.evaluation.custom_spectral.(name_step_ab) = dp.evaluation.custom_spectral.(names{i});
                             evaluateAndSaveSpectral(...
                                 output_directory, dp, name_step_ab, step_name_params_tables, fg_spectral_step_ab...
