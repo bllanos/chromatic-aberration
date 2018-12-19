@@ -36,7 +36,7 @@ if limit_freq * 2 * pi ~= limit_rad
     error('`limit_freq` and `limit_rad` are inconsistent');
 end
 
-%% Test 'spectralWeights()'
+%% Test 'samplingWeights()'
 
 options.int_method = 'trap';
 options.power_threshold = 0.99;
@@ -44,6 +44,7 @@ options.n_bands = 0;
 options.support_threshold = 0.05;
 options.bands_padding = 1000;
 options.interpolant = @normpdf;
+options.interpolant_ref = @triangle;
 
 % Create colour channel sensitivities
 n_color_bands = 50;
@@ -186,7 +187,9 @@ for i = 1:n_signals
 end
 
 %% Repeat,
-% but testing the case where the spectral signals have lower sampling frequencies than the colour channels
+% but testing the case where the spectral signals have lower sampling
+% frequencies than the colour channels.
+% Also test downsampling
 
 % Create colour channel sensitivities
 n_color_bands = 1000;
@@ -200,19 +203,19 @@ color_map = [
     ];
 
 options.int_method = 'trap';
-options.power_threshold = 0.0;
+options.power_threshold = 0.99;
 options.n_bands = 0;
 options.support_threshold = 0.05;
 options.bands_padding = 1000;
 
 % Create reference spectral signals
-n_spectral_bands = [200, 80];
+n_spectral_bands = [20, 80];
 spectral_bands = {
     linspace(0, 1, n_spectral_bands(1));
     linspace(0.5, 1.5, n_spectral_bands(2))
     };
 spectral_signals = {
-    sin(spectral_bands{1});
+    ones(1, length(spectral_bands{1}));
     exp(spectral_bands{2})
 };
 spectral_bands_spacing = [
@@ -262,10 +265,17 @@ for i = 1:n_signals
 end
 
 [...
-  ~, ~, ~, color_weights_reference...
+  ~, spectral_weights, bands, color_weights_reference...
 ] = samplingWeights(...
   color_map, color_bands, spectral_bands, options, verbose...
 );
+
+% Construct signals on the output bands
+n_bands = length(bands);
+trial_signals = {
+    sin(1:n_bands) + 1;
+    exp(bands)
+};
 
 % Evaluate results
 for i = 1:n_signals
@@ -273,6 +283,16 @@ for i = 1:n_signals
    disp(colors{i});
    disp('actual:');
    disp(color_weights_reference{i} * reshape(spectral_signals{i}, [], 1));
+end
+
+for i = 1:n_signals
+    figure;
+    hold on
+    plot(spectral_bands{i}, spectral_signals{i}, 'k');
+    plot(bands, trial_signals{i}, 'or');
+    plot(spectral_bands{i}, spectral_weights{i} * reshape(trial_signals{i}, [], 1), '-g');
+    hold off
+    legend('True signal', 'Sampled signal', 'Reconstructed signal');
 end
 
 %% Repeat,

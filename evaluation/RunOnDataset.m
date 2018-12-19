@@ -180,7 +180,7 @@ parameters_list = {
 
 %% Input data and parameters
 
-dataset_name = '20181212_RealData_spectralAsRAW';
+dataset_name = '20181212_RealData_RGBAsRAW';
 
 % Describe algorithms to run
 run('SetAlgorithms.m')
@@ -188,7 +188,7 @@ run('SetAlgorithms.m')
 % Optionally override the list of ADMM-family algorithms to run, and the
 % regularization weights to run them with, from the output file of
 % 'SelectWeightsForDataset.m'. (Leave empty otherwise)
-admm_algorithms_filename = '/home/llanos/Downloads/results/SelectWeightsForDataset_20181212_RealData_spectralAsRAW.mat';
+admm_algorithms_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/results/rgb_raw_images/weights_selection/SelectWeightsForDataset_20181212_RealData_RGBAsRAW.mat';
 
 % Output directory for all images and saved parameters
 output_directory = '/home/llanos/Downloads/results/RunOnDataset';

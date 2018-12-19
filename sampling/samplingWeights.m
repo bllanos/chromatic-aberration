@@ -220,10 +220,13 @@ function [...
 % data, `color_weights`.
 %
 % ## Notes
-% - This function requires that `bands` will end up defining a sampling no
-%   finer than (the cells of) `spectral_bands`, such that there is no need
+% - Preferably, `bands` will end up defining a sampling no finer than (the
+%   cells of) `spectral_bands`, such that there is no need
 %   to eliminate high frequency information before resampling data defined
-%   in the space of `bands` to the space of `spectral_bands`.
+%   in the space of `bands` to the space of `spectral_bands`. When this is
+%   not the case, this function applies a sinc() filter to eliminate
+%   frequencies above the Nyquist limit of `spectral_bands`, to prevent
+%   aliasing during downsampling.
 % - This function does not require that `color_bands` defines a sampling
 %   at least as fine as `spectral_bands`, because it can implicitly
 %   resample `color_bands` when computing `color_weights_reference`.
@@ -268,8 +271,8 @@ end
 output_reference_weights = nargout > 3;
 
 padding = options.bands_padding;
-if padding < 0
-    error('`options.bands_padding` must be nonnegative.');
+if padding < 0 || padding ~= round(padding)
+    error('`options.bands_padding` must be a nonnegative integer.');
 end
 
 use_power_threshold = true;
@@ -338,17 +341,26 @@ if verbose
 end
 
 % Find bandlimit, and construct bands
+match_bands = false;
 if ~use_power_threshold
     n_bands = options.n_bands;
     bands_spacing = (end_domain - start_domain) / (n_bands - 1);
 else
-    freq = bandlimit(color_map, options.power_threshold, verbose); % Units of cycles per index
-    freq_wavelengths = freq / color_bands_spacing; % Units of cycles per unit change in wavelength
-    bands_spacing = 1 / (2 * freq_wavelengths); % Nyquist limit sample spacing
-    n_bands = floor((end_domain - start_domain) / bands_spacing) + 1;
+    if start_domain_ind == 1 && end_domain_ind == n_color_bands && options.power_threshold == 1
+        bands_spacing = color_bands_spacing;
+        n_bands = n_color_bands;
+        match_bands = true;
+    else
+        freq = bandlimit(color_map, options.power_threshold, verbose); % Units of cycles per index
+        freq_wavelengths = freq / color_bands_spacing; % Units of cycles per unit change in wavelength
+        bands_spacing = 1 / (2 * freq_wavelengths); % Nyquist limit sample spacing
+        n_bands = floor((end_domain - start_domain) / bands_spacing) + 1;
+    end
 end
 % Center the bands within the domain
-if n_bands > 1
+if match_bands
+    bands = color_bands;
+elseif n_bands > 1
     bands_range = (n_bands - 1) * bands_spacing;
     start_band = (end_domain + start_domain - bands_range) / 2;
     bands = start_band + (bands_spacing * (0:(n_bands - 1)));
@@ -361,19 +373,6 @@ if verbose
     hold on
     scatter(bands, zeros(n_bands, 1), [], [1, 0, 1], 'filled');
     hold off
-end
-
-for i = 1:n_cells
-    if spectral_bands_spacing(i) > bands_spacing &&...
-            ~(length(spectral_bands{i}) == length(bands) && all(spectral_bands{i} == bands))
-        if is_cell_spectral_bands
-            error(['The spacing of `spectral_bands{%d}` is greater than that of `bands`',...
-                ', so `spectral_weights{%d}` cannot be computed without aliasing.'], i, i);
-        else
-            error(['The spacing of `spectral_bands` is greater than that of `bands`',...
-                ', so `spectral_weights` cannot be computed without aliasing.']);
-        end
-    end
 end
 
 % Construct a colour conversion matrix
@@ -397,9 +396,45 @@ end
 % Construct a spectral upsampling matrix
 spectral_weights = cell(size(spectral_bands));
 for i = 1:n_cells
-    spectral_weights{i} = upsamplingWeights(...
-        spectral_bands{i}, bands, options.interpolant, padding...
-    );
+    if spectral_bands_spacing(i) > bands_spacing &&...
+            ~(length(spectral_bands{i}) == length(bands) && all(spectral_bands{i} == bands))
+        % Downsampling will occur. Therefore, perform the interpolation
+        % first, then apply a low-pass filter to downsample without
+        % aliasing.
+        interpolation_weights = upsamplingWeights(...
+            bands, bands, options.interpolant, padding...
+        );
+    
+        if length(bands) == 1
+            downsampling_weights = ones(length(spectral_bands{i}), 1);
+        else
+            bands_padded = [
+                (bands(1) - (padding * bands_spacing)):bands_spacing:(bands(1) - bands_spacing),...
+                bands,...
+                (bands(end) + bands_spacing):bands_spacing:(bands(end) + (padding * bands_spacing))
+                ];
+            [dst_grid, bands_grid] = ndgrid(spectral_bands{i}, bands_padded);
+            downsampling_weights = sinc((dst_grid - bands_grid) / spectral_bands_spacing(i));
+            % Adjust the weights of the endpoints so that downsampling assumes the
+            % value of the signal outside of its domain is equal to its value at
+            % the nearest endpoint of its domain
+            downsampling_weights = [
+                sum(downsampling_weights(:, 1:(padding + 1)), 2),...
+                downsampling_weights(:, (padding + 2):(end - padding - 1)),...
+                sum(downsampling_weights(:, (end - padding):end), 2)
+                ];
+
+            % Renormalize
+            sum_weights = sum(downsampling_weights, 2);
+            sum_weights(sum_weights == 0) = 1;
+            downsampling_weights = downsampling_weights ./ repmat(sum_weights, 1, length(bands));
+        end
+        spectral_weights{i} = downsampling_weights * interpolation_weights;
+    else
+        spectral_weights{i} = upsamplingWeights(...
+            spectral_bands{i}, bands, options.interpolant, padding...
+        );
+    end
 end
 if ~is_cell_spectral_bands
     spectral_weights = spectral_weights{1};

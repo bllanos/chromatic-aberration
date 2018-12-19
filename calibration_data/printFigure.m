@@ -6,7 +6,7 @@ function printFigure( filename, sz_paper, varargin )
 %
 % ## Description
 % printFigure( filename, sz_paper [, orientation, sz_figure, fg] )
-%   Saves a PDF of the figure to the given filename, with the given paper
+%   Saves a print of the figure to the given filename, with the given paper
 %   size and printing options.
 %
 % ## Input Arguments
@@ -40,6 +40,11 @@ function printFigure( filename, sz_paper, varargin )
 % ## Notes
 % - The figure will be anchored at the bottom left of the page.
 % - The output resolution is 600 dpi.
+% - In the past, this function was used to generate PDF files, but the PDF
+%   generator failed for large image sizes. While the EPS generator works
+%   more reliably, the output files do not have margins once converted to
+%   PDF. Therefore, the paper and figure sizes should be set to the same
+%   values, as the paper size seems to be irrelevant.
 % - Use the `epstopdf` program that comes with a LaTeX distribution to
 %   convert the Encapsulated PostScript file to a PDF.
 % - Use the `pdfcrop` program that comes with a LaTeX distribution to
