@@ -74,10 +74,7 @@ function [ bands, I_3D, varargout ] = solvePatchesMultiADMM(...
 %     same sizes in their first two dimensions. (i.e. They must have the
 %     same image resolutions.)
 %   - 'spectral_bands': A vector containing the wavelengths corresponding
-%     to the third dimension of 'I'. Note that 'I' must have at least as
-%     fine a spectral sampling as the estimated image, otherwise an error
-%     will be thrown, because downsampling in the spectral domain has not
-%     yet been implemented in 'samplingWeights()'.
+%     to the third dimension of 'I'.
 %
 % J -- Input RAW image
 %   A 2D array containing the raw colour-filter pattern data of an image,
@@ -122,27 +119,27 @@ function [ bands, I_3D, varargout ] = solvePatchesMultiADMM(...
 %
 % sampling_options -- Spectral sampling options
 %   `sampling_options` is a structure with the following fields used by
-%   'samplingWeights()':
+%   'findSampling()':
 %   - 'int_method': The numerical integration method to use when
 %     integrating over the responses of colour channels to compute colour
 %     values. `int_method` is passed to `integrationWeights()` as its
 %     `method` input argument.
-%   - 'power_threshold': An option used by 'samplingWeights()' to select
+%   - 'power_threshold': An option used by 'findSampling()' to select
 %     spectral sampling points.
-%   - 'n_bands': An option used by 'samplingWeights()' to select
+%   - 'n_bands': An option used by 'findSampling()' to select
 %     spectral sampling points.
 %   - 'support_threshold': A fraction indicating what proportion of the
 %     peak magnitude of a colour channel's sensitivity function the user
 %     considers to be effectively zero (i.e. no sensitivity).
-%   - 'bands_padding': An option used by 'samplingWeights()' to control how
+%   - 'bands_padding': An option used by 'findSampling()' to control how
 %     spectral signals are extrapolated.
 %
 %   The following fields are in addition to those used by
-%   'samplingWeights()':
+%   'findSampling()':
 %   - 'progression': A character vector describing how to select the
 %     intermediate numbers of wavelengths at which to estimate the latent
 %     image. The final number of wavelengths, denoted by 'S' below, is
-%     determined by calling 'samplingWeights()' with the options given
+%     determined by calling 'findSampling()' with the options given
 %     above.
 %     - 'sequential': Use the following numbers of wavelengths: 1, 2, 3,
 %       ..., S.
@@ -509,13 +506,13 @@ end
 if input_I_in
     [...
       color_weights, spectral_weights_final, bands_final...
-    ] = samplingWeights(...
+    ] = findSampling(...
       color_map, color_bands, I_in.spectral_bands, sampling_options...
     );
 else
     [...
       color_weights, ~, bands_final...
-    ] = samplingWeights(color_map, color_bands, {}, sampling_options);
+    ] = findSampling(color_map, color_bands, {}, sampling_options);
 end
 n_bands_final = length(bands_final);
 if strcmp(sampling_options.progression, 'sequential')
@@ -553,17 +550,17 @@ for t = 1:(n_steps - 1)
     if input_I_in
         [...
           color_weights_all{t}, spectral_weights_all{t}, bands_all{t}...
-        ] = samplingWeights(...
+        ] = findSampling(...
           color_map, color_bands, I_in.spectral_bands, sampling_options...
         );
     else
         [...
           color_weights_all{t}, ~, bands_all{t}...
-        ] = samplingWeights(color_map, color_bands, {}, sampling_options);
+        ] = findSampling(color_map, color_bands, {}, sampling_options);
     end
 end
 for t = 1:(n_steps - 1)
-    upsampling_weights{t} = upsamplingWeights(...
+    upsampling_weights{t} = resamplingWeights(...
         bands_all{t + 1}, bands_all{t},...
         sampling_options.interpolant, sampling_options.bands_padding...
     );

@@ -239,7 +239,7 @@ function [e_spectral, varargout] = evaluateSpectral(...
 %     spectral reconstruction from RGB images," in The IEEE Conference on
 %     Computer Vision and Pattern Recognition (CVPR) Workshops, 2018.
 %
-% See also metrics, psnr, ssim, evaluateRGB, samplingWeights, plot
+% See also metrics, psnr, ssim, evaluateRGB, findSampling, plot
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang

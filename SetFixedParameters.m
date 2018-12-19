@@ -30,7 +30,7 @@ parameters_list = [parameters_list, {
     'criteria',...
     'save_all_images',...
     'bayer_pattern',...
-    'samplingWeightsOptions',...
+    'findSamplingOptions',...
     'patch_sizes',...
     'paddings',...
     'use_fixed_weights',...
@@ -115,24 +115,24 @@ bayer_pattern = 'gbrg';
 
 %% Spectral resampling parameters
 
-% Options for 'samplingWeights()'. Refer to the documentation of
-% 'samplingWeights.m' for more details.
+% Options for 'findSampling()'. Refer to the documentation of
+% 'findSampling.m' for more details.
 
 % Integration method to use for colour calculations. If the latent space
 % consists of wavelength bands, use this type of numerical integration in
-% 'integrationWeights()' within 'samplingWeights()'. (Otherwise,
-% 'samplingWeights()' should not even be called.)
-samplingWeightsOptions.int_method = 'trap';
+% 'integrationWeights()' within 'findSampling()'. (Otherwise,
+% 'findSampling()' should not even be called.)
+findSamplingOptions.int_method = 'trap';
 
-samplingWeightsOptions.power_threshold = 0.95;
+findSamplingOptions.power_threshold = 0.95;
 % As an alternative to automatically determining the number of spectral
-% bands, according to `samplingWeightsOptions.power_threshold`, set it
+% bands, according to `findSamplingOptions.power_threshold`, set it
 % explicitly (if the following option is an integer greater than zero).
-samplingWeightsOptions.n_bands = 0;
+findSamplingOptions.n_bands = 0;
 
-samplingWeightsOptions.support_threshold = 0.05;
+findSamplingOptions.support_threshold = 0.05;
 
-samplingWeightsOptions.bands_padding = 1000;
+findSamplingOptions.bands_padding = 1000;
 
 % Interpolation function for estimated spectral data:
 %
@@ -141,17 +141,17 @@ samplingWeightsOptions.bands_padding = 1000;
 % between samples in the sequence of samples being interpolated. The
 % interpolation function `f(x)` returns the weight for a sample at location
 % `x` relative to the current  interpolation location.
-samplingWeightsOptions.interpolant = @normpdf;
+findSamplingOptions.interpolant = @normpdf;
 
 % Interpolation function for other spectral data, such as sensor spectral
 % sensitivities or ground truth spectral radiances
-samplingWeightsOptions.interpolant_ref = @triangle;
+findSamplingOptions.interpolant_ref = @triangle;
 
 % Additional options for 'solvePatchesMultiADMM()'
-solvePatchesMultiADMMOptions.sampling_options = samplingWeightsOptions;
+solvePatchesMultiADMMOptions.sampling_options = findSamplingOptions;
 
 % How to choose spectral resolutions lower than the one given by
-% 'samplingWeights()' based on the above options.
+% 'findSampling()' based on the above options.
 solvePatchesMultiADMMOptions.sampling_options.progression = 'doubling';
 
 % Output the results for the lower spectral resolutions. CAUTION: Not
@@ -258,6 +258,6 @@ solvePatchesMultiADMMOptions.reg_options = solvePatchesADMMOptions.reg_options;
 
 %% ## Debugging Flags
 
-samplingWeightsVerbose = true;
+findSamplingVerbose = true;
 solvePatchesADMMVerbose = true;
 solvePatchesMultiADMMVerbose = true;

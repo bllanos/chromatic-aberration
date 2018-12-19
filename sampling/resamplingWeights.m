@@ -1,11 +1,11 @@
-function weights = upsamplingWeights(dst, src, f, padding)
-% UPSAMPLINGWEIGHTS Create an upsampling matrix operator
+function weights = resamplingWeights(dst, src, f, padding)
+% RESAMPLINGWEIGHTS Create a resampling matrix operator
 %
 % ## Syntax
-% weights = upsamplingWeights(dst, src, f, padding)
+% weights = resamplingWeights(dst, src, f, padding)
 %
 % ## Description
-% weights = upsamplingWeights(dst, src, f, padding)
+% weights = resamplingWeights(dst, src, f, padding)
 %   Returns a matrix mapping from the sampling space of `src` to `dst`.
 %
 % ## Input Arguments
@@ -16,11 +16,10 @@ function weights = upsamplingWeights(dst, src, f, padding)
 %
 % src -- Original sampling locations
 %   A vector containing the locations at which the signal is currently
-%   sampled. The values in `src` are expected to be evenly-spaced, and
-%   their spacing must be at least as large as that of the values in `dst`.
+%   sampled. The values in `src` are expected to be evenly-spaced.
 %
 % f -- Interpolation function
-%   A function handle used to perform the upsampling. `f(x)` must return
+%   A function handle used to perform the resampling. `f(x)` must return
 %   the weight of a sample at location `x`, given that the location of the
 %   new sample is at the origin (`x = 0`). Changes of one unit in `x`
 %   represent shifts by one sampling position in `src`. `f(x)` need not be
@@ -46,24 +45,31 @@ function weights = upsamplingWeights(dst, src, f, padding)
 %   mapping from the sampling space of `src` to the sampling space of
 %   `dst`. Given a column vector of the same length as `src`, `v`,
 %   representing a signal sampled at the locations in `src`, its upsampled
-%   version, sampled at the locations in `dst` is `u = weights * v`. `u(i)`
-%   is computed by convolution: "u(i) = sum_j (f(src(j) - dst(i) / (src(2)
-%   - src(1))) * v(j))", where `src` and `v` have been padded as described
-%   in the documentation of `padding` above. In the case where `src` and
-%   `dst` are the same, this function ignores `f` and assumes that
-%   `weights` should be the identity mapping.
+%   version, sampled at the locations in `dst`, is `u = weights * v`.
+%   `u(i)`. `u` is computed by convolution: "u(i) = sum_j (f(src(j) -
+%   dst(i) / (src(2) - src(1))) * v(j))", where `src` and `v` have been
+%   padded as described in the documentation of `padding` above.
+%
+%   If the sampling of `dst` is of lower frequency than the sampling of
+%   `src`, this function first performs the above computations, as in the
+%   call `weights_1 = resamplingWeights(src, src, f, padding)`, then
+%   computes a downsampling operator that filters out frequencies above the
+%   Nyquist limit of `dst` (to prevent aliasing). The final value of
+%   `weights` is the product of the downsampling operator with `weights_1`.
 %
 % ## Notes
 % - In the special case where `src` has only one element, `weights` will be
 %   a column vector of ones with the length of `dst`.
 % - In the special case where `src` and `dst` are identical, `weights` will
 %   be an identity matrix.
+% - If `src` has length one, its sampling frequency is undefined, so
+%   `weights` is set to a column vector of ones.
 %
 % ## References
 % - The code is loosely based on the "Ideal Bandlimited Interpolation"
 %   example in the MATLAB Help page for 'sinc()'.
 %
-% See also bandlimit, samplingWeights, sinc, interp1
+% See also bandlimit, findSampling, sinc, interp1
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -100,8 +106,14 @@ if max(abs(diff_src - src_spacing)) > 1e-6
 end
 
 if src_spacing < dst_spacing && ~(length(dst) == length(src) && all(dst == src))
-    error(['The spacing of the elements of `dst` is greater than that o'
-           'f `src`, so `weights` cannot be computed without aliasing']);
+    % Downsampling will occur. Therefore, perform the interpolation first,
+    % then apply a low-pass filter to downsample without aliasing.
+    interpolation_weights = resamplingWeights(src, src, f, padding);
+    f = @sinc; % Prefiltering function for downsampling
+    denom_spacing = dst_spacing;
+else
+    interpolation_weights = eye(length(src));
+    denom_spacing = src_spacing;
 end
 
 src_padded = [
@@ -110,7 +122,7 @@ src_padded = [
     (src(end) + src_spacing):src_spacing:(src(end) + (padding * src_spacing))
 ];
 [dst_grid, src_grid] = ndgrid(dst, src_padded);
-weights = f((dst_grid - src_grid) / src_spacing);
+weights = f((dst_grid - src_grid) / denom_spacing);
 % Adjust the weights of the endpoints so that upsampling assumes the
 % value of the signal outside of its domain is equal to its value at
 % the nearest endpoint of its domain
@@ -124,5 +136,7 @@ weights = [
 sum_weights = sum(weights, 2);
 sum_weights(sum_weights == 0) = 1;
 weights = weights ./ repmat(sum_weights, 1, length(src));
+
+weights = weights * interpolation_weights;
 
 end

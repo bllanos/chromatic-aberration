@@ -161,7 +161,7 @@ function varargout = chirpImage(image_sampling, max_freq, lambda, varargin)
 %   Goodman, J. W. (2005). Introduction to fourier optics (3rd ed.).
 %     Englewood, Colorado: Roberts & Company.
 %
-% See also samplingWeights, bandlimit, imageFormation, makeDispersionfun
+% See also findSampling, bandlimit, imageFormation, makeDispersionfun
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang

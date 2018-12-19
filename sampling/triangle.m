@@ -22,7 +22,7 @@ function w = triangle(x)
 %   that, when convolved with samples spaced by increments of one unit,
 %   this function performs linear interpolation of the samples.
 %
-% See also upsamplingWeights
+% See also resamplingWeights
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang

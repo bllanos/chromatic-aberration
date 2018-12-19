@@ -37,7 +37,7 @@ function [ Omega ] = channelConversionMatrix(image_sampling, sensitivity)
 %   `J` is a vectorized form of the image in the output colour space, with `c2`
 %   colour channels.
 %
-% See also samplingWeights, integrationWeights, sonyQuantumEfficiency
+% See also findSampling, integrationWeights, sonyQuantumEfficiency
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
