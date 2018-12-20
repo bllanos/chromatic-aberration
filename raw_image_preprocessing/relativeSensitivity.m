@@ -1,15 +1,20 @@
-function [ sensitivity ] = relativeSensitivity(...
+function [ sensitivity, bias ] = relativeSensitivity(...
     var_name, paths, range, align...
 )
 % RELATIVESENSITIVITY  Fit scaling factors between colour channels
 %
 % ## Syntax
 % sensitivity = relativeSensitivity(var_name, paths, range, align)
+% [sensitivity, bias] = relativeSensitivity(var_name, paths, range, align)
 %
 % ## Description
 % sensitivity = relativeSensitivity(var_name, paths, range, align)
 %   Load each group of images, and find scaling factors between colour channels
 %   in those images.
+%
+% [sensitivity, bias] = relativeSensitivity(var_name, paths, range, align)
+%   Additionally returns bias offsets to apply, to better convert other colour
+%   channels to the reference colour channel.
 %
 % ## Input Arguments
 %
@@ -46,6 +51,16 @@ function [ sensitivity ] = relativeSensitivity(...
 %   `sensitivity` corresponds to a cell of `paths`. In other words, a set of
 %   scaling factors is computed for each group of input images.
 %
+% bias -- Colour channel constant offsets
+%   A 3 x length(paths) matrix, containing bias offsets to use for better
+%   conversion between colour channels. To find the estimated value of the i-th
+%   colour channel corresponding to a pixel value, `px`, in the reference colour
+%   channel (Green), for the g-th group of images, apply the following formula:
+%     px * sensitivity(i, g) + bias(i, g)
+%
+%   `bias(2, :)` is a vector of zeros, because it corresponds to the reference
+%   channel.
+%
 % ## Notes
 % - All images are expected to be raw images (colour-filter array images
 %   stored as a single channel). The input images should be linearized and dark
@@ -71,7 +86,7 @@ function [ sensitivity ] = relativeSensitivity(...
 % University of Alberta, Department of Computing Science
 % File created December 19, 2018
 
-nargoutchk(1, 1)
+nargoutchk(1, 2)
 narginchk(4, 4)
 
 n_channels = 3; % RGB channels
@@ -82,6 +97,7 @@ other_channels = channel_indices(~reference_filter);
 n_other_channels = length(other_channels);
 n_groups = length(paths);
 sensitivity = ones(n_channels, n_groups);
+bias = zeros(n_channels, n_groups);
 
 offsets = [
     0, 1;
@@ -149,9 +165,11 @@ for g = 1:n_groups
     % Find per-channel conversion factors, from all pairs of good other
     % channel-reference channel pixels
     for c_ind = 1:n_other_channels
+        c = other_channels(c_ind);
         pixels_mat = cell2mat(pixels(:, c_ind));
-        component = pca(pixels_mat, 'NumComponents', 1);
-        sensitivity(other_channels(c_ind), g) = component(1) ./ component(end);
+        [component, ~, ~, ~, ~, mu] = pca(pixels_mat, 'NumComponents', 1);
+        sensitivity(c, g) = component(1) ./ component(end);
+        bias(c, g) = mu(1) - (sensitivity(c, g) * mu(2));
     end
 end
 

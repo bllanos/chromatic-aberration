@@ -47,6 +47,10 @@
 %   j-th wavelength (in the j-th spectral band), relative to the sensitivity of
 %   the Green channel. Consequently, `sensor_map_relative(2, :)` is a vector of
 %   ones.
+% - 'channel_bias': A 2D array with the same dimensions as
+%   'sensor_map_relative'. 'channel_bias' is the 'bias' output argument of
+%   'relativeSensitivity()', and provides corrections to conversions between
+%   colour channels computed using only 'sensor_map_relative'.
 % - 'sensor_map': A version of `sensor_map_relative` that has been normalized
 %   so that the Green channel value resulting from a spectral image with an
 %   intensity of one in all bands is one.
@@ -144,7 +148,7 @@
 %   image could be set to an interpolated version of the most well-exposed
 %   colour channel for that spectral band. Unfortunately, this new approach
 %   would introduce error from demosaicing.
-% - Input images are clipped to zero when generating output images.
+% - Output images are clipped to zero.
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -214,7 +218,7 @@ end
 
 n_channels_rgb = 3;
 channel_mode = false;
-sensor_map_relative = relativeSensitivity(...
+[sensor_map_relative, channel_bias] = relativeSensitivity(...
     reference_images_variable_name, grouped_reference_filenames, range, bayer_pattern...
 );
 % Use the Green colour channel as the reference spectral sensitivity
@@ -272,7 +276,6 @@ for g = 1:n_groups
         if size(I, 3) ~= 1
             error('The input image "%s" is not a RAW image.', grouped_input_filenames{g}{i});
         end
-        I(I < 0) = 0;
         
         if i == 1
             image_height = size(I, 1);
@@ -286,7 +289,9 @@ for g = 1:n_groups
         I_hyper_d(:, :, i) = I_d;
             
         for c = 1:n_channels_rgb
-            I(channel_mask(:, :, c)) = I(channel_mask(:, :, c)) ./ sensor_map_relative(c, i);
+            I(channel_mask(:, :, c)) =...
+                (I(channel_mask(:, :, c)) - channel_bias(c, i)) ./ ...
+                sensor_map_relative(c, i);
         end
         I_hyper_q(:, :, i) = I;
     end
@@ -299,6 +304,13 @@ for g = 1:n_groups
     I_3_d = imageFormation(...
         I_hyper_d, color_weights, imageFormationOptions...
     );
+
+    % Clip to zero
+    I_hyper_q(I_hyper_q < 0) = 0;
+    I_hyper_d(I_hyper_d < 0) = 0;
+    I_3_q(I_3_q < 0) = 0;
+    I_3_d(I_3_d < 0) = 0;
+    I_raw(I_raw < 0) = 0;
 
     % Save the results
     saveImages(...
@@ -319,6 +331,7 @@ save_variables_list = [ parameters_list, {...
         'reference_index'...
         'channel_mode',...
         'sensor_map_relative',...
+        'channel_bias',...
         'sensor_map',...
         'color_weights',...
     } ];
