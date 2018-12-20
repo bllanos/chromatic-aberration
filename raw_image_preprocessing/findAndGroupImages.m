@@ -48,12 +48,12 @@ function [...
 % grouped_filenames -- Filenames and paths
 %   A cell vector of cell vectors of character vectors containing the full
 %   filenames and paths of the files discovered using `wildcard`. Each cell
-%   contains a group of filepaths, where a group is a set of filepaths
-%   which become identical when the portion matching `regex` is removed.
-%   All groups are expected to contain the same number of files, and all
-%   groups are expected to contain the same unique portions matching
-%   `regex`. In other words, there should be one image for each spectral
-%   band in each scene.
+%   contains a group of filepaths, where a group is a set of filepaths which
+%   become identical when the portion matching `regex` is removed. All groups
+%   are expected to contain the same number of files, and all groups are
+%   expected to contain the same unique portions matching `regex` (in the same
+%   order across groups). In other words, there is one image for each spectral
+%   band in each scene, and within each scene, the images are ordered by band.
 %
 %   If `regex` is not passed, `grouped_filenames` is a cell vector of
 %   single cells containing character vectors. In other words, files are
