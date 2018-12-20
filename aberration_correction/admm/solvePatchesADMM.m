@@ -738,7 +738,13 @@ end
 if do_single_patch
     images_out = columns_out{1}(target_patch(1):min(target_patch(1) + patch_size(1) - 1, image_sampling(1)), :, :);
 else
-    images_out = cell2mat(columns_out);
+    images_out = zeros(image_sampling(1), image_sampling(2), n_channels_out);
+    offset = 0;
+    for j = 1:n_j
+        width_j = size(columns_out{j}, 2);
+        images_out(:, (offset + 1):(offset + width_j), :) = columns_out{j};
+        offset = offset + width_j;
+    end
 end
 I_3D = images_out(:, :, channels_out.I(1):channels_out.I(2));
 

@@ -156,7 +156,7 @@ solvePatchesMultiADMMOptions.sampling_options.progression = 'doubling';
 
 % Output the results for the lower spectral resolutions. CAUTION: Not
 % recommended when estimating large images, because of memory consumption.
-solvePatchesMultiADMMOptions.sampling_options.show_steps = true;
+solvePatchesMultiADMMOptions.sampling_options.show_steps = false;
 
 %% Hyperspectral image estimation parameters
 
