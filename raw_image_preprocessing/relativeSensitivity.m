@@ -1,18 +1,18 @@
 function [ sensitivity, bias ] = relativeSensitivity(...
-    var_name, paths, range, align...
+    var_name, paths, range, align, varargin...
 )
 % RELATIVESENSITIVITY  Fit scaling factors between colour channels
 %
 % ## Syntax
-% sensitivity = relativeSensitivity(var_name, paths, range, align)
-% [sensitivity, bias] = relativeSensitivity(var_name, paths, range, align)
+% sensitivity = relativeSensitivity(var_name, paths, range, align [, verbose])
+% [sensitivity, bias] = relativeSensitivity(var_name, paths, range, align [, verbose])
 %
 % ## Description
-% sensitivity = relativeSensitivity(var_name, paths, range, align)
+% sensitivity = relativeSensitivity(var_name, paths, range, align [, verbose])
 %   Load each group of images, and find scaling factors between colour channels
 %   in those images.
 %
-% [sensitivity, bias] = relativeSensitivity(var_name, paths, range, align)
+% [sensitivity, bias] = relativeSensitivity(var_name, paths, range, align [, verbose])
 %   Additionally returns bias offsets to apply, to better convert other colour
 %   channels to the reference colour channel.
 %
@@ -41,6 +41,10 @@ function [ sensitivity, bias ] = relativeSensitivity(...
 %
 %   `align` has the same form as the `sensorAlignment` input argument of
 %   `demosaic()`
+%
+% verbose -- Verbosity flag
+%   If `true`, graphical output will be produced for debugging and
+%   visualization. Defaults to `false` if not passed.
 %
 % ## Output Arguments
 %
@@ -87,7 +91,14 @@ function [ sensitivity, bias ] = relativeSensitivity(...
 % File created December 19, 2018
 
 nargoutchk(1, 2)
-narginchk(4, 4)
+narginchk(4, 5)
+
+if ~isempty(varargin)
+    verbose = varargin{1};
+    channel_names = {'Red', 'Green', 'Blue'};
+else
+    verbose = false;
+end
 
 n_channels = 3; % RGB channels
 channel_indices = 1:n_channels;
@@ -170,6 +181,18 @@ for g = 1:n_groups
         [component, ~, ~, ~, ~, mu] = pca(pixels_mat, 'NumComponents', 1);
         sensitivity(c, g) = component(1) ./ component(end);
         bias(c, g) = mu(1) - (sensitivity(c, g) * mu(2));
+        if verbose
+            label_str = {
+                sprintf('%s pixels', channel_names{c}),...
+                sprintf('%s pixels', channel_names{reference_channel})
+            };
+            legend_str = {'Pixel values', 'PCA'};
+            title_str = sprintf(...
+                'Correlation plot for %s and %s, for group %d',...
+                channel_names{c}, channel_names{reference_channel}, g...
+            );
+            plotPCA(pixels_mat, component, mu, label_str, legend_str, title_str)
+        end
     end
 end
 

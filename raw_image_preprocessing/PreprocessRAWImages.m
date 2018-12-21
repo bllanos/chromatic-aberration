@@ -126,7 +126,7 @@ blendExposures_dir.out_reference = repmat({blendExposures_dir.out_reference}, le
 %blendExposures_dir.other_paths = repmat({blendExposures_dir.other_paths}, length(blendExposures_regex), 1);
 
 % Range of pixel values used to calibrate scaling factors between exposures
-range = [0.05, 0.95];
+range = [0.02, 0.95];
 
 % Colour-filter pattern code
 align = 'gbrg';
@@ -136,6 +136,10 @@ align = 'gbrg';
 % Directory in which to save the final output '.mat' file containing
 % parameters and saved variables
 output_directory = '/home/llanos/Downloads/data';
+
+% ## Debugging Flags
+
+blendExposuresVerbose = true;
 
 %% Load and preprocess the images
 
@@ -147,7 +151,7 @@ darkSubtract_output_files = darkSubtract(...
     blendExposures_dir, var_name,...
     darkSubtract_output_files.out_averaged,...
     {},... %darkSubtract_output_files.out_single,...
-    blendExposures_regex, range, align...
+    blendExposures_regex, range, align, blendExposuresVerbose...
 );
 
 %% Save parameters and additional data to a file

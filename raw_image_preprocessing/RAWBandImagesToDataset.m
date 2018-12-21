@@ -50,7 +50,8 @@
 % - 'channel_bias': A 2D array with the same dimensions as
 %   'sensor_map_relative'. 'channel_bias' is the 'bias' output argument of
 %   'relativeSensitivity()', and provides corrections to conversions between
-%   colour channels computed using only 'sensor_map_relative'.
+%   colour channels computed using only 'sensor_map_relative'. The bias will not
+%   be used if `use_bias`, set in the script parameters below, is `false`.
 % - 'sensor_map': A version of `sensor_map_relative` that has been normalized
 %   so that the Green channel value resulting from a spectral image with an
 %   intensity of one in all bands is one.
@@ -160,6 +161,7 @@ parameters_list = {
         'input_bands_regex',...
         'reference_bands_regex',...
         'range',...
+        'use_bias',...
         'bayer_pattern'...
     };
 
@@ -182,7 +184,11 @@ reference_bands_regex = input_bands_regex; % In calibration images
 
 % Range of pixel values used to calibrate scaling factors between colour
 % channels
-range = [0.05, 0.95];
+range = [0, 0.95];
+
+% Convert between colour channels using affine (`true`) or proportional
+% (`false`) linear models
+use_bias = false;
 
 % ## Output directory
 output_directory = '/home/llanos/Downloads';
@@ -192,6 +198,10 @@ run('SetFixedParameters.m')
 
 % Colour-filter pattern (overrides the version in 'SetFixedParameters.m')
 bayer_pattern = 'gbrg';
+
+% ## Debugging Flags
+
+relativeSensitivityVerbose = true;
 
 %% Find the images
 
@@ -219,7 +229,8 @@ end
 n_channels_rgb = 3;
 channel_mode = false;
 [sensor_map_relative, channel_bias] = relativeSensitivity(...
-    reference_images_variable_name, grouped_reference_filenames, range, bayer_pattern...
+    reference_images_variable_name, grouped_reference_filenames,...
+    range, bayer_pattern, relativeSensitivityVerbose...
 );
 % Use the Green colour channel as the reference spectral sensitivity
 % Note that the choice of the Green channel is hardcoded in 'relativeSensitivity()'.
@@ -289,9 +300,14 @@ for g = 1:n_groups
         I_hyper_d(:, :, i) = I_d;
             
         for c = 1:n_channels_rgb
-            I(channel_mask(:, :, c)) =...
-                (I(channel_mask(:, :, c)) - channel_bias(c, i)) ./ ...
-                sensor_map_relative(c, i);
+            if use_bias
+                I(channel_mask(:, :, c)) =...
+                    (I(channel_mask(:, :, c)) - channel_bias(c, i)) ./ ...
+                    sensor_map_relative(c, i);
+            else
+                I(channel_mask(:, :, c)) = I(channel_mask(:, :, c)) ./ ...
+                    sensor_map_relative(c, i);
+            end
         end
         I_hyper_q(:, :, i) = I;
     end
