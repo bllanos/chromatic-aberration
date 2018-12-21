@@ -1,13 +1,17 @@
-function plotPCA(x, coeff, mu, label_str, legend_str, title_str)
+function fg = plotPCA(x, coeff, mu, label_str, legend_str, title_str)
 % PLOTPCA  Plot a point cloud and its PCA approximation
 %
 % ## Syntax
 % plotPCA(x, coeff [, mu, label_str, legend_str, title_str])
+% fg = plotPCA(x, coeff [, mu, label_str, legend_str, title_str])
 %
 % ## Description
 % plotPCA(x, coeff [, mu, label_str, legend_str, title_str])
 %   Creates a figure showing the original data, PCA vectors, and optionally PCA
 %   lines (when `mu` is passed, and is not empty).
+%
+% fg = plotPCA(x, coeff [, mu, label_str, legend_str, title_str])
+%   Returns the figure in which the data has been visualized.
 %
 % ## Input Arguments
 %
@@ -45,7 +49,7 @@ function plotPCA(x, coeff, mu, label_str, legend_str, title_str)
 % University of Alberta, Department of Computing Science
 % File created December 20, 2018
 
-nargoutchk(0, 0);
+nargoutchk(0, 1);
 narginchk(2, 6);
 
 n_dims = size(x, 2);
@@ -54,7 +58,7 @@ if all(n_dims ~= [2, 3])
 end
 
 % Subsample the points
-max_points = 1000;
+max_points = 2000;
 if size(x, 1) > max_points
     x_ind = randperm(size(x, 1), max_points);
 else
@@ -62,7 +66,7 @@ else
 end
 
 % Plot the point cloud
-figure;
+fg = figure;
 if n_dims == 2
     scatter(x(x_ind, 1), x(x_ind, 2), 'Marker', '.', 'MarkerFaceColor', 'r', 'MarkerEdgeColor', 'r');
 elseif n_dims == 3
@@ -74,16 +78,20 @@ end
 hold on
 
 % Plot PCA vectors
+line_colors = {[0, 0, 0], [0.5, 0.5, 0.5], [0.75, 0.75, 0.75]};
 if size(coeff, 1) ~= n_dims
     error('`coeff` should have the same number of rows as there are columns in `x`.');
 end
 for i = 1:size(coeff, 2)
     if n_dims == 2
-        line([0; coeff(1, i)], [0; coeff(2, i)], 'LineWidth', 2, 'LineStyle', '--')
+        line(...
+            [0; coeff(1, i)], [0; coeff(2, i)],...
+            'LineWidth', 2, 'LineStyle', '--', 'Color', line_colors{i}...
+        )
     elseif n_dims == 3
         line(...
             [0; coeff(1, i)], [0; coeff(2, i)], [0; coeff(3, i)],...
-            'LineWidth', 2, 'LineStyle', '--'...
+            'LineWidth', 2, 'LineStyle', '--', 'Color', line_colors{i}...
         )
     else
         error('Unexpected value of `n_dims`, %d.', n_dims);
@@ -115,11 +123,14 @@ if mu_passed
         );
         intersections = intersections(box_filter, :);
         if n_dims == 2
-            line(intersections(:, 1), intersections(:, 2), 'LineWidth', 2)
+            line(...
+                intersections(:, 1), intersections(:, 2),...
+                'LineWidth', 2, 'Color', line_colors{i}...
+            )
         elseif n_dims == 3
             line(...
                 intersections(:, 1), intersections(:, 2), intersections(:, 3),...
-                'LineWidth', 2 ...
+                'LineWidth', 2, 'Color', line_colors{i}...
             )
         else
             error('Unexpected value of `n_dims`, %d.', n_dims);

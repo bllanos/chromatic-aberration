@@ -148,7 +148,6 @@ if nargout > 3
         1:2:image_width, 1:2:image_height...
     );
     upsample_map_centers = cat(3, upsample_map_centersX, upsample_map_centersY);
-    upsample_map_centers = upsample_map_centers + 0.5;
 end
 
 I_channels = zeros(image_height2, image_width2, n_channels);
