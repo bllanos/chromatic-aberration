@@ -85,6 +85,12 @@
 %   criterion (from the ordered list given immediately above) used to
 %   select regularization weights. If `cr` corresponds to a disabled
 %   criterion, the corresponding regularization weights are all zeros.
+% - 'time_admm': Execution timing information, stored as a 3D array.
+%   `time_admm(f, i, cr)` is the average time taken (in seconds) to process a
+%   patch of the i-th image with the f-th ADMM-family algorithm defined in
+%   'SetAlgorithms.m', according to the cr-th regularization weight selection
+%   criterion. Entries corresponding to disabled algorithms or disabled weight
+%   selection criterion will be set to `NaN`.
 % 
 % Additionally, the file contains the values of all parameters listed in
 % `parameters_list`, which is initialized in this file, and then augmented
@@ -254,6 +260,8 @@ all_weights = cell(n_admm_algorithms, 1);
 n_bands_all = cell(n_admm_algorithms, 1);
 n_criteria = length(criteria);
 
+time_admm = nan(n_admm_algorithms, n_images, n_criteria);
+
 for i = 1:n_images
     if verbose
         fprintf('[SelectWeightsForDataset, image %d] Starting\n', i);
@@ -348,6 +356,7 @@ for i = 1:n_images
             weights_patches = zeros(n_patches, n_weights);
             n_steps = 1;
             have_steps = false;
+            time_start = tic;
             if algorithm.spectral
                 if true_spectral
                     for pc = 1:n_patches
@@ -449,6 +458,7 @@ for i = 1:n_images
                     weights_patches(pc, reg_options_f.enabled) = weights_images(1, 1, :);
                 end
             end
+            time_admm(f, i, cr) = toc(time_start) / n_patches;
             field_weights = geomean(weights_patches, 1);
             if true_spectral && n_steps > 1
                 field_weights = squeeze(field_weights).';
@@ -712,7 +722,7 @@ end
 save_variables_list = [ parameters_list, {...
     'admm_algorithms', 'corners',...
     'patch_penalties_rgb_L1', 'patch_penalties_rgb_L2',...
-    'all_weights'...
+    'all_weights', 'time_admm'...
 } ];
 if has_spectral
     save_variables_list = [save_variables_list, {...

@@ -108,6 +108,28 @@
 %   'SelectWeightsForDataset.m'.
 % - 'demosaic_algorithms': A structure describing the demosaicking
 %   algorithms being evaluated, created by 'SetAlgorithms.m'.
+% - 'time': A structure containing execution timing information, measured in
+%   seconds. 'time' has the following fields:
+%   - 'admm': Execution timing information, stored as a 3D array, for
+%     ADMM-family algorithms. `time.admm(f, i, cr)` is the time taken to process
+%     the i-th image with the f-th ADMM-family algorithm defined in
+%     'SetAlgorithms.m', according to weights selected using the cr-th
+%     regularization weight selection criterion. Entries corresponding to
+%     disabled algorithms or disabled weight selection criterion will be set to
+%     `NaN`.
+%   - 'demosaic': Execution timing information, stored as a 2D array, for
+%     demosaicing algorithms. `time.demosaic(f, i)` is the time taken to process
+%     the i-th image with the f-th demosaicing algorithm defined in
+%     'SetAlgorithms.m'. Entries corresponding to disabled algorithms will be
+%     set to `NaN`.
+%   - 'warp': This field exists for datasets which have models of colour
+%     channel-space dispersion. 'time.warp' is a vector where the elements are
+%     the times taken to calculate warping matrices for correcting dispersion in
+%     the images.
+%   - 'warp_apply': This field exists for datasets which have models of
+%     colour channel-space dispersion. 'time.warp_apply' is a vector where the
+%     elements are the times taken to apply warping matrices for correcting
+%     dispersion to the images.
 % 
 % Additionally, the file contains the values of all parameters listed in
 % `parameters_list`, which is initialized in this file, and then augmented
@@ -257,6 +279,15 @@ end
 e_spectral_tables = cell(n_images, 1);
 if evaluate_aberrated_spectral
     e_spectral_tables_ab = cell(n_images, 1);
+end
+
+time.admm = nan(n_admm_algorithms, n_images, n_criteria);
+demosaic_algorithm_fields = fieldnames(demosaic_algorithms);
+n_demosaic_algorithms = length(demosaic_algorithm_fields);
+time.demosaic = nan(n_demosaic_algorithms, n_images);
+if has_dispersion_rgb
+    time.warp = zeros(1, n_images);
+    time.warp_apply = zeros(1, n_images);
 end
 
 for i = 1:n_images
@@ -464,6 +495,8 @@ for i = 1:n_images
             else
                 reg_options_f.demosaic = false;
             end
+            
+            time_start = tic;
             if algorithm.spectral                
                 if true_spectral
                     if cr == mse_index && use_automatic_weights
@@ -499,7 +532,9 @@ for i = 1:n_images
                             solvePatchesMultiADMMVerbose...
                         );
                     end
-                
+                    
+                    time.admm(f, i, cr) = toc(time_start);
+                    
                     if solvePatchesMultiADMMOptions.sampling_options.show_steps
                         n_bands_t = length(bands_all{end});
                     else
@@ -638,6 +673,8 @@ for i = 1:n_images
                             solvePatchesADMMVerbose...
                         );
                     end
+                    
+                    time.admm(f, i, cr) = toc(time_start);
                 
                     name_params = [...
                         names{i}, sprintf('_bands%d_', n_bands), name_params...
@@ -743,6 +780,8 @@ for i = 1:n_images
                       solvePatchesADMMVerbose...
                     );
                 end
+                
+                time.admm(f, i, cr) = toc(time_start);
 
                 saveImages(...
                     output_directory, name_params,...
@@ -812,14 +851,14 @@ for i = 1:n_images
     end
     
     % Demosaicking and colour channel warping
-    demosaic_algorithm_fields = fieldnames(demosaic_algorithms);
     W_forward = [];
-    for f = 1:length(demosaic_algorithm_fields)
+    for f = 1:n_demosaic_algorithms
         algorithm = demosaic_algorithms.(demosaic_algorithm_fields{f});
         if ~algorithm.enabled
             continue;
         end
     
+        time_start = tic;
         if ischar(algorithm.fn)
             if strcmp(algorithm.fn, 'matlab')
                 I_raw_int = im2uint16(I_raw_gt);
@@ -834,6 +873,7 @@ for i = 1:n_images
         else
             I_rgb_warped = algorithm.fn(I_raw_gt, bayer_pattern);
         end
+        time.demosaic(f, i) = toc(time_start);
         saveImages(...
             output_directory, names{i},...
             I_rgb_warped, sprintf('_%s', algorithm.file), 'I_rgb'...
@@ -856,16 +896,20 @@ for i = 1:n_images
                 if verbose
                     fprintf('[RunOnDataset, image %d] Calculating the forward colour dispersion matrix...\n', i);
                 end
+                time_start = tic;
                 W_forward = dispersionfunToMatrix(...
                     df_rgb_forward, bands_rgb, image_sampling, image_sampling,...
                     [0, 0, image_sampling(2),  image_sampling(1)], false...
                     );
+                time.warp(i) = toc(time_start);
                 if verbose
                     fprintf('\t...done\n');
                 end
             end
     
+            time_start = tic;
             I_rgb = warpImage(I_rgb_warped, W_forward, image_sampling);
+            time.warp_apply(i) = time.warp_apply(i) + toc(time_start);
             saveImages(...
                 output_directory, names{i},...
                 I_rgb, sprintf('_%s_channelWarp', algorithm.file), 'I_rgb'...
@@ -883,6 +927,9 @@ for i = 1:n_images
                 e_rgb_table = e_rgb_table_current;
             end
         end
+    end
+    if has_dispersion_rgb
+        time.warp_apply = time.warp_apply ./ sum(all(isfinite(time.demosaic), 2));
     end
 
     % Write evaluations to a file
@@ -968,7 +1015,7 @@ end
 
 %% Save parameters and additional data to a file
 save_variables_list = [ parameters_list, {...
-    'admm_algorithms', 'demosaic_algorithms'...
+    'admm_algorithms', 'demosaic_algorithms', 'time'...
 } ];
 if has_spectral
     save_variables_list = [save_variables_list, {'bands_spectral', 'spectral_weights', 'color_weights_reference'}];
