@@ -309,6 +309,9 @@ if isfield(options, 'reference_patch')
         rectangle(2):rectangle(4), rectangle(1):rectangle(3), :...
     ), 1), 2);
     radiance_ratio = radiance_average_R ./ radiance_average_I;
+    % Prevent division by zero, and indefinite values
+    radiance_ratio(radiance_average_I == radiance_average_R) = 1;
+    radiance_ratio(~isfinite(radiance_ratio)) = 1;
     I_spectral = I_spectral .* repmat(radiance_ratio, image_height, image_width, 1);
 end
 
