@@ -191,7 +191,7 @@ end
 
 %% Load the illuminant and create a conversion matrix from reflectances to radiances
 
-if dp.spectral_reflectances
+if has_spectral && dp.spectral_reflectances
     illuminant_data = csvread(illuminant_filename);
     bands_illuminant = illuminant_data(:, 1);
     S_illuminant = illuminant_data(:, 2:end);

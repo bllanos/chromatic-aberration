@@ -47,8 +47,8 @@ parameters_list = [parameters_list, {
 % Otherwise, if regularization weights are automatically selected, then all
 % enabled methods are run.
 criteria = [
-    false; % Minimum distance criterion
-    false; % Similarity with the true image
+    true; % Minimum distance criterion
+    true; % Similarity with the true image
     true % Similarity with a demosaicing result
     ];
 mdc_index = 1;
@@ -258,6 +258,6 @@ solvePatchesMultiADMMOptions.reg_options = solvePatchesADMMOptions.reg_options;
 
 %% ## Debugging Flags
 
-findSamplingVerbose = true;
+findSamplingVerbose = false;
 solvePatchesADMMVerbose = true;
 solvePatchesMultiADMMVerbose = true;

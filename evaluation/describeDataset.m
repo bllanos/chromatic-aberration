@@ -189,6 +189,7 @@ if strcmp(name, 'kodak')
         'custom_rgb', struct(...
             'kodim01', struct('error_map', true))...
         );
+    
 elseif strcmp(name, 'kaist')
     dataset_params.raw_images_wildcard = [];
     dataset_params.raw_images_variable = [];
@@ -203,6 +204,7 @@ elseif strcmp(name, 'kaist')
     dataset_params.is_aberrated = true;
     dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/NikonD5100ColorMapData.mat';
     dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/wavelengths.mat';
+    
 elseif strcmp(name, '20180817_TestSpectralDataset')
     dataset_params.raw_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/*raw.mat';
     dataset_params.raw_images_variable = 'I_raw';
@@ -237,6 +239,7 @@ elseif strcmp(name, '20180817_TestSpectralDataset')
             )...
         )...
     );
+
 elseif strcmp(name, 'kaist-crop')
     dataset_params.raw_images_wildcard = [];
     dataset_params.raw_images_variable = [];
@@ -291,6 +294,7 @@ elseif strcmp(name, 'kaist-crop')
             )...
         )...
     );
+
 elseif strcmp(name, 'choi-test')
     dataset_params.raw_images_wildcard = [];
     dataset_params.raw_images_variable = [];
@@ -347,6 +351,7 @@ elseif strcmp(name, 'choi-test')
     );
     dataset_params.choi_rgb_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/ChoiEtAl2017_OutputConverted/recon_choiOutConverted_rgb.mat';
     dataset_params.choi_spectral_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/ChoiEtAl2017_OutputConverted/recon_choiOutConverted_latent.mat';
+    
 elseif strcmp(name, '20181212_RealData_spectralAsRAW')
     dataset_params.raw_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dataset/*raw.mat';
     dataset_params.raw_images_variable = 'I_raw';
@@ -378,6 +383,7 @@ elseif strcmp(name, '20181212_RealData_spectralAsRAW')
             )...
         )......
     );
+
 elseif strcmp(name, '20181212_RealData_RGBAsRAW')
     dataset_params.raw_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/preprocessed/blended_averaged/pos1_1mmDots.mat';
     dataset_params.raw_images_variable = 'I_raw';
@@ -409,6 +415,7 @@ elseif strcmp(name, '20181212_RealData_RGBAsRAW')
             )...
         )...
     );
+
 else
     error('Unrecognized dataset name.');
 end

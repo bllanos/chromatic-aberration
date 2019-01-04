@@ -56,12 +56,12 @@
 % - '*_rgb_ab.tif': A version of '*_rgb.tif' subject to dispersion.
 %
 % For demosaicking algorithms, the colour images are saved under the names
-% of the demosaicking algorithms, with no '_rgb' suffix. Furthermore, if
-% there is a model of colour dispersion associated with the dataset,
-% additional images, '_channelWarp.tif' and '_channelWarp.mat' (using the
-% variable name 'I_rgb') are output. These images are corrections of the
-% demosaicking results for chromatic aberration using the colour dispersion
-% model.
+% of the demosaicking algorithms, with no '_rgb' suffix.
+%
+% Colour images produced by RGB-based chromatic aberration correction algorithms
+% have filenames which are obtained by adding the names of the correction
+% algorithms as suffixes to the names of the files produced by the demosaicking
+% algorithms.
 %
 % ### Regularization weights images
 %
@@ -108,6 +108,9 @@
 %   'SelectWeightsForDataset.m'.
 % - 'demosaic_algorithms': A structure describing the demosaicking
 %   algorithms being evaluated, created by 'SetAlgorithms.m'.
+% - 'rgb_correction_algorithms': A structure describing the RGB-based chromatic
+%   aberration correction algorithms being evaluated, created by
+%   'SetAlgorithms.m'.
 % - 'time': A structure containing execution timing information, measured in
 %   seconds. 'time' has the following fields:
 %   - 'admm': Execution timing information, stored as a 3D array, for
@@ -123,13 +126,23 @@
 %     'SetAlgorithms.m'. Entries corresponding to disabled algorithms will be
 %     set to `NaN`.
 %   - 'warp': This field exists for datasets which have models of colour
-%     channel-space dispersion. 'time.warp' is a vector where the elements are
-%     the times taken to calculate warping matrices for correcting dispersion in
-%     the images.
-%   - 'warp_apply': This field exists for datasets which have models of
-%     colour channel-space dispersion. 'time.warp_apply' is a vector where the
-%     elements are the times taken to apply warping matrices for correcting
-%     dispersion to the images.
+%     channel-space dispersion, and will have non-`NaN` elements if the method
+%     of Rudakova and Monasse (2014) is enabled in SetAlgorithms.m. 'time.warp'
+%     is a vector where the elements are the times taken to calculate warping
+%     matrices for correcting dispersion in the images based on the method of
+%     Rudakova and Monasse (2014).
+%   - 'rgb_correction': Execution timing information, stored as a 3D array, for
+%     RGB-based chromatic aberration correction algorithms.
+%     `time.rgb_correction(f, i, dm)` is the time taken to process the
+%     demosaicking result of the dm-th demosaicking algorithm for the i-th
+%     image, with the f-th RGB-based chromatic aberration correction algorithm
+%     defined in 'SetAlgorithms.m'. Entries corresponding to disabled algorithms
+%     will be set to `NaN`. Note that the method of Rudakova and Monasse (2014)
+%     requires a model of colour channel-space dispersion, and so will be
+%     disabled in the absence of such a model, regardless of the 'enabled' flag
+%     in SetAlgorithms.m. The time taken to calculate the warp matrix used by
+%     the method of Rudakova and Monasse (2014) is excluded from
+%     'rgb_correction', but accounted for in 'warp'.
 % 
 % Additionally, the file contains the values of all parameters listed in
 % `parameters_list`, which is initialized in this file, and then augmented
@@ -187,6 +200,18 @@
 %   "High-Quality Hyperspectral Reconstruction Using a Spectral Prior." ACM
 %   Transactions on Graphics (Proc. SIGGRAPH Asia 2017), 36(6), 218:1-13.
 %   10.1145/3130800.3130810
+%
+% The chromatic aberration correction comparison methods are:
+%
+%   Rudakova, V. & Monasse, P. (2014). "Precise correction of lateral
+%   chromatic aberration in images" (Guanajuato). 6th Pacific-Rim Symposium
+%   on Image and Video Technology, PSIVT 2013. Springer Verlag.
+%   doi:10.1007/978-3-642-53842-1_2
+%
+%   Sun, T., Peng, Y., & Heidrich, W. (2017). "Revisiting cross-channel
+%   information transfer for chromatic aberration correction." In 2017
+%   IEEE International Conference on Computer Vision (ICCV) (pp.
+%   3268–3276). doi:10.1109/ICCV.2017.352
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -202,7 +227,7 @@ parameters_list = {
 
 %% Input data and parameters
 
-dataset_name = 'choi-test';
+dataset_name = 'kodak';
 
 % Describe algorithms to run
 run('SetAlgorithms.m')
@@ -285,9 +310,11 @@ time.admm = nan(n_admm_algorithms, n_images, n_criteria);
 demosaic_algorithm_fields = fieldnames(demosaic_algorithms);
 n_demosaic_algorithms = length(demosaic_algorithm_fields);
 time.demosaic = nan(n_demosaic_algorithms, n_images);
+rgb_correction_algorithm_fields = fieldnames(rgb_correction_algorithms);
+n_rgb_correction_algorithms = length(rgb_correction_algorithm_fields);
+time.rgb_correction = nan(n_rgb_correction_algorithms, n_images, n_demosaic_algorithms);
 if has_dispersion_rgb
-    time.warp = zeros(1, n_images);
-    time.warp_apply = zeros(1, n_images);
+    time.warp = nan(1, n_images);
 end
 
 for i = 1:n_images
@@ -850,7 +877,7 @@ for i = 1:n_images
         end
     end
     
-    % Demosaicking and colour channel warping
+    % Demosaicking and RGB-based chromatic aberration correction
     W_forward = [];
     for f = 1:n_demosaic_algorithms
         algorithm = demosaic_algorithms.(demosaic_algorithm_fields{f});
@@ -890,7 +917,8 @@ for i = 1:n_images
             e_rgb_table = e_rgb_table_current;
         end
             
-        if has_dispersion_rgb
+        if has_dispersion_rgb && rgb_correction_algorithms.rudakova2014.enabled
+            post_algorithm = rgb_correction_algorithms.rudakova2014;
             
             if isempty(W_forward)
                 if verbose
@@ -909,17 +937,22 @@ for i = 1:n_images
     
             time_start = tic;
             I_rgb = warpImage(I_rgb_warped, W_forward, image_sampling);
-            time.warp_apply(i) = time.warp_apply(i) + toc(time_start);
+            time.rgb_correction(1, i, f) = toc(time_start);
             saveImages(...
                 output_directory, names{i},...
-                I_rgb, sprintf('_%s_channelWarp', algorithm.file), 'I_rgb'...
+                I_rgb, sprintf(...
+                    '_%s_%s', algorithm.file, post_algorithm.file...
+                ), 'I_rgb'...
             );
         
             % RGB evaluation
             e_rgb_table_current = evaluateAndSaveRGB(...
                 I_rgb, I_rgb_gt, dp, names{i},...
-                sprintf('%s, warp-corrected', algorithm.name),...
-                fullfile(output_directory, [names{i} '_' algorithm.file '_channelWarp'])...
+                sprintf(...
+                    '%s, %s', algorithm.name, post_algorithm.name...
+                ), fullfile(output_directory, [...
+                    names{i} '_' algorithm.file '_' post_algorithm.file...
+                ])...
             );
             if ~isempty(e_rgb_table)
                 e_rgb_table = union(e_rgb_table_current, e_rgb_table);
@@ -927,9 +960,46 @@ for i = 1:n_images
                 e_rgb_table = e_rgb_table_current;
             end
         end
-    end
-    if has_dispersion_rgb
-        time.warp_apply = time.warp_apply ./ sum(all(isfinite(time.demosaic), 2));
+        
+        
+        if rgb_correction_algorithms.sun2017.enabled
+            post_algorithm = rgb_correction_algorithms.sun2017;
+    
+            time_start = tic;
+            I_rgb = I_rgb_warped;
+            max_image_size = max(image_sampling);
+            psf_sz_i = ceil(max_image_size * post_algorithm.psf_sz);
+            win_sz_i = ceil(max_image_size * post_algorithm.win_sz);
+            for c = [1 3]
+                I_rgb(:, :, c) = ref_deblur(...
+                    I_rgb(:, :, 2), I_rgb(:, :, c),...
+                    psf_sz_i, win_sz_i,...
+                    post_algorithm.alpha, post_algorithm.beta, post_algorithm.iter...
+                );
+            end
+            time.rgb_correction(2, i, f) = toc(time_start);
+            saveImages(...
+                output_directory, names{i},...
+                I_rgb, sprintf(...
+                    '_%s_%s', algorithm.file, post_algorithm.file...
+                ), 'I_rgb'...
+            );
+        
+            % RGB evaluation
+            e_rgb_table_current = evaluateAndSaveRGB(...
+                I_rgb, I_rgb_gt, dp, names{i},...
+                sprintf(...
+                    '%s, %s', algorithm.name, post_algorithm.name...
+                ), fullfile(output_directory, [...
+                    names{i} '_' algorithm.file '_' post_algorithm.file...
+                ])...
+            );
+            if ~isempty(e_rgb_table)
+                e_rgb_table = union(e_rgb_table_current, e_rgb_table);
+            else
+                e_rgb_table = e_rgb_table_current;
+            end
+        end
     end
 
     % Write evaluations to a file
@@ -1015,7 +1085,7 @@ end
 
 %% Save parameters and additional data to a file
 save_variables_list = [ parameters_list, {...
-    'admm_algorithms', 'demosaic_algorithms', 'time'...
+    'admm_algorithms', 'demosaic_algorithms', 'rgb_correction_algorithms', 'time'...
 } ];
 if has_spectral
     save_variables_list = [save_variables_list, {'bands_spectral', 'spectral_weights', 'color_weights_reference'}];
