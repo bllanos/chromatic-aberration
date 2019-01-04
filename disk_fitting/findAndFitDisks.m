@@ -56,9 +56,9 @@ function [ centers ] = findAndFitDisks(...
 %   to identifying blobs.
 %
 % k0 -- Initial guess for disk boundary width
-%   The approximate width in pixels of the transition region between the
-%   intensity of blobs in the image with the intensity of their
-%   surroundings. A higher value should be passed if the sensor resolution
+%   The approximate reciprocal semi-width, in inverse pixels, of the transition
+%   region between the intensity of blobs in the image with the intensity of
+%   their surroundings. A lower value should be passed if the sensor resolution
 %   is higher, or if the blobs are more defocused.
 %
 % options -- Data processing options
@@ -234,7 +234,7 @@ if n_ellipses > 2 && options.area_outlier_threshold > 0
         centers_matrix_initial = centers_matrix_initial(inliers_filter, :);
         n_ellipses = length(ellipse_stats);
     end
-    
+
     if verbose_disk_search
         figure(fg);
         hold on

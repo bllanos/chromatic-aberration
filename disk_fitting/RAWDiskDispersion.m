@@ -165,7 +165,7 @@ end
 % ## Disk fitting
 bayer_pattern = 'gbrg'; % Colour-filter pattern
 cleanup_radius = 2; % Morphological operations radius for 'findAndFitDisks()'
-k0 = 0.1; % `k0` argument of 'findAndFitDisks()'
+k0 = 0.5; % `k0` argument of 'findAndFitDisks()'
 findAndFitDisks_options.bright_disks = false;
 findAndFitDisks_options.mask_as_threshold = false;
 findAndFitDisks_options.group_channels = ~rgb_mode;
@@ -217,7 +217,7 @@ else
     ] = findAndGroupImages(input_images_wildcard, bands_regex);
 
     [~, reference_index] = min(abs(bands - reference_wavelength));
-    
+
     % `bands_to_rgb` is used for visualization purposes only, and so does
     % not need to be accurate
     bands_to_rgb = sonyQuantumEfficiency(bands);
@@ -236,7 +236,7 @@ n_bands = length(bands);
 centers_cell = cell(n_groups, 1);
 image_size = [];
 for g = 1:n_groups
-    
+
     % Find any mask
     mask_filename = fullfile(path, [group_names{g}, '_mask.', mask_ext]);
     mask_listing = dir(mask_filename);
@@ -251,14 +251,14 @@ for g = 1:n_groups
             mask = imbinarize(mask, mask_threshold);
         end
     end
-    
+
     I = loadImage(grouped_filenames{g}{1}, input_images_variable_name);
     if isempty(image_size)
         image_size = size(I);
     elseif any(image_size ~= size(I))
         error('Not all images have the same dimensions.');
     end
-    
+
     if rgb_mode
         centers_cell{g} = findAndFitDisks(...
             I, mask, bayer_pattern, [], cleanup_radius, k0,...
@@ -281,11 +281,11 @@ for g = 1:n_groups
                 findAndFitDisks_options, findAndFitDisksVerbose...
             );
         end
-        
+
         centers_cell{g} = centers_g;
-    end     
+    end
 end
-        
+
 %% Fit dispersion models to the results
 
 if rgb_mode
@@ -332,7 +332,7 @@ for model_from_reference = [true, false]
     else
         centers_for_fitting = centers;
     end
-        
+
     for model_type_cell = {'spline', 'polynomial'}
         model_type = model_type_cell{1};
         if strcmp(model_type, 'polynomial')
@@ -392,7 +392,7 @@ for model_from_reference = [true, false]
             filename = [filename, '_fromNonReference'];
         end
         filename = [filename, '.mat'];
-            
+
         save_data_filename = fullfile(output_directory, filename);
         save(save_data_filename, save_variables_list{:});
     end
