@@ -235,7 +235,7 @@ run('SetAlgorithms.m')
 % Optionally override the list of ADMM-family algorithms to run, and the
 % regularization weights to run them with, from the output file of
 % 'SelectWeightsForDataset.m'. (Leave empty otherwise)
-admm_algorithms_filename = [];
+admm_algorithms_filename = '/home/llanos/Downloads/SelectWeightsForDataset_kodak.mat';
 
 % Output directory for all images and saved parameters
 output_directory = '/home/llanos/Downloads';
@@ -275,7 +275,7 @@ n_criteria = length(criteria_fields);
 if ~use_automatic_weights
     for f = 1:n_admm_algorithms
         algorithm = admm_algorithms.(admm_algorithm_fields{f});
-        if algorithm.enabled 
+        if algorithm.enabled && ~(algorithm.spectral && ~has_color_map)
             for cr = 1:n_criteria
                 if f == 1
                     criteria(cr) = isfield(algorithm, criteria_fields{cr});

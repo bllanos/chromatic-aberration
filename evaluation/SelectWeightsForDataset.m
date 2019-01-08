@@ -490,7 +490,8 @@ end
 min_nz_weight = Inf;
 max_nz_weight = -Inf;
 for f = 1:n_admm_algorithms
-    if admm_algorithms.(admm_algorithm_fields{f}).enabled
+    if admm_algorithms.(admm_algorithm_fields{f}).enabled &&...
+            ~(admm_algorithms.(admm_algorithm_fields{f}).spectral && ~has_color_map)
         for cr = 1:n_criteria
             if criteria(cr)
                 all_weights_fcr = all_weights{f}(:, :, :, :, cr);
