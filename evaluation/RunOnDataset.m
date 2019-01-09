@@ -209,9 +209,9 @@
 %   doi:10.1007/978-3-642-53842-1_2
 %
 %   Sun, T., Peng, Y., & Heidrich, W. (2017). "Revisiting cross-channel
-%   information transfer for chromatic aberration correction." In 2017
-%   IEEE International Conference on Computer Vision (ICCV) (pp.
-%   3268–3276). doi:10.1109/ICCV.2017.352
+%   information transfer for chromatic aberration correction." In 2017 IEEE
+%   International Conference on Computer Vision (ICCV) (pp. 3268–3276).
+%   doi:10.1109/ICCV.2017.352
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -969,7 +969,7 @@ for i = 1:n_images
             I_rgb = I_rgb_warped;
             max_image_size = max(image_sampling);
             psf_sz_i = ceil(max_image_size * post_algorithm.psf_sz);
-            win_sz_i = ceil(max_image_size * post_algorithm.win_sz);
+            win_sz_i = post_algorithm.win_sz;
             for c = [1 3]
                 I_rgb(:, :, c) = ref_deblur(...
                     I_rgb(:, :, 2), I_rgb(:, :, c),...
