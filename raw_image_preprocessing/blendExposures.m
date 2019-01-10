@@ -1,34 +1,40 @@
 function [ output_files, peaks, scaling_factors ] = blendExposures(...
-    dir, var_name, reference_paths, other_paths, regex, range, align, varargin...
+    dir, var_name, reference_paths, other_paths, regex, range, sigma, align, varargin...
 )
 % BLENDEXPOSURES  Combine images taken under different exposure settings
 %
 % ## Syntax
 % output_files = blendExposures(...
-%   dir, var_name, reference_paths, other_paths, regex, range, align [, verbose]...
+%   dir, var_name, reference_paths, other_paths, regex,...
+%   range, sigma, align [, verbose]...
 % )
 % [output_files, peaks] = blendExposures(...
-%   dir, var_name, reference_paths, other_paths, regex, range, align [, verbose]...
+%   dir, var_name, reference_paths, other_paths, regex,...
+%   range, sigma, align [, verbose]...
 % )
 % [output_files, peaks, scaling_factors] = blendExposures(...
-%   dir, var_name, reference_paths, other_paths, regex, range, align [, verbose]...
+%   dir, var_name, reference_paths, other_paths, regex,...
+%   range, sigma, align [, verbose]...
 % )
 %
 % ## Description
 % output_files = blendExposures(...
-%   dir, var_name, reference_paths, other_paths, regex, range, align [, verbose]...
+%   dir, var_name, reference_paths, other_paths, regex,...
+%   range, sigma, align [, verbose]...
 % )
 %   Load and process images, then save them to the output directory and
 %   return the names and paths of the output files. (No output arguments
 %   can also be requested.)
 %
 % [output_files, peaks] = blendExposures(...
-%   dir, var_name, reference_paths, other_paths, regex, range, align [, verbose]...
+%   dir, var_name, reference_paths, other_paths, regex,...
+%   range, sigma, align [, verbose]...
 % )
 %   Additionally returns the peak values used to normalize the images.
 %
 % [output_files, peaks, scaling_factors] = blendExposures(...
-%   dir, var_name, reference_paths, other_paths, regex, range, align [, verbose]...
+%   dir, var_name, reference_paths, other_paths, regex,...
+%   range, sigma, align [, verbose]...
 % )
 %   Additionally returns the scaling factors used to convert between
 %   exposures.
@@ -82,6 +88,13 @@ function [ output_files, peaks, scaling_factors ] = blendExposures(...
 %   considered to be zero, and at or above which a pixel is considered to
 %   be saturated, respectively. Only pixels between these two values will
 %   be used to calibrate conversions between exposures.
+%
+% sigma -- Gaussian filter standard deviation
+%   A scalar providing the standard deviation of a Gaussian image filter used to
+%   downweight pixels which might be affected by blooming (an artifact of CCD
+%   sensors). A larger value of `sigma` will downweight a larger neighbourhood
+%   of pixels around a saturated pixel. If `sigma` is zero, no attempt will be
+%   made to mitigate blooming.
 %
 % align -- Bayer pattern description
 %   A four-character character vector, specifying the Bayer tile pattern of
@@ -150,17 +163,41 @@ function [ output_files, peaks, scaling_factors ] = blendExposures(...
 % component is computed for the data, and it represents a set of scaling
 % factors which can convert pixels from one exposure to another.
 %
-% Given the scaling factors, this function can then produce images which
-% contain pixels from multiple exposures. It does so by loading the images
-% to be merged (referred to by `reference_paths` and/or `other_paths`).
-% Scenes are discovered in the loaded images (images from `reference_paths`
-% are always treated as from different scenes from the images from
-% `other_paths`). For each scene, this function selects pixels from the
-% highest possible exposure (at a higher index in `regex{i}`) that are less
-% than `range(2)` and uses the scaling factors to map them all to the same
-% exposure (the exposure corresponding to the last element of `regex{i}`).
-% The final image then may contain more properly exposed pixels than any
-% of the individual images.
+% Given the scaling factors, this function can then produce images which contain
+% pixels from multiple exposures. It does so by loading the images to be merged
+% (referred to by `reference_paths` and/or `other_paths`). Scenes are discovered
+% in the loaded images (images from `reference_paths` are always treated as from
+% different scenes from the images from `other_paths`). For each scene, this
+% function computes a weighted average of the images taken under the different
+% exposures. The weight of a pixel is computed as follows:
+% - A blooming weight is computed for all pixels in each image using the
+%   following piecewise function of the pixel's value, `px`:
+%     if px > 0.5
+%       w_blooming = 1 - (2 * px - 1) ^ 12
+%     else
+%       w_blooming = 1
+% - The blooming weights are filtered with a filter kernel that is a Gaussian
+%   blur kernel (for a standard deviation of `sigma`) with its central element
+%   set to zero. The result is a weight for the current pixel computed based on
+%   its neighbourhood, so that pixels which may be affected by blooming from
+%   their neighbours are given lower weights.
+%   - If `sigma` is zero, this step and the previous step are skipped.
+% - A local weight is computed for all pixels in each image using the following
+%   function of the pixel's value, `px`:
+%      w_center * px * (1 - (2 * px - 1) ^ 12)
+%   - `w_center` is the weight of the central element in a Gaussian blur kernel
+%     having a standard deviation of `sigma` (or is one, if `sigma` is zero).
+%   - The local weight weights pixels with higher intensities, which may have
+%     better signal to noise ratios, but downweights saturated pixels and pixels
+%     with very small values.
+% - The local weights and blooming weights are summed to produce the final
+%   weights for pixels in the image taken under the given exposure.
+%
+% To produce the output image for the scene, after pixel weights are computed,
+% the scaling factors are used to map all pixels to the same exposure (the
+% exposure corresponding to the last element of `regex{i}`). Pixels in the
+% output image are then weighted sums of the pixels from the images taken under
+% the different exposures.
 %
 % The output images corresponding to `regex{i}` are normalized by dividing
 % by `peaks(i)`. `peaks(i)` is the maximum possible value that could result
@@ -186,6 +223,13 @@ function [ output_files, peaks, scaling_factors ] = blendExposures(...
 %   of the Optical Society of America A: Optics and Image Science, and
 %   Vision, 32(3), 381-391. doi:10.1364/JOSAA.32.000381
 %
+% The method for calculating blending weights in this function is inspired by
+% Sections 4.2 and 4.3 of:
+%
+%   Reinhard, E., Ward, G., Pattanaik, S., & Debevec, P. (2006). High Dynamic
+%   Range Imaging: Acquisition, Display, and Image-Based Lighting. San
+%   Francisco, California: Morgan Kaufmann Publishers.
+%
 % See also darkSubtract, imreadRAW, dirreadRAW, bayerMask
 
 % Bernard Llanos
@@ -193,8 +237,17 @@ function [ output_files, peaks, scaling_factors ] = blendExposures(...
 % University of Alberta, Department of Computing Science
 % File created December 3, 2018
 
+    function y = hat(x)
+        y = 1 - ((2 * x) - 1) .^ 12;
+    end
+
+    function y = halfHat(x)
+        y = hat(x);
+        y(x <= 0.5) = 1;
+    end
+
 nargoutchk(0, 3)
-narginchk(7, 8)
+narginchk(8, 9)
 
 if ~isempty(varargin)
     verbose = varargin{1};
@@ -231,6 +284,18 @@ end
 n_channels = 3; % RGB channels
 peaks = zeros(n_exposure_groups, 1);
 scaling_factors = cell(n_exposure_groups, 1);
+
+if sigma < 0
+    error('`sigma` must be a non-negative scalar, representing a standard deviation.');
+end
+if any(do_output) && sigma > 0
+    kernel_size = 2 * ceil(2 * sigma) + 1;
+    kernel = fspecial('gaussian', kernel_size, sigma);
+    center_weight = kernel(ceil(kernel_size / 2), ceil(kernel_size / 2));
+    kernel(ceil(kernel_size / 2), ceil(kernel_size / 2)) = 0;
+elseif any(do_output) && sigma == 0
+    center_weight = 1;
+end
 
 for r = 1:length(regex)
     n_exposures = length(regex{r});
@@ -344,9 +409,26 @@ for r = 1:length(regex)
             if size(I, 3) ~= 1
                 error('The input image "%s" is not a RAW image.', filepath);
             end
-            I_out = I;
-            mask_channels = bayerMask(size(I, 1), size(I, 2), align);
-            mask_saturation = (I_out >= range(2));
+            
+            % Initialize intermediate arrays
+            sz = [size(I, 1), size(I, 2), n_exposures];
+            n_px = sz(1) * sz(2);
+            I_stack = zeros(sz);
+            I_weights = zeros(sz);
+            
+            % Process the current image
+            I_stack(:, :, end) = I;
+            if sigma > 0
+                I_weights(:, :, end) = halfHat(I);
+                I_weights(:, :, end) = imfilter(I_weights(:, :, end), kernel, 'replicate');
+            end
+            I_weights(:, :, end) = I_weights(:, :, end) + (center_weight * hat(I) .* I);
+            
+            mask_channels = bayerMask(sz(1), sz(2), align);
+            mask_channels_ind = cell(n_channels, 1);
+            for c = 1:n_channels
+                mask_channels_ind{c} = find(mask_channels(:, :, c));
+            end
             for ri = (n_exposures - 1):-1:1
                 filter = (exposure_indices{i} == ri) & scene_filter;
                 filepath = all_paths{i}{filter};
@@ -354,13 +436,20 @@ for r = 1:length(regex)
                 if size(I, 3) ~= 1
                     error('The input image "%s" is not a RAW image.', filepath);
                 end
+                
+                if sigma > 0
+                    I_weights(:, :, ri) = halfHat(I);
+                    I_weights(:, :, ri) = imfilter(I_weights(:, :, ri), kernel, 'replicate');
+                end
+                I_weights(:, :, ri) = I_weights(:, :, ri) + (center_weight * hat(I) .* I);
+                
                 for c = 1:n_channels
-                    mask_c = mask_channels(:, :, c) & mask_saturation;
-                    mask_saturation(mask_c) = (I(mask_c) >= range(2));
-                    I_out(mask_c) = I(mask_c) * factors_r(ri, c);
+                    mask_c = mask_channels_ind{c};
+                    I_stack(mask_c + (ri - 1) * n_px) = I(mask_c) * factors_r(ri, c);
                 end
             end
-            I_out = I_out / peaks(r);
+            I_out = sum(I_stack .* I_weights, 3) ./ (sum(I_weights, 3) * peaks(r));
+            
             if i == 1
                 if s == 1
                     output_files.out_reference{r} = cell(n_scenes(i), 1);
