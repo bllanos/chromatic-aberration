@@ -238,7 +238,7 @@ function [ output_files, peaks, scaling_factors ] = blendExposures(...
 % File created December 3, 2018
 
     function y = hat(x)
-        y = 1 - ((2 * x) - 1) .^ 12;
+        y = 1 - ((2 * min(max(x, 0), 1)) - 1) .^ 12;
     end
 
     function y = halfHat(x)
@@ -381,7 +381,7 @@ for r = 1:length(regex)
                     'Correlation plot for exposure group %d, channel %d\nrange [%g, %g]',...
                     r, c, range(1), range(2)...
                 );
-                plotPCA(pixels, component, [], label_str, legend_str, title_str)
+                plotPCA(pixels, component, [], label_str, legend_str, title_str);
             end
         end
     end
