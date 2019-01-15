@@ -86,8 +86,7 @@ function [ output_files, peaks, scaling_factors ] = blendExposures(...
 % range -- Clipping range
 %   A two-element vector containing the values at or below which a pixel is
 %   considered to be zero, and at or above which a pixel is considered to
-%   be saturated, respectively. Only pixels between these two values will
-%   be used to calibrate conversions between exposures.
+%   be saturated, respectively.
 %
 % radius -- Neighbourhood radius
 %   The radius of the disk structuring element that will be used for greyscale
@@ -394,6 +393,8 @@ for r = 1:length(regex)
         
         for s = 1:n_scenes(i)
             scene_filter = (scene_indices{i} == s);
+            
+            % Process the image for the highest exposure
             filter = (exposure_indices{i} == n_exposures) & scene_filter;
             if sum(filter) ~= 1
                 error('Expected one and only one image per exposure per scene.');
@@ -408,9 +409,9 @@ for r = 1:length(regex)
             sz = [size(I, 1), size(I, 2), n_exposures];
             n_px = sz(1) * sz(2);
             I_stack = zeros(sz);
-            I_weights = zeros(sz);
+            I_weights = ones(sz);
             
-            % Process the current image
+            % Values at the highest exposure do not need to be scaled
             I_stack(:, :, end) = I;
             if radius > 0
                 I_weights(:, :, end) = halfHat(I);
@@ -431,11 +432,21 @@ for r = 1:length(regex)
                     error('The input image "%s" is not a RAW image.', filepath);
                 end
                 
+                % Saturated pixels at the smallest exposure need to be retained
+                if ri == 1
+                    mask_saturation = (I >= range(2));
+                end
                 if radius > 0
                     I_weights(:, :, ri) = halfHat(I);
+                    if ri == 1
+                        I_weights(mask_saturation) = max(I_weights(mask_saturation), eps);
+                    end
                     I_weights(:, :, ri) = imerode(I_weights(:, :, ri), se);
                 end
                 I_weights(:, :, ri) = min(I_weights(:, :, ri), hat(I) .* I);
+                if ri == 1
+                    I_weights(mask_saturation) = max(I_weights(mask_saturation), eps);
+                end
                 
                 for c = 1:n_channels
                     mask_c = mask_channels_ind{c};
