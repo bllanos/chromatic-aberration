@@ -95,7 +95,12 @@ function [ output_files, scaling_factors ] = blendExposures(...
 % verbose -- Verbosity flag
 %   If `true`, graphical output will be produced for debugging and
 %   visualization. Furthermore, output images will also be saved to image files,
-%   not only to '.mat' files. Defaults to `false` if not passed.
+%   not only to '.mat' files. Specifically, raw and RGB versions of the output
+%   images will be saved, after clipping pixels to their [0.01, 0.99]
+%   interquartile range (per colour channel), and then linearly mapping pixels
+%   to the range [0, 1]. RGB images are produced using 'bilinearDemosaic()'.
+%
+%   Defaults to `false` if not passed.
 %
 % ## Output Arguments
 %
@@ -208,7 +213,7 @@ function [ output_files, scaling_factors ] = blendExposures(...
 %   Range Imaging: Acquisition, Display, and Image-Based Lighting. San
 %   Francisco, California: Morgan Kaufmann Publishers.
 %
-% See also darkSubtract, imreadRAW, dirreadRAW, bayerMask, makehdr
+% See also darkSubtract, imreadRAW, dirreadRAW, bayerMask, bilinearDemosaic, makehdr
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -429,35 +434,50 @@ for r = 1:length(regex)
 
             I_out = (I_out + (I .* I_weights)) ./ I_sum_weights;
             
+            if verbose
+                I_out_debug = I_out;
+                for c = 1:n_channels
+                    mask_c = mask_channels_ind{c};
+                    channel_clipped = I_out(mask_c);
+                    q = quantile(channel_clipped, [0.01, 0.99]);
+                    channel_clipped(channel_clipped < q(1)) = q(1);
+                    channel_clipped(channel_clipped > q(2)) = q(2);
+                    I_out_debug(mask_c) = channel_clipped;
+                end
+                min_px = min(min(I_out_debug));
+                I_out_debug = (I_out_debug - min_px) ./ (max(max(I_out_debug)) - min_px);
+                I_rgb_debug = bilinearDemosaic(I_out_debug, align);
+            end
+            
             % Output
             if i == 1
                 if s == 1
                     output_files.out_reference{r} = cell(n_scenes(i), 1);
                 end
                 if verbose
-                    output_paths = saveImages(...
-                        dir.out_reference{r}, scene_names{i}{s}, I_out, '', var_name...
-                    );
-                    output_files.out_reference{r}(s) = output_paths(1);
-                else
-                    output_files.out_reference{r}(s) = saveImages(...
-                        'data', dir.out_reference{r}, scene_names{i}{s}, I_out, '', var_name...
+                    saveImages(...
+                        'image', dir.out_reference{r}, scene_names{i}{s},...
+                        I_out_debug, '_raw01', [],...
+                        I_rgb_debug, '_rgb01', []...
                     );
                 end
+                output_files.out_reference{r}(s) = saveImages(...
+                    'data', dir.out_reference{r}, scene_names{i}{s}, I_out, '', var_name...
+                );
             elseif i == 2
                 if s == 1
                     output_files.other_paths{r} = cell(n_scenes(i), 1);
                 end
                 if verbose
-                    output_paths = saveImages(...
-                        dir.other_paths{r}, scene_names{i}{s}, I_out, '', var_name...
-                    );
-                    output_files.other_paths{r}(s) = output_paths(1);
-                else
-                    output_files.other_paths{r}{s} = saveImages(...
-                        'data', dir.other_paths{r}, scene_names{i}{s}, I_out, '', var_name...
+                    saveImages(...
+                        'image', dir.other_paths{r}, scene_names{i}{s},...
+                        I_out_debug, '_raw01', [],...
+                        I_rgb_debug, '_rgb01', []...
                     );
                 end
+                output_files.other_paths{r}{s} = saveImages(...
+                    'data', dir.other_paths{r}, scene_names{i}{s}, I_out, '', var_name...
+                );
             else
                 error('Unknown type of image.');
             end
