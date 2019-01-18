@@ -22,8 +22,9 @@ function fg = plotPCA(x, coeff, mu, label_str, legend_str, title_str)
 % coeff -- PCA vectors
 %   A matrix, with as many rows as there are columns in `x`, containing the PCA
 %   coefficients. Each column of `coeff` is one PCA coefficient to be plotted.
-%   The PCA coefficients will be plotted as dashed line segments starting at the
-%   origin.
+%   The PCA coefficients will be plotted as dashed lines through the bounding
+%   box of the point cloud that start at the origin (which will not be visible
+%   depending upon the bounding box).
 %
 % mu -- Point cloud centroid
 %   The mean of the dataset in `x`. When `mu` is passed, and is not empty
@@ -77,21 +78,46 @@ end
 
 hold on
 
-% Plot PCA vectors
+% Preprocessing
+points_xlim = [min(x(:, 1)), max(x(:, 1))];
+points_ylim = [min(x(:, 2)), max(x(:, 2))];
+if n_dims == 3
+    points_zlim = [min(x(:, 3)), max(x(:, 3))];
+else
+    points_zlim = [-Inf, Inf];
+end
+
+n_coeff = size(coeff, 2);
+coeff_rows = coeff.';
+if n_dims == 2
+    coeff_rows = [coeff_rows, zeros(n_coeff, 1)];
+end
+
+% Plot PCA vectors, showing them as lines passing through the bounding box of
+% the point cloud
 line_colors = {[0, 0, 0], [0.5, 0.5, 0.5], [0.75, 0.75, 0.75]};
 if size(coeff, 1) ~= n_dims
     error('`coeff` should have the same number of rows as there are columns in `x`.');
 end
-for i = 1:size(coeff, 2)
+origin = zeros(1, 3);
+for i = 1:n_coeff
+    coeff_i = coeff_rows(i, :);
+    [...
+        intersections, ~, box_filter...
+    ] = lineBoxIntersections(...
+        origin, coeff_i + origin,...
+        points_xlim, points_ylim, points_zlim...
+    );
+    intersections = intersections(box_filter, :);
     if n_dims == 2
         line(...
-            [0; coeff(1, i)], [0; coeff(2, i)],...
-            'LineWidth', 2, 'LineStyle', '--', 'Color', line_colors{i}...
+            intersections(:, 1), intersections(:, 2),...
+            'LineWidth', 2, 'Color', line_colors{i}, 'LineStyle', '--'...
         )
     elseif n_dims == 3
         line(...
-            [0; coeff(1, i)], [0; coeff(2, i)], [0; coeff(3, i)],...
-            'LineWidth', 2, 'LineStyle', '--', 'Color', line_colors{i}...
+            intersections(:, 1), intersections(:, 2), intersections(:, 3),...
+            'LineWidth', 2, 'Color', line_colors{i}, 'LineStyle', '--'...
         )
     else
         error('Unexpected value of `n_dims`, %d.', n_dims);
@@ -102,19 +128,11 @@ end
 mu_passed = nargin > 2 && ~isempty(mu);
 if mu_passed
     mu = reshape(mu, 1, []);
-    points_xlim = [min(x(:, 1)), max(x(:, 1))];
-    points_ylim = [min(x(:, 2)), max(x(:, 2))];
-    if n_dims == 3
-        points_zlim = [min(x(:, 3)), max(x(:, 3))];
-    else
-        points_zlim = [-Inf, Inf];
+    if n_dims == 2
         mu = [mu, 0];
     end
-    for i = 1:size(coeff, 2)
-        coeff_i = reshape(coeff(:, i), 1, []);
-        if n_dims == 2
-            coeff_i = [coeff_i, 0]; %#ok<AGROW>
-        end
+    for i = 1:n_coeff
+        coeff_i = coeff_rows(i, :);
         [...
             intersections, ~, box_filter...
         ] = lineBoxIntersections(...

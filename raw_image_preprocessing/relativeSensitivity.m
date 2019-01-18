@@ -139,8 +139,8 @@ for g = 1:n_groups
         % Filter to pixels with low gradients
         G = bilinearDemosaic(I, align, reference_filter);
         G = imgradient(G);
-        level = graythresh(G);
-        gradient_mask = ~imbinarize(G, level);
+        level = median(G, 'all');
+        gradient_mask = G < level;
         mask = mask & repmat(reshape(gradient_mask, [], 1), 1, n_channels);
         
         for c_ind = 1:n_other_channels
@@ -191,7 +191,7 @@ for g = 1:n_groups
                 'Correlation plot for %s and %s, for group %d',...
                 channel_names{c}, channel_names{reference_channel}, g...
             );
-            plotPCA(pixels_mat, component, mu, label_str, legend_str, title_str)
+            plotPCA(pixels_mat, component, mu, label_str, legend_str, title_str);
         end
     end
 end

@@ -169,12 +169,12 @@ parameters_list = {
 
 % Wildcard for 'ls()' to find the images to process. All images are
 % expected to be in one directory.
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/preprocessed/blended_averaged/pos1_1mmDots_*.mat';
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/preprocessed_images/exposure_blended/*nm.mat';
 input_images_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % Wildcard for 'ls()' to find the images used to calibrate the relative spectral
 % sensitivity. All images are expected to be in one directory.
-reference_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/preprocessed/blended_averaged/pos1_1mmDots_*.mat';
+reference_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/preprocessed_images/exposure_blended/*nm.mat';
 reference_images_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % Wavelengths will be expected within filenames, extracted using this
@@ -191,7 +191,7 @@ range = [0, 0.95];
 use_bias = false;
 
 % ## Output directory
-output_directory = '/home/llanos/Downloads';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/channel_scaling';
 
 % ## Colour conversion parameters
 run('SetFixedParameters.m')
