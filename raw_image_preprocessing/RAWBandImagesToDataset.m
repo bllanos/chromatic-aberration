@@ -202,6 +202,9 @@ bayer_pattern = 'gbrg';
 % ## Debugging Flags
 
 relativeSensitivityVerbose = true;
+% If `true`, image format files will be output that contain rescaled versions of
+% the spectral and colour images suitable for viewing.
+outputScaledImages = true;
 
 %% Find the images
 
@@ -337,6 +340,57 @@ for g = 1:n_groups
         I_3_d, '_d3', 'I_3',...
         I_raw, '_raw', 'I_raw'...
     );
+
+    if outputScaledImages
+        type_symbols = {'q', 'd'};
+        for t = 1:2
+            if t == 1
+                I_hyper_t = I_hyper_q;
+                I_3_t = I_3_q;
+            elseif t == 2
+                I_hyper_t = I_hyper_d;
+                I_3_t = I_3_d;
+            else
+                error('Unrecognized value %d of `t`.', t);
+            end
+            
+            for i = 1:n_bands
+                I_out_debug = I_hyper_t(:, :, i);
+                q = quantile(I_out_debug, [0.01, 0.99], 'all');
+                I_out_debug(I_out_debug < q(1)) = q(1);
+                I_out_debug(I_out_debug > q(2)) = q(2);
+                I_out_debug = (I_out_debug - q(1)) ./ (q(2) - q(1));
+                saveImages(...
+                    'image', output_directory, group_names{g},...
+                    I_out_debug, sprintf('_%sHyper_%dnm', type_symbols{t}, bands(i)), []...
+                );
+            end
+            
+            I_out_debug = I_3_t;
+            q = zeros(n_channels_rgb, 2);
+            for c = 1:n_channels_rgb
+                q(c, :) = quantile(I_out_debug(:, :, c), [0.01, 0.99], 'all');
+            end
+            min_px = min(q(:, 1));
+            I_out_debug = (I_out_debug - min_px) ./ (max(q(:, 2)) - min_px);
+            I_out_debug(I_out_debug < 0) = 0;
+            I_out_debug(I_out_debug > 1) = 1;
+            saveImages(...
+                'image', output_directory, group_names{g},...
+                I_out_debug, sprintf('_%s3_01', type_symbols{t}), []...
+            );
+        end
+        
+        I_out_debug = I_raw;
+        q = quantile(I_out_debug, [0.01, 0.99], 'all');
+        I_out_debug(I_out_debug < q(1)) = q(1);
+        I_out_debug(I_out_debug > q(2)) = q(2);
+        I_out_debug = (I_out_debug - q(1)) ./ (q(2) - q(1));
+        saveImages(...
+            'image', output_directory, group_names{g},...
+            I_out_debug, '_raw01', []...
+        );
+    end
 end
 
 %% Save parameters, intermediate variables, and output data

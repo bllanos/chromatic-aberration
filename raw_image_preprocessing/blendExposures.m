@@ -436,16 +436,14 @@ for r = 1:length(regex)
             
             if verbose
                 I_out_debug = I_out;
+                q = zeros(n_channels, 2);
                 for c = 1:n_channels
-                    mask_c = mask_channels_ind{c};
-                    channel_clipped = I_out(mask_c);
-                    q = quantile(channel_clipped, [0.01, 0.99]);
-                    channel_clipped(channel_clipped < q(1)) = q(1);
-                    channel_clipped(channel_clipped > q(2)) = q(2);
-                    I_out_debug(mask_c) = channel_clipped;
+                    q(c, :) = quantile(I_out(mask_channels_ind{c}), [0.01, 0.99]);
                 end
-                min_px = min(min(I_out_debug));
-                I_out_debug = (I_out_debug - min_px) ./ (max(max(I_out_debug)) - min_px);
+                min_px = min(q(:, 1));
+                I_out_debug = (I_out_debug - min_px) ./ (max(q(:, 2)) - min_px);
+                I_out_debug(I_out_debug < 0) = 0;
+                I_out_debug(I_out_debug > 1) = 1;
                 I_rgb_debug = bilinearDemosaic(I_out_debug, align);
             end
             
