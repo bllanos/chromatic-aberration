@@ -133,10 +133,10 @@ parameters_list = {
 % constructed by appending '_mask' and `mask_ext` (below) to the filepaths
 % (after stripping file extensions and wavelength information). Masks are
 % used to avoid processing irrelevant portions of images.
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/preprocessed/blended_averaged/pos1_1mmDots_*.mat';
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/preprocessed_images/exposure_blended/*nm.mat';
 input_images_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
-% Mask filename extension
+% Mask filename extension (without the '.')
 mask_ext = 'png';
 
 % Threshold used to binarize mask images, if they are not already binary
@@ -154,12 +154,16 @@ if rgb_mode
     bands = 1:3;
     reference_wavelength = []; % Not used
     reference_index = 2; % Green colour channel
+    distance_outlier_threshold = 0; % Not used
     bands_to_rgb = eye(3);
 else
     % Wavelengths will be expected within filenames, extracted using this
     % regular expression
     bands_regex = '_(\d+)nm';
     reference_wavelength = 587.6;
+    % Threshold number of standard deviations of distance used to reject matches
+    % between disks in different spectral bands
+    distance_outlier_threshold = 3;
 end
 
 % ## Disk fitting
@@ -188,7 +192,7 @@ spline_smoothing_options = struct(...
 );
 
 % ## Output directory
-output_directory = '/home/llanos/Downloads';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/dispersion';
 
 % ## Debugging Flags
 findAndFitDisksVerbose.verbose_disk_search = true;
@@ -292,7 +296,7 @@ if rgb_mode
     % Centers are already associated between colour channels
     centers = cell2mat(centers_cell);
 else
-    centers = matchByVectors(centers_cell, dispersion_fieldname, reference_index);
+    centers = matchByVectors(centers_cell, dispersion_fieldname, reference_index, distance_outlier_threshold);
 end
 
 x_fields = struct(...

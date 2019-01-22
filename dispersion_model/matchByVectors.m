@@ -1,11 +1,11 @@
-function [vectors_matrix] = matchByVectors(vectors_cell, vector_field, reference_index)
+function [vectors_matrix] = matchByVectors(vectors_cell, vector_field, reference_index, varargin)
 % MATCHBYVECTORS  Associate structures by a vector-valued field
 %
 % ## Syntax
-% vectors_matrix = matchByVectors(vectors_cell, vector_field, reference_index)
+% vectors_matrix = matchByVectors(vectors_cell, vector_field, reference_index [, threshold])
 %
 % ## Description
-% vectors_matrix = matchByVectors(vectors_cell, vector_field, reference_index)
+% vectors_matrix = matchByVectors(vectors_cell, vector_field, reference_index [, threshold])
 %   Organize structures into an array of rows of matched structures
 %
 % ## Input Arguments
@@ -37,6 +37,15 @@ function [vectors_matrix] = matchByVectors(vectors_cell, vector_field, reference
 %   structures associated together are all mutual nearest neighbours
 %   between inner cells).
 %
+% threshold -- Outlier detection threshold
+%   The number of sample standard deviations larger than the mean Euclidean
+%   distance between matched structures beyond which matches are rejected. The
+%   mean and sample standard deviation are calculated for each of the inner
+%   cells (other than the reference inner cell), rather than globally over all
+%   matches made within each cell of `vectors_cell`.
+%
+%   Outlier detection is disabled if `threshold` is zero, or is not passed.
+%
 % ## Output Arguments
 %
 % vectors_matrix -- Matched structures
@@ -60,6 +69,10 @@ function [vectors_matrix] = matchByVectors(vectors_cell, vector_field, reference
 %   - Any element `vectors_cell{i}{reference_index}(k)` having a closest
 %     match in another series which is closer still to a different element
 %     `vectors_cell{i}{reference_index}(p)` is not output in `x`.
+%   - After the preceding test, any element
+%     `vectors_cell{i}{reference_index}(k)` having a match in another series
+%     which is further away than `threshold` sample standard deviations from the
+%     mean distance to matches in that series is not output in `x`.
 %
 %   Consequently, only the elements of `vectors_cell{i}{q}`, `q ~=
 %   reference_index` which are the closest to some element of
@@ -71,6 +84,17 @@ function [vectors_matrix] = matchByVectors(vectors_cell, vector_field, reference
 % Supervised by Dr. Y.H. Yang
 % University of Alberta, Department of Computing Science
 % File created April 27, 2018
+
+narginchk(3, 4);
+nargoutchk(1, 1);
+
+threshold = 0;
+if ~isempty(varargin)
+    threshold = varargin{1};
+    if threshold < 0
+        error('`threshold` must be a nonnegative number.');
+    end
+end
 
 n_cells = length(vectors_cell);
 n_channels = length(vectors_cell{1});
@@ -85,6 +109,7 @@ for i = 1:n_cells
     vectors_reference_i = vertcat(vectors_cell{i}{reference_index}.(vector_field));
     n_reference_i = size(vectors_reference_i, 1);
     neighbours_in_other_series = zeros(n_reference_i, n_channels - 1);
+    distances_to_other_series = zeros(n_reference_i, n_channels - 1);
     nearest_neighbour_from_other_series = false(n_reference_i, n_channels - 1);
     channel_ind = 1;
     for j = 1:n_channels
@@ -98,7 +123,10 @@ for i = 1:n_cells
             vector_k_rep = repmat(vectors_reference_i(k, :), n_channel_j, 1);
             distances = vectors_channel_j - vector_k_rep;
             distances = dot(distances, distances, 2);
-            [~, neighbours_in_other_series(k, channel_ind)] = min(distances);
+            [...
+                distances_to_other_series(k, channel_ind),...
+                neighbours_in_other_series(k, channel_ind)...
+            ] = min(distances);
         end
         % Incoming nearest neighbours
         for k = 1:n_channel_j
@@ -116,6 +144,31 @@ for i = 1:n_cells
     filter_i = all(nearest_neighbour_from_other_series, 2);
     n_reference_filtered = sum(filter_i);
     neighbours_in_other_series = neighbours_in_other_series(filter_i, :);
+    distances_to_other_series = distances_to_other_series(filter_i, :);
+    
+    % Filter outlier distances
+    % Reference: MATLAB documentation page on "Inconsistent Data"
+    if threshold > 0 && n_reference_filtered > 2
+        channel_ind = 1;
+        inliers_filter = true(n_reference_filtered, 1);
+        for j = 1:n_channels
+            if j == reference_index
+                continue;
+            end
+            sigma_distances = std(distances_to_other_series(:, channel_ind));
+            if sigma_distances > 0
+                mu_distances = mean(distances_to_other_series(:, channel_ind));
+                mu_distances_rep = repmat(mu_distances, n_reference_filtered, 1);
+                sigma_distances_rep = repmat(sigma_distances, n_reference_filtered, 1);
+                inliers_filter = inliers_filter &...
+                    ((distances_to_other_series(:, channel_ind) - mu_distances_rep) < (threshold * sigma_distances_rep));
+            end
+            channel_ind = channel_ind + 1;
+        end
+        n_reference_filtered = sum(inliers_filter);
+        filter_i(filter_i) = inliers_filter;
+        neighbours_in_other_series = neighbours_in_other_series(inliers_filter, :);
+    end
     
     % Preallocate the output structure array
     for m = 1:length(stats_args)
