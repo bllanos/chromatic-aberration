@@ -138,8 +138,9 @@ function [ output_files, scaling_factors ] = blendExposures(...
 % - Scene: The filename that results when the substrings matching the
 %   element of `regex{i}` are removed.
 %
-% This function expects one image for every element of `regex{i}` for each
-% scene.
+% This function expects at most one image in `reference_paths` for every element
+% of `regex{i}`, for each scene, but at least one image for some scene for every
+% pair of consecutive elements of `regex{i}`.
 %
 % The files are loaded, and an array is created with as many columns as
 % there are exposures. The rows of the array are corresponding pixels, all
@@ -317,12 +318,16 @@ for r = 1:length(regex)
     for c = 1:n_channels
         for ri = 1:(n_exposures - 1)
             pixels = cell(n_scenes(1), 1);
+            pixels_filter = true(n_scenes(1), 1);
             for s = 1:n_scenes(1)
                 scene_filter = (scene_indices{1} == s);
                 for rij = 0:1
                     filter = (exposure_indices{1} == (ri + rij)) & scene_filter;
-                    if sum(filter) ~= 1
-                        error('Expected one and only one image per exposure per scene.');
+                    if sum(filter) > 1
+                        error('Expected at most one image per exposure per scene.');
+                    elseif sum(filter) == 0
+                        pixels_filter(s) = false;
+                        break;
                     end
                     filepath = reference_paths{filter};
                     I = loadImage(filepath, var_name);
@@ -339,10 +344,16 @@ for r = 1:length(regex)
                     end
                 end
 
-                % Filter to pixels in the desired range
-                pixels{s} = pixels{s}(all((pixels{s} > range(1)) & (pixels{s} < range(2)), 2), :);
+                if pixels_filter(s)
+                    % Filter to pixels in the desired range
+                    pixels{s} = pixels{s}(all((pixels{s} > range(1)) & (pixels{s} < range(2)), 2), :);
+                end
             end
-            pixels = cell2mat(pixels);
+            
+            if ~any(pixels_filter)
+                error('No scenes found for exposures %d and %d in exposure group %d.', ri, ri + 1, r);
+            end
+            pixels = cell2mat(pixels(pixels_filter));
 
             % Find per-channel exposure conversion factors
             component = pca(pixels, 'NumComponents', 1);
@@ -376,6 +387,16 @@ for r = 1:length(regex)
         
         for s = 1:n_scenes(i)
             scene_filter = (scene_indices{i} == s);
+            exposure_filter = false(n_exposures, 1);
+            for ri = 1:n_exposures
+                filter = (exposure_indices{i} == ri) & scene_filter;
+                if sum(filter) > 1
+                    error('Expected at most one image per exposure per scene.');
+                elseif sum(filter) == 1
+                    exposure_filter(ri) = true;
+                end
+            end
+            exposure_filter_ind = find(exposure_filter);
             
             % Initialize intermediate arrays
             sz = [size(I, 1), size(I, 2)];
@@ -387,7 +408,7 @@ for r = 1:length(regex)
             for c = 1:n_channels
                 mask_channels_ind{c} = find(mask_channels(:, :, c));
             end
-            for ri = 2:n_exposures
+            for ri = flip(exposure_filter_ind).'
                 filter = (exposure_indices{i} == ri) & scene_filter;
                 filepath = all_paths{i}{filter};
                 I = loadImage(filepath, var_name);
@@ -401,6 +422,10 @@ for r = 1:length(regex)
                     I_weights = zeros(sz);
                 end
                 I_weights = min(I_weights, hat(I) .* I);
+                if ri == exposure_filter_ind(1)
+                    % Use this image for pixels with zero weight everywhere
+                    I_weights((I_sum_weights == 0) & (I_weights == 0)) = 1;
+                end
                 I_sum_weights = I_sum_weights + I_weights;
                 
                 for c = 1:n_channels
@@ -410,29 +435,8 @@ for r = 1:length(regex)
                     );
                 end
             end
-            
-            % Process the image for the lowest exposure
-            filter = (exposure_indices{i} == 1) & scene_filter;
-            if sum(filter) ~= 1
-                error('Expected one and only one image per exposure per scene.');
-            end
-            filepath = all_paths{i}{filter};
-            I = loadImage(filepath, var_name);
-            if size(I, 3) ~= 1
-                error('The input image "%s" is not a RAW image.', filepath);
-            end
-            
-            if radius > 0
-                I_weights = imerode(halfHat(I), se);
-            else
-                I_weights = zeros(sz);
-            end
-            I_weights = min(I_weights, hat(I) .* I);
-            % Use this image for pixels with zero weight everywhere
-            I_weights((I_sum_weights == 0) & (I_weights == 0)) = 1;
-            I_sum_weights = I_sum_weights + I_weights;
 
-            I_out = (I_out + (I .* I_weights)) ./ I_sum_weights;
+            I_out = I_out ./ I_sum_weights;
             
             if verbose
                 I_out_debug = I_out;
