@@ -103,6 +103,7 @@ parameters_list = {
         'bands',...
         'reference_wavelength',...
         'reference_index',...
+        'distance_outlier_threshold',...
         'bands_to_rgb',...
         'bayer_pattern',...
         'cleanup_radius',...
@@ -133,7 +134,7 @@ parameters_list = {
 % constructed by appending '_mask' and `mask_ext` (below) to the filepaths
 % (after stripping file extensions and wavelength information). Masks are
 % used to avoid processing irrelevant portions of images.
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/preprocessed_images/exposure_blended/*nm.mat';
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/preprocessed_images/exposure_blended/disks47cm_unfiltered.mat';
 input_images_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % Mask filename extension (without the '.')
@@ -147,24 +148,24 @@ mask_threshold = 0.5; % In a range of intensities from 0 to 1
 
 % Find dispersion between colour channels, as opposed to between images
 % taken under different spectral bands
-rgb_mode = false;
+rgb_mode = true;
 
 if rgb_mode
     bands_regex = []; % Not used
-    bands = 1:3;
+    n_channels_rgb = 3;
+    bands = 1:n_channels_rgb;
     reference_wavelength = []; % Not used
     reference_index = 2; % Green colour channel
-    distance_outlier_threshold = 0; % Not used
-    bands_to_rgb = eye(3);
+    bands_to_rgb = eye(n_channels_rgb);
 else
     % Wavelengths will be expected within filenames, extracted using this
     % regular expression
     bands_regex = '_(\d+)nm';
     reference_wavelength = 587.6;
-    % Threshold number of standard deviations of distance used to reject matches
-    % between disks in different spectral bands
-    distance_outlier_threshold = 3;
 end
+% Threshold number of standard deviations of distance used to reject matches
+% between disks
+distance_outlier_threshold = 3;
 
 % ## Disk fitting
 bayer_pattern = 'gbrg'; % Colour-filter pattern
@@ -293,11 +294,13 @@ end
 %% Fit dispersion models to the results
 
 if rgb_mode
-    % Centers are already associated between colour channels
-    centers = cell2mat(centers_cell);
-else
-    centers = matchByVectors(centers_cell, dispersion_fieldname, reference_index, distance_outlier_threshold);
+    % Centers are already matched between colour channels, but we can still
+    % filter out outlier matches
+    for g = 1:n_groups
+        centers_cell{g} = mat2cell(centers_cell{g}, size(centers_cell{g}, 1), ones(1, n_channels_rgb)).';
+    end
 end
+centers = matchByVectors(centers_cell, dispersion_fieldname, reference_index, distance_outlier_threshold);
 
 x_fields = struct(...
     dispersion_fieldname, dispersion_fieldname...
