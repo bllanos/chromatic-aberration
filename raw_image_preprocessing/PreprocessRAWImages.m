@@ -79,7 +79,7 @@ parameters_list = {
 % ## Input arguments for 'darkSubtract()'
 
 % Directories in which to store dark-subtracted images
-darkSubtract_dir.out_averaged = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/preprocessed_images/dark_subtracted'; % Averaged images
+darkSubtract_dir.out_averaged = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190125_DiskPattern_fluorescent/preprocessed/dark_subtracted'; % Averaged images
 %darkSubtract_dir.out_single = '/home/llanos/Downloads/data/dark_subtracted_original'; % Non-averaged images
 
 % Image variable name
@@ -87,21 +87,21 @@ var_name = 'I_raw';
 
 % Wildcards for 'ls()' to find the RAW images to process
 % Data images
-wildcards.in = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/data/filtered/*.tif';
+wildcards.in = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190125_DiskPattern_fluorescent/data/*.tif';
 % Dark frame images
-wildcards.dark = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/data/dark/*.tif';
+wildcards.dark = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190125_DiskPattern_fluorescent/data/dark/*.tif';
 
 % Regular expression for removing the portion of a filename that differs
 % between replicates of an image
 darkSubtract_regex.dedup = '_\d{4}-\d{2}-\d{2}-\d{6}-\d{4}';
 % Regular expression for extracting the portion of a filename that must
 % match between an image and the corresponding dark frame
-darkSubtract_regex.dark_match = '(disks\d+cm_).*(_[\d.]+ms)';
+darkSubtract_regex.dark_match = '(disks\d+cm).*(_[\d.]+ms)';
 
 % ## Input arguments for 'blendExposures()'
 
 % Directories in which to store final images
-blendExposures_dir.out_reference = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/preprocessed_images/exposure_blended'; % Averaged images
+blendExposures_dir.out_reference = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190125_DiskPattern_fluorescent/preprocessed/exposure_blended'; % Averaged images
 % Non-averaged images would need to have identical filenames other than the
 % exposures in order, to be processed correctly by 'blendExposures()'
 % (otherwise they are identified as from different "scenes"). This would
@@ -116,7 +116,8 @@ blendExposures_dir.out_reference = '/home/llanos/GoogleDrive/ThesisResearch/Resu
 % group of exposures that can be blended together. Within each group, the
 % exposures must be ordered from lowest to highest.
 blendExposures_regex = {...
-    {'_3ms', '_8ms', '_14ms', '_20ms', '_24ms', '_60ms', '_150ms', '_200ms', '_400ms', '_500ms', '_650ms'}...
+    {'_650ms'},...
+    {'_30ms', '_40ms', '_50ms', '_100ms'}...
 };
 
 blendExposures_dir.out_reference = repmat({blendExposures_dir.out_reference}, length(blendExposures_regex), 1);
@@ -136,7 +137,7 @@ align = 'gbrg';
 
 % Directory in which to save the final output '.mat' file containing
 % parameters and saved variables
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/preprocessed_images';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190125_DiskPattern_fluorescent/preprocessed';
 
 % ## Debugging Flags
 

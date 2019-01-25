@@ -120,6 +120,9 @@ if do_subtract
     other_tokens = regexp(other_grouping, regex.dark_match, 'tokens', 'forceCellOutput');
     other_substr = cell(n_other_grouping, 1);
     for i = 1:n_other_grouping
+        if isempty(other_tokens{i})
+            error('`regex.dark_match` did not match the image group "%s".', other_grouping{i});
+        end
         other_substr{i} = cat(2, other_tokens{i}{1}{:});
     end
     dark_tokens = regexp(dark_grouping, regex.dark_match, 'tokens', 'forceCellOutput');

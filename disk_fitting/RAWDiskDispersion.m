@@ -134,7 +134,7 @@ parameters_list = {
 % constructed by appending '_mask' and `mask_ext` (below) to the filepaths
 % (after stripping file extensions and wavelength information). Masks are
 % used to avoid processing irrelevant portions of images.
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/preprocessed_images/exposure_blended/disks47cm_unfiltered.mat';
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190125_DiskPattern_fluorescent/preprocessed/exposure_blended/disks47cm_fluorescent.mat';
 input_images_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % Mask filename extension (without the '.')
@@ -193,7 +193,7 @@ spline_smoothing_options = struct(...
 );
 
 % ## Output directory
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/dispersion';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190125_DiskPattern_fluorescent/dispersion_lidOn';
 
 % ## Debugging Flags
 findAndFitDisksVerbose.verbose_disk_search = true;
