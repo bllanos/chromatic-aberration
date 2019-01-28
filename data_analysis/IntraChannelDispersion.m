@@ -16,10 +16,10 @@
 %% Input data and parameters
 
 % Spectral model of dispersion
-spectral_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181020_DoubleConvexThickLensDispersion_Final/Models/DoubleConvexThickLensDispersionResults_spectral_spline_fromNonReference.mat';
+spectral_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/dispersion/RAWDiskDispersionResults_spectral_spline_fromReference.mat';
 
 % Camera spectral sensitivity data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180923_TestingChirpImageGeneration/NikonD5100ColorMapData.mat';
+color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dataset/SonyColorMapData.mat';
 
 % Threshold in relative sensitivty within a colour channel at which to mark
 % the "edges" of the colour channel in the spectrum
@@ -28,7 +28,7 @@ channel_threshold = 0.5;
 % Number of points to plot in a line joining the bottom right corner of the
 % dispersion model's domain with the origin of the dispersion model's
 % coordinate system
-n_points = 200;
+n_points = 500;
 
 %% Processing
 
@@ -108,7 +108,7 @@ legend_str = cell(numel(cutoff_wavelengths), 1);
 for c = 1:n_channels
     plot(distance_to_origin, dispersion_mag(:, 1, c), '-', 'Color', plot_colors(c, :), 'LineWidth', 2);
     legend_str{c * 2 - 1} = sprintf('\\lambda = %g', cutoff_wavelengths(c, 1));
-    plot(distance_to_origin, dispersion_mag(:, 2, c), '-', 'Color', plot_colors(c, :), 'LineWidth', 2);
+    plot(distance_to_origin, dispersion_mag(:, 2, c), ':', 'Color', plot_colors(c, :), 'LineWidth', 2);
     legend_str{c * 2} = sprintf('\\lambda = %g', cutoff_wavelengths(c, 2));
 end
 hold off

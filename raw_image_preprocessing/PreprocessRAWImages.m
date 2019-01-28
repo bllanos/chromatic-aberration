@@ -96,7 +96,7 @@ wildcards.dark = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190125_DiskP
 darkSubtract_regex.dedup = '_\d{4}-\d{2}-\d{2}-\d{6}-\d{4}';
 % Regular expression for extracting the portion of a filename that must
 % match between an image and the corresponding dark frame
-darkSubtract_regex.dark_match = '(disks\d+cm).*(_[\d.]+ms)';
+darkSubtract_regex.dark_match = '(disks).*(_[\d.]+ms)';
 
 % ## Input arguments for 'blendExposures()'
 
