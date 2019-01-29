@@ -153,7 +153,7 @@ parameters_list = {
 
 %% Input data and parameters
 
-dataset_name = '20190107_DiskPattern_rawFromSpectral';
+dataset_name = '20180817_TestSpectralDataset';
 
 % Describe algorithms to run
 run('SetAlgorithms.m')
@@ -270,6 +270,7 @@ n_criteria = length(criteria);
 
 time_admm = nan(n_admm_algorithms, n_images, n_criteria);
 
+corners = cell(n_images, 1);
 for i = 1:n_images
     if verbose
         fprintf('[SelectWeightsForDataset, image %d] Starting\n', i);
@@ -283,12 +284,12 @@ for i = 1:n_images
         error('Image %d is smaller than the patch size', i);
     end
     
-    corners = [];
+    corners_i = [];
     if isfield(dp, 'params_patches') && isfield(dp.params_patches, names{i})
-        corners = fliplr(dp.params_patches.(names{i})) -...
+        corners_i = fliplr(dp.params_patches.(names{i})) -...
             repmat(ceil(patch_size / 2), size(dp.params_patches.(names{i}), 1), 1);
-        filter = ((corners(:, 1) - padding) >= 1) & ((corners(:, 2) - padding) >= 1) &...
-            ((corners(:, 1) + (padding - 1)) <= image_sampling(1)) & ((corners(:, 2) + (padding - 1)) <= image_sampling(2));
+        filter = ((corners_i(:, 1) - padding) >= 1) & ((corners_i(:, 2) - padding) >= 1) &...
+            ((corners_i(:, 1) + (padding - 1)) <= image_sampling(1)) & ((corners_i(:, 2) + (padding - 1)) <= image_sampling(2));
         if ~any(filter)
             warning([
                 'No patches for image "%s" are fully within the image borders (accounting for cropping to any dispersion model).\n',...
@@ -296,20 +297,21 @@ for i = 1:n_images
         elseif ~all(filter)
             warning('Some patches for image "%s" are not fully within the image borders (accounting for cropping to any dispersion model).', names{i});
         end
-        corners = corners(filter, :);
+        corners_i = corners_i(filter, :);
     end
-    if isempty(corners)
-        corners = [
+    if isempty(corners_i)
+        corners_i = [
             randi(image_sampling(1) - patch_size(1) - padding, n_patches, 1),...
             randi(image_sampling(2) - patch_size(1) - padding, n_patches, 1)
         ];
     end
-    n_patches_i = size(corners, 1);
+    n_patches_i = size(corners_i, 1);
     if n_patches_i == 0
         error('No patches for image "%s".', names{i});
     end
     % Avoid changing the Bayer pattern
-    corners(mod(corners, 2) == 0) = corners(mod(corners, 2) == 0) - 1;
+    corners_i(mod(corners_i, 2) == 0) = corners_i(mod(corners_i, 2) == 0) - 1;
+    corners{i} = corners_i;
 
     % Characterize the patches
     if has_spectral
@@ -317,8 +319,8 @@ for i = 1:n_images
         patch_penalties_spectral_L2{i} = zeros(n_patches_i, n_weights);
         for pc = 1:n_patches_i
             patch = I_spectral_gt(...
-                (corners(pc, 1) - padding):(corners(pc, 1) + (patch_size(1) + padding - 1)),...
-                (corners(pc, 2) - padding):(corners(pc, 2) + (patch_size(2) + padding - 1)), : ...
+                (corners_i(pc, 1) - padding):(corners_i(pc, 1) + (patch_size(1) + padding - 1)),...
+                (corners_i(pc, 2) - padding):(corners_i(pc, 2) + (patch_size(2) + padding - 1)), : ...
             );
             for w = 1:n_weights
                 if w > n_spectral_weights
@@ -334,8 +336,8 @@ for i = 1:n_images
     patch_penalties_rgb_L2{i} = zeros(n_patches_i, n_weights);
     for pc = 1:n_patches_i
         patch = I_rgb_gt(...
-            (corners(pc, 1) - padding):(corners(pc, 1) + (patch_size(1) + padding - 1)),...
-            (corners(pc, 2) - padding):(corners(pc, 2) + (patch_size(2) + padding - 1)), : ...
+            (corners_i(pc, 1) - padding):(corners_i(pc, 1) + (patch_size(1) + padding - 1)),...
+            (corners_i(pc, 2) - padding):(corners_i(pc, 2) + (patch_size(2) + padding - 1)), : ...
         );
         for w = 1:n_weights
             err_vector = patch_operators_rgb{w} * reshape(patch, [], 1);
@@ -393,7 +395,7 @@ for i = 1:n_images
             if algorithm.spectral
                 if true_spectral
                     for pc = 1:n_patches_i
-                        solvePatchesMultiADMMOptions.patch_options.target_patch = corners(pc, :);
+                        solvePatchesMultiADMMOptions.patch_options.target_patch = corners_i(pc, :);
                         if cr == mse_index
                             I_in.I = I_spectral_gt;
                             I_in.spectral_bands = bands_spectral;
@@ -435,7 +437,7 @@ for i = 1:n_images
                     end
                 else
                     for pc = 1:n_patches_i
-                        solvePatchesADMMOptions.patch_options.target_patch = corners(pc, :);
+                        solvePatchesADMMOptions.patch_options.target_patch = corners_i(pc, :);
                         if cr == mse_index
                             I_in.I = I_spectral_gt;
                             I_in.spectral_weights = spectral_weights;
@@ -464,7 +466,7 @@ for i = 1:n_images
                 end
             else
                 for pc = 1:n_patches_i
-                    solvePatchesADMMOptions.patch_options.target_patch = corners(pc, :);
+                    solvePatchesADMMOptions.patch_options.target_patch = corners_i(pc, :);
                     if cr == mse_index
                         I_in.I = I_rgb_gt;
                         I_in.spectral_weights = sensor_map_rgb;
@@ -547,8 +549,8 @@ if has_spectral
     log_patch_penalties_spectral_L1 = log10(vertcat(patch_penalties_spectral_L1{:}));
     log_patch_penalties_spectral_L2 = log10(vertcat(patch_penalties_spectral_L2{:}));
 end
-log_patch_penalties_rgb_L1 = log10(vertcat(patch_penalties_rgb_L1));
-log_patch_penalties_rgb_L2 = log10(vertcat(patch_penalties_rgb_L2));
+log_patch_penalties_rgb_L1 = log10(vertcat(patch_penalties_rgb_L1{:}));
+log_patch_penalties_rgb_L2 = log10(vertcat(patch_penalties_rgb_L2{:}));
 
 for f = 1:n_admm_algorithms
     algorithm = admm_algorithms.(admm_algorithm_fields{f});
@@ -583,7 +585,7 @@ for f = 1:n_admm_algorithms
     n_active_weights = sum(enabled_weights);
     to_all_weights = find(enabled_weights);
     
-    n_steps = max(cellfun(@(x) size(x, 3), all_weights(f, :), 'UniformOutput', true));            
+    n_steps = max(cellfun(@(x) size(x, 3), all_weights{f, :}(:), 'UniformOutput', true));            
     for t = 1:n_steps
         if true_spectral
             name_params_t = [...
@@ -654,7 +656,12 @@ for f = 1:n_admm_algorithms
                 algorithm.name...
             ));
         end
-        legend(criteria_abbrev{criteria});
+        if n_active_weights == 1
+            legend({'y = x', criteria_abbrev{criteria}});
+        else
+            legend(criteria_abbrev{criteria});
+        end
+        
         savefig(...
             fg,...
             [name_params_t 'weightsCorrelation.fig'], 'compact'...
@@ -715,7 +722,7 @@ for f = 1:n_admm_algorithms
     % Plot weights vs. image estimation step
     if true_spectral && n_steps > 1
         n_patches_total = max(cellfun(@(x) size(x, 1), all_weights_concat(f, :), 'UniformOutput', true));  
-        n_bands_plot = repelem(n_bands_all{f}, n_patches_total * n_images);
+        n_bands_plot = repelem(n_bands_all{f}, n_patches_total);
         for w = 1:n_active_weights
             aw = to_all_weights(w);
 
