@@ -1,15 +1,18 @@
 %% Select regularization weights for images in a dataset
-% Choose regularization weights for random image patches to determine the
-% best weights for each algorithm, and how much the optimal weights vary
-% within and between images.
+% Choose regularization weights for image patches to determine the best weights
+% for each algorithm, and how much the optimal weights vary within and between
+% images.
 %
 % ## Usage
 % Modify the parameters, the first code section below, then run.
 %
 % ## Input
 %
-% The dataset determines the data to be loaded, and algorithms to be
-% tested, as encapsulated by the 'describeDataset()' function.
+% The dataset determines the data to be loaded, and algorithms to be tested, as
+% encapsulated by the 'describeDataset()' function. It also optionally provides
+% a list of image patches for each image to use for selecting regularization
+% weights. If no patches are specified for an image, this script will select
+% `n_patches` random patches.
 %
 % The documentation in the script 'CorrectByHyperspectralADMM.m' contains
 % more information on the formats of the various types of data associated
@@ -57,34 +60,37 @@
 %   - 'dm_weights': Regularization weights selected to minimize the mean
 %     square error with respect to a demosaicing result. 'dm_weights' is an
 %     array with the same format as 'mdc_weights'.
-% - 'corners': A three-dimensional array containing the top-left corners of
-%   the image patches used to select regularization weights. `corners(pc,
-%   :, i)` is a two-element vector containing the row and column indices,
-%   respectively, of the i-th image's pc-th patch's top-left corner.
-% - 'patch_penalties_spectral_L1': A three-dimensional array, containing
-%   the L1 norms of the regularization penalties evaluated on the true
-%   spectral image patches. `patch_penalties_spectral_L1(pc, w, i)`
-%   corresponds to the w-th enabled regularization term for the pc-th patch
-%   of the i-th image.
-% - 'patch_penalties_spectral_L2': An array similar to
+% - 'corners': A cell vector containing the top-left corners of the image
+%   patches used to select regularization weights. `corners{i}` is a two-column
+%   matrix, where the columns contain the row and column indices, respectively,
+%   of the top left corners of patches used for the i-th image. Note that
+%   'corners' does not account for the padding around each patch that is used to
+%   reduce patch boundary effects.
+% - 'patch_penalties_spectral_L1': A cell vector containing the L1 norms of the
+%   regularization penalties evaluated on the true spectral image patches.
+%   `patch_penalties_spectral_L1{i}` is a matrix where the columns correspond to
+%   enabled regularization terms, and the rows correspond to image patches, for
+%   the i-th image.
+% - 'patch_penalties_spectral_L2': A cell vector similar to
 %   'patch_penalties_spectral_L1', but which contains L2 norms of
 %   regularization penalties.
-% - 'patch_penalties_rgb_L1': An array similar to
+% - 'patch_penalties_rgb_L1': A cell vector similar to
 %   'patch_penalties_spectral_L1', but which corresponds to regularization
 %   penalties evaluated on colour versions of the images.
-% - 'patch_penalties_rgb_L2': An array similar to 'patch_penalties_rgb_L1',
+% - 'patch_penalties_rgb_L2': A cell vector similar to 'patch_penalties_rgb_L1',
 %   but which contains L2 norms of regularization penalties.
 % - 'all_weights': Regularization weights selected using the minimum
-%   distance criterion, the mean squared error with respect to the true
-%   image, and using the mean squared error with respect to a demosaicking
-%   result. `all_weights{f}(pc, :, t, i, cr)` is the vector of
-%   regularization weights selected for the f-th algorithm on the pc-th
-%   patch of the i-th image. `t` is the spectral resolution, which is
-%   relevant only for 'solvePatchesMultiADMM()', but is one for single
-%   spectral resolution approaches (i.e. 'solvePatchesADMM()'). `cr` is the
-%   criterion (from the ordered list given immediately above) used to
-%   select regularization weights. If `cr` corresponds to a disabled
-%   criterion, the corresponding regularization weights are all zeros.
+%   distance criterion, the mean squared error with respect to the true image,
+%   and using the mean squared error with respect to a demosaicking result.
+%   `all_weights{f}{i, cr}` is a 3D array of regularization weights selected for
+%   the f-th algorithm on the i-th image. `cr` is the criterion (from the
+%   ordered list given immediately above) used to select regularization weights.
+%   If `cr` corresponds to a disabled criterion, the corresponding matrix is
+%   empty. Rows of `all_weights{f}{i, cr}` correspond to patches, columns
+%   correspond to regularization terms, and the third dimension indexes the
+%   spectral resolution, which is relevant only for 'solvePatchesMultiADMM()',
+%   and has size one for single spectral resolution approaches (i.e.
+%   'solvePatchesADMM()').
 % - 'time_admm': Execution timing information, stored as a 3D array.
 %   `time_admm(f, i, cr)` is the average time taken (in seconds) to process a
 %   patch of the i-th image with the f-th ADMM-family algorithm defined in
@@ -105,16 +111,18 @@
 % criteria, and are saved to '.fig' files.
 %
 % ## Notes
-% - This script only uses the first row of `patch_sizes`, and the first
-%   element of `paddings`, defined in 'SetFixedParameters.m', by using
-%   `solvePatchesADMMOptions.patch_options`.
+% - This script uses 'patch_size' and 'padding' defined in the dataset
+%   description, not those set in 'SetFixedParameters.m'.
 % - Regularization weights will not be selected for algorithms which are
 %   disabled (using the 'enabled' fields in the structures describing the
 %   algorithms). Instead, values of zero will be output for disabled
 %   algorithms in 'all_weights', and the 'mdc_weights', etc., fields will
 %   not be added to their structures in 'admm_algorithms'.
 % - Only image patches that are not clipped by the image edges will be
-%   chosen for selecting regularization weights.
+%   chosen for selecting regularization weights. An warning will be thrown if
+%   there are patches defined by describeDataset() which are clipped by the
+%   image edges. Note that the clipping test comes after cropping the image to
+%   the domain of the model of dispersion to be used for image estimation.
 % - Image patch spectral derivatives, used for graphical output, not for
 %   regularization weights selection, are computed according to the
 %   'full_GLambda' field of the 'solvePatchesADMMOptions.admm_options'
@@ -145,12 +153,12 @@ parameters_list = {
 
 %% Input data and parameters
 
-dataset_name = 'kodak';
+dataset_name = '20190107_DiskPattern_rawFromSpectral';
 
 % Describe algorithms to run
 run('SetAlgorithms.m')
 
-% Number of patches to select for each image
+% Default number of patches to select for each image, when none are provided
 n_patches = 10;
 
 % Output directory for all images and saved parameters
@@ -183,8 +191,8 @@ run('PreprocessDataset.m')
 
 n_weights = length(solvePatchesADMMOptions.reg_options.enabled);
 
-patch_size = solvePatchesADMMOptions.patch_options.patch_size;
-padding = solvePatchesADMMOptions.patch_options.padding;
+patch_size = dp.patch_size;
+padding = dp.padding;
 full_patch_size = patch_size + padding * 2;
 
 solvePatchesMultiADMMOptions.sampling_options.show_steps = true;
@@ -250,11 +258,11 @@ n_admm_algorithms = length(admm_algorithm_fields);
 %% Process the images
 
 if has_spectral
-    patch_penalties_spectral_L1 = zeros(n_patches, n_weights, n_images);
-    patch_penalties_spectral_L2 = zeros(n_patches, n_weights, n_images);
+    patch_penalties_spectral_L1 = cell(n_images, 1);
+    patch_penalties_spectral_L2 = cell(n_images, 1);
 end
-patch_penalties_rgb_L1 = zeros(n_patches, n_weights, n_images);
-patch_penalties_rgb_L2 = zeros(n_patches, n_weights, n_images);
+patch_penalties_rgb_L1 = cell(n_images, 1);
+patch_penalties_rgb_L2 = cell(n_images, 1);
 
 all_weights = cell(n_admm_algorithms, 1);
 n_bands_all = cell(n_admm_algorithms, 1);
@@ -275,42 +283,67 @@ for i = 1:n_images
         error('Image %d is smaller than the patch size', i);
     end
     
-    corners = [
-        randi(image_sampling(1) - full_patch_size(1), n_patches, 1),...
-        randi(image_sampling(2) - full_patch_size(2), n_patches, 1)
-    ];
+    corners = [];
+    if isfield(dp, 'params_patches') && isfield(dp.params_patches, names{i})
+        corners = fliplr(dp.params_patches.(names{i})) -...
+            repmat(ceil(patch_size / 2), size(dp.params_patches.(names{i}), 1), 1);
+        filter = ((corners(:, 1) - padding) >= 1) & ((corners(:, 2) - padding) >= 1) &...
+            ((corners(:, 1) + (padding - 1)) <= image_sampling(1)) & ((corners(:, 2) + (padding - 1)) <= image_sampling(2));
+        if ~any(filter)
+            warning([
+                'No patches for image "%s" are fully within the image borders (accounting for cropping to any dispersion model).\n',...
+                'Using random patches instead'], names{i});
+        elseif ~all(filter)
+            warning('Some patches for image "%s" are not fully within the image borders (accounting for cropping to any dispersion model).', names{i});
+        end
+        corners = corners(filter, :);
+    end
+    if isempty(corners)
+        corners = [
+            randi(image_sampling(1) - patch_size(1) - padding, n_patches, 1),...
+            randi(image_sampling(2) - patch_size(1) - padding, n_patches, 1)
+        ];
+    end
+    n_patches_i = size(corners, 1);
+    if n_patches_i == 0
+        error('No patches for image "%s".', names{i});
+    end
     % Avoid changing the Bayer pattern
     corners(mod(corners, 2) == 0) = corners(mod(corners, 2) == 0) - 1;
 
     % Characterize the patches
     if has_spectral
-        for pc = 1:n_patches
+        patch_penalties_spectral_L1{i} = zeros(n_patches_i, n_weights);
+        patch_penalties_spectral_L2{i} = zeros(n_patches_i, n_weights);
+        for pc = 1:n_patches_i
             patch = I_spectral_gt(...
-                corners(pc, 1):(corners(pc, 1) + (full_patch_size(1) - 1)),...
-                corners(pc, 2):(corners(pc, 2) + (full_patch_size(2) - 1)), : ...
+                (corners(pc, 1) - padding):(corners(pc, 1) + (patch_size(1) + padding - 1)),...
+                (corners(pc, 2) - padding):(corners(pc, 2) + (patch_size(2) + padding - 1)), : ...
             );
             for w = 1:n_weights
                 if w > n_spectral_weights
                     continue;
                 end
                 err_vector = patch_operators_spectral{w} * reshape(patch, [], 1);
-                patch_penalties_spectral_L1(pc, w, i) = mean(abs(err_vector));
-                patch_penalties_spectral_L2(pc, w, i) = dot(err_vector, err_vector) / length(err_vector);
+                patch_penalties_spectral_L1{i}(pc, w) = mean(abs(err_vector));
+                patch_penalties_spectral_L2{i}(pc, w) = dot(err_vector, err_vector) / length(err_vector);
             end
         end
     end
-    for pc = 1:n_patches
+    patch_penalties_rgb_L1{i} = zeros(n_patches_i, n_weights);
+    patch_penalties_rgb_L2{i} = zeros(n_patches_i, n_weights);
+    for pc = 1:n_patches_i
         patch = I_rgb_gt(...
-            corners(pc, 1):(corners(pc, 1) + (full_patch_size(1) - 1)),...
-            corners(pc, 2):(corners(pc, 2) + (full_patch_size(2) - 1)), : ...
+            (corners(pc, 1) - padding):(corners(pc, 1) + (patch_size(1) + padding - 1)),...
+            (corners(pc, 2) - padding):(corners(pc, 2) + (patch_size(2) + padding - 1)), : ...
         );
         for w = 1:n_weights
             err_vector = patch_operators_rgb{w} * reshape(patch, [], 1);
-            patch_penalties_rgb_L1(pc, w, i) = mean(abs(err_vector));
-            patch_penalties_rgb_L2(pc, w, i) = dot(err_vector, err_vector) / length(err_vector);
+            patch_penalties_rgb_L1{i}(pc, w) = mean(abs(err_vector));
+            patch_penalties_rgb_L2{i}(pc, w) = dot(err_vector, err_vector) / length(err_vector);
             if has_spectral && w == n_weights
-                patch_penalties_spectral_L1(pc, w, i) = patch_penalties_rgb_L1(pc, w, i);
-                patch_penalties_spectral_L2(pc, w, i) = patch_penalties_rgb_L2(pc, w, i);
+                patch_penalties_spectral_L1{i}(pc, w) = patch_penalties_rgb_L1{i}(pc, w);
+                patch_penalties_spectral_L2{i}(pc, w) = patch_penalties_rgb_L2{i}(pc, w);
             end
         end
     end
@@ -353,13 +386,13 @@ for i = 1:n_images
                 reg_options_f.demosaic = false;
             end
             
-            weights_patches = zeros(n_patches, n_weights);
+            weights_patches = zeros(n_patches_i, n_weights);
             n_steps = 1;
             have_steps = false;
             time_start = tic;
             if algorithm.spectral
                 if true_spectral
-                    for pc = 1:n_patches
+                    for pc = 1:n_patches_i
                         solvePatchesMultiADMMOptions.patch_options.target_patch = corners(pc, :);
                         if cr == mse_index
                             I_in.I = I_spectral_gt;
@@ -401,7 +434,7 @@ for i = 1:n_images
                         weights_patches(pc, reg_options_f.enabled, :) = weights_images(1, 1, :);
                     end
                 else
-                    for pc = 1:n_patches
+                    for pc = 1:n_patches_i
                         solvePatchesADMMOptions.patch_options.target_patch = corners(pc, :);
                         if cr == mse_index
                             I_in.I = I_spectral_gt;
@@ -430,7 +463,7 @@ for i = 1:n_images
                     end
                 end
             else
-                for pc = 1:n_patches
+                for pc = 1:n_patches_i
                     solvePatchesADMMOptions.patch_options.target_patch = corners(pc, :);
                     if cr == mse_index
                         I_in.I = I_rgb_gt;
@@ -458,16 +491,16 @@ for i = 1:n_images
                     weights_patches(pc, reg_options_f.enabled) = weights_images(1, 1, :);
                 end
             end
-            time_admm(f, i, cr) = toc(time_start) / n_patches;
+            time_admm(f, i, cr) = toc(time_start) / n_patches_i;
             field_weights = geomean(weights_patches, 1);
             if true_spectral && n_steps > 1
                 field_weights = squeeze(field_weights).';
             end
             if i == 1 && cr == 1
-                all_weights{f} = zeros(n_patches, n_weights, n_steps, n_images, n_criteria);
+                all_weights{f} = cell(n_images, n_criteria);
                 admm_algorithms.(admm_algorithm_fields{f}).(criteria_fields{cr}) = zeros(n_steps, n_weights, n_images); 
             end
-            all_weights{f}(:, :, :, i, cr) = weights_patches;
+            all_weights{f}{i, cr} = weights_patches;
             admm_algorithms.(admm_algorithm_fields{f}).(criteria_fields{cr})(:, :, i) = field_weights;
         end
     end
@@ -489,17 +522,18 @@ end
 
 min_nz_weight = Inf;
 max_nz_weight = -Inf;
+all_weights_concat = cell(n_admm_algorithms, n_criteria);
 for f = 1:n_admm_algorithms
     if admm_algorithms.(admm_algorithm_fields{f}).enabled &&...
             ~(admm_algorithms.(admm_algorithm_fields{f}).spectral && ~has_color_map)
         for cr = 1:n_criteria
             if criteria(cr)
-                all_weights_fcr = all_weights{f}(:, :, :, :, cr);
+                all_weights_concat{f, cr} = vertcat(all_weights{f}{:, cr});
                 min_nz_weight = min(...
-                    min_nz_weight, min(all_weights_fcr(all_weights_fcr ~= 0))...
+                    min_nz_weight, min(all_weights_concat{f, cr}(all_weights_concat{f, cr} ~= 0))...
                 );
                 max_nz_weight = max(...
-                    max_nz_weight, max(all_weights_fcr(all_weights_fcr ~= 0))...
+                    max_nz_weight, max(all_weights_concat{f, cr}(all_weights_concat{f, cr} ~= 0))...
                 );
             end
         end
@@ -510,11 +544,11 @@ log_max_nz_weight = log10(max_nz_weight);
 plot_limits = [log_min_nz_weight - 1, log_max_nz_weight + 1];
 
 if has_spectral
-    log_patch_penalties_spectral_L1 = log10(patch_penalties_spectral_L1);
-    log_patch_penalties_spectral_L2 = log10(patch_penalties_spectral_L2);
+    log_patch_penalties_spectral_L1 = log10(vertcat(patch_penalties_spectral_L1{:}));
+    log_patch_penalties_spectral_L2 = log10(vertcat(patch_penalties_spectral_L2{:}));
 end
-log_patch_penalties_rgb_L1 = log10(patch_penalties_rgb_L1);
-log_patch_penalties_rgb_L2 = log10(patch_penalties_rgb_L2);
+log_patch_penalties_rgb_L1 = log10(vertcat(patch_penalties_rgb_L1));
+log_patch_penalties_rgb_L2 = log10(vertcat(patch_penalties_rgb_L2));
 
 for f = 1:n_admm_algorithms
     algorithm = admm_algorithms.(admm_algorithm_fields{f});
@@ -524,10 +558,7 @@ for f = 1:n_admm_algorithms
     
     true_spectral = algorithm.spectral && ~channel_mode;
     
-    name_params = sprintf(...
-        '%s_patch%dx%d_pad%d_',...
-        algorithm.file, patch_size(1), patch_size(2), padding...
-    );
+    name_params = sprintf('%s_', algorithm.file);
     if algorithm.spectral
         name_params = [...
             sprintf('bands%d_', n_bands), name_params...
@@ -552,7 +583,7 @@ for f = 1:n_admm_algorithms
     n_active_weights = sum(enabled_weights);
     to_all_weights = find(enabled_weights);
     
-    n_steps = size(all_weights{f}, 3);            
+    n_steps = max(cellfun(@(x) size(x, 3), all_weights(f, :), 'UniformOutput', true));            
     for t = 1:n_steps
         if true_spectral
             name_params_t = [...
@@ -563,7 +594,7 @@ for f = 1:n_admm_algorithms
         end
         name_params_t = fullfile(output_directory, name_params_t);
 
-        ref_weights = reshape(permute(all_weights{f}(:, :, t, :, reference_criteria), [1, 4, 2, 3, 5]), [], n_weights);
+        ref_weights = all_weights_concat{f, reference_criteria}(:, :, t);
         ref_weights = ref_weights(:, enabled_weights);
         log_ref_weights = log10(ref_weights);
         
@@ -576,7 +607,7 @@ for f = 1:n_admm_algorithms
             if ~criteria(cr)
                 continue;
             end
-            field_weights = reshape(permute(all_weights{f}(:, :, t, :, cr), [1, 4, 2, 3, 5]), [], n_weights);
+            field_weights = all_weights_concat{f, cr}(:, :, t);
             field_weights = field_weights(:, enabled_weights);
             log_weights = log10(field_weights);
 
@@ -634,18 +665,17 @@ for f = 1:n_admm_algorithms
             aw = to_all_weights(w);
             if algorithm.spectral && has_color_map
                 if admm_options_f.norms(aw)
-                    patch_penalties = log_patch_penalties_spectral_L1(:, w, :);
+                    patch_penalties = log_patch_penalties_spectral_L1(:, w);
                 else
-                    patch_penalties = log_patch_penalties_spectral_L2(:, w, :);
+                    patch_penalties = log_patch_penalties_spectral_L2(:, w);
                 end
             else
                 if admm_options_f.norms(aw)
-                    patch_penalties = log_patch_penalties_rgb_L1(:, w, :);
+                    patch_penalties = log_patch_penalties_rgb_L1(:, w);
                 else
-                    patch_penalties = log_patch_penalties_rgb_L2(:, w, :);
+                    patch_penalties = log_patch_penalties_rgb_L2(:, w);
                 end
             end
-            patch_penalties = reshape(patch_penalties, [], 1);
 
             fg = figure;
             hold on
@@ -653,7 +683,7 @@ for f = 1:n_admm_algorithms
                 if ~criteria(cr)
                     continue;
                 end
-                field_weights = reshape(permute(all_weights{f}(:, :, t, :, cr), [1, 4, 2, 3, 5]), [], n_weights);
+                field_weights = all_weights_concat{f, cr}(:, :, t);
                 field_weights = field_weights(:, enabled_weights);
                 log_weights = log10(field_weights);
                 scatter(patch_penalties, log_weights(:, w), [], criteria_colors(cr, :), 'filled');
@@ -684,7 +714,8 @@ for f = 1:n_admm_algorithms
     
     % Plot weights vs. image estimation step
     if true_spectral && n_steps > 1
-        n_bands_plot = repelem(n_bands_all{f}, n_patches * n_images);
+        n_patches_total = max(cellfun(@(x) size(x, 1), all_weights_concat(f, :), 'UniformOutput', true));  
+        n_bands_plot = repelem(n_bands_all{f}, n_patches_total * n_images);
         for w = 1:n_active_weights
             aw = to_all_weights(w);
 
@@ -694,7 +725,7 @@ for f = 1:n_admm_algorithms
                 if ~criteria(cr)
                     continue;
                 end
-                field_weights = reshape(permute(all_weights{f}(:, :, :, :, cr), [1, 4, 3, 2, 5]), [], n_weights);
+                field_weights = reshape(permute(all_weights_concat{f, cr}, [1, 3, 2]), [], n_weights);
                 field_weights = field_weights(:, enabled_weights);
                 log_weights = log10(field_weights);
             

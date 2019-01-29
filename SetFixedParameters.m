@@ -205,9 +205,7 @@ solvePatchesMultiADMMOptions.admm_options = solvePatchesADMMOptions.admm_options
 
 % Every combination of rows of `patch_sizes` and elements of `paddings`
 % will be tested by some image estimation pipelines, and if `patch_sizes`
-% is empty only whole image estimation may be performed. Some image
-% estimation pipelines only use the first row of `patch_sizes` and the
-% first element of `paddings`, via `solvePatchesADMMOptions.patch_options`.
+% is empty only whole image estimation may be performed.
 patch_sizes = [ % Each row contains a (number of rows, number of columns) pair
    30 30;
 ]; 

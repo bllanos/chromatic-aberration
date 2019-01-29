@@ -169,9 +169,8 @@
 % names ending in '_ab'.
 %
 % ## Notes
-% - This script only uses the first row of `patch_sizes`, and the first
-%   element of `paddings`, defined in 'SetFixedParameters.m', by using
-%   `solvePatchesADMMOptions.patch_options`.
+% - This script uses 'patch_size' and 'padding' defined in the dataset
+%   description, not those set in 'SetFixedParameters.m'.
 % - If `solvePatchesMultiADMMOptions.sampling_options.show_steps` is
 %   `true`, output images will be saved only for the highest spectral
 %   resolution, even though the images returned by
@@ -293,9 +292,6 @@ end
 n_active_criteria = sum(criteria);
 
 %% Process the images
-
-patch_size = solvePatchesMultiADMMOptions.patch_options.patch_size;
-padding = solvePatchesMultiADMMOptions.patch_options.padding;
 
 e_rgb_tables = cell(n_images, 1);
 if evaluate_aberrated_rgb
@@ -497,14 +493,8 @@ for i = 1:n_images
                 );
             end
 
-            name_params = sprintf(...
-                '%s_patch%dx%d_pad%d',...
-                algorithm.file, patch_size(1), patch_size(2), padding...
-                );
-            alg_name_params = sprintf(...
-                '%s, patch %d x %d, padding %d',...
-                algorithm.name, patch_size(1), patch_size(2), padding...
-                );
+            name_params = algorithm.file;
+            alg_name_params = algorithm.name;
             if use_automatic_weights
                 weights_filepart = ['_', criteria_filenames{cr}];
                 name_params = [name_params, weights_filepart];

@@ -90,6 +90,34 @@ function [dataset_params] = describeDataset(name)
 %     spectral sampling of spectral images. This field is required only if
 %     the dataset has spectral images.
 %
+%   - 'patch_size': A two-element vector containing the height and width,
+%     respectively, of the image patches to use for patch-wise image estimation.
+%     Patch dimensions should be even integers to simplify handling of colour
+%     filter array images.
+%   - 'padding': A scalar containing the width of the border around each image
+%     patch. During patch-wise image estimation, the actual patch size will be
+%     `patch_size + (2 * padding)` (except as cropped to the image borders). The
+%     padding around each patch will be discarded when combining the results
+%     from each patch into the final image. Larger values of 'padding' result in
+%     increasing overlap between the areas used to estimate each image patch.
+%     'padding' should be an even integer to simplify handling of colour filter
+%     array images.
+%
+%   - 'params_patches': A structure, where the value of each field is a matrix
+%     of image patches to be used for selecting regularization weights (or other
+%     parameters for image estimation algorithms). The columns of each matrix
+%     contain the center pixel x-coordinates, and center pixel y-coordinates,
+%     respectively, of the image patches. The fieldnames of 'params_patches' are
+%     the filenames (excluding file extensions and common suffixes) of the image
+%     files in the dataset. The same patches should be used for both colour and
+%     spectral versions of images. Therefore, if applicable, both versions of
+%     each image must have filenames that map to the same field of
+%     'params_patches'.
+%
+%     This field is optional and, if it is present, it need not have fields for
+%     every image. Random patches should be selected when there are no patches
+%     provided for an image by the dataset description.
+%
 %   - 'evaluation': Evaluation parameters, a structure with the following
 %     fields:
 %     - 'global_rgb': A structure of the form of the `options` input
@@ -184,6 +212,8 @@ if strcmp(name, 'kodak')
     dataset_params.is_aberrated = true;
     dataset_params.color_map = [];
     dataset_params.wavelengths = [];
+    dataset_params.patch_size = [30 30];
+    dataset_params.padding = 10;
     dataset_params.evaluation = struct(...
         'global_rgb', struct,...
         'custom_rgb', struct(...
@@ -204,6 +234,8 @@ elseif strcmp(name, 'kaist')
     dataset_params.is_aberrated = true;
     dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/NikonD5100ColorMapData.mat';
     dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/wavelengths.mat';
+    dataset_params.patch_size = [64 64];
+    dataset_params.padding = 16;
     
 elseif strcmp(name, '20180817_TestSpectralDataset')
     dataset_params.raw_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/*raw.mat';
@@ -219,6 +251,8 @@ elseif strcmp(name, '20180817_TestSpectralDataset')
     dataset_params.is_aberrated = false;
     dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/NikonD5100ColorMapData.mat';
     dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/BimaterialImagesData.mat';
+    dataset_params.patch_size = [64 64];
+    dataset_params.padding = 16;
     dataset_params.evaluation = struct(...
         'global_rgb', struct('error_map', true),...
         'custom_rgb', struct,...
@@ -254,6 +288,8 @@ elseif strcmp(name, 'kaist-crop')
     dataset_params.is_aberrated = true;
     dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/NikonD5100ColorMapData.mat';
     dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/wavelengths.mat';
+    dataset_params.patch_size = [64 64];
+    dataset_params.padding = 16;
     dataset_params.evaluation = struct(...
         'global_rgb', struct('error_map', true),...
         'custom_rgb', struct,...
@@ -309,6 +345,8 @@ elseif strcmp(name, 'choi-test')
     dataset_params.is_aberrated = true;
     dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/NikonD5100ColorMapData.mat';
     dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/Original/BimaterialImagesData.mat';
+    dataset_params.patch_size = [64 64];
+    dataset_params.padding = 16;
     dataset_params.evaluation = struct(...
         'global_rgb', struct('error_map', true),...
         'custom_rgb', struct,...
@@ -352,66 +390,98 @@ elseif strcmp(name, 'choi-test')
     dataset_params.choi_rgb_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/ChoiEtAl2017_OutputConverted/recon_choiOutConverted_rgb.mat';
     dataset_params.choi_spectral_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/ChoiEtAl2017_OutputConverted/recon_choiOutConverted_latent.mat';
     
-elseif strcmp(name, '20181212_RealData_spectralAsRAW')
-    dataset_params.raw_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dataset/*raw.mat';
+elseif strcmp(name, '20190107_DiskPattern_rawFromSpectral')
+    dataset_params.raw_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/channel_scaling/disks47cm_raw.mat';
     dataset_params.raw_images_variable = 'I_raw';
-    dataset_params.rgb_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dataset/*d3.mat';
+    dataset_params.rgb_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/channel_scaling/disks47cm_d3.mat';
     dataset_params.rgb_images_variable = 'I_3';
-    dataset_params.spectral_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dataset/*dHyper.mat';
+    dataset_params.spectral_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/channel_scaling/disks47cm_dHyper.mat';
     dataset_params.spectral_images_variable = 'I_hyper';
     dataset_params.spectral_reflectances = false;
-    dataset_params.dispersion_rgb_forward = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dispersion/RAWDiskDispersionResults_RGB_spline_fromReference.mat';
-    dataset_params.dispersion_rgb_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dispersion/RAWDiskDispersionResults_RGB_spline_fromNonReference.mat';
-    dataset_params.dispersion_spectral_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dispersion/RAWDiskDispersionResults_spectral_spline_fromNonReference.mat';
+    dataset_params.dispersion_rgb_forward = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/dispersion/RAWDiskDispersionResults_RGB_spline_fromReference.mat';
+    dataset_params.dispersion_rgb_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/dispersion/RAWDiskDispersionResults_RGB_spline_fromNonReference.mat';
+    dataset_params.dispersion_spectral_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/dispersion/RAWDiskDispersionResults_spectral_spline_fromNonReference.mat';
     dataset_params.is_aberrated = true;
-    dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dataset/sensor.mat';
+    dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/channel_scaling/sensor.mat';
     dataset_params.fix_bands = true;
-    dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dataset/sensor.mat';
+    dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/channel_scaling/sensor.mat';
+    dataset_params.patch_size = [64 64];
+    dataset_params.padding = 16;
+    dataset_params.params_patches = struct(...
+        'disks47cm_dHyper', [2280, 220; 233, 304; 350 1833; 2322, 1905; 1198, 1007]...
+    );
     dataset_params.evaluation = struct(...
         'global_rgb', struct('error_map', true),...
         'custom_rgb', struct,...
         'global_spectral', struct(...
             'metric', 'mrae',...
             'error_map', true,...
-            'mi_bands', [1, 2],...
-            'bands_diff', [1, 2]...
+            'mi_bands', [1, 7],...
+            'bands_diff', [1, 7]...
             ),...
         'custom_spectral', struct(...
-            'pos1_1mmDots_dHyper', struct(...
-                'radiance', [1110, 1600, 15, 15; 255, 1712, 7, 7],...
-                'scanlines', [554, 769, 747, 780]...
+            'disks47cm_dHyper', struct(...
+                'radiance', [
+                    2280, 220, 17, 17;
+                    233, 304, 17, 17;
+                    350 1833, 17, 17;
+                    2322, 1905, 17, 17;
+                    1198, 1007, 17, 17;
+                    2245, 254, 17, 17;
+                    260, 330, 17, 17;
+                    373, 1805, 17, 17;
+                    2290, 1871, 17, 17;
+                    1169, 1036, 17, 17
+                ],...
+                'scanlines', [233, 304, 2322, 1905; 350, 1833, 2280, 220]...
             )...
-        )......
+        )...
     );
 
-elseif strcmp(name, '20181212_RealData_RGBAsRAW')
-    dataset_params.raw_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/preprocessed/blended_averaged/pos1_1mmDots.mat';
+elseif strcmp(name, '20190107_DiskPattern_rawCaptured')
+    dataset_params.raw_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/preprocessed_images/exposure_blended/disks47cm_unfiltered.mat';
     dataset_params.raw_images_variable = 'I_raw';
     dataset_params.rgb_images_wildcard = [];
     dataset_params.rgb_images_variable = [];
-    dataset_params.spectral_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dataset/*dHyper.mat';
+    dataset_params.spectral_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/channel_scaling/disks47cm_dHyper.mat';
     dataset_params.spectral_images_variable = 'I_hyper';
     dataset_params.spectral_reflectances = false;
-    dataset_params.dispersion_rgb_forward = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dispersion/RAWDiskDispersionResults_RGB_spline_fromReference.mat';
-    dataset_params.dispersion_rgb_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dispersion/RAWDiskDispersionResults_RGB_spline_fromNonReference.mat';
-    dataset_params.dispersion_spectral_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dispersion/RAWDiskDispersionResults_spectral_spline_fromNonReference.mat';
+    dataset_params.dispersion_rgb_forward = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/dispersion/RAWDiskDispersionResults_RGB_spline_fromReference.mat';
+    dataset_params.dispersion_rgb_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/dispersion/RAWDiskDispersionResults_RGB_spline_fromNonReference.mat';
+    dataset_params.dispersion_spectral_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/dispersion/RAWDiskDispersionResults_spectral_spline_fromNonReference.mat';
     dataset_params.is_aberrated = true;
-    dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dataset/SonyColorMapData.mat';
-    dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dataset/sensor.mat';
+    dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/SonyColorMapData.mat';
+    dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/channel_scaling/sensor.mat';
+    dataset_params.patch_size = [64 64];
+    dataset_params.padding = 16;
+    dataset_params.params_patches = struct(...
+        'disks47cm_dHyper', [2280, 220; 233, 304; 350 1833; 2322, 1905; 1198, 1007]...
+    );
     dataset_params.evaluation = struct(...
-        'global_rgb', struct('error_map', false),...
+        'global_rgb', struct('error_map', true),...
         'custom_rgb', struct,...
         'global_spectral', struct(...
             'metric', 'mrae',...
             'error_map', true,...
-            'mi_bands', [1, 2],...
-            'bands_diff', [1, 2]...
+            'mi_bands', [1, 7],...
+            'bands_diff', [1, 7]...
             ),...
         'custom_spectral', struct(...
-            'pos1_1mmDots_dHyper', struct(...
-                'reference_patch', [1932, 659, 15, 15],...
-                'radiance', [1110, 1600, 15, 15; 255, 1712, 7, 7],...
-                'scanlines', [554, 769, 747, 780]...
+            'disks47cm_dHyper', struct(...
+                'reference_patch', [1169, 1036, 17, 17],...
+                'radiance', [
+                    2280, 220, 17, 17;
+                    233, 304, 17, 17;
+                    350 1833, 17, 17;
+                    2322, 1905, 17, 17;
+                    1198, 1007, 17, 17;
+                    2245, 254, 17, 17;
+                    260, 330, 17, 17;
+                    373, 1805, 17, 17;
+                    2290, 1871, 17, 17;
+                    1169, 1036, 17, 17
+                ],...
+                'scanlines', [233, 304, 2322, 1905; 350, 1833, 2280, 220]...
             )...
         )...
     );

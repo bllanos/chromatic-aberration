@@ -251,3 +251,10 @@ if has_choi_spectral
         end
     end
 end
+
+%% Miscellaneous
+
+solvePatchesADMMOptions.patch_options.patch_size = dp.patch_size;
+solvePatchesADMMOptions.patch_options.padding = dp.padding;
+solvePatchesMultiADMMOptions.patch_options.patch_size = dp.patch_size;
+solvePatchesMultiADMMOptions.patch_options.padding = dp.padding;
