@@ -453,6 +453,9 @@ n_active_weights = sum(enabled_weights);
 if all(~enabled_weights) && output_weights
     error('Cannot output selected regularization weights, because all regularization terms are disabled.');
 end
+if enabled_weights(2) && n_bands < 2
+    error('Cannot enable spectral regularization when `lambda` has length one.');
+end
 use_min_norm = all(~enabled_weights) && ~admm_options.nonneg;
 
 if any(mod(image_sampling, 2) ~= 0)

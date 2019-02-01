@@ -153,7 +153,7 @@ parameters_list = {
 
 %% Input data and parameters
 
-dataset_name = '20180817_TestSpectralDataset';
+dataset_name = '20190107_DiskPattern_rawFromSpectral';
 
 % Describe algorithms to run
 run('SetAlgorithms.m')
@@ -162,7 +162,7 @@ run('SetAlgorithms.m')
 n_patches = 10;
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/Downloads';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/20190130_reconstruction/weights_selection';
 
 % Produce console output to describe the processing in this script
 verbose = true;

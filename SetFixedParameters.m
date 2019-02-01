@@ -256,6 +256,6 @@ solvePatchesMultiADMMOptions.reg_options = solvePatchesADMMOptions.reg_options;
 
 %% ## Debugging Flags
 
-findSamplingVerbose = false;
+findSamplingVerbose = true;
 solvePatchesADMMVerbose = true;
 solvePatchesMultiADMMVerbose = true;

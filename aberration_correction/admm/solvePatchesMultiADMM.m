@@ -466,6 +466,9 @@ n_active_weights = sum(enabled_weights);
 if all(~enabled_weights) && output_weights
     error('Cannot output selected regularization weights, because all regularization terms are disabled.');
 end
+if enabled_weights(2) && n_bands < 2
+    error('Cannot enable spectral regularization when `lambda` has length one.');
+end
 use_min_norm = all(~enabled_weights) && ~admm_options.nonneg;
 
 if any(mod(image_sampling, 2) ~= 0)
@@ -707,10 +710,14 @@ parfor j = 1:n_j
             numel_p = prod(image_sampling_p) * n_bands_t;
             n_bands_t1 = n_bands_t - 1;
             color_weights_t = color_weights_all{t};
+            enabled_weights_t = enabled_weights;
+            if n_bands_t == 1
+                enabled_weights_t(2) = false;
+            end
             in_admm = initBaek2017Algorithm2LowMemory(...
                 column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)),...
                 align, dispersion_matrix_p,...
-                color_weights_t, enabled_weights, admm_options...
+                color_weights_t, enabled_weights_t, admm_options...
             );
             if t > 1
                 % Initialize with the result of the previous step
@@ -728,6 +735,7 @@ parfor j = 1:n_j
             
             if ~use_min_norm
                 reg_options_p = reg_options;
+                reg_options_p.enabled = enabled_weights_t;
                 if has_multi_weights
                     reg_options_p.minimum_weights = multi_weights(t, :);
                     reg_options_p.maximum_weights = multi_weights(t, :);

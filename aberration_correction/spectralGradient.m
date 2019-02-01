@@ -64,6 +64,12 @@ n_px = prod(image_sampling(1:2));
 n_px_c = prod(image_sampling);
 n_px_c_nonzero = n_px * c_nonzero;
 
+if c == 1 && replicate
+    error('The spectral gradient operator for a single-channel image is empty if `replicate` is `false`.');
+else
+    warning('The spectral gradient of a single-channel image is zero.');
+end
+
 % Row indices
 % - Go through all pixels once, and create two matrix elements per pixel
 offsets = [0; 1];

@@ -42,18 +42,18 @@ parameters_list = {
 
 % Wildcard for 'ls()' to find the input *reflectance* images
 % '.mat' or image files can be loaded
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/Original/colorIDs_hyper_rfl.mat';
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/cropped/*reflectance.mat';
 input_images_variable_name = 'I_hyper'; % Used only when loading '.mat' files
 
 % A crop box for the images (leave empty for no cropping)
 crop = []; % [top-left x, top-left y, width, height]
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/NikonD5100ColorMapData.mat';
+color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/NikonD5100ColorMapData.mat';
 
 % Path and filename of a '.mat' file containing the wavelengths or colour
 % channel indices corresponding to the images
-bands_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/Original/BimaterialImagesData.mat';
+bands_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/wavelengths.mat';
 bands_variable = 'bands'; % Variable name in the above file
 
 % Path and filename of a '.mat' file containing the wavelengths or colour
@@ -73,7 +73,7 @@ illuminant_name = 'd65';
 normalization_channel = 2;
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/Downloads';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/preprocessed';
 
 % Set the Bayer pattern code, and spectral resampling options
 run('SetFixedParameters.m')
