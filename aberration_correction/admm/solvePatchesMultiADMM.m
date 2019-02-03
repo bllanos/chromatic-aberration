@@ -466,9 +466,6 @@ n_active_weights = sum(enabled_weights);
 if all(~enabled_weights) && output_weights
     error('Cannot output selected regularization weights, because all regularization terms are disabled.');
 end
-if enabled_weights(2) && n_bands < 2
-    error('Cannot enable spectral regularization when `lambda` has length one.');
-end
 use_min_norm = all(~enabled_weights) && ~admm_options.nonneg;
 
 if any(mod(image_sampling, 2) ~= 0)
@@ -518,6 +515,9 @@ else
     ] = findSampling(color_map, color_bands, {}, sampling_options);
 end
 n_bands_final = length(bands_final);
+if enabled_weights(2) && n_bands_final < 2
+    error('Cannot enable spectral regularization because the output image will have a single channel or spectral band.');
+end
 if strcmp(sampling_options.progression, 'sequential')
     n_bands_all = 1:n_bands_final;
 elseif strcmp(sampling_options.progression, 'doubling')

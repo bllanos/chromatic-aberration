@@ -65,9 +65,9 @@ n_px_c = prod(image_sampling);
 n_px_c_nonzero = n_px * c_nonzero;
 
 if c == 1 && replicate
-    error('The spectral gradient operator for a single-channel image is empty if `replicate` is `false`.');
-else
     warning('The spectral gradient of a single-channel image is zero.');
+elseif c == 1
+    error('The spectral gradient operator for a single-channel image is empty if `replicate` is `false`.');
 end
 
 % Row indices

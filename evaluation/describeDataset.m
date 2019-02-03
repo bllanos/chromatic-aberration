@@ -159,7 +159,8 @@ function [dataset_params] = describeDataset(name)
 %   used to evaluate demosaicking algorithms.
 %   - Source: http://r0k.us/graphics/kodak/
 %   - Maintainer: Richard W Franzen
-% - 'kaist': The KAIST Dataset of Hyperspectral Reflectance Images
+% - 'kaist-crop': The KAIST Dataset of Hyperspectral Reflectance Images (cropped
+%   versions)
 %   - Source: http://vclab.kaist.ac.kr/siggraphasia2017p1/kaistdataset.html
 %   - Reference:
 %     Choi, I., Jeon, D. S., Nam, G., Gutierrez, D., & Kim, M. H. (2017).
@@ -169,7 +170,7 @@ function [dataset_params] = describeDataset(name)
 %
 % There are some datasets defined in the code used for preliminary testing
 % only, such as:
-% - 'kaist-crop': The color checker chart from Scene 30 of the KAIST
+% - 'kaist-crop-2': The color checker chart from Scene 30 of the KAIST
 %   dataset.
 % - 'choi-test': A dataset used to test the conversion from reflectance
 %   images to radiance images, and to test modifications to the method of
@@ -220,13 +221,13 @@ if strcmp(name, 'kodak')
             'kodim01', struct('error_map', true))...
         );
     
-elseif strcmp(name, 'kaist')
+elseif strcmp(name, 'kaist-crop')
     dataset_params.raw_images_wildcard = [];
     dataset_params.raw_images_variable = [];
     dataset_params.rgb_images_wildcard = [];
     dataset_params.rgb_images_variable = [];
-    dataset_params.spectral_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/*.exr';
-    dataset_params.spectral_images_variable = [];
+    dataset_params.spectral_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/cropped/*_reflectance.mat';
+    dataset_params.spectral_images_variable = 'I_hyper';
     dataset_params.spectral_reflectances = true;
     dataset_params.dispersion_rgb_forward = [];
     dataset_params.dispersion_rgb_reverse = [];
@@ -234,7 +235,7 @@ elseif strcmp(name, 'kaist')
     dataset_params.is_aberrated = true;
     dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/NikonD5100ColorMapData.mat';
     dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/wavelengths.mat';
-    dataset_params.patch_size = [64 64];
+    dataset_params.patch_size = [256 256];
     dataset_params.padding = 16;
     
 elseif strcmp(name, '20180817_TestSpectralDataset')
@@ -278,7 +279,7 @@ elseif strcmp(name, '20180817_TestSpectralDataset')
         )...
     );
 
-elseif strcmp(name, 'kaist-crop')
+elseif strcmp(name, 'kaist-crop-2')
     dataset_params.raw_images_wildcard = [];
     dataset_params.raw_images_variable = [];
     dataset_params.rgb_images_wildcard = [];
@@ -292,7 +293,7 @@ elseif strcmp(name, 'kaist-crop')
     dataset_params.is_aberrated = true;
     dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/NikonD5100ColorMapData.mat';
     dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/wavelengths.mat';
-    dataset_params.patch_size = [64 64];
+    dataset_params.patch_size = [256 256];
     dataset_params.padding = 16;
     dataset_params.evaluation = struct(...
         'global_rgb', struct('error_map', true),...
@@ -409,10 +410,10 @@ elseif strcmp(name, '20190107_DiskPattern_rawFromSpectral')
     dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/channel_scaling/sensor.mat';
     dataset_params.fix_bands = true;
     dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/channel_scaling/sensor.mat';
-    dataset_params.patch_size = [64 64];
+    dataset_params.patch_size = [256 256];
     dataset_params.padding = 16;
     dataset_params.params_patches = struct(...
-        'disks47cm_dHyper', [2280, 220; 233, 304; 350 1833; 2322, 1905; 1198, 1007]...
+        'disks47cm_dHyper', [2274, 237; 339, 304; 350 1833; 2274, 1896; 1198, 1007]...
     );
     dataset_params.evaluation = struct(...
         'global_rgb', struct('error_map', true),...
@@ -456,10 +457,10 @@ elseif strcmp(name, '20190107_DiskPattern_rawCaptured')
     dataset_params.is_aberrated = true;
     dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/SonyColorMapData.mat';
     dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/channel_scaling/sensor.mat';
-    dataset_params.patch_size = [64 64];
+    dataset_params.patch_size = [256 256];
     dataset_params.padding = 16;
     dataset_params.params_patches = struct(...
-        'disks47cm_dHyper', [2280, 220; 233, 304; 350 1833; 2322, 1905; 1198, 1007]...
+        'disks47cm_dHyper', [2274, 237; 339, 304; 350 1833; 2274, 1896; 1198, 1007]...
     );
     dataset_params.evaluation = struct(...
         'global_rgb', struct('error_map', true),...

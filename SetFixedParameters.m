@@ -179,9 +179,13 @@ weights = [ 1e-2, 0, 0 ];
 
 % Convergence tolerances in ADMM. Reasonable values for the third element
 % are 10^-4 to 10^-3 (page 21 of Boyd et al. 2011).
+% The first element is the tolerance for the conjugate gradients method. MATLAB
+% uses a default value of 10^-6
 solvePatchesADMMOptions.admm_options.tol = [ 1e-5, 1e-5, 1e-5 ];
 
-% Maximum number of inner and outer iterations, the `maxit` input argument
+% Maximum number of inner and outer iterations, the `maxit` input argument.
+% The first element applies to the conjugate gradients method. MATLAB
+% uses a default value of 20.
 solvePatchesADMMOptions.admm_options.maxit = [ 500, 500 ];
 
 % Parameters for adaptively changing the penalty parameters for improved

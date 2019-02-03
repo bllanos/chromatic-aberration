@@ -289,7 +289,7 @@ for i = 1:n_images
         corners_i = fliplr(dp.params_patches.(names{i})) -...
             repmat(ceil(patch_size / 2), size(dp.params_patches.(names{i}), 1), 1);
         filter = ((corners_i(:, 1) - padding) >= 1) & ((corners_i(:, 2) - padding) >= 1) &...
-            ((corners_i(:, 1) + (padding - 1)) <= image_sampling(1)) & ((corners_i(:, 2) + (padding - 1)) <= image_sampling(2));
+            ((corners_i(:, 1) + (patch_size(1) + padding - 1)) <= image_sampling(1)) & ((corners_i(:, 2) + (patch_size(2) + padding - 1)) <= image_sampling(2));
         if ~any(filter)
             warning([
                 'No patches for image "%s" are fully within the image borders (accounting for cropping to any dispersion model).\n',...
@@ -301,9 +301,9 @@ for i = 1:n_images
     end
     if isempty(corners_i)
         corners_i = [
-            randi(image_sampling(1) - patch_size(1) - padding, n_patches, 1),...
-            randi(image_sampling(2) - patch_size(1) - padding, n_patches, 1)
-        ];
+            randi(image_sampling(1) - full_patch_size, n_patches, 1),...
+            randi(image_sampling(2) - full_patch_size, n_patches, 1)
+        ] + padding;
     end
     n_patches_i = size(corners_i, 1);
     if n_patches_i == 0
