@@ -106,9 +106,11 @@
 %
 % ### Graphical output
 %
-% Figures are generated for each ADMM algorithm showing the distributions
-% of weights selected by the minimum distance and mean square error
-% criteria, and are saved to '.fig' files.
+% Figures are generated for each ADMM algorithm showing the distributions of
+% weights selected by the different criteria, and are saved to '.fig' files.
+%
+% A figure is also generated for each image showing the locations of the patches
+% used to select weights.
 %
 % ## Notes
 % - This script uses 'patch_size' and 'padding' defined in the dataset
@@ -162,7 +164,7 @@ run('SetAlgorithms.m')
 n_patches = 10;
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/20190130_reconstruction/weights_selection';
+output_directory = '/home/llanos/Downloads';
 
 % Produce console output to describe the processing in this script
 verbose = true;
@@ -312,6 +314,28 @@ for i = 1:n_images
     % Avoid changing the Bayer pattern
     corners_i(mod(corners_i, 2) == 0) = corners_i(mod(corners_i, 2) == 0) - 1;
     corners{i} = corners_i;
+    
+    % Generate a figure showing all patches
+    fg = figure;
+    labels = cell(n_patches_i, 1);
+    font_size = max(12, floor(0.02 * max(image_sampling)));
+    for pc = 1:n_patches_i
+        labels{pc} = sprintf('%d', pc);
+    end
+    figure_image = insertObjectAnnotation(...
+        I_raw_gt, 'rectangle', [fliplr(corners_i), fliplr(repmat(patch_size, n_patches_i, 1))],...
+        labels,...
+        'TextBoxOpacity', 0.9, 'FontSize', font_size, 'LineWidth', 2,...
+        'Color', jet(n_patches_i)...
+        );
+    imshow(figure_image);
+    title(sprintf('Weight selection patches for image "%s"', names{i}));
+    figure_save_name = sprintf('%s_patches.fig', names{i});
+    savefig(...
+        fg,...
+        fullfile(output_directory, figure_save_name), 'compact'...
+        );
+    close(fg);
 
     % Characterize the patches
     if has_spectral

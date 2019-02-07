@@ -125,12 +125,6 @@
 %     the i-th image with the f-th demosaicing algorithm defined in
 %     'SetAlgorithms.m'. Entries corresponding to disabled algorithms will be
 %     set to `NaN`.
-%   - 'warp': This field exists for datasets which have models of colour
-%     channel-space dispersion, and will have non-`NaN` elements if the method
-%     of Rudakova and Monasse (2014) is enabled in SetAlgorithms.m. 'time.warp'
-%     is a vector where the elements are the times taken to calculate warping
-%     matrices for correcting dispersion in the images based on the method of
-%     Rudakova and Monasse (2014).
 %   - 'rgb_correction': Execution timing information, stored as a 3D array, for
 %     RGB-based chromatic aberration correction algorithms.
 %     `time.rgb_correction(f, i, dm)` is the time taken to process the
@@ -141,8 +135,8 @@
 %     requires a model of colour channel-space dispersion, and so will be
 %     disabled in the absence of such a model, regardless of the 'enabled' flag
 %     in SetAlgorithms.m. The time taken to calculate the warp matrix used by
-%     the method of Rudakova and Monasse (2014) is excluded from
-%     'rgb_correction', but accounted for in 'warp'.
+%     the method of Rudakova and Monasse (2014) is included in 'rgb_correction',
+%     because it is done as part of warping the image, for memory efficiency.
 % 
 % Additionally, the file contains the values of all parameters listed in
 % `parameters_list`, which is initialized in this file, and then augmented
@@ -226,7 +220,7 @@ parameters_list = {
 
 %% Input data and parameters
 
-dataset_name = 'kodak';
+dataset_name = '20190107_DiskPattern_rawCaptured';
 
 % Describe algorithms to run
 run('SetAlgorithms.m')
@@ -234,10 +228,10 @@ run('SetAlgorithms.m')
 % Optionally override the list of ADMM-family algorithms to run, and the
 % regularization weights to run them with, from the output file of
 % 'SelectWeightsForDataset.m'. (Leave empty otherwise)
-admm_algorithms_filename = '/home/llanos/Downloads/SelectWeightsForDataset_kodak.mat';
+admm_algorithms_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/20190130_reconstruction/raw_from_unfiltered/weights_selection/SelectWeightsForDataset_20190107_DiskPattern_rawCaptured.mat';
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/Downloads';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/20190130_reconstruction/raw_from_unfiltered/admm';
 
 % Produce console output to describe the processing in this script
 verbose = true;
@@ -272,12 +266,16 @@ admm_algorithm_fields = fieldnames(admm_algorithms);
 n_admm_algorithms = length(admm_algorithm_fields);
 n_criteria = length(criteria_fields);
 if ~use_automatic_weights
+    is_first_algorithm = true;
     for f = 1:n_admm_algorithms
         algorithm = admm_algorithms.(admm_algorithm_fields{f});
         if algorithm.enabled && ~(algorithm.spectral && ~has_color_map)
             for cr = 1:n_criteria
-                if f == 1
+                if is_first_algorithm
                     criteria(cr) = isfield(algorithm, criteria_fields{cr});
+                    if cr == n_criteria
+                        is_first_algorithm = false;
+                    end
                 elseif criteria(cr) ~= isfield(algorithm, criteria_fields{cr})
                     error('Different algorithms have regularization weights selected using different methods.');
                 end
@@ -309,9 +307,6 @@ time.demosaic = nan(n_demosaic_algorithms, n_images);
 rgb_correction_algorithm_fields = fieldnames(rgb_correction_algorithms);
 n_rgb_correction_algorithms = length(rgb_correction_algorithm_fields);
 time.rgb_correction = nan(n_rgb_correction_algorithms, n_images, n_demosaic_algorithms);
-if has_dispersion_rgb
-    time.warp = nan(1, n_images);
-end
 
 for i = 1:n_images
     if verbose
@@ -867,8 +862,10 @@ for i = 1:n_images
         end
     end
     
+    % Free space
+    clear I_latent I_spectral_gt I_spectral_gt_warped extra_images
+    
     % Demosaicking and RGB-based chromatic aberration correction
-    W_forward = [];
     for f = 1:n_demosaic_algorithms
         algorithm = demosaic_algorithms.(demosaic_algorithm_fields{f});
         if ~algorithm.enabled
@@ -909,24 +906,12 @@ for i = 1:n_images
             
         if has_dispersion_rgb && rgb_correction_algorithms.rudakova2014.enabled
             post_algorithm = rgb_correction_algorithms.rudakova2014;
-            
-            if isempty(W_forward)
-                if verbose
-                    fprintf('[RunOnDataset, image %d] Calculating the forward colour dispersion matrix...\n', i);
-                end
-                time_start = tic;
-                W_forward = dispersionfunToMatrix(...
-                    df_rgb_forward, bands_rgb, image_sampling, image_sampling,...
-                    [0, 0, image_sampling(2),  image_sampling(1)], false...
-                    );
-                time.warp(i) = toc(time_start);
-                if verbose
-                    fprintf('\t...done\n');
-                end
-            end
     
             time_start = tic;
-            I_rgb = warpImage(I_rgb_warped, W_forward, image_sampling);
+            I_rgb = dispersionfunToMatrix(...
+                    df_rgb_forward, bands_rgb, image_sampling, I_rgb_warped,...
+                    [0, 0, image_sampling(2),  image_sampling(1)], false...
+                    );
             time.rgb_correction(1, i, f) = toc(time_start);
             saveImages(...
                 output_directory, names{i},...

@@ -103,6 +103,10 @@ function [e_spectral, varargout] = evaluateSpectral(...
 %     `R_spectral`. 'reference_patch' is intended to allow for comparisions
 %     between spectral images that differ in illumination.
 %
+%     If 'radiance' exists, then the reference patch will be included in the
+%     graphical output triggered by 'radiance' (but will not be included in
+%     `e_spectral.radiance`).
+%
 % ## Output Arguments
 %
 % e_spectral -- Spectral error statistics
@@ -172,10 +176,11 @@ function [e_spectral, varargout] = evaluateSpectral(...
 %   - 'error_map': A figure handle corresponding to the output triggered by
 %     `options.error_map`.
 %   - 'radiance': A vector of figure handles corresponding to the output
-%     triggered by `options.radiance`.
+%     triggered by `options.radiance` (and `options.reference_patch`).
 %   - 'patches': A figure showing the image locations of all patches
-%     described by `options.radiance`, produced only if `options` does not
-%     have a 'radiance_fg' field.
+%     described by `options.radiance`, produced only if `options` does not have
+%     a 'radiance_fg' field. If `options.radiance` and `options.reference_patch`
+%     both exist, then the location of the reference patch will also be shown.
 %   - 'scanlines': A vector corresponding to the output triggered by
 %     `options.scanlines`.
 %   - 'scanlines_locations': A figure showing the image locations of all
@@ -288,29 +293,30 @@ I_spectral = channelConversion(I_spectral, spectral_weights);
 
 image_height = size(I_spectral, 1);
 image_width = size(I_spectral, 2);
-if isfield(options, 'reference_patch')
+has_reference_patch = isfield(options, 'reference_patch');
+if has_reference_patch
     bounds = options.reference_patch;
     if mod(bounds(3), 2) == 0 || mod(bounds(4), 2) == 0
         error('Reference patch dimensions must be odd integers.');
     end
     widthDiv2 = (bounds(3) - 1) / 2;
     heightDiv2 = (bounds(4) - 1) / 2;
-    rectangle = [...
-        max(1, bounds(1) - widthDiv2);
-        max(1, bounds(2) - heightDiv2);
-        min(image_width, bounds(1) + widthDiv2);
+    reference_rectangle = [...
+        max(1, bounds(1) - widthDiv2),...
+        max(1, bounds(2) - heightDiv2),...
+        min(image_width, bounds(1) + widthDiv2),...
         min(image_height, bounds(2) + heightDiv2)
     ];
 
-    radiance_average_I = mean(mean(I_spectral(...
-        rectangle(2):rectangle(4), rectangle(1):rectangle(3), :...
-    ), 1), 2);
-    radiance_average_R = mean(mean(R_spectral(...
-        rectangle(2):rectangle(4), rectangle(1):rectangle(3), :...
-    ), 1), 2);
-    radiance_ratio = radiance_average_R ./ radiance_average_I;
+    radiance_average_I_reference = squeeze(mean(mean(I_spectral(...
+        reference_rectangle(2):reference_rectangle(4), reference_rectangle(1):reference_rectangle(3), :...
+    ), 1), 2));
+    radiance_average_R_reference = squeeze(mean(mean(R_spectral(...
+        reference_rectangle(2):reference_rectangle(4), reference_rectangle(1):reference_rectangle(3), :...
+    ), 1), 2));
+    radiance_ratio = reshape(radiance_average_R_reference ./ radiance_average_I_reference, 1, 1, []);
     % Prevent division by zero, and indefinite values
-    radiance_ratio(radiance_average_I == radiance_average_R) = 1;
+    radiance_ratio(radiance_average_I_reference == radiance_average_R_reference) = 1;
     radiance_ratio(~isfinite(radiance_ratio)) = 1;
     I_spectral = I_spectral .* repmat(radiance_ratio, image_height, image_width, 1);
 end
@@ -424,6 +430,7 @@ end
 
 % Graphical output
 fg_spectral = struct;
+font_size = max(12, floor(0.02 * max([image_height, image_width])));
 
 if isfield(options, 'error_map') && options.error_map
     fg_spectral.error_map = figure;
@@ -474,6 +481,29 @@ if isfield(options, 'radiance')
             );
         hold off
     end
+    if has_reference_patch
+        if isfield(options, 'radiance_fg')
+            fg_spectral.radiance(i) = options.radiance_fg(i);
+            figure(fg_spectral.radiance(i));
+            hold on
+        else
+            fg_spectral.radiance(i) = figure;
+            hold on
+            plot(...
+                lambda, radiance_average_R_reference,...
+                'Color', 'k', 'LineWidth', 2, 'Marker', 'none'...
+            );
+            xlabel('Wavelength [nm]');
+            ylabel('Radiance');
+            title('Spectral radiance of the reference patch');
+        end
+        plot(...
+                lambda, radiance_average_I_reference,...
+                'Color', options.plot_color, 'LineWidth', 2,...
+                'Marker', options.plot_marker, 'LineStyle', options.plot_style...
+            );
+        hold off
+    end
     
     % Generate a figure showing all patches
     if ~isfield(options, 'radiance_fg')
@@ -489,9 +519,19 @@ if isfield(options, 'radiance')
         end
         figure_image = insertObjectAnnotation(...
             background, 'rectangle', patch_rectangles, labels,...
-            'TextBoxOpacity', 0.9, 'FontSize', 12, 'LineWidth', 2,...
+            'TextBoxOpacity', 0.9, 'FontSize', font_size, 'LineWidth', 2,...
             'Color', jet(n_patches)...
         );
+        if has_reference_patch
+            reference_rectangle(3) = reference_rectangle(3) - reference_rectangle(1) + 1;
+            reference_rectangle(4) = reference_rectangle(4) - reference_rectangle(2) + 1;
+            figure_image = insertObjectAnnotation(...
+                figure_image, 'rectangle', reference_rectangle, 'Reference',...
+                'TextBoxOpacity', 0.9, 'FontSize', font_size, 'LineWidth', 2,...
+                'Color', [1, 1, 1]...
+            );
+        end
+        
         imshow(figure_image);
         title('Image patches for spectral radiance evaluation')
     end
@@ -606,7 +646,7 @@ if isfield(options, 'scanlines')
         end
         figure_image = insertText(...
             figure_image, lines_endpoints(:, 1:2), 1:n_lines,...
-            'FontSize', 12, 'BoxColor', colors, 'BoxOpacity', 0.9,...
+            'FontSize', font_size, 'BoxColor', colors, 'BoxOpacity', 0.9,...
             'AnchorPoint', 'LeftTop'...
         );
         imshow(figure_image);

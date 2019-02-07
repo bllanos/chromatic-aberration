@@ -1,15 +1,17 @@
 function [ W, image_bounds_out ] = dispersionfunToMatrix(dispersionfun, lambda, image_sampling_in, varargin)
-% DISPERSIONFUNTOMATRIX  Convert a warp model to a warp matrix
+% DISPERSIONFUNTOMATRIX  Convert a warp model to a warp matrix, or use it
+% directly to warp an image
 %
 % ## Syntax
 % W = dispersionfunToMatrix(...
 %   dispersionfun, lambda, image_sampling_in [, image_sampling_out,...
 %   image_bounds, negate, offset]...
 % )
-% [ W, image_bounds ] = dispersionfunToMatrix(...
-%   dispersionfun, lambda, image_sampling_in [, image_sampling_out,...
+% I_in = dispersionfunToMatrix(...
+%   dispersionfun, lambda, image_sampling_in, I_out [,...
 %   image_bounds, negate, offset]...
 % )
+% [ ____, image_bounds ] = dispersionfunToMatrix(____)
 %
 % ## Description
 % W = dispersionfunToMatrix(...
@@ -18,10 +20,13 @@ function [ W, image_bounds_out ] = dispersionfunToMatrix(dispersionfun, lambda, 
 % )
 %   Returns a matrix for distorting a vectorized image.
 %
-% [ W, image_bounds ] = dispersionfunToMatrix(...
-%   dispersionfun, lambda, image_sampling_in [, image_sampling_out,...
+% I_in = dispersionfunToMatrix(...
+%   dispersionfun, lambda, image_sampling_in, I_out [,...
 %   image_bounds, negate, offset]...
 % )
+%   Returns the distorted version of the input image.
+%
+% [ ____, image_bounds ] = dispersionfunToMatrix(____)
 %   Additionally returns the boundaries of the undistorted image in the
 %   coordinate system of the distorted image.
 %
@@ -40,6 +45,11 @@ function [ W, image_bounds_out ] = dispersionfunToMatrix(dispersionfun, lambda, 
 % image_sampling_in -- Distorted image dimensions
 %   A two-element vector containing the image height, and width,
 %   respectively, of the distorted image (in units of pixels)
+%
+% I_out -- Undistorted image
+%   A 2D or 3D array containing an image to be warped. If `I_out` is a 2D array,
+%   it must have a size other than 2 x 1 or 1 x 2 in order for it to be
+%   distinguishable from `image_sampling_out`.
 %
 % image_sampling_out -- Undistorted image dimensions
 %   A two-element vector containing the image height, and width,
@@ -104,6 +114,15 @@ function [ W, image_bounds_out ] = dispersionfunToMatrix(dispersionfun, lambda, 
 %   the value of the k-th wavelength band or colour channel at the j-th
 %   pixel of the distorted image.
 %
+% I_in -- Output image
+%   An image_sampling_in(1) x image_sampling_in(2) x length(lambda) array
+%   containing the version of `I_out` distorted according to `dispersionfun`.
+%   The call syntax where `I_in` is returned instead of `W` is more memory
+%   efficient, because `W` consumes a lot of memory. However, calling this
+%   function for different values of `I_out`, to apply the same warp to
+%   different images, is equivalent to recomputing `W`, and is therefore slower
+%   than computing `W` and then applying it to the images.
+%
 % image_bounds -- Undistorted image coordinate frame
 %   A copy of the `image_bounds` input argument, or its calculated version,
 %   if the `image_bounds` input argument was empty, or was not passed.
@@ -139,7 +158,7 @@ function [ W, image_bounds_out ] = dispersionfunToMatrix(dispersionfun, lambda, 
 % - Bilinear interpolation formulae:
 %   https://en.wikipedia.org/wiki/Bilinear_interpolation
 %
-% See also xylambdaPolyfit, xylambdaSplinefit, makeDispersionfun
+% See also xylambdaPolyfit, xylambdaSplinefit, makeDispersionfun, warpImage
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -149,8 +168,21 @@ function [ W, image_bounds_out ] = dispersionfunToMatrix(dispersionfun, lambda, 
 nargoutchk(1, 2);
 narginchk(3, 7);
 
+image_passed = false;
+
+n_lambda = length(lambda);
 if ~isempty(varargin)
     image_sampling_out = varargin{1};
+    image_passed = ndims(image_sampling_out) == 3 ||...
+    ~(all(size(image_sampling_out) == [2 1]) ||...
+      all(size(image_sampling_out) == [1 2]));
+    if image_passed
+        I_out = image_sampling_out;
+        image_sampling_out = [size(I_out, 1), size(I_out, 2)];
+        if size(I_out, 3) ~= n_lambda
+            error('`I_out` must have a size of `length(lambda)` in its third dimension.');
+        end
+    end
 else
     image_sampling_out = image_sampling_in;
 end
@@ -183,7 +215,6 @@ y = Y(:) - 0.5;
 n_px_in = length(x);
 
 % Find the undistorted positions of all pixels
-n_lambda = length(lambda);
 if size(lambda, 2) > size(lambda, 1)
     lambda = lambda.';
 end
@@ -284,12 +315,23 @@ neighbour_index_linear = sub2ind(...
     repmat(reshape(repelem((1:n_lambda).', n_px_in), [], 1), n_offsets, 1)...
 );
 
-% Assemble the sparse matrix
-indices_in = repmat((1:n_px_lambda_in).', n_offsets, 1);
-W = sparse(...
-    indices_in,...
-    neighbour_index_linear,...
-    neighbour_weights,...
-    n_px_lambda_in, prod(image_sampling_out) * n_lambda...
-    );
+if image_passed
+    W = zeros(n_px_lambda_in, 1);
+    for i = 1:n_offsets
+        W = W + (...
+            neighbour_weights(((i - 1) * n_px_lambda_in + 1):(i * n_px_lambda_in)) .* ...
+            I_out(neighbour_index_linear(((i - 1) * n_px_lambda_in + 1):(i * n_px_lambda_in)))...
+        );
+    end
+    W = reshape(W, [image_sampling_in, n_lambda]);
+else
+    % Assemble the sparse matrix
+    indices_in = repmat((1:n_px_lambda_in).', n_offsets, 1);
+    W = sparse(...
+        indices_in,...
+        neighbour_index_linear,...
+        neighbour_weights,...
+        n_px_lambda_in, prod(image_sampling_out) * n_lambda...
+        );
+end
 end
