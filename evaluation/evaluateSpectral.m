@@ -104,8 +104,8 @@ function [e_spectral, varargout] = evaluateSpectral(...
 %     between spectral images that differ in illumination.
 %
 %     If 'radiance' exists, then the reference patch will be included in the
-%     graphical output triggered by 'radiance' (but will not be included in
-%     `e_spectral.radiance`).
+%     graphical output triggered by 'radiance' as an additional figure (but will
+%     not be included in `e_spectral.radiance`).
 %
 % ## Output Arguments
 %
@@ -176,7 +176,8 @@ function [e_spectral, varargout] = evaluateSpectral(...
 %   - 'error_map': A figure handle corresponding to the output triggered by
 %     `options.error_map`.
 %   - 'radiance': A vector of figure handles corresponding to the output
-%     triggered by `options.radiance` (and `options.reference_patch`).
+%     triggered by `options.radiance` (and `options.reference_patch`, which
+%     produces an additional figure handle at the end of the vector).
 %   - 'patches': A figure showing the image locations of all patches
 %     described by `options.radiance`, produced only if `options` does not have
 %     a 'radiance_fg' field. If `options.radiance` and `options.reference_patch`
@@ -483,11 +484,11 @@ if isfield(options, 'radiance')
     end
     if has_reference_patch
         if isfield(options, 'radiance_fg')
-            fg_spectral.radiance(i) = options.radiance_fg(i);
-            figure(fg_spectral.radiance(i));
+            fg_spectral.radiance(end) = options.radiance_fg(end);
+            figure(fg_spectral.radiance(end));
             hold on
         else
-            fg_spectral.radiance(i) = figure;
+            fg_spectral.radiance(end + 1) = figure;
             hold on
             plot(...
                 lambda, radiance_average_R_reference,...
