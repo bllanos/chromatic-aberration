@@ -141,7 +141,7 @@ findSamplingOptions.bands_padding = 1000;
 % between samples in the sequence of samples being interpolated. The
 % interpolation function `f(x)` returns the weight for a sample at location
 % `x` relative to the current  interpolation location.
-findSamplingOptions.interpolant = @normpdf;
+findSamplingOptions.interpolant = @gaussian;
 
 % Interpolation function for other spectral data, such as sensor spectral
 % sensitivities or ground truth spectral radiances
