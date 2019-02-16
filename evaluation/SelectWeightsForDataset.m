@@ -155,7 +155,7 @@ parameters_list = {
 
 %% Input data and parameters
 
-dataset_name = '20190107_DiskPattern_rawFromSpectral';
+dataset_name = 'kaist-crop';
 
 % Describe algorithms to run
 run('SetAlgorithms.m')
@@ -164,7 +164,7 @@ run('SetAlgorithms.m')
 n_patches = 10;
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/Downloads';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190130_KAIST_crop/weights_selection_gaussian';
 
 % Produce console output to describe the processing in this script
 verbose = true;
@@ -457,7 +457,7 @@ for i = 1:n_images
                             end
                             have_steps = true;
                         end
-                        weights_patches(pc, reg_options_f.enabled, :) = weights_images(1, 1, :);
+                        weights_patches(pc, reg_options_f.enabled, :) = reshape(weights_images(1, 1, :), 1, n_active_weights, []);
                     end
                 else
                     for pc = 1:n_patches_i
@@ -485,7 +485,7 @@ for i = 1:n_images
                               solvePatchesADMMVerbose...
                             );
                         end
-                        weights_patches(pc, reg_options_f.enabled) = weights_images(1, 1, :);
+                        weights_patches(pc, reg_options_f.enabled) = reshape(weights_images(1, 1, :), 1, []);
                     end
                 end
             else
@@ -514,7 +514,7 @@ for i = 1:n_images
                           solvePatchesADMMVerbose...
                         );
                     end
-                    weights_patches(pc, reg_options_f.enabled) = weights_images(1, 1, :);
+                    weights_patches(pc, reg_options_f.enabled) = reshape(weights_images(1, 1, :), 1, []);
                 end
             end
             time_admm(f, i, cr) = toc(time_start) / n_patches_i;

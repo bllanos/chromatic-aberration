@@ -226,8 +226,8 @@ if has_choi_rgb
         for i = 1:n_images
             str_found = strfind(choi_names{i}, names{i});
             if length(str_found) ~= 1 || str_found ~= 1
-                error('The %s image from Choi et al. 2017,\n"%s", does not have the name of the %d-th dataset image,\n"".',...
-                    image_type, choi_rgb_filenames{i}, names{i});
+                error('The %s image from Choi et al. 2017,\n"%s", does not have the name of the %d-th dataset image,\n"%s".',...
+                    image_type, choi_rgb_filenames{i}, i, names{i});
             end
         end
     end

@@ -22,12 +22,11 @@ function [newPoints, T] = normalizePointsPCA(points)
 % February 17, 2017
 
 d = size(points, 2) - 1; % Dimensionality
-[coeff,score,~,~,~,mu] = pca(points(:, 1:d));
+[coeff,~,muDist,~,~,mu] = pca(points(:, 1:d));
 Translation = [
     eye(d) mu.';
     zeros(1, d) 1
     ];
-muDist = var(score);
 % Scaling factors so that variances in principal component
 % directions are 1.
 s = sqrt(muDist) .^ (-1);
