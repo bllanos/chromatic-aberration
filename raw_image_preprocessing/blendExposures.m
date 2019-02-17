@@ -233,6 +233,8 @@ function [ output_files, scaling_factors ] = blendExposures(...
 nargoutchk(0, 2)
 narginchk(8, 9)
 
+quantiles = [0.01, 0.99];
+
 if ~isempty(varargin)
     verbose = varargin{1};
 else
@@ -445,15 +447,7 @@ for r = 1:length(regex)
             I_out = I_out ./ I_sum_weights;
             
             if verbose
-                I_out_debug = I_out;
-                q = zeros(n_channels, 2);
-                for c = 1:n_channels
-                    q(c, :) = quantile(I_out(mask_channels_ind{c}), [0.01, 0.99]);
-                end
-                min_px = min(q(:, 1));
-                I_out_debug = (I_out_debug - min_px) ./ (max(q(:, 2)) - min_px);
-                I_out_debug(I_out_debug < 0) = 0;
-                I_out_debug(I_out_debug > 1) = 1;
+                I_out_debug = clipAndRemap(I_out, 'uint8', 'quantiles', quantiles);
                 I_rgb_debug = bilinearDemosaic(I_out_debug, align);
             end
             

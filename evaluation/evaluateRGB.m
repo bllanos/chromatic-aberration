@@ -69,10 +69,9 @@ function [e_rgb, varargout] = evaluateRGB(...
 % - Figures will not be generated if the corresponding fields of
 %   `options` are missing.
 % - Figures are produced with titles and axis labels, but without legends.
-% - Images can be input in integer or floating-point formats. For peak
-%   signal-to-noise ratio calculations, the peak value will be 1.0 for
-%   floating-point formats, and the maximum possible positive integer value
-%   for integer formats.
+% - Images can be input in integer or floating-point formats. In either case,
+%   for peak signal-to-noise ratio calculations, the peak value will be the
+%   maximum value of the reference image.
 %
 % ## References
 % - Image borders are excluded from image similarity measurements in the
@@ -112,17 +111,13 @@ function [e_rgb, varargout] = evaluateRGB(...
 narginchk(3, 3);
 nargoutchk(1, 2);
 
+quantiles = [0.01, 0.99];
+
 class_rgb = class(I_rgb);
 if ~isa(R_rgb, class_rgb)
     error('The two colour images do not have the same datatype.')
 end
-if isinteger(I_rgb)
-    peak_rgb = intmax(class_rgb);
-elseif isfloat(I_rgb)
-    peak_rgb = 1;
-else
-    error('The two colour images are of an unexpected datatype.')
-end
+peak_rgb = max(R_rgb(:));
 
 n_channels_rgb = 3;
 e_rgb.mrae = zeros(n_channels_rgb, 1);
@@ -141,9 +136,8 @@ e_rgb.ssim(end) = mean(e_rgb.ssim(1:(end - 1)));
 
 mi_class = 'uint8';
 if ~isa(I_rgb, mi_class)
-    peak_int = double(intmax(mi_class));
-    I_rgb_int = uint8(I_rgb * peak_int / peak_rgb);
-    R_rgb_int = uint8(R_rgb * peak_int / peak_rgb);
+    I_rgb_int = clipAndRemap(I_rgb, mi_class, 'quantiles', quantiles);
+    R_rgb_int = clipAndRemap(R_rgb, mi_class, 'quantiles', quantiles);
 else
     I_rgb_int = I_rgb;
     R_rgb_int = R_rgb;

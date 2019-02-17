@@ -162,7 +162,8 @@ parameters_list = {
         'reference_bands_regex',...
         'range',...
         'use_bias',...
-        'bayer_pattern'...
+        'bayer_pattern',...
+        'quantiles'...
     };
 
 %% Input data and parameters
@@ -198,6 +199,10 @@ run('SetFixedParameters.m')
 
 % Colour-filter pattern (overrides the version in 'SetFixedParameters.m')
 bayer_pattern = 'gbrg';
+
+% Quantiles used for clipping to produce nice output images (for display, not
+% for calculation)
+quantiles = [0.01, 0.99];
 
 % ## Debugging Flags
 
@@ -355,37 +360,21 @@ for g = 1:n_groups
             end
             
             for i = 1:n_bands
-                I_out_debug = I_hyper_t(:, :, i);
-                q = quantile(I_out_debug, [0.01, 0.99], 'all');
-                I_out_debug(I_out_debug < q(1)) = q(1);
-                I_out_debug(I_out_debug > q(2)) = q(2);
-                I_out_debug = (I_out_debug - q(1)) ./ (q(2) - q(1));
+                I_out_debug = clipAndRemap(I_hyper_t(:, :, i), 'uint8', 'quantiles', quantiles);
                 saveImages(...
                     'image', output_directory, group_names{g},...
                     I_out_debug, sprintf('_%sHyper_%dnm', type_symbols{t}, bands(i)), []...
                 );
             end
-            
-            I_out_debug = I_3_t;
-            q = zeros(n_channels_rgb, 2);
-            for c = 1:n_channels_rgb
-                q(c, :) = quantile(I_out_debug(:, :, c), [0.01, 0.99], 'all');
-            end
-            min_px = min(q(:, 1));
-            I_out_debug = (I_out_debug - min_px) ./ (max(q(:, 2)) - min_px);
-            I_out_debug(I_out_debug < 0) = 0;
-            I_out_debug(I_out_debug > 1) = 1;
+                        
+            I_out_debug = clipAndRemap(I_3_t, 'uint8', 'quantiles', quantiles);
             saveImages(...
                 'image', output_directory, group_names{g},...
                 I_out_debug, sprintf('_%s3_01', type_symbols{t}), []...
             );
         end
         
-        I_out_debug = I_raw;
-        q = quantile(I_out_debug, [0.01, 0.99], 'all');
-        I_out_debug(I_out_debug < q(1)) = q(1);
-        I_out_debug(I_out_debug > q(2)) = q(2);
-        I_out_debug = (I_out_debug - q(1)) ./ (q(2) - q(1));
+        I_out_debug = clipAndRemap(I_raw, 'uint8', 'quantiles', quantiles);
         saveImages(...
             'image', output_directory, group_names{g},...
             I_out_debug, '_raw01', []...

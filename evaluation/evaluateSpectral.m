@@ -197,10 +197,9 @@ function [e_spectral, varargout] = evaluateSpectral(...
 % - Figures will not be generated if the corresponding fields of
 %   `options` are absent.
 % - Figures are produced with titles and axis labels, but without legends.
-% - Images can be input in integer or floating-point formats. For peak
-%   signal-to-noise ratio calculations, the peak value will be 1.0 for
-%   floating-point formats, and the maximum possible positive integer value
-%   for integer formats.
+% - Images can be input in integer or floating-point formats. In either case,
+%   for peak signal-to-noise ratio calculations, the peak value will be the
+%   maximum value of the reference image.
 %
 % ## References
 % - Image borders are excluded from image similarity measurements in the
@@ -255,6 +254,8 @@ function [e_spectral, varargout] = evaluateSpectral(...
 narginchk(5, 5);
 nargoutchk(1, 2);
 
+quantiles = [0.01, 0.99];
+
 n_bands = length(lambda);
 if n_bands ~= size(spectral_weights, 1)
     error('The number of bands in `lambda` must equal the size of `spectral_weights` in its first dimension.');
@@ -269,13 +270,6 @@ end
 class_spectral = class(I_spectral);
 if ~isa(R_spectral, class_spectral)
     error('The two images do not have the same datatype.')
-end
-if isinteger(I_spectral)
-    peak_spectral = intmax(class_spectral);
-elseif isfloat(I_spectral)
-    peak_spectral = 1;
-else
-    error('The two images are of an unexpected datatype.')
 end
 
 if strcmp(options.metric, 'rmse')
@@ -322,6 +316,7 @@ end
 
 e_spectral.psnr = struct('raw', zeros(n_bands, 1));
 e_spectral.ssim = struct('raw', zeros(n_bands, 1));
+peak_spectral = max(R_spectral(:));
 for c = 1:n_bands
     [~, ~, e_spectral.psnr.raw(c)] = metrics(I_spectral(:, :, c), R_spectral(:, :, c), 3, peak_spectral, true);
     e_spectral.ssim.raw(c) = ssim(I_spectral(:, :, c), R_spectral(:, :, c));
@@ -646,9 +641,8 @@ end
 % Save memory by overwriting `I_spectral`
 mi_class = 'uint8';
 if ~isa(I_spectral, mi_class)
-    peak_int = double(intmax(mi_class));
-    I_spectral = uint8(I_spectral * peak_int / peak_spectral);
-    R_spectral = uint8(R_spectral * peak_int / peak_spectral);
+    I_spectral = clipAndRemap(I_spectral, mi_class, 'quantiles', quantiles);
+    R_spectral = clipAndRemap(R_spectral, mi_class, 'quantiles', quantiles);
 end
 
 e_spectral.mi_within(1) = MI_GG(...
