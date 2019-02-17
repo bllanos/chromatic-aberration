@@ -62,7 +62,7 @@ I(I < limit_values(1)) = limit_values(1);
 I(I > limit_values(2)) = limit_values(2);
 
 min_value = 0;
-max_value = intmax(class_name);
+max_value = double(intmax(class_name));
 I = ((I - limit_values(1)) .* ((max_value - min_value) ./ (limit_values(2) - limit_values(1)))) + min_value;
 I = cast(I, class_name);
 

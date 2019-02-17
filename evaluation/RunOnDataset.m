@@ -220,7 +220,7 @@ parameters_list = {
 
 %% Input data and parameters
 
-dataset_name = 'choi-test';
+dataset_name = 'kaist-crop';
 
 % Describe algorithms to run
 run('SetAlgorithms.m')
@@ -228,10 +228,10 @@ run('SetAlgorithms.m')
 % Optionally override the list of ADMM-family algorithms to run, and the
 % regularization weights to run them with, from the output file of
 % 'SelectWeightsForDataset.m'. (Leave empty otherwise)
-admm_algorithms_filename = []; %'/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/20190130_reconstruction/raw_from_unfiltered/weights_selection/SelectWeightsForDataset_20190107_DiskPattern_rawCaptured.mat';
+admm_algorithms_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190130_KAIST_crop/weights_selection_gaussian/SelectWeightsForDataset_kaist-crop.mat';
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/Downloads/temp';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190130_KAIST_crop/run_on_dataset';
 
 % Produce console output to describe the processing in this script
 verbose = true;
