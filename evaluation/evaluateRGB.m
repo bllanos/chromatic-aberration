@@ -66,9 +66,6 @@ function [e_rgb, varargout] = evaluateRGB(...
 %     output triggered by `options.error_map`.
 %
 % ## Notes
-% - A border of `border` pixels (a local variable defined in the code) is
-%   excluded from the images when calculating image-wide statistics, to
-%   ignore artifacts in image estimation arising from the image borders.
 % - Figures will not be generated if the corresponding fields of
 %   `options` are missing.
 % - Figures are produced with titles and axis labels, but without legends.
@@ -84,6 +81,9 @@ function [e_rgb, varargout] = evaluateRGB(...
 %   Monno, Y., Kiku, D., Tanaka, M., & Okutomi, M. (2017). "Adaptive
 %     residual interpolation for color and multispectral image
 %     demosaicking." Sensors (Switzerland), 17(12). doi:10.3390/s17122787
+%
+%   This function does not do so, to avoid allocating memory for the resulting
+%   clipped images.
 %
 % - The code for calculating mutual information was retrieved from MATLAB
 %   Central,
@@ -112,8 +112,6 @@ function [e_rgb, varargout] = evaluateRGB(...
 narginchk(3, 3);
 nargoutchk(1, 2);
 
-border = 10;
-
 class_rgb = class(I_rgb);
 if ~isa(R_rgb, class_rgb)
     error('The two colour images do not have the same datatype.')
@@ -126,9 +124,6 @@ else
     error('The two colour images are of an unexpected datatype.')
 end
 
-I_rgb_clipped = I_rgb((border + 1):(end - border), (border + 1):(end - border), :);
-R_rgb_clipped = R_rgb((border + 1):(end - border), (border + 1):(end - border), :);
-
 n_channels_rgb = 3;
 e_rgb.mrae = zeros(n_channels_rgb, 1);
 e_rgb.rmse = zeros(n_channels_rgb, 1);
@@ -136,10 +131,10 @@ e_rgb.psnr = zeros(n_channels_rgb, 1);
 e_rgb.ssim = zeros(n_channels_rgb + 1, 1);
 for c = 1:n_channels_rgb
     [~, mrae, e_rgb.psnr(c), e_rgb.rmse(c)] = metrics(...
-        I_rgb_clipped(:, :, c), R_rgb_clipped(:, :, c), 3, peak_rgb, true...
+        I_rgb(:, :, c), R_rgb(:, :, c), 3, peak_rgb, true...
     );
     e_rgb.mrae(c) = mean(mrae(:));
-    e_rgb.ssim(c) = ssim(I_rgb_clipped(:, :, c), R_rgb_clipped(:, :, c));
+    e_rgb.ssim(c) = ssim(I_rgb(:, :, c), R_rgb(:, :, c));
 end
 e_rgb.cpsnr = 10 * log10((peak_rgb ^ 2) / mean(e_rgb.rmse .^ 2));
 e_rgb.ssim(end) = mean(e_rgb.ssim(1:(end - 1)));
@@ -147,27 +142,27 @@ e_rgb.ssim(end) = mean(e_rgb.ssim(1:(end - 1)));
 mi_class = 'uint8';
 if ~isa(I_rgb, mi_class)
     peak_int = double(intmax(mi_class));
-    I_rgb_clipped_int = uint8(I_rgb_clipped * peak_int / peak_rgb);
-    R_rgb_clipped_int = uint8(R_rgb_clipped * peak_int / peak_rgb);
+    I_rgb_int = uint8(I_rgb * peak_int / peak_rgb);
+    R_rgb_int = uint8(R_rgb * peak_int / peak_rgb);
 else
-    I_rgb_clipped_int = I_rgb_clipped;
-    R_rgb_clipped_int = R_rgb_clipped;
+    I_rgb_int = I_rgb;
+    R_rgb_int = R_rgb;
 end
 
 e_rgb.mi_within = zeros(n_channels_rgb, 2);
 e_rgb.mi_between = zeros(n_channels_rgb, 1);
 for c = 1:n_channels_rgb
     e_rgb.mi_within(c, 1) = MI_GG(...
-        R_rgb_clipped_int(:, :, c),...
-        R_rgb_clipped_int(:, :, mod(c, n_channels_rgb) + 1)...
+        R_rgb_int(:, :, c),...
+        R_rgb_int(:, :, mod(c, n_channels_rgb) + 1)...
     );
     e_rgb.mi_within(c, 2) = MI_GG(...
-        I_rgb_clipped_int(:, :, c),...
-        I_rgb_clipped_int(:, :, mod(c, n_channels_rgb) + 1)...
+        I_rgb_int(:, :, c),...
+        I_rgb_int(:, :, mod(c, n_channels_rgb) + 1)...
     );
     e_rgb.mi_between(c) = MI_GG(...
-        I_rgb_clipped_int(:, :, c),...
-        R_rgb_clipped_int(:, :, c)...
+        I_rgb_int(:, :, c),...
+        R_rgb_int(:, :, c)...
     );
 end
 

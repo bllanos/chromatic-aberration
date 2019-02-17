@@ -194,9 +194,6 @@ function [e_spectral, varargout] = evaluateSpectral(...
 %     `options.bands_diff`.
 %
 % ## Notes
-% - A border of `border` pixels (a local variable defined in the code) is
-%   excluded from the images when calculating image-wide statistics, to
-%   ignore artifacts in image estimation arising from the image borders.
 % - Figures will not be generated if the corresponding fields of
 %   `options` are absent.
 % - Figures are produced with titles and axis labels, but without legends.
@@ -212,6 +209,9 @@ function [e_spectral, varargout] = evaluateSpectral(...
 %   Monno, Y., Kiku, D., Tanaka, M., & Okutomi, M. (2017). "Adaptive
 %     residual interpolation for color and multispectral image
 %     demosaicking." Sensors (Switzerland), 17(12). doi:10.3390/s17122787
+%
+%   This function does not do so, to avoid allocating memory for the resulting
+%   clipped images.
 %
 % - The code for calculating mutual information was retrieved from MATLAB
 %   Central,
@@ -254,8 +254,6 @@ function [e_spectral, varargout] = evaluateSpectral(...
 
 narginchk(5, 5);
 nargoutchk(1, 2);
-
-border = 10;
 
 n_bands = length(lambda);
 if n_bands ~= size(spectral_weights, 1)
@@ -322,14 +320,11 @@ if has_reference_patch
     I_spectral = I_spectral .* repmat(radiance_ratio, image_height, image_width, 1);
 end
 
-I_clipped = I_spectral((border + 1):(end - border), (border + 1):(end - border), :);
-R_clipped = R_spectral((border + 1):(end - border), (border + 1):(end - border), :);
-
 e_spectral.psnr = struct('raw', zeros(n_bands, 1));
 e_spectral.ssim = struct('raw', zeros(n_bands, 1));
 for c = 1:n_bands
-    [~, ~, e_spectral.psnr.raw(c)] = metrics(I_clipped(:, :, c), R_clipped(:, :, c), 3, peak_spectral, true);
-    e_spectral.ssim.raw(c) = ssim(I_clipped(:, :, c), R_clipped(:, :, c));
+    [~, ~, e_spectral.psnr.raw(c)] = metrics(I_spectral(:, :, c), R_spectral(:, :, c), 3, peak_spectral, true);
+    e_spectral.ssim.raw(c) = ssim(I_spectral(:, :, c), R_spectral(:, :, c));
 end
 e_spectral.psnr.min = min(e_spectral.psnr.raw);
 e_spectral.psnr.mean = mean(e_spectral.psnr.raw);
@@ -338,34 +333,7 @@ e_spectral.ssim.min = min(e_spectral.ssim.raw);
 e_spectral.ssim.mean = mean(e_spectral.ssim.raw);
 e_spectral.ssim.median = median(e_spectral.ssim.raw);
 
-mi_class = 'uint8';
-if ~isa(I_spectral, mi_class)
-    peak_int = double(intmax(mi_class));
-    I_clipped_int = uint8(I_clipped * peak_int / peak_spectral);
-    R_clipped_int = uint8(R_clipped * peak_int / peak_spectral);
-else
-    I_clipped_int = I_clipped;
-    R_clipped_int = R_clipped;
-end
-
-e_spectral.mi_within(1) = MI_GG(...
-    R_clipped_int(:, :, options.mi_bands(1)),...
-    R_clipped_int(:, :, options.mi_bands(2))...
-);
-e_spectral.mi_within(2) = MI_GG(...
-    I_clipped_int(:, :, options.mi_bands(1)),...
-    I_clipped_int(:, :, options.mi_bands(2))...
-);
-
-e_spectral.mi_between = zeros(n_bands, 1);
-for c = 1:n_bands
-    e_spectral.mi_between(c) = MI_GG(...
-        I_clipped_int(:, :, c),...
-        R_clipped_int(:, :, c)...
-    );
-end
-
-[rmse, mrae, gof, global_rmse] = metrics(I_clipped, R_clipped, 3, 0, true);
+[rmse, mrae, gof, global_rmse] = metrics(I_spectral, R_spectral, 3, 0, true);
 e_spectral.rmse = struct(...
     'max', max(rmse(:)),...
 	'mean', mean(rmse(:)),...
@@ -673,6 +641,31 @@ end
 
 if nargout > 1
     varargout{1} = fg_spectral;
+end
+
+% Save memory by overwriting `I_spectral`
+mi_class = 'uint8';
+if ~isa(I_spectral, mi_class)
+    peak_int = double(intmax(mi_class));
+    I_spectral = uint8(I_spectral * peak_int / peak_spectral);
+    R_spectral = uint8(R_spectral * peak_int / peak_spectral);
+end
+
+e_spectral.mi_within(1) = MI_GG(...
+    R_spectral(:, :, options.mi_bands(1)),...
+    R_spectral(:, :, options.mi_bands(2))...
+);
+e_spectral.mi_within(2) = MI_GG(...
+    I_spectral(:, :, options.mi_bands(1)),...
+    I_spectral(:, :, options.mi_bands(2))...
+);
+
+e_spectral.mi_between = zeros(n_bands, 1);
+for c = 1:n_bands
+    e_spectral.mi_between(c) = MI_GG(...
+        I_spectral(:, :, c),...
+        R_spectral(:, :, c)...
+    );
 end
     
 end
