@@ -13,6 +13,15 @@
 %
 % ## Output
 %
+% ### Vignetting-corrected images
+% 
+% Image files with names of the form '*_vignettingCorrected.tif', where '*'
+% is the name of the original input image, are saved if
+% `save_corrected_images` is `true`, and if masks for calibrating
+% vignetting are found with the input images. The images are versions of
+% the input images which have been corrected for vignetting, and are used
+% to compute dispersion models.
+%
 % ### Graphical output from 'plotXYLambdaModel()'
 % - Displayed if `plot_model` is `true`.
 %
@@ -110,9 +119,11 @@ parameters_list = {
         'k0',...
         'findAndFitDisks_options',...
         'dispersion_fieldname',...
-        'max_degree_xy',...
+        'max_degree_xy_dispersion',...
         'max_degree_lambda',...
-        'spline_smoothing_options'...
+        'spline_smoothing_options',...
+        'max_degree_xy_vignetting',...
+        'quantiles'...
     };
 
 %% Input data and parameters
@@ -131,10 +142,18 @@ parameters_list = {
 % RAW (non-demosaicked) images are expected.
 %
 % This script will also search for image masks, using filenames which are
-% constructed by appending '_mask' and `mask_ext` (below) to the filepaths
-% (after stripping file extensions and wavelength information). Masks are
-% used to avoid processing irrelevant portions of images.
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190125_DiskPattern_fluorescent/preprocessed/exposure_blended/disks47cm_fluorescent.mat';
+% constructed by appending '_maskDisks' or '_maskVignetting', and
+% `mask_ext` (below) to the filepaths (after stripping file extensions and
+% wavelength information).
+% - Masks with filenames containing '_maskVignetting' define regions for
+%   calibrating vignetting corrections to be applied to the image prior to
+%   calibrating models of dispersion. If no mask is found for an image, the
+%   image will not be corrected for vignetting.
+% - Masks with filenames containing '_maskDisks' are used to avoid
+%   processing irrelevant portions of images when calibrating models of
+%   dispersion. If no mask is found for an image, the entire image will be
+%   searched for disks for dispersion calibration.
+input_images_wildcard = '/home/graphicslab/Documents/llanos/Data/20190208_ComputarLens/dataset/exposure_blending/*disks*nm.mat';
 input_images_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % Mask filename extension (without the '.')
@@ -144,11 +163,13 @@ mask_ext = 'png';
 % images.
 mask_threshold = 0.5; % In a range of intensities from 0 to 1
 
+bayer_pattern = 'gbrg'; % Colour-filter pattern
+
 % ## Spectral information
 
 % Find dispersion between colour channels, as opposed to between images
 % taken under different spectral bands
-rgb_mode = true;
+rgb_mode = false;
 
 if rgb_mode
     bands_regex = []; % Not used
@@ -167,20 +188,28 @@ end
 % between disks
 distance_outlier_threshold = 3;
 
+% ## Vignetting correction
+
+% Parameters for polynomial model fitting
+max_degree_xy_vignetting = 4;
+
+% Quantiles used for clipping to produce nice output images (for display,
+% not for calculation)
+quantiles = [0.01, 0.99];
+
 % ## Disk fitting
-bayer_pattern = 'gbrg'; % Colour-filter pattern
 cleanup_radius = 2; % Morphological operations radius for 'findAndFitDisks()'
 k0 = 0.5; % `k0` argument of 'findAndFitDisks()'
 findAndFitDisks_options.bright_disks = false;
 findAndFitDisks_options.mask_as_threshold = false;
 findAndFitDisks_options.group_channels = ~rgb_mode;
-findAndFitDisks_options.area_outlier_threshold = 2;
+findAndFitDisks_options.area_outlier_threshold = 3;
 
 % ## Dispersion model generation
 dispersion_fieldname = 'center';
 
 % Parameters for polynomial model fitting
-max_degree_xy = 12;
+max_degree_xy_dispersion = 12;
 max_degree_lambda = 12;
 
 % Parameters for spline model fitting
@@ -193,9 +222,11 @@ spline_smoothing_options = struct(...
 );
 
 % ## Output directory
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190125_DiskPattern_fluorescent/dispersion_lidOn';
+output_directory = '/home/graphicslab/Documents/llanos/Results/20190208_ComputarLens/dispersion/spectral';
 
 % ## Debugging Flags
+vignettingPolyfitVerbose = false;
+
 findAndFitDisksVerbose.verbose_disk_search = true;
 findAndFitDisksVerbose.verbose_disk_refinement = false;
 findAndFitDisksVerbose.display_final_centers = true;
@@ -206,6 +237,7 @@ statsToDisparityVerbose.filter = struct(...
     dispersion_fieldname, true...
 );
 
+save_corrected_images = true; % Images corrected for vignetting
 xylambdaFitVerbose = true;
 plot_model = true;
 
@@ -241,16 +273,30 @@ n_bands = length(bands);
 centers_cell = cell(n_groups, 1);
 image_size = [];
 for g = 1:n_groups
+    
+    % Find any mask for vignetting calibration
+    mask_filename = fullfile(path, [group_names{g}, '_maskVignetting.', mask_ext]);
+    mask_listing = dir(mask_filename);
+    use_vignetting_correction = ~isempty(mask_listing);
+    if use_vignetting_correction
+        vignetting_mask = imread(mask_filename);
+        if size(vignetting_mask, 3) ~= 1
+            error('Expected the vignetting mask, "%s", to have only one channel.', mask_filename);
+        end
+        if ~islogical(vignetting_mask)
+            vignetting_mask = imbinarize(vignetting_mask, mask_threshold);
+        end
+    end
 
-    % Find any mask
-    mask_filename = fullfile(path, [group_names{g}, '_mask.', mask_ext]);
+    % Find any mask for dispersion calibration
+    mask_filename = fullfile(path, [group_names{g}, '_maskDisks.', mask_ext]);
     mask_listing = dir(mask_filename);
     if isempty(mask_listing)
         mask = [];
     else
         mask = imread(mask_filename);
         if size(mask, 3) ~= 1
-            error('Expected the mask, "%s", to have only one channel.', mask_filename);
+            error('Expected the dispersion calibration mask, "%s", to have only one channel.', mask_filename);
         end
         if ~islogical(mask)
             mask = imbinarize(mask, mask_threshold);
@@ -262,6 +308,22 @@ for g = 1:n_groups
         image_size = size(I);
     elseif any(image_size ~= size(I))
         error('Not all images have the same dimensions.');
+    end
+    
+    % Vignetting correction
+    if use_vignetting_correction
+        vignettingfun = vignettingPolyfit(...
+            I, vignetting_mask, max_degree_xy_vignetting, bayer_pattern, vignettingPolyfitVerbose...
+        );
+        I = correctVignetting(I, vignettingfun);
+        if save_corrected_images
+            I_out_debug = clipAndRemap(I, 'uint8', 'quantiles', quantiles);
+            [~, I_out_filename] = fileparts(grouped_filenames{g}{1});
+            saveImages(...
+                'image', output_directory, I_out_filename,...
+                I_out_debug, '_vignettingCorrected', []...
+                );
+        end
     end
 
     if rgb_mode
@@ -281,6 +343,22 @@ for g = 1:n_groups
             if any(image_size ~= size(I))
                 error('Not all images have the same dimensions.');
             end
+            
+            if use_vignetting_correction
+                vignettingfun = vignettingPolyfit(...
+                    I, vignetting_mask, max_degree_xy_vignetting, bayer_pattern, vignettingPolyfitVerbose...
+                    );
+                I = correctVignetting(I, vignettingfun);
+                if save_corrected_images
+                    I_out_debug = clipAndRemap(I, 'uint8', 'quantiles', quantiles);
+                    [~, I_out_filename] = fileparts(grouped_filenames{g}{i});
+                    saveImages(...
+                        'image', output_directory, I_out_filename,...
+                        I_out_debug, '_vignettingCorrected', []...
+                        );
+                end
+            end
+            
             centers_g{i} = findAndFitDisks(...
                 I, mask, bayer_pattern, [], cleanup_radius, k0,...
                 findAndFitDisks_options, findAndFitDisksVerbose...
@@ -345,12 +423,12 @@ for model_from_reference = [true, false]
         if strcmp(model_type, 'polynomial')
             if rgb_mode
                 [ dispersionfun, dispersion_data ] = xylambdaPolyfit(...
-                    centers_for_fitting, dispersion_fieldname, max_degree_xy, disparity,...
+                    centers_for_fitting, dispersion_fieldname, max_degree_xy_dispersion, disparity,...
                     dispersion_fieldname, xylambdaFitVerbose...
                 );
             else
                 [ dispersionfun, dispersion_data ] = xylambdaPolyfit(...
-                    centers_for_fitting, dispersion_fieldname, max_degree_xy, disparity,...
+                    centers_for_fitting, dispersion_fieldname, max_degree_xy_dispersion, disparity,...
                     dispersion_fieldname, bands, max_degree_lambda, xylambdaFitVerbose...
                 );
             end
