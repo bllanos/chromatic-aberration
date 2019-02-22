@@ -302,7 +302,7 @@ elseif strcmp(name, 'kaist-crop')
             'twentyOne', struct(... %'reference_patch', [669, 330, 101, 101],...
                 'radiance', [
                     1910, 397, 15, 15; % Red on helmet
-                    19998, 490, 15, 15; % Gold on mask
+                    1998, 490, 15, 15; % Gold on mask
                     2591, 382, 15, 15; % Blue hat
                     2573, 703, 15, 15; % Blue eyes
                     2459, 865, 15, 15; % Yellow beak

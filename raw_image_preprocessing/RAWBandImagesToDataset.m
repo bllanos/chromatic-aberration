@@ -225,7 +225,7 @@ n_bands = length(bands);
 if n_bands ~= length(bands_reference) || ~all(bands == bands_reference)
     error('The input and calibration files were captured under different bands.');
 end
-grouped_reference_filenames = repmat(cell(length(filenames), 1), n_bands, 1);
+grouped_reference_filenames = repmat({cell(length(filenames), 1)}, n_bands, 1);
 for g = 1:length(filenames)
     for i = 1:n_bands
         grouped_reference_filenames{i}{g} = filenames{g}{i};

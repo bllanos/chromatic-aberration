@@ -522,8 +522,10 @@ for i = 1:n_images
             if true_spectral && n_steps > 1
                 field_weights = squeeze(field_weights).';
             end
-            if i == 1 && cr == 1
-                all_weights{f} = cell(n_images, n_criteria);
+            if i == 1
+                if cr == 1
+                    all_weights{f} = cell(n_images, n_criteria);
+                end
                 admm_algorithms.(admm_algorithm_fields{f}).(criteria_fields{cr}) = zeros(n_steps, n_weights, n_images); 
             end
             all_weights{f}{i, cr} = weights_patches;

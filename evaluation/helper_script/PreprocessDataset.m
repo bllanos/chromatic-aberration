@@ -65,7 +65,7 @@ if has_spectral
     spectral_filenames = listFiles(dp.spectral_images_wildcard);
     n_images_spectral = length(spectral_filenames);
     n_images = n_images_spectral;
-    names = trimCommon(spectral_filenames);
+    names = trimCommon(spectral_filenames, [false, true]);
     
     load(dp.wavelengths, bands_variable);
     if isempty(bands)
@@ -76,7 +76,7 @@ end
 if has_rgb
     rgb_filenames = listFiles(dp.rgb_images_wildcard);
     n_images_rgb = length(rgb_filenames);
-    rgb_names = trimCommon(rgb_filenames);
+    rgb_names = trimCommon(rgb_filenames, [false, true]);
     if has_spectral
         if (n_images_spectral ~= n_images_rgb)
             error('Mismatched number of spectral and colour images.');
@@ -96,7 +96,7 @@ end
 if has_raw
     raw_filenames = listFiles(dp.raw_images_wildcard);
     n_images_raw = length(raw_filenames);
-    raw_names = trimCommon(raw_filenames);
+    raw_names = trimCommon(raw_filenames, [false, true]);
     if (n_images ~= n_images_raw)
         error('Mismatched number of spectral/colour and RAW images.');
     end
@@ -218,7 +218,7 @@ if has_choi_rgb
     image_type = 'colour';
     choi_rgb_filenames = listFiles(dp.choi_rgb_wildcard);
     n_choi = length(choi_rgb_filenames);
-    choi_names = trimCommon(choi_rgb_filenames);
+    choi_names = trimCommon(choi_rgb_filenames, [false, true]);
     if (n_images ~= n_choi)
         error('Expected %d %s images from Choi et al. 2017, not %d.', n_images, image_type, n_choi);
     end
@@ -237,7 +237,7 @@ if has_choi_spectral
     image_type = 'spectral';
     choi_spectral_filenames = listFiles(dp.choi_spectral_wildcard);
     n_choi = length(choi_spectral_filenames);
-    choi_names = trimCommon(choi_spectral_filenames);
+    choi_names = trimCommon(choi_spectral_filenames, [false, true]);
     if (n_images ~= n_choi)
         error('Expected %d %s images from Choi et al. 2017, not %d.', n_images, image_type, n_choi);
     end

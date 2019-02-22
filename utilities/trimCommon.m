@@ -1,11 +1,11 @@
-function s_out = trimCommon(s_in)
+function s_out = trimCommon(s_in, varargin)
 % TRIMCOMMON  Extract unique parts of filepaths
 %
 % ## Syntax
-% s_out = trimCommon(s_in)
+% s_out = trimCommon(s_in [, ends])
 %
 % ## Description
-% s_out = trimCommon(s_in)
+% s_out = trimCommon(s_in [, ends])
 %   Returns a cell vector of the unique portions of the input filepaths.
 %
 % ## Input Arguments
@@ -13,13 +13,22 @@ function s_out = trimCommon(s_in)
 % s_in -- Filenames
 %   A cell vector of character vectors representing filenames and paths.
 %
+% ends -- Ends to trim
+%   A two-element logical vector, where `ends(1)` indicates whether the
+%   common start of a filename (excluding the directory path) should be
+%   trimmed, and `ends(2)` indicates whether the common ending of a
+%   filename (excluding the extension) should be trimmed. Regardless of the
+%   value of `ends`, common paths and common extensions will be trimmed.
+%
+%   Defaults to `[true, true]` if not passed.
+%
 % ## Output Arguments
 %
 % s_out -- Trimmed character vectors
 %   A cell vector the same dimensions as `s_in`, containing trimmed
 %   versions of the character vectors in `s_in`. Starting and ending
 %   substrings common to all elements of `s_in` are absent from the
-%   elements of `s_out`.
+%   elements of `s_out`, depending on the value of `ends` (see above).
 %
 %   If the input cell vector has length 1, the function will attempt to
 %   strip a file extension and path from its first element, returning just
@@ -32,8 +41,13 @@ function s_out = trimCommon(s_in)
 % University of Alberta, Department of Computing Science
 % File created August 20, 2018
 
-narginchk(1, 1);
+narginchk(1, 2);
 nargoutchk(1, 1);
+
+ends = true(2, 1);
+if ~isempty(varargin)
+    ends = varargin{1};
+end
 
 if length(s_in) == 1
     s_out = cell(1, 1);
@@ -74,10 +88,29 @@ for i = 2:length(s_in)
         c_1_end = c_2((end - end_ind + 1):end);
     end
 end
+start_ind = start_ind + 1;
+
+[path, s_out{1}, ext] = fileparts(s_in{1});
+if ~ends(1)
+    if isempty(path)
+        start_ind = 1;
+    else
+        % Add 2 to account for the path separator
+        start_ind = min(length(path) + 2, start_ind);
+    end
+end
+if ~ends(2)
+    if isempty(ext)
+        end_ind = 0;
+    else
+        % `ext` includes the dot
+        end_ind = min(length(ext), end_ind);
+    end
+end
 
 s_out = cell(size(s_in));
 for i = 1:length(s_in)
-    s_out{i} = s_in{i}((start_ind + 1):(end - end_ind));
+    s_out{i} = s_in{i}((start_ind):(end - end_ind));
 end
     
 end

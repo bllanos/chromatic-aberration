@@ -48,7 +48,7 @@ parameters_list = [parameters_list, {
 % enabled methods are run.
 criteria = [
     true; % Minimum distance criterion
-    true; % Similarity with the true image
+    false; % Similarity with the true image
     true % Similarity with a demosaicing result
     ];
 mdc_index = 1;
