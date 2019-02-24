@@ -191,7 +191,7 @@ distance_outlier_threshold = 3;
 % ## Vignetting correction
 
 % Parameters for polynomial model fitting
-max_degree_xy_vignetting = 4;
+max_degree_xy_vignetting = 5;
 
 % Quantiles used for clipping to produce nice output images (for display,
 % not for calculation)

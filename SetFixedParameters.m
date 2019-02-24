@@ -47,7 +47,7 @@ parameters_list = [parameters_list, {
 % Otherwise, if regularization weights are automatically selected, then all
 % enabled methods are run.
 criteria = [
-    true; % Minimum distance criterion
+    false; % Minimum distance criterion
     false; % Similarity with the true image
     true % Similarity with a demosaicing result
     ];
