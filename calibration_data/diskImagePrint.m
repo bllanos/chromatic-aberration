@@ -55,7 +55,7 @@ function [ fg ] = diskImagePrint( sz, r, sep, c_bg, c_fg )
 % the radius value given as input to 'diskImagePrint()'.
 %
 % ## References
-% - Mannan, F. & Langer, M. S. (2016a). "Blur calibration for depth from
+% - Mannan, F. & Langer, M. S. (2016). "Blur calibration for depth from
 %   defocus." In J. Guerrero (Ed.), 13th Conference on Computer and Robot
 %   Vision, CRV 2016 (pp. 281-288). Institute of Electrical and Electronics
 %   Engineers Inc. doi:10.1109/CRV.2016.62

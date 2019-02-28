@@ -101,6 +101,12 @@ function [ polyfun, polyfun_data ] = vignettingPolyfit(...
 %   12–22, 2014.
 %   - This function is inspired by their use of a general bivariate
 %     polynomial to model quantities which vary over the image plane.
+% - Mannan, F. & Langer, M. S. (2016). "Blur calibration for depth from
+%   defocus." In J. Guerrero (Ed.), 13th Conference on Computer and Robot
+%   Vision, CRV 2016 (pp. 281-288). Institute of Electrical and Electronics
+%   Engineers Inc. doi:10.1109/CRV.2016.62
+%   - The general approach of using a parametric model to correct vignetting is
+%     inspired by this article.
 %
 % See also makeVignettingfun, normalizePointsPCA, xylambdaPolyfit, crossval
 
