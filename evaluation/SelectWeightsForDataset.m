@@ -155,7 +155,7 @@ parameters_list = {
 
 %% Input data and parameters
 
-dataset_name = 'kaist-crop';
+dataset_name = '20190208_ComputarLens_rawCaptured_dispersion';
 
 % Describe algorithms to run
 run('SetAlgorithms.m')
@@ -164,7 +164,7 @@ run('SetAlgorithms.m')
 n_patches = 10;
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190130_KAIST_crop/weights_selection_gaussian';
+output_directory = '/home/graphicslab/Documents/llanos/Results/20190208_ComputarLens/weights_selection_dispersion';
 
 % Produce console output to describe the processing in this script
 verbose = true;
@@ -303,8 +303,8 @@ for i = 1:n_images
     end
     if isempty(corners_i)
         corners_i = [
-            randi(image_sampling(1) - full_patch_size, n_patches, 1),...
-            randi(image_sampling(2) - full_patch_size, n_patches, 1)
+            randi(image_sampling(1) - full_patch_size(1), n_patches, 1),...
+            randi(image_sampling(2) - full_patch_size(2), n_patches, 1)
         ] + padding;
     end
     n_patches_i = size(corners_i, 1);

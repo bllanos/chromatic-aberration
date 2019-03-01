@@ -447,11 +447,11 @@ if isfield(options, 'radiance')
     end
     if has_reference_patch
         if isfield(options, 'radiance_fg')
-            fg_spectral.radiance(end) = options.radiance_fg(end);
-            figure(fg_spectral.radiance(end));
+            fg_spectral.radiance(n_patches + 1) = options.radiance_fg(n_patches + 1);
+            figure(fg_spectral.radiance(n_patches + 1));
             hold on
         else
-            fg_spectral.radiance(end + 1) = figure;
+            fg_spectral.radiance(n_patches + 1) = figure;
             hold on
             plot(...
                 lambda, radiance_average_R_reference,...
