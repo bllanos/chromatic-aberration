@@ -1,8 +1,7 @@
 %% Tuning the method of Sun et al. 2017
 %
-% A script testing different window sizes for the method of Sun et al. 2017 so
-% as to minimize colour fringing at image edges, but maximize colour
-% faithfulness.
+% A script testing different parameters for the method of Sun et al. 2017 so as
+% to minimize colour fringing at image edges, but maximize colour faithfulness.
 %
 % The input image is an image of a ColorChecker chart, corrected for vignetting,
 % along with a label image identifying the different patches as well as the
@@ -12,7 +11,7 @@
 % extending outside of the edges): The error between pixels and their ground
 % truth colours is summed over all pixels in the evaluation region.
 %
-% An output image will be saved for each set of window sizes tested.
+% An output image will be saved for each set of parameters tested.
 %
 % ## References
 %
@@ -20,6 +19,13 @@
 %   information transfer for chromatic aberration correction." In 2017 IEEE
 %   International Conference on Computer Vision (ICCV) (pp. 3268–3276).
 %   doi:10.1109/ICCV.2017.352
+%
+% The above method uses the following blind deconvolution method as a
+% preprocessing step:
+%
+%   Krishnan, D., Tay, T. & Fergus, R. (2011). "Blind deconvolution using a
+%   normalized sparsity measure." In IEEE Conference on Computer Vision and
+%   Pattern Recognition (CVPR) (pp. 233–240).
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -29,13 +35,25 @@
 
 %% Input data and parameters
 
+% ## Parameters for Krishnan et al. 2011
+
+% Kernel sizes must be odd integers. I will set the kernel size based on the
+% estimated amount of dispersion.
+kernel_sz = 9;
+
+min_lambda = logspace(-5, 5, 30);
+
+% Window in which to estimate the PSF: (y1, x1, y2, x2) of the top left and
+% bottom right corners. (Set it to an empty array to use the entire image.)
+krishnan_opts.kernel_est_win = [];
+
 % ## Parameters for Sun et al. 2017
 
 % PSF estimation window size, as a fraction of the image's largest dimension
 psf_sz = logspace(log10(0.05), log10(0.2), 10);
 
 % CCT implementation window size, as a fraction of the image's largest dimension
-win_sz = logspace(log10(0.0016), log10(0.2), 25);
+win_sz = logspace(log10(0.0016), log10(0.2), 20);
 
 % Other parameters for Sun et al. 2017
 alpha = 0.3;
@@ -138,11 +156,108 @@ saveImages(...
     I_out_remapped, '_ariDemosaiced', []...
 );
 
-%% Test all combinations of parameters
+%% Test all combinations of parameters for Krishnan et al. 2011
+
+n_kernel_sz = length(kernel_sz);
+n_min_lambda = length(min_lambda);
+error_krishnan = zeros(n_kernel_sz, n_min_lambda);
+
+krishnan_opts.prescale = 1;
+krishnan_opts.k_reg_wt = 1;
+krishnan_opts.gamma_correct = 1;
+krishnan_opts.k_thresh = 0.0;
+krishnan_opts.kernel_init = 3;
+krishnan_opts.delta = 0.001;
+krishnan_opts.x_in_iter = 2; 
+krishnan_opts.x_out_iter = 2;
+krishnan_opts.xk_iter = 21;
+krishnan_opts.nb_lambda = 3000;
+krishnan_opts.nb_alpha = 1.0;
+krishnan_opts.use_ycbcr = 1;
+
+krishnan_opts.blur = I_rgb(:, :, reference_channel_index);
+
+min_error = Inf;
+
+for i = 1:n_kernel_sz
+    kernel_sz_i = kernel_sz(i);
+    krishnan_opts.kernel_size = kernel_sz_i;
+    
+    for j = 1:n_min_lambda
+        min_lambda_j = min_lambda(j);
+        
+        krishnan_opts.min_lambda = min_lambda_j;
+        
+        [yorig, I_deblur_ij, kernel, opts] = ms_blind_deconv([], krishnan_opts);
+        close all
+        
+        [~, mrae] = metrics(...
+            reshape(I_deblur_ij(eval_mask(:, :, reference_channel_index)), [], 1),...
+            I_gt_columnar(:, reference_channel_index),...
+            2, [], true...
+        );
+        error_krishnan(i, j) = mean(mrae);
+        
+        if min_error > error_krishnan(i, j)
+            I_deblur = I_deblur_ij;
+            kernel_sz_opt = kernel_sz_i;
+            min_lambda_opt = min_lambda_j;
+            min_error = error_krishnan(i, j);
+        end
+        
+        I_out_remapped = clipAndRemap(I_deblur_ij, 'uint8', 'quantiles', quantiles);
+        saveImages(...
+            'image', output_directory, I_out_filename,...
+            I_out_remapped, sprintf('_kernel%g_minLambda%g', kernel_sz(i), min_lambda(j)), []...
+        );
+    end
+end
+
+[kernel_sz_grid, min_lambda_grid] = ndgrid(kernel_sz, min_lambda);
+
+fg = figure;
+hold on
+if n_kernel_sz > 1 && n_min_lambda > 1
+    surf(kernel_sz_grid, min_lambda_grid, error_krishnan);
+    xlabel('Kernel size');
+    ylabel('min \lambda');
+    zlabel('MRAE');
+elseif n_min_lambda > 1
+    plot(...
+        min_lambda_grid, error_krishnan, 'LineWidth', 2,...
+        'Marker', 'o', 'LineStyle', '--'...
+    );
+    xlabel('min \lambda');
+    ylabel('MRAE');
+else
+    plot(...
+        kernel_sz_grid, error_krishnan, 'LineWidth', 2,...
+        'Marker', 'o', 'LineStyle', '--'...
+    );
+    xlabel('Kernel size');
+    ylabel('MRAE');
+end
+title(sprintf(...
+    'Krishnan et al. 2011 performance on a %d x %d image',...
+    image_sampling(1), image_sampling(2)...
+));
+hold off
+savefig(...
+    fg,...
+    fullfile(output_directory, [I_out_filename '_error_krishnan.fig']), 'compact'...
+);
+close(fg);
+
+%% Test all combinations of parameters for Sun et al. 2017 on the best image from Krishnan et al. 2011
 
 n_win_sz = length(win_sz);
 n_psf_sz = length(psf_sz);
-error = zeros(n_win_sz, n_psf_sz);
+error_sun = zeros(n_win_sz, n_psf_sz);
+mi_rg = zeros(n_win_sz, n_psf_sz);
+mi_gb = zeros(n_win_sz, n_psf_sz);
+mi_rb = zeros(n_win_sz, n_psf_sz);
+
+min_error = Inf;
 
 max_image_size = max(image_sampling);
 for i = 1:n_win_sz
@@ -152,22 +267,22 @@ for i = 1:n_win_sz
         psf_sz_j = ceil(max_image_size * psf_sz(j));
         
         I_out = zeros([image_sampling, n_channels_rgb]);
-        I_out(:, :, reference_channel_index) = I_rgb(:, :, reference_channel_index);
+        I_out(:, :, reference_channel_index) = I_deblur;
         
         for c = 1:n_channels_rgb
             if c ~= reference_channel_index
                 if split_image
                     [I_out(1:floor(end / 2), :, c), psf] = ref_deblur(...
-                        I_rgb(1:floor(end / 2), :, reference_channel_index), I_rgb(1:floor(end / 2), :, c),...
+                        I_deblur(1:floor(end / 2), :), I_rgb(1:floor(end / 2), :, c),...
                         psf_sz_j, win_sz_i, alpha, beta, n_iter...
                         );
                     [I_out((floor(end/2) + 1):end, :, c), psf] = ref_deblur(...
-                        I_rgb((floor(end/2) + 1):end, :, reference_channel_index), I_rgb((floor(end/2) + 1):end, :, c),...
+                        I_deblur((floor(end/2) + 1):end, :), I_rgb((floor(end/2) + 1):end, :, c),...
                         psf_sz_j, win_sz_i, alpha, beta, n_iter...
                         );
                 else
                     [I_out(:, :, c), psf] = ref_deblur(...
-                        I_rgb(:, :, reference_channel_index), I_rgb(:, :, c),...
+                        I_deblur, I_rgb(:, :, c),...
                         psf_sz_j, win_sz_i, alpha, beta, n_iter...
                         );
                 end
@@ -177,12 +292,32 @@ for i = 1:n_win_sz
         [~, mrae] = metrics(...
             reshape(I_out(eval_mask), [], n_channels_rgb), I_gt_columnar,...
             2, [], true);
-        error(i, j) = mean(mrae);
+        error_sun(i, j) = mean(mrae);
+        
+        if min_error > error_sun(i, j)
+            win_sz_opt = win_sz_i;
+            psf_sz_opt = psf_sz_j;
+            min_error = error_sun(i, j);
+        end
         
         I_out_remapped = clipAndRemap(I_out, 'uint8', 'quantiles', quantiles);
+        
+        mi_rg(i, j) = MI_GG(...
+            I_out_remapped(:, :, 1),...
+            I_out_remapped(:, :, 2)...
+        );
+        mi_gb(i, j) = MI_GG(...
+            I_out_remapped(:, :, 2),...
+            I_out_remapped(:, :, 3)...
+        );
+        mi_rb(i, j) = MI_GG(...
+            I_out_remapped(:, :, 1),...
+            I_out_remapped(:, :, 3)...
+        );
+
         saveImages(...
             'image', output_directory, I_out_filename,...
-            I_out_remapped, sprintf('_win%g_psf%g', win_sz(i), psf_sz(j)), []...
+            I_out_remapped, sprintf('_win%g_psf%g', win_sz_i, psf_sz_j), []...
         );
     end
 end
@@ -192,32 +327,81 @@ end
 fg = figure;
 hold on
 if n_win_sz > 1 && n_psf_sz > 1
-    surf(win_sz_grid, psf_sz_grid, error);
+    surf(win_sz_grid, psf_sz_grid, error_sun);
     xlabel('CCT window size');
     ylabel('PSF window size');
     zlabel('MRAE');
 elseif n_psf_sz > 1
     plot(...
-        psf_sz_grid, error, 'LineWidth', 2,...
+        psf_sz_grid, error_sun, 'LineWidth', 2,...
         'Marker', 'o', 'LineStyle', '--'...
     );
     xlabel('PSF window size');
     ylabel('MRAE');
 else
     plot(...
-        win_sz_grid, error, 'LineWidth', 2,...
+        win_sz_grid, error_sun, 'LineWidth', 2,...
         'Marker', 'o', 'LineStyle', '--'...
     );
     xlabel('CCT window size');
     ylabel('MRAE');
 end
 title(sprintf(...
-    'Performance on a %d x %d image',...
+    'Sun et al. 2017 performance on a %d x %d image',...
     image_sampling(1), image_sampling(2)...
 ));
 hold off
 savefig(...
     fg,...
-    fullfile(output_directory, [I_out_filename '_error.fig']), 'compact'...
+    fullfile(output_directory, [I_out_filename '_error_sun.fig']), 'compact'...
+);
+close(fg);
+
+fg = figure;
+hold on
+if n_win_sz > 1 && n_psf_sz > 1
+    surf(win_sz_grid, psf_sz_grid, mi_rg, 'FaceAlpha', 0.5, 'FaceColor', [1, 1, 0]);
+    surf(win_sz_grid, psf_sz_grid, mi_gb, 'FaceAlpha', 0.5, 'FaceColor', [0, 1, 1]);
+    surf(win_sz_grid, psf_sz_grid, mi_rb, 'FaceAlpha', 0.5, 'FaceColor', [1, 0, 1]);
+    xlabel('CCT window size');
+    ylabel('PSF window size');
+    zlabel('Mutual Information');
+elseif n_psf_sz > 1
+    plot(...
+        psf_sz_grid, mi_rg, 'LineWidth', 2,...
+        'Marker', 'o', 'LineStyle', '--', 'Color', 'y'...
+    );
+    plot(...
+        psf_sz_grid, mi_gb, 'LineWidth', 2,...
+        'Marker', 'o', 'LineStyle', '--', 'Color', 'c'...
+    );
+    plot(...
+        psf_sz_grid, mi_rb, 'LineWidth', 2,...
+        'Marker', 'o', 'LineStyle', '--', 'Color', 'm'...
+    );
+    xlabel('PSF window size');
+    ylabel('Mutual Information');
+else
+    plot(...
+        win_sz_grid, mi_rg, 'LineWidth', 2,...
+        'Marker', 'o', 'LineStyle', '--', 'Color', 'y'...
+    );
+    plot(...
+        win_sz_grid, mi_gb, 'LineWidth', 2,...
+        'Marker', 'o', 'LineStyle', '--', 'Color', 'c'...
+    );
+    plot(...
+        win_sz_grid, mi_rb, 'LineWidth', 2,...
+        'Marker', 'o', 'LineStyle', '--', 'Color', 'm'...
+    );
+    xlabel('CCT window size');
+    ylabel('Mutual Information');
+end
+title('Sun et al. 2017 mutual information');
+legend('Red-Green', 'Green-Blue', 'Red-Blue');
+hold off
+savefig(...
+    fg,...
+    fullfile(output_directory, [I_out_filename '_mi_sun.fig']), 'compact'...
 );
 close(fg);
