@@ -801,19 +801,19 @@ elseif strcmp(name, '20190208_ComputarLens_rawCaptured_ignoreDispersion')
     );
 
 elseif strcmp(name, '20190208_ComputarLens_rawCaptured_dispersion')
-    dataset_params.raw_images_wildcard = '/home/graphicslab/Documents/llanos/Data/20190208_ComputarLens/dataset/exposure_blending/*_unfiltered.mat';
+    dataset_params.raw_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/exposure_blending/*_unfiltered.mat';
     dataset_params.raw_images_variable = 'I_raw';
     dataset_params.rgb_images_wildcard = [];
     dataset_params.rgb_images_variable = [];
-    dataset_params.spectral_images_wildcard = '/home/graphicslab/Documents/llanos/Data/20190208_ComputarLens/dataset/channel_scaling/*_dHyper.mat';
+    dataset_params.spectral_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/channel_scaling/*_dHyper.mat';
     dataset_params.spectral_images_variable = 'I_hyper';
     dataset_params.spectral_reflectances = false;
-    dataset_params.dispersion_rgb_forward = '/home/graphicslab/Documents/llanos/Results/20190208_ComputarLens/dispersion/rgb/full_image/RAWDiskDispersionResults_RGB_polynomial_fromReference.mat';
-    dataset_params.dispersion_rgb_reverse = '/home/graphicslab/Documents/llanos/Results/20190208_ComputarLens/dispersion/rgb/full_image/RAWDiskDispersionResults_RGB_polynomial_fromNonReference.mat';
-    dataset_params.dispersion_spectral_reverse = '/home/graphicslab/Documents/llanos/Results/20190208_ComputarLens/dispersion/spectral/full_image/RAWDiskDispersionResults_spectral_polynomial_fromNonReference.mat';
+    dataset_params.dispersion_rgb_forward = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dispersion/rgb/full_image/RAWDiskDispersionResults_RGB_polynomial_fromReference.mat';
+    dataset_params.dispersion_rgb_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dispersion/rgb/full_image/RAWDiskDispersionResults_RGB_polynomial_fromNonReference.mat';
+    dataset_params.dispersion_spectral_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dispersion/spectral/full_image/RAWDiskDispersionResults_spectral_polynomial_fromNonReference.mat';
     dataset_params.is_aberrated = true;
-    dataset_params.color_map = '/home/graphicslab/Documents/llanos/Data/20190208_ComputarLens/dataset/SonyColorMapData.mat';
-    dataset_params.wavelengths = '/home/graphicslab/Documents/llanos/Data/20190208_ComputarLens/dataset/channel_scaling/sensor.mat';
+    dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/SonyColorMapData.mat';
+    dataset_params.wavelengths = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/channel_scaling/sensor.mat';
     dataset_params.patch_size = [128 128];
     dataset_params.padding = 16;
     dataset_params.params_patches = struct(...
