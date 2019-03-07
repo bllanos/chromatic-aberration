@@ -40,9 +40,10 @@ function [rgb, XYZ] = cieSpectralToColor(lambda_C, C, lambda_R, R, varargin)
 %   at the j-th wavelength.
 %
 % whitepoint -- Illuminant whitepoint
-%   A character vector describing the CIE standard illuminant with which
-%   the radiances were obtained. `whitepoint` is passed to the MATLAB
-%   'xyz2rgb()' function, and defaults to 'd65' if empty or if not passed.
+%   A three-element vector containing the XYZ colour of the illuminant, or a
+%   character vector describing the CIE standard illuminant with which the
+%   radiances were obtained. `whitepoint` is passed to the MATLAB 'xyz2rgb()'
+%   function, and defaults to 'd65' if empty or if not passed.
 %
 % int_method -- Numerical integration method
 %   The numerical integration method to use when integrating over the
@@ -61,10 +62,11 @@ function [rgb, XYZ] = cieSpectralToColor(lambda_C, C, lambda_R, R, varargin)
 %   to the range [0, 1].
 %
 % XYZ -- CIE 1931 tristimulus responses
-%   An n x 3 matrix, where `XYZ(i, :)` is the tristimulus (X, Y, and Z)
-%   response corresponding to the i-th sample, assuming the imaging system
-%   has the spectral response of the CIE 1931 color matching functions.
-%   Values are clipped to the range [0, 1].
+%   An n x 3 matrix, where `XYZ(i, :)` is the tristimulus (X, Y, and Z) response
+%   corresponding to the i-th sample, assuming the imaging system has the
+%   spectral response of the CIE 1931 color matching functions. Values are NOT
+%   clipped to the range [0, 1], but should be within this range if `R` is
+%   normalized (see notes below).
 %
 % ## Notes
 % - Spectral radiances can be obtained from spectral reflectances by
@@ -117,8 +119,8 @@ lambda = reshape(lambda, length(lambda), 1);
 weights = repmat(integrationWeights(lambda, int_method).', size(R, 2), 1);
 
 XYZ = (R_resampled.' .* weights) * C_resampled;
-XYZ(XYZ < 0) = 0;
-XYZ(XYZ > 1) = 1;
+% XYZ(XYZ < 0) = 0;
+% XYZ(XYZ > 1) = 1;
 
 % Default colour space used by 'xyz2rgb()' is sRGB
 rgb = xyz2rgb(XYZ, 'WhitePoint', whitepoint);

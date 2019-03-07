@@ -14,7 +14,6 @@ end
 parameters_list = [parameters_list, {
     'illuminant_filename',...
     'illuminant_temperature',...
-    'illuminant_name',...
     'normalization_channel',...
 }];
 
@@ -23,7 +22,6 @@ parameters_list = [parameters_list, {
 % CIE D-illuminant
 illuminant_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180604_Spectral power distributions_BruceLindbloom/DIlluminants.csv';
 illuminant_temperature = 6504; % From https://en.wikipedia.org/wiki/Standard_illuminant#Illuminant_series_D
-illuminant_name = 'd65';
 
 % Colour channel to use for radiance normalization
 normalization_channel = 2;

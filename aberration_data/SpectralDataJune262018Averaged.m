@@ -55,15 +55,14 @@
 %% Input data and parameters
 
 % CIE D-illuminant
-illuminant_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180604_Spectral power distributions_BruceLindbloom/DIlluminants.csv';
+illuminant_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180604_Spectral power distributions_BruceLindbloom/DIlluminants.csv';
 illuminant_temperature = 5003; % From https://en.wikipedia.org/wiki/Standard_illuminant#Illuminant_series_D
-illuminant_name = 'd50';
 
 % CIE tristimulus functions
-xyzbar_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180614_ASTM_E308/Table1_CIE1931_2DegStandardObserver.csv';
+xyzbar_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180614_ASTM_E308/Table1_CIE1931_2DegStandardObserver.csv';
 
 % Sample spectral reflectances
-reflectances_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180626_SpectralCharacterizationOfSetup/spectra_averaged.csv';
+reflectances_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180626_SpectralCharacterizationOfSetup/spectra_averaged.csv';
 
 % Categorization of the samples
 indices.bandpass_filters = 2:8;
@@ -119,8 +118,7 @@ xyzbar = xyzbar_table{:, 2:end};
 rgb = reflectanceToColor(...
     lambda_illuminant, spd_illuminant,...
     lambda_samples, reflectances,...
-    lambda_xyzbar, xyzbar,...
-    illuminant_name...
+    lambda_xyzbar, xyzbar...
     );
 rgb_integer = floor(256 * rgb);
 
@@ -133,7 +131,7 @@ for s = 1:length(sets)
     figure;
     hold on
     names_legend = cell(length(current_indices), 1);
-    fprintf('%s sRGB colours under a %s illuminant:\n', set_name, illuminant_name);
+    fprintf('%s sRGB colours under a CCT = %g Kelvin illuminant:\n', set_name, illuminant_temperature);
     for i = 1:length(current_indices)
         j = current_indices(i);
         plot(...

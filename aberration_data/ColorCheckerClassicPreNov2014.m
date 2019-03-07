@@ -59,7 +59,6 @@
 % CIE D-illuminant
 illuminant_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180604_Spectral power distributions_BruceLindbloom/DIlluminants.csv';
 illuminant_temperature = 5003; % From https://en.wikipedia.org/wiki/Standard_illuminant#Illuminant_series_D
-illuminant_name = 'd50';
 
 % CIE tristimulus functions
 xyzbar_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180614_ASTM_E308/Table1_CIE1931_2DegStandardObserver.csv';
@@ -102,8 +101,7 @@ xyzbar = xyzbar_table{:, 2:end};
 rgb = reflectanceToColor(...
     lambda_illuminant, spd_illuminant,...
     lambda_colorChecker, reflectances,...
-    lambda_xyzbar, xyzbar,...
-    illuminant_name...
+    lambda_xyzbar, xyzbar...
     );
 rgb_integer = floor(256 * rgb);
 
@@ -111,7 +109,7 @@ rgb_integer = floor(256 * rgb);
 figure;
 hold on
 patch_names_legend = cell(n_patches, 1);
-fprintf('ColorChecker patch sRGB colours under a %s illuminant:\n', illuminant_name);
+fprintf('ColorChecker patch sRGB colours under a CCT = %g Kelvin illuminant:\n', illuminant_temperature);
 for i = 1:n_patches
     plot(...
         lambda_colorChecker, reflectances(:, i),...
