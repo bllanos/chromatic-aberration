@@ -16,6 +16,17 @@
 %   in order for the correct value of `parameters_list` to be generated.
 %   The calling script must initialize `parameters_list` with its custom
 %   parameter variable names.
+%
+% ## References
+%
+% Third-party algorithms:
+% - Sun, T., Peng, Y., & Heidrich, W. (2017). "Revisiting cross-channel
+%   information transfer for chromatic aberration correction." In 2017 IEEE
+%   International Conference on Computer Vision (ICCV) (pp. 3268–3276).
+%   doi:10.1109/ICCV.2017.352
+% - Krishnan, D., Tay, T. & Fergus, R. (2011). "Blind deconvolution using a
+%   normalized sparsity measure." In IEEE Conference on Computer Vision and
+%   Pattern Recognition (CVPR) (pp. 233–240).
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -36,6 +47,8 @@ parameters_list = [parameters_list, {
     'use_fixed_weights',...
     'solvePatchesADMMOptions',...
     'solvePatchesMultiADMMOptions'...
+    'krishnan2011Options',...
+    'sun2017Options'...
     }];
 
 %% Evaluation parameters
@@ -257,6 +270,52 @@ solvePatchesADMMOptions.reg_options.n_iter = [24, 6];
 solvePatchesADMMOptions.reg_options.demosaic = true;
 
 solvePatchesMultiADMMOptions.reg_options = solvePatchesADMMOptions.reg_options;
+
+%% ## Parameters for third-party algorithms
+
+% ## Parameters for Krishnan et al. 2011
+
+% Kernel sizes must be odd integers. I will set the kernel size based on the
+% estimated amount of dispersion.
+krishnan2011Options.kernel_sz = 9;
+
+% Value tuned by finding the 'knee' in the error plot output by
+% 'TuneSunEtAl2017.m'
+krishnan2011Options.min_lambda = 200;
+
+% Window in which to estimate the PSF: (y1, x1, y2, x2) of the top left and
+% bottom right corners. (Set it to an empty array to use the entire image.)
+krishnan2011Options.kernel_est_win = [];
+
+krishnan2011Options.prescale = 1;
+krishnan2011Options.k_reg_wt = 1;
+krishnan2011Options.gamma_correct = 1;
+krishnan2011Options.k_thresh = 0.0;
+krishnan2011Options.kernel_init = 3;
+krishnan2011Options.delta = 0.001;
+krishnan2011Options.x_in_iter = 2; 
+krishnan2011Options.x_out_iter = 2;
+krishnan2011Options.xk_iter = 21;
+krishnan2011Options.nb_lambda = 3000;
+krishnan2011Options.nb_alpha = 1.0;
+krishnan2011Options.use_ycbcr = 1;
+
+% ## Parameters for Sun et al. 2017
+
+% PSF estimation window size, as a fraction of the image's largest dimension.
+% Optimized using 'TuneSunEtAl2017.m'
+sun2017Options.psf_sz = 0.1714;
+
+% CCT implementation window size, in pixels
+% Optimized using 'TuneSunEtAl2017.m'
+sun2017Options.win_sz = 5;
+
+sun2017Options.alpha = 0.3;
+sun2017Options.beta = 0.3;
+sun2017Options.iter = 3;
+
+% Index of the reference colour channel (Green)
+sun2017Options.reference_channel_index = 2;
 
 %% ## Debugging Flags
 

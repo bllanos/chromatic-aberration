@@ -32,36 +32,28 @@
 % University of Alberta, Department of Computing Science
 % File created January 8, 2019
 
+parameters_list = {
+    'min_lambda',...
+    'psf_sz',...
+    'win_sz',...
+    'eval_width',...
+    'quantiles',...
+    'split_image'...
+};
 
 %% Input data and parameters
 
-% ## Parameters for Krishnan et al. 2011
-
-% Kernel sizes must be odd integers. I will set the kernel size based on the
-% estimated amount of dispersion.
-kernel_sz = 9;
+% ## Parameters to tune for Krishnan et al. 2011
 
 min_lambda = logspace(-5, 5, 30);
 
-% Window in which to estimate the PSF: (y1, x1, y2, x2) of the top left and
-% bottom right corners. (Set it to an empty array to use the entire image.)
-krishnan_opts.kernel_est_win = [];
-
-% ## Parameters for Sun et al. 2017
+% ## Parameters to tune for Sun et al. 2017
 
 % PSF estimation window size, as a fraction of the image's largest dimension
 psf_sz = logspace(log10(0.05), log10(0.2), 10);
 
 % CCT implementation window size, as a fraction of the image's largest dimension
 win_sz = logspace(log10(0.0016), log10(0.2), 20);
-
-% Other parameters for Sun et al. 2017
-alpha = 0.3;
-beta = 0.3;
-n_iter = 3;
-
-% Index of the reference colour channel (Green)
-reference_channel_index = 2;
 
 % ## Testing parameters
 
@@ -77,8 +69,6 @@ input_variable_name = 'I_raw'; % Used only when loading '.mat' files
 % Width of the evaluation region in pixels
 eval_width = 12;
 
-bayer_pattern = 'gbrg'; % Colour-filter pattern
-
 % Quantiles used for clipping to produce nice output images in image-format
 % files
 quantiles = [0.01, 0.99];
@@ -88,6 +78,9 @@ split_image = true;
 
 % Output directory
 output_directory = '/home/llanos/Downloads/sun2017_parameter_matrix';
+
+% ## Parameters which do not usually need to be changed
+run('SetFixedParameters.m')
 
 %% Prepare the image
 
@@ -158,29 +151,17 @@ saveImages(...
 
 %% Test all combinations of parameters for Krishnan et al. 2011
 
-n_kernel_sz = length(kernel_sz);
+n_kernel_sz = length(krishnan2011Options.kernel_sz);
 n_min_lambda = length(min_lambda);
 error_krishnan = zeros(n_kernel_sz, n_min_lambda);
 
-krishnan_opts.prescale = 1;
-krishnan_opts.k_reg_wt = 1;
-krishnan_opts.gamma_correct = 1;
-krishnan_opts.k_thresh = 0.0;
-krishnan_opts.kernel_init = 3;
-krishnan_opts.delta = 0.001;
-krishnan_opts.x_in_iter = 2; 
-krishnan_opts.x_out_iter = 2;
-krishnan_opts.xk_iter = 21;
-krishnan_opts.nb_lambda = 3000;
-krishnan_opts.nb_alpha = 1.0;
-krishnan_opts.use_ycbcr = 1;
-
-krishnan_opts.blur = I_rgb(:, :, reference_channel_index);
+krishnan_opts = krishnan2011Options;
+krishnan_opts.blur = I_rgb(:, :, sun2017Options.reference_channel_index);
 
 min_error = Inf;
 
 for i = 1:n_kernel_sz
-    kernel_sz_i = kernel_sz(i);
+    kernel_sz_i = krishnan2011Options.kernel_sz;
     krishnan_opts.kernel_size = kernel_sz_i;
     
     for j = 1:n_min_lambda
@@ -189,11 +170,11 @@ for i = 1:n_kernel_sz
         krishnan_opts.min_lambda = min_lambda_j;
         
         [yorig, I_deblur_ij, kernel, opts] = ms_blind_deconv([], krishnan_opts);
-        close all
+        close all % 'ms_blind_deconv()' opens figures
         
         [~, mrae] = metrics(...
-            reshape(I_deblur_ij(eval_mask(:, :, reference_channel_index)), [], 1),...
-            I_gt_columnar(:, reference_channel_index),...
+            reshape(I_deblur_ij(eval_mask(:, :, sun2017Options.reference_channel_index)), [], 1),...
+            I_gt_columnar(:, sun2017Options.reference_channel_index),...
             2, [], true...
         );
         error_krishnan(i, j) = mean(mrae);
@@ -208,12 +189,12 @@ for i = 1:n_kernel_sz
         I_out_remapped = clipAndRemap(I_deblur_ij, 'uint8', 'quantiles', quantiles);
         saveImages(...
             'image', output_directory, I_out_filename,...
-            I_out_remapped, sprintf('_kernel%g_minLambda%g', kernel_sz(i), min_lambda(j)), []...
+            I_out_remapped, sprintf('_kernel%g_minLambda%g', krishnan2011Options.kernel_sz, min_lambda(j)), []...
         );
     end
 end
 
-[kernel_sz_grid, min_lambda_grid] = ndgrid(kernel_sz, min_lambda);
+[kernel_sz_grid, min_lambda_grid] = ndgrid(krishnan2011Options.kernel_sz, min_lambda);
 
 fg = figure;
 hold on
@@ -267,23 +248,23 @@ for i = 1:n_win_sz
         psf_sz_j = ceil(max_image_size * psf_sz(j));
         
         I_out = zeros([image_sampling, n_channels_rgb]);
-        I_out(:, :, reference_channel_index) = I_deblur;
+        I_out(:, :, sun2017Options.reference_channel_index) = I_deblur;
         
         for c = 1:n_channels_rgb
-            if c ~= reference_channel_index
+            if c ~= sun2017Options.reference_channel_index
                 if split_image
                     [I_out(1:floor(end / 2), :, c), psf] = ref_deblur(...
                         I_deblur(1:floor(end / 2), :), I_rgb(1:floor(end / 2), :, c),...
-                        psf_sz_j, win_sz_i, alpha, beta, n_iter...
+                        psf_sz_j, win_sz_i, sun2017Options.alpha, sun2017Options.beta, sun2017Options.iter...
                         );
                     [I_out((floor(end/2) + 1):end, :, c), psf] = ref_deblur(...
                         I_deblur((floor(end/2) + 1):end, :), I_rgb((floor(end/2) + 1):end, :, c),...
-                        psf_sz_j, win_sz_i, alpha, beta, n_iter...
+                        psf_sz_j, win_sz_i, sun2017Options.alpha, sun2017Options.beta, sun2017Options.iter...
                         );
                 else
                     [I_out(:, :, c), psf] = ref_deblur(...
                         I_deblur, I_rgb(:, :, c),...
-                        psf_sz_j, win_sz_i, alpha, beta, n_iter...
+                        psf_sz_j, win_sz_i, sun2017Options.alpha, sun2017Options.beta, sun2017Options.iter...
                         );
                 end
             end
@@ -405,3 +386,12 @@ savefig(...
     fullfile(output_directory, [I_out_filename '_mi_sun.fig']), 'compact'...
 );
 close(fg);
+
+%% Save parameters and additional data to a file
+save_variables_list = [ parameters_list, {...
+    'label_filename', 'input_filename',...
+    'error_krishnan', 'kernel_sz_opt', 'min_lambda_opt',...
+    'error_sun', 'mi_rg', 'mi_gb', 'mi_rb', 'win_sz_opt', 'psf_sz_opt'
+} ];
+save_data_filename = fullfile(output_directory, 'TuneSunEtAl2017Data.mat');
+save(save_data_filename, save_variables_list{:});

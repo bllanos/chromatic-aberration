@@ -943,13 +943,13 @@ for i = 1:n_images
             time_start = tic;
             I_rgb = I_rgb_warped;
             max_image_size = max(image_sampling);
-            psf_sz_i = ceil(max_image_size * post_algorithm.psf_sz);
-            win_sz_i = post_algorithm.win_sz;
+            psf_sz_i = ceil(max_image_size * sun2017Options.psf_sz);
+            win_sz_i = sun2017Options.win_sz;
             for c = [1 3]
                 I_rgb(:, :, c) = ref_deblur(...
                     I_rgb(:, :, 2), I_rgb(:, :, c),...
                     psf_sz_i, win_sz_i,...
-                    post_algorithm.alpha, post_algorithm.beta, post_algorithm.iter...
+                    sun2017Options.alpha, sun2017Options.beta, sun2017Options.iter...
                 );
             end
             time.rgb_correction(2, i, f) = toc(time_start);
