@@ -156,7 +156,7 @@ if size(I_reference, 3) == 1
 else
     I_reference_c = I_reference(:, :, reference_channel);
 end
-polyfun_data = vignettingPolyfit(...
+[polyfun, polyfun_data] = vignettingPolyfit(...
     I_reference_c, mask, max_degree, bayer_pattern, vignettingPolyfitVerbose...
 );
 
@@ -172,7 +172,7 @@ for i = 1:length(all_filenames)
         I = loadImage(all_filenames{i}, other_variable_name);
         variable_name = other_variable_name;
     end
-    I = correctVignetting(I, polyfun_data);
+    I = correctVignetting(I, polyfun);
     [~, I_out_filename] = fileparts(all_filenames{i});
     saveImages(...
         'data', output_directory, I_out_filename,...

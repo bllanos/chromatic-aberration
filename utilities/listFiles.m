@@ -19,7 +19,7 @@ function [ names ] = listFiles(wildcard)
 % ## Output Arguments
 %
 % names -- Filepaths and names
-%   A cell vector, where each element is a character containing the name
+%   A cell column vector, where each element is a character containing the name
 %   and path of a file in the output of `ls()`.
 %
 % ## Notes
@@ -53,6 +53,7 @@ else
         end
     end
 end
+names = reshape(names, [], 1);
 
 end
 

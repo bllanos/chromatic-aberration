@@ -65,10 +65,6 @@ else
     );
 end
 
-% Do images have different datatypes? In which case, all images will be
-% converted to double precision
-convert_to_double = true;
-
 % Output directory
 output_directory = '/home/llanos/Downloads';
 
@@ -107,9 +103,6 @@ name_params = fullfile(output_directory, true_image_filename);
 
 true_image_filename_load = listFiles(true_image_wildcard);
 I_gt = loadImage(true_image_filename_load{1}, true_image_variable_name);
-if convert_to_double
-    I_gt = im2double(I_gt);
-end
 
 e_rgb_table = [];
 e_spectral_table = [];
@@ -117,9 +110,6 @@ fg_spectral = struct;
 for i = 1:n_images
     image_filename = listFiles(images_wildcards{i});
     I = loadImage(image_filename{1}, images_variable_names{i});
-    if convert_to_double
-        I = im2double(I);
-    end
     if is_rgb
         e_rgb_table_current = evaluateAndSaveRGB(...
             I, I_gt, dp, true_image_name, images_names{i},...

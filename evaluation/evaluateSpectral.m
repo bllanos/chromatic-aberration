@@ -52,7 +52,7 @@ function [e_spectral, varargout] = evaluateSpectral(...
 %     - 'mrae': Mean relative absolute error
 %     - 'gof': Goodness-of-fit
 %   - 'error_map': If `true`, then this function will produce a 'metric'
-%     error map figure.
+%     error map figure. Defaults to `false` if absent.
 %   - 'radiance': A matrix, where each row is a four-element vector
 %     describing an image patch (center pixel x-coordinate, center pixel
 %     y-coordinate, width, and height). Image patches widths and heights

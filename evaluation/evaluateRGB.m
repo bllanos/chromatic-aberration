@@ -31,7 +31,7 @@ function [e_rgb, varargout] = evaluateRGB(...
 %   fields:
 %   - 'error_map': If `true`, then this function will produce figures
 %     showing the relative error between the two colour images. One figure
-%     will be produced per channel.
+%     will be produced per channel. Defaults to `false` if not present.
 %
 % ## Output Arguments
 %

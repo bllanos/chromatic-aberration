@@ -11,21 +11,19 @@
 % A raw colour filter array image of a ColorChecker chart must be provided. The
 % image is expected to have been preprocessed, such as using
 % 'PreprocessRAWImages.m', so that it does not need to be linearized after being
-% loaded. For an image format file, the image will be loaded with the Image
-% Processing Toolbox 'imread()' function. For a '.mat' file, the variable to be
-% loaded must be provided in the script parameters.
+% loaded.
 %
 % Along with the captured image, two single-channel label images are required.
-% The first is used for colour calibration, vignetting correction, and
-% evaluation of colour-based chromatic aberration correction algorithms. For the
-% 24 patches of the chart, the corresponding pixels in the label image must have
-% values equal to the patch indices. The uniformly-coloured portions of the
-% frame surrounding the patches, used to calibrate vignetting, must be labelled
-% 25. Lastly, the rest of the image should have a different label (e.g. zero).
+% The first is used for colour calibration, for vignetting correction, and for
+% evaluation of colour-based image estimation algorithms. For the 24 patches of
+% the chart, the corresponding pixels in the label image must have values equal
+% to the patch indices. The uniformly-coloured portions of the frame surrounding
+% the patches, used to calibrate vignetting, must be labelled 25. Lastly, the
+% rest of the image should have a different label (e.g. zero).
 %
-% The second label image is used for evaluation of spectral-based chromatic
-% aberration correction algorithms. It should have all 24 patches labelled with
-% their indices, but need not have other pixels labelled. The boundaries of the
+% The second label image is used for evaluation of spectral-based image
+% estimation algorithms. It should have all 24 patches labelled with their
+% indices, but need not have other pixels labelled. The boundaries of the
 % patches in the first label image should be accurate in the reference channel
 % of colour-based models of chromatic aberration (e.g. the Green channel). In
 % contrast, the boundaries of the patches in the second label image should be
@@ -45,12 +43,11 @@
 %
 % ### Estimated images
 %
-% Several filepath wildcards in the script parameters below are used to locate
-% the reconstructed RGB and spectral images to be evaluated. These images should
-% have been generated using the raw image of the ColorChecker chart as input.
-% '.mat' or image format files can be loaded. In the output files describing the
-% evaluation results, the names of the algorithms being evaluated will be the
-% unique portions of the image filenames.
+% Two filepath wildcards in the script parameters below are used to locate the
+% reconstructed RGB and spectral images to be evaluated. These images should
+% have been generated using the raw image of the ColorChecker chart as input. In
+% the output files describing the evaluation results, the names of the
+% algorithms being evaluated will be the unique portions of the image filenames.
 %
 % ## Output
 %
@@ -62,9 +59,13 @@
 %   bands used in the estimated images.
 % - 'bands_measured': A vector containing the wavelengths of the spectral
 %   bands used by the reference reflectance data.
+% - 'vignetting_data': The model of vignetting describing the ColorChecker
+%   image. 'vignetting_data' is the output argument of the same name of
+%   'vignettingPolyfit()'. Refer to the documentation of 'vignettingPolyfit.m'
+%   for details.
 % - 'spectral_weights': A matrix for converting pixels in the spectral
-%   space of the estimated hyperspectral images to the spectral space of
-%   the reference reflectance data.
+%   space of the estimated spectral images to the spectral space of the
+%   reference reflectance data.
 % - 'algorithms': A structure containing the names of the algorithms which were
 %   evaluated, extracted from the names of the input estimated images.
 %   'algorithms' has the following fields:
@@ -74,11 +75,9 @@
 %     algorithms which produced the estimated colour images.
 % - 'algorithm_filenames': A structure of the same form as 'algorithms'
 %   containing the names and paths of the input estimated images.
-% - 'input_image_filename': A character vector containing the name and path of the
-%   reference raw image of the ColorChecker.
-% - 'input_label_filenames': A two-element cell vector of character vectors
-%   containing the names and paths of the first and second label images for the
-%   ColorChecker.
+% - 'color_correction': A 3 x 3 matrix for mapping from the raw RGB colours of
+%   the ColorChecker image to the XYZ colours of the corresponding measured
+%   reflectances.
 % 
 % Additionally, the file contains the values of all parameters listed in
 % `parameters_list`.
@@ -92,11 +91,15 @@
 % for all (RGB or spectral) estimated images. The estimated images will be
 % listed in the files under the unique portions of their filenames. RGB error
 % metrics are saved as '*_evaluateRGB.csv', whereas the spectral error metrics
-% are saved as '*_evaluateSpectral.csv', where '*' is the number of the patch.
+% are saved as '*_evaluateSpectral.csv', where '*' contains the number of the
+% patch.
 %
 % Error metrics are also aggregated across images, and saved as
-% 'EvaluateColorChecker_evaluateRGB.csv' and
-% 'EvaluateColorChecker_evaluateSpectral.csv'.
+% '*_evaluateRGB.csv' and '*_evaluateSpectral.csv', where '*' now does not
+% contain the number of the patch.
+%
+% There are separate evaluation files for the central and edge regions of each
+% patch.
 %
 % ## Detailed description of processing
 %
@@ -106,48 +109,48 @@
 % desired, using a whitepoint of [1, 1, 1] (for an equal energy radiator).
 %
 % A model of vignetting in the image of the ColorChecker is created from the
-% variation in intensity of the ColorChecker's frame. The model is applied to
-% the measured spectral reflectances, and ideal XYZ colours, to obtain "ground
-% truth" images.  A 3 x 3 colour correction matrix is then fit between the XYZ
-% colour image and the raw image of the ColorChecker, and output for later use
-% in converting the estimated images to the sRGB colour space, for example.
+% variation in intensity of the ColorChecker's frame. A 3 x 3 colour correction
+% matrix is then fit between the XYZ colours of the measured spectral
+% reflectances and the vignetting-corrected raw image of the ColorChecker, and
+% output for later use in converting the estimated images to the sRGB colour
+% space, for example. The inverse of the vignetting model is applied to the
+% measured spectral reflectances to obtain a "ground truth" image for spectral
+% image evaluation.
 %
-% For RGB image evaluate a ground truth image is created from the raw image of
-% the ColorChecker as follows:
-% - The image is corrected for vignetting using the above model of vignetting.
+% For RGB image evaluation, a ground truth image is created from the
+% vignetting-corrected raw image of the ColorChecker as follows:
 % - For each ColorChecker patch, the averages of the Red, Green, and Blue pixels
 %   in a square around the centroid of the patch are computed.
 % - These average values are then replicated to every pixel in the patch, and
-%   the vignetting model is applied to them to simulate an image without
-%   spectral dispersion at the edges of the ColorChecker patches.
+%   the inverse of the vignetting model is applied to them to simulate an image
+%   without spectral dispersion at the edges of the ColorChecker patches.
 %
 % For each ColorChecker patch, an independent evaluation is performed for all
 % reconstructed images as follows:
-% - As the illuminant is unknown, the average spectral signal in the
-%   reconstructed image is calculated within a reference patch. The
-%   reconstructed image is then multiplied by the ratio of the corresponding
-%   average signal in the true image to this average signal.
-% - The centroid of the patch is located, and a square is cropped from both the
-%   true and reconstructed spectral images. 'evaluateAndSaveSpectral()' is
-%   called on these patches to evaluate spectral reconstruction of the
-%   homogenous area.
-% - The border region of the patch is located, and its pixels are reshaped into
-%   1D images from the true and reconstructed spectral images.
-%   'evaluateAndSaveSpectral()' is called on these patches to evaluate spectral
-%   reconstruction of the border region.
-% - The above two steps are repeated for the RGB version of the reconstructed
-%   image, using 'evaluateAndSaveRGB()'. In this case, the reference image is
-%   created from the raw image of the ColorChecker as described above, and so
-%   there is no need to rescale one image's channels to match the other's.
-%
-% The input raw image of the ColorChecker is also evaluated, by filling in `NaN`
-% values for the colour channel values which were not sensed because of the
-% colour filter array.
+% - Spectral images:
+%   - For a spectral image, as the illuminant is unknown, the average spectral
+%     signal is calculated within a reference patch. The image is then
+%     multiplied by the ratio of the corresponding average signal in the true
+%     image to this average signal.
+%   - The centroid of the patch is located, and a square is cropped from both
+%     the true and reconstructed spectral images. 'evaluateAndSaveSpectral()' is
+%     called on these patches to evaluate spectral reconstruction of the
+%     homogenous area.
+%   - The border region of the patch is located, and its pixels are reshaped
+%     into 1D images from the true and reconstructed spectral images.
+%     'evaluateAndSaveSpectral()' is called on these patches to evaluate
+%     spectral reconstruction of the border region.
+% - RGB images
+%   - The above two evaluations are performed for an RGB image, using
+%     'evaluateAndSaveRGB()'. In this case, the reference image is created from
+%     the raw image of the ColorChecker as described above, and so there is no
+%     need to rescale one image's channels to match the other's.
 %
 % The evaluation results for all patches are merged into summaries.
 %
 % Note that the extraction of patch centre and border regions uses the
-% appropriate label image for the reconstructed image being evaluated.
+% appropriate label image for the reconstructed image being evaluated (spectral
+% vs. RGB).
 %
 % ## References
 %
@@ -163,13 +166,464 @@
 % File created March 7, 2019
 
 % List of parameters to save with results
-parameters_list = {};
+parameters_list = {
+    'color_label_filename',...
+    'spectral_label_filename',...
+    'reference_filename',...
+    'reference_variable_name',...
+    'xyzbar_filename',...
+    'reflectances_filename',...
+    'reflectance_data_patch_columns',...
+    'max_degree_vignetting',...
+    'n_patches',...
+    'reference_patch_index',...
+    'centroid_patch_width',...
+    'edge_width',...
+    'true_image_name',...
+    'true_image_filename',...
+    'bands_filename',...
+    'bands_variable',...
+    
+    };
 
 %% Input data and parameters
 
+% Label image for colour-based dispersion correction and for vignetting
+% calibration (an image file, not a '.mat' file)
+color_label_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/exposure_blending/d2_colorChecker30cm_unfiltered_background0_patches1to24_frame25.png';
+
+% Label image for spectral dispersion correction
+spectral_label_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/exposure_blending/d2_colorChecker30cm_unfiltered_background0_patches1to24_frame25.png';
+
+% Raw image of the ColorChecker ('.mat' or image files can be loaded)
+reference_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/colorChecker_preprocessed/d2_colorChecker30cm_unfiltered_vc.mat';
+reference_variable_name = 'I_raw'; % Used only when loading '.mat' files
+
+% CIE tristimulus functions
+xyzbar_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180614_ASTM_E308/Table1_CIE1931_2DegStandardObserver.csv';
+
+% Sample spectral reflectances
+reflectances_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180626_SpectralCharacterizationOfSetup/spectra_averaged.csv';
+
+% Categorization of the samples in the file of reflectances
+reflectance_data_patch_columns = 13:36;
+
+% Maximum degree of the polynomial model of vignetting
+max_degree_vignetting = 5;
+
+% Number of ColorChecker patches
+n_patches = 24;
+
+% The reference patch for spectral evaluation
+reference_patch_index = 20;
+
+% Odd-integer size of the regions to extract around the centroids of the
+% ColorChecker patches
+centroid_patch_width = 15;
+
+% Width of the edge region to extract inside the patch boundaries
+edge_width = 10;
+
+true_image_name = 'GT'; % Name used in figures. Must not contain spaces.
+true_image_filename = 'colorChecker'; % Name used in filenames. Must not contain spaces.
+
+% Wildcard for 'ls()' to find the estimated spectral images to process.
+% '.mat' or image files can be loaded
+spectral_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/colorChecker_preprocessed/d2_colorChecker30cm_unfiltered_vc.mat';
+spectral_variable_name = 'I_raw'; % Used only when loading '.mat' files
+
+% Path and filename of a '.mat' file containing the wavelengths corresponding to
+% the estimated spectral images
+bands_filename = '/home/llanos/GoogleDrive/ThesisResearch/OthersCode/2017_Choi_et_al_highQualityHyperspectralReconstructionUsingASpectralPrior_ACMTransGraphics/inputs/synthetic/KAIST/scene01_oneNinth.mat';
+bands_variable = 'wvls2b'; % Variable name in the above file
+
+% Wildcard for 'ls()' to find the estimated colour images to process.
+% '.mat' or image files can be loaded
+color_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/colorChecker_preprocessed/d2_colorChecker30cm_unfiltered_vc.mat';
+color_variable_name = 'I_raw'; % Used only when loading '.mat' files
+
+% Output directory
+output_directory = '/home/llanos/Downloads';
+
+% ## Debugging Flags
+vignettingPolyfitVerbose = true;
+
+%% Load wavelengths first, to avoid accidentally overwriting a variable
+
+load(bands_filename, bands_variable);
+if exist(bands_variable, 'var')
+    bands_estimated = eval(bands_variable);
+end
+if ~exist(bands_variable, 'var') || isempty(bands_estimated)
+    error('No wavelengths loaded.')
+end
+n_bands_estimated = length(bands_estimated);
+
+%% Calibrate vignetting
+
+I_reference = loadImage(reference_filename, reference_variable_name);
+if size(I_reference, 3) ~= 1
+    error('Expected the ColorChecker image, "%s", to have only one channel.', reference_filename);
+end
+
+I_color_label = loadImage(color_label_filename);
+if size(I_color_label, 3) ~= 1
+    error('Expected the colour-based dispersion label image, "%s", to have only one channel.', color_label_filename);
+end
+mask_vignetting = I_color_label == (n_patches + 1);
+
+[vignettingfun, vignetting_data] = vignettingPolyfit(...
+    I_reference, mask_vignetting, max_degree_vignetting, bayer_pattern, vignettingPolyfitVerbose...
+);
+
+% Make the vignetting relative to the center of the image, which is valid if we
+% assume that the center of the image is within the domain of samples used to
+% fit the vignetting model
+image_sampling = size(I_reference);
+vignetting_correction_factor = vignettingfun(fliplr(image_sampling) / 2);
+
+%% Load reflectance data
+
+sample_table = readtable(reflectances_filename);
+variable_names = sample_table.Properties.VariableNames;
+bands_measured = sample_table.(variable_names{1});
+n_bands_measured = length(bands_measured);
+reflectances = sample_table{:, reflectance_data_patch_columns};
+
+% Find sample colours
+xyzbar_table = readtable(xyzbar_filename);
+lambda_xyzbar = xyzbar_table{:, 1};
+xyzbar = xyzbar_table{:, 2:end};
+
+[reflectances_rgb, reflectances_xyz] = reflectanceToColor(...
+    bands_measured, ones(size(bands_measured)),... % Equal energy radiator
+    bands_measured, reflectances,...
+    lambda_xyzbar, xyzbar...
+    );
+reflectances_rgb_integer = floor(256 * rgb);
+
+figure;
+hold on
+names_legend = cell(n_patches, 1);
+disp('Measured reflectance sRGB colours under an equal energy illuminant:');
+for i = 1:n_patches
+    plot(...
+        bands_measured, reflectances(:, i),...
+        'Color', reflectances_rgb(i, :), 'LineWidth', 2, 'Marker', 'none'...
+    );
+    % Recover original variable names, which contained spaces
+    names_legend{i} = strsplit(sample_table.Properties.VariableDescriptions{i}, ':');
+    names_legend{i} = names_legend{i}{end};
+    if isempty(names_legend{i})
+        names_legend{i} = sample_table.Properties.VariableNames{i};
+    end
+
+    fprintf(...
+        '\t%s: %d, %d, %d\n', names_legend{i},...
+        reflectances_rgb_integer(i, 1),...
+        reflectances_rgb_integer(i, 2),...
+        reflectances_rgb_integer(i, 3)...
+    );
+end
+hold off
+title('Measured reflectance spectral signals', set_name)
+xlabel('\lambda [nm]')
+ylabel('Relative spectral signal')
+legend(names_legend);
+ax = gca;
+ax.Color = [0.5 0.5 0.5];
+
+spectral_weights = resamplingWeights(...
+    bands_measured, bands_estimated, findSamplingOptions.interpolant, findSamplingOptions.bands_padding...
+);
+spectral_weights_evaluation = eye(n_bands_measured);
+
+%% Prepare for image evaluation
+
+% Images to be evaluated, and evaluation parameters
+algorithm_filenames.spectral = listFiles(spectral_wildcard);
+n_spectral_algorithms = length(algorithm_filenames.spectral);
+
+algorithm_filenames.color = listFiles(color_wildcard);
+algorithm_names = trimCommon([algorithm_filenames.spectral; algorithm_filenames.color]);
+algorithms.spectral = algorithm_names(1:n_spectral_algorithms);
+algorithms.color = algorithm_names((n_spectral_algorithms + 1):end);
+n_color_algorithms = length(algorithms.color);
+
+I_spectral_label = loadImage(spectral_label_filename);
+if size(I_spectral_label, 3) ~= 1
+    error('Expected the spectral dispersion label image, "%s", to have only one channel.', spectral_label_filename);
+end
+
+e_centroid_tables_rgb = cell(n_patches, 1);
+e_edge_tables_rgb = cell(n_patches, 1);
+e_centroid_tables_spectral = cell(n_patches, 1);
+e_edge_tables_spectral = cell(n_patches, 1);
+
+evaluation_plot_colors = jet(n_spectral_algorithms);
+evaluation_plot_markers = {'v', 'o', '+', '*', '<', '.', 'x', 's', 'd', '^', 'p', 'h', '>'};
+evaluation_plot_styles = {'--', ':', '-.'};
+
+% Common variables for patch processing
+n_channels_rgb = 3;
+if mod(centroid_patch_width, 2) == 0
+    error('`centroid_patch_width` should be an odd integer.');
+end
+half_width = floor(centroid_patch_width / 2);
+se_clean = strel('square', 3); % Structuring element for cleaning up the label image
+se_edge = strel('disk', edge_width);
+
+% Enumerate the positions of all pixels
+[X, Y] = meshgrid(1:image_sampling(2), 1:image_sampling(1));
+X = X - 0.5; % Place coordinates at pixel centres
+Y = Y - 0.5;
+
+% For calculating a colour correction matrix
+patch_means_rgb = zeros(n_patches, n_channels_rgb);
+
+%% Evaluate each patch of the ColorChecker
+
+% For spectral evaluation, first use the reference patch to calibrate the
+% intensity alignment between the reference and estimated images
+is_reference_patch = true;
+for pc = [reference_patch_index, 1:n_patches]
+    for color_flag = [true, false]
+        if colorflag
+            if is_reference_patch
+                continue
+            end
+            I_label = I_color_label;
+        else
+            I_label = I_spectral_label;
+        end
+        
+        patch_mask = imopen(I_label == pc, se_clean);
+
+        % Find the centroid of the patch
+        cc_stats = regionprops(patch_mask, 'Centroid');
+        if numel(cc_stats) ~= 1
+            if colorflag
+                error('Expected only one binary mask region for patch %d in the colour label image.', pc);
+            else
+                error('Expected only one binary mask region for patch %d in the spectral label image.', pc);
+            end
+        end
+        patch_centroid = floor(cc_stats.Centroid + 0.5);
+
+        % Define a region around the centroid
+        roi = [
+            patch_centroid(2) - half_width, patch_centroid(2) + half_width,...
+            patch_centroid(1) - half_width, patch_centroid(1) + half_width
+        ];
+        if is_reference_patch
+            roi_reference = roi;
+        end
+        patch_xy = [
+            reshape(X(roi(1):roi(2), roi(3):roi(4)), [], 1),...
+            reshape(Y(roi(1):roi(2), roi(3):roi(4)), [], 1)
+        ];
+        factors = reshape(...
+            vignettingfun(patch_xy) / vignetting_correction_factor,...
+            centroid_patch_width, centroid_patch_width...
+        );
+    
+        if colorflag
+            I_patch = I_reference(roi(1):roi(2), roi(3):roi(4));
+            I_patch = I_patch ./ factors;
+
+            % Find the mean colour in this region, corrected for vignetting
+            bayer_pattern_centroid = offsetBayerPattern(roi([1, 3]), bayer_pattern);
+            channel_mask = bayerMask(centroid_patch_width, centroid_patch_width, bayer_pattern_centroid);
+            patch_mean = zeros(1, 1, n_channels_rgb);
+            for c = 1:n_channels_rgb
+                patch_mean(c) = mean(I_patch(channel_mask(:, :, c)));
+            end
+            patch_means_rgb(pc, :) = patch_mean;
+        else
+            patch_mean = reshape(reflectances(:, i), 1, 1, []);
+        end
+        
+        I_patch = repmat(patch_mean, centroid_patch_width, centroid_patch_width, 1);
+        I_patch = I_patch .* repmat(factors, 1, 1, numel(patch_mean));
+        if is_reference_patch
+            patch_mean_reference = mean(mean(I_patch, 1), 2);
+            is_reference_patch = false;
+            continue
+        end
+        
+        % Find the edge of the patch
+        I_distance = bwdist(~patch_mask);
+        edge_mask = (I_distance > 0 & I_distance <= edge_width);
+        edge_ind = find(edge_mask);
+        % Order pixels by distance into the patch
+        edge_distance = I_distance(edge_ind);
+        [edge_distance, sorting_map] = sort(edge_distance);
+        edge_ind = edge_ind(sorting_map);
+        patch_xy = [X(edge_ind), Y(edge_ind)];
+        factors = vignettingfun(patch_xy) / vignetting_correction_factor;
+        n_edge_px = length(edge_ind);
+        
+        % Synthesize the ideal edge region
+        I_edge = repmat(patch_mean, n_edge_px, 1, 1);
+        I_edge = I_edge .* repmat(factors, 1, 1, numel(patch_mean));
+
+        % Evaluation
+        for evaluating_center = [true, false]
+            if evaluating_center
+                I_reference = I_patch;
+                name_params = fullfile(output_directory, [true_image_filename, sprintf('_patch%dCenter', pc)]);
+            else
+                I_reference = I_edge;
+                name_params = fullfile(output_directory, [true_image_filename, sprintf('_patch%dEdge', pc)]);
+            end
+            fg_spectral = struct;
+            e_table = [];
+            if colorflag
+                dp.evaluation.global_rgb = struct;
+                dp.evaluation.custom_rgb = struct;
+            else
+                evaluation_options = struct(...
+                    'metric', 'mrae',...
+                    'mi_bands', [1, n_bands_measured]...
+                );
+                if evaluating_center
+                    evaluation_options.radiance = [...
+                        half_width + 1, half_width + 1, centroid_patch_width, centroid_patch_width
+                    ];
+                else
+                    evaluation_options.radiance = [1, 1, 1, n_edge_px];
+                    evaluation_options.scanlines = [1, 1, 1, n_edge_px];
+                end
+                dp.evaluation.global_spectral = evaluation_options;
+                dp.evaluation.custom_spectral = struct;
+            end
+
+            if colorflag
+                for i = 1:n_color_algorithms
+                    I = loadImage(algorithm_filenames.color{i}, color_variable_name);
+                    if evaluating_center
+                        I = I(roi(1):roi(2), roi(3):roi(4), :);
+                    else
+                        I_edge_estimated = zeros(n_edge_ind, 1, n_channels_rgb);
+                        for c = 1:n_channels_rgb
+                            I_c = I(:, :, c);
+                            I_edge_estimated(:, 1, c) = I_c(edge_ind);
+                        end
+                    end
+                    name_params_i = [name_params, '_', algorithms.color{i}];
+                    e_table_current = evaluateAndSaveRGB(...
+                        I, I_reference, dp, true_image_name, algorithms.color{i},...
+                        name_params_i...
+                    );
+                    if ~isempty(e_table)
+                        e_table = union(e_table_current, e_table);
+                    else
+                        e_table = e_table_current;
+                    end
+                end
+                writetable(e_table, [name_params, '_evaluateRGB.csv']);
+            else
+                for i = 1:n_spectral_algorithms
+                    I = loadImage(algorithm_filenames.spectral{i}, spectral_variable_name);
+                    name_params_i = [name_params, '_', algorithms.spectral{i}];
+                    
+                    I_mean = mean(mean(...
+                        I(roi_reference(1):roi_reference(2), roi_reference(3):roi_reference(4), :),...
+                        1), 2 ...
+                    );
+                    I_mean = channelConversion(I_mean, spectral_weights);
+                    radiance_ratio = patch_mean_reference ./ I_mean;
+                    % Prevent division by zero, and indefinite values
+                    radiance_ratio(I_mean == patch_mean_reference) = 1;
+                    radiance_ratio(~isfinite(radiance_ratio)) = 1;
+                    
+                    if evaluating_center
+                        I = channelConversion(I(roi(1):roi(2), roi(3):roi(4), :), spectral_weights)...
+                            .* repmat(radiance_ratio, centroid_patch_width, centroid_patch_width, 1);
+                    else
+                        I_edge_estimated = zeros(n_edge_ind, 1, n_bands_estimated);
+                        for c = 1:n_bands_estimated
+                            I_c = I(:, :, c);
+                            I_edge_estimated(:, 1, c) = I_c(edge_ind);
+                        end
+                        I = channelConversion(I_edge_estimated, spectral_weights)...
+                            .* repmat(radiance_ratio, n_edge_ind, 1, 1);
+                    end
+
+                    dp.evaluation.global_spectral.plot_color = evaluation_plot_colors(i, :);
+                    dp.evaluation.global_spectral.plot_marker =...
+                        evaluation_plot_markers{...
+                        mod(i - 1, length(evaluation_plot_markers)) + 1 ...
+                        };
+                    dp.evaluation.global_spectral.plot_style =...
+                        evaluation_plot_styles{...
+                        mod(i - 1, length(evaluation_plot_styles)) + 1 ...
+                        };  
+                    [e_table_current, fg_spectral] = evaluateAndSaveSpectral(...
+                        I, I_reference, bands_measured, spectral_weights_evaluation,...
+                        dp, true_image_name, algorithms.spectral{i},...
+                        name_params_i, fg_spectral...
+                        );
+                    if ~isempty(e_table)
+                        e_table = union(e_table_current, e_table);
+                    else
+                        e_table = e_table_current;
+                    end
+                end
+                writetable(e_table, [name_params, '_evaluateSpectral.csv']);
+                % Also save completed figures
+                evaluateAndSaveSpectral(output_directory, dp, true_image_filename, algorithms.spectral, fg_spectral);
+            end
+            
+            if color_flag
+                if evaluating_center
+                    e_centroid_tables_rgb{pc} = e_table;
+                else
+                    e_edge_tables_rgb{pc} = e_table;
+                end
+            else
+                if evaluating_center
+                    e_centroid_tables_spectral{pc} = e_table;
+                else
+                    e_edge_tables_spectral{pc} = e_table;
+                end
+            end
+        end
+    end
+end
+
+%% Create a colour correction matrix
+
+color_correction = (reflectances_xyz.') / (patch_means_rgb.');
+
+%% Save results for all patches
+
+e_rgb_summary_table = mergeRGBTables(e_centroid_tables_rgb);
+writetable(...
+    e_rgb_summary_table,...
+    fullfile(output_directory, [true_image_filename, '_centers_evaluateRGB.csv'])...
+);
+e_rgb_summary_table = mergeRGBTables(e_edge_tables_rgb);
+writetable(...
+    e_rgb_summary_table,...
+    fullfile(output_directory, [true_image_filename, '_edges_evaluateRGB.csv'])...
+);
+
+e_spectral_summary_table = mergeSpectralTables(e_centroid_tables_spectral);
+writetable(...
+    e_spectral_summary_table,...
+    fullfile(output_directory, [true_image_filename, '_centers_evaluateSpectral.csv'])...
+);
+e_spectral_summary_table = mergeSpectralTables(e_edge_tables_spectral);
+writetable(...
+    e_spectral_summary_table,...
+    fullfile(output_directory, [true_image_filename, '_edges_evaluateSpectral.csv'])...
+);
 
 %% Save parameters and additional data to a file
-save_variables_list = [ parameters_list, {...
+save_variables_list = [ parameters_list, {
+    'bands_estimated', 'bands_measured', 'vignetting_data', 'spectral_weights',...
+    'algorithms', 'algorithm_filenames', 'color_correction'...
 } ];
-save_data_filename = fullfile(output_directory, ['EvaluateColorCheckerData.mat']);
+save_data_filename = fullfile(output_directory, 'EvaluateColorCheckerData.mat');
 save(save_data_filename, save_variables_list{:});
