@@ -360,7 +360,8 @@ e_edge_tables_rgb = cell(n_patches, 1);
 e_centroid_tables_spectral = cell(n_patches, 1);
 e_edge_tables_spectral = cell(n_patches, 1);
 
-evaluation_plot_colors = jet(n_spectral_algorithms);
+evaluation_plot_colors_spectral = jet(n_spectral_algorithms);
+evaluation_plot_colors_color = jet(n_color_algorithms);
 evaluation_plot_markers = {'v', 'o', '+', '*', '<', '.', 'x', 's', 'd', '^', 'p', 'h', '>'};
 evaluation_plot_styles = {'--', ':', '-.'};
 
@@ -372,6 +373,7 @@ end
 half_width = floor(centroid_patch_width / 2);
 se_clean = strel('square', 3); % Structuring element for cleaning up the label image
 se_edge = strel('disk', edge_width);
+channel_mask = bayerMask(image_sampling(1), image_sampling(2), bayer_pattern);
 
 % Enumerate the positions of all pixels
 [X, Y] = meshgrid(1:image_sampling(2), 1:image_sampling(1));
@@ -433,10 +435,10 @@ for pc = [reference_patch_index, 1:n_patches]
 
             % Find the mean colour in this region, corrected for vignetting
             bayer_pattern_centroid = offsetBayerPattern(roi([1, 3]), bayer_pattern);
-            channel_mask = bayerMask(centroid_patch_width, centroid_patch_width, bayer_pattern_centroid);
+            channel_mask_centroid = bayerMask(centroid_patch_width, centroid_patch_width, bayer_pattern_centroid);
             patch_mean = zeros(1, 1, n_channels_rgb);
             for c = 1:n_channels_rgb
-                patch_mean(c) = mean(I_patch(channel_mask(:, :, c)));
+                patch_mean(c) = mean(I_patch(channel_mask_centroid(:, :, c)));
             end
             patch_means_rgb(pc, :) = patch_mean;
         else
@@ -452,28 +454,54 @@ for pc = [reference_patch_index, 1:n_patches]
         end
         
         % Find the edge of the patch
+        
+        % Outside the edge
+        I_distance = -bwdist(patch_mask);
+        edge_mask = (I_distance < 0 & I_distance >= -edge_width);
+        edge_ind_outer = find(edge_mask);
+        edge_distance = I_distance(edge_ind_outer);
+        
+        % Inside the edge
         I_distance = bwdist(~patch_mask);
         edge_mask = (I_distance > 0 & I_distance <= edge_width);
-        edge_ind = find(edge_mask);
-        % Order pixels by distance into the patch
-        edge_distance = I_distance(edge_ind);
-        [edge_distance, sorting_map] = sort(edge_distance);
-        edge_ind = edge_ind(sorting_map);
+        edge_ind_inner = find(edge_mask);
+        edge_ind = [edge_ind_outer; edge_ind_inner];
+        edge_distance = [edge_distance; I_distance(edge_ind_inner)]; %#ok<AGROW>
+        
+        % Synthesize the ideal edge region
+        patch_xy = [X(edge_ind_inner), Y(edge_ind_inner)];
+        factors = vignettingfun(patch_xy) / vignetting_correction_factor;
+        n_edge_px_inner = length(edge_ind_inner);
+        I_edge_inner = repmat(patch_mean, n_edge_px_inner, 1, 1);
+        I_edge_inner = I_edge_inner .* repmat(factors, 1, 1, numel(patch_mean));
+        
         patch_xy = [X(edge_ind), Y(edge_ind)];
         factors = vignettingfun(patch_xy) / vignetting_correction_factor;
         n_edge_px = length(edge_ind);
-        
-        % Synthesize the ideal edge region
         I_edge = repmat(patch_mean, n_edge_px, 1, 1);
         I_edge = I_edge .* repmat(factors, 1, 1, numel(patch_mean));
+        
+        % Evaluate the ColorChecker image with respect to edge error
+        fg_edge = [];
+        if color_flag
+            for c = 1:n_channels_rgb
+                mask_c = channel_mask(:, :, c);
+                filter_c = mask_c(edge_ind);
+                err = abs(I_edge(filter_c, :, c) -  I_reference(edge_ind(filter_c))) ./ abs(I_edge(filter_c, :, c));
+                fg_edge(c) = figure;
+                scatter(edge_distance(filter_c), err, [], [0, 0, 0], 'filled');
+            end
+        else
+            fg_edge = figure;
+        end
 
         % Evaluation
         for evaluating_center = [true, false]
             if evaluating_center
-                I_reference = I_patch;
+                I_reference_eval = I_patch;
                 name_params = fullfile(output_directory, [true_image_filename, sprintf('_patch%dCenter', pc)]);
             else
-                I_reference = I_edge;
+                I_reference_eval = I_edge_inner;
                 name_params = fullfile(output_directory, [true_image_filename, sprintf('_patch%dEdge', pc)]);
             end
             fg_spectral = struct;
@@ -491,8 +519,11 @@ for pc = [reference_patch_index, 1:n_patches]
                         half_width + 1, half_width + 1, centroid_patch_width, centroid_patch_width
                     ];
                 else
-                    evaluation_options.radiance = [1, 1, 1, n_edge_px];
-                    evaluation_options.scanlines = [1, 1, 1, n_edge_px];
+                    center_edge_ind = floor(n_edge_px_inner / 2);
+                    evaluation_options.radiance = [
+                        1, center_edge_ind,...
+                        1, 2 * center_edge_ind - 1
+                    ];
                 end
                 dp.evaluation.global_spectral = evaluation_options;
                 dp.evaluation.custom_spectral = struct;
@@ -504,15 +535,29 @@ for pc = [reference_patch_index, 1:n_patches]
                     if evaluating_center
                         I = I(roi(1):roi(2), roi(3):roi(4), :);
                     else
-                        I_edge_estimated = zeros(n_edge_ind, 1, n_channels_rgb);
+                        I = zeros(n_edge_px_inner, 1, n_channels_rgb);
                         for c = 1:n_channels_rgb
                             I_c = I(:, :, c);
-                            I_edge_estimated(:, 1, c) = I_c(edge_ind);
+                            I(:, 1, c) = I_c(edge_ind_inner);
+                        end
+                        for c = 1:n_channels_rgb
+                            I_c = I(:, :, c);
+                            I_edge_estimated_c = I_c(edge_ind);
+                            figure(fg_edge(c))
+                            hold on
+                            err = abs(I_edge(:, :, c) -  I_edge_estimated_c) ./ abs(I_edge(:, :, c));
+                            scatter(...
+                                edge_distance, err,...
+                                'MarkerEdgeColor', evaluation_plot_colors_color(i, :),...
+                                'MarkerFaceColor', evaluation_plot_colors_color(i, :),...
+                                'Marker', evaluation_plot_markers{mod(i - 1, length(evaluation_plot_markers)) + 1}...
+                            );
+                            hold off
                         end
                     end
                     name_params_i = [name_params, '_', algorithms.color{i}];
                     e_table_current = evaluateAndSaveRGB(...
-                        I, I_reference, dp, true_image_name, algorithms.color{i},...
+                        I, I_reference_eval, dp, true_image_name, algorithms.color{i},...
                         name_params_i...
                     );
                     if ~isempty(e_table)
@@ -522,6 +567,22 @@ for pc = [reference_patch_index, 1:n_patches]
                     end
                 end
                 writetable(e_table, [name_params, '_evaluateRGB.csv']);
+                
+                if ~evaluating_center
+                    for c = 1:n_channels_rgb
+                        figure(fg_edge(c))
+                        legend(['Raw input'; algorithms.color]);
+                        title(sprintf('Relative error around patch %d edge', pc));
+                        xlabel('Position relative to patch borders [pixels]')
+                        ylabel('Relative error')
+                        savefig(...
+                            fg_edge(c),...
+                            [ name_params, sprintf('_errChannel%d.fig', c)], 'compact'...
+                        );
+                        close(fg_edge(c));
+                    end
+                end
+                
             else
                 for i = 1:n_spectral_algorithms
                     I = loadImage(algorithm_filenames.spectral{i}, spectral_variable_name);
@@ -541,16 +602,34 @@ for pc = [reference_patch_index, 1:n_patches]
                         I = channelConversion(I(roi(1):roi(2), roi(3):roi(4), :), spectral_weights)...
                             .* repmat(radiance_ratio, centroid_patch_width, centroid_patch_width, 1);
                     else
-                        I_edge_estimated = zeros(n_edge_ind, 1, n_bands_estimated);
+                        I = zeros(n_edge_px_inner, 1, n_bands_estimated);
                         for c = 1:n_bands_estimated
                             I_c = I(:, :, c);
-                            I_edge_estimated(:, 1, c) = I_c(edge_ind);
+                            I(:, 1, c) = I_c(edge_ind_inner);
                         end
-                        I = channelConversion(I_edge_estimated, spectral_weights)...
-                            .* repmat(radiance_ratio, n_edge_ind, 1, 1);
+                        I = channelConversion(I, spectral_weights)...
+                            .* repmat(radiance_ratio, n_edge_px_inner, 1, 1);
+                        
+                        I_edge_estimated = zeros(n_edge_px, 1, n_bands_estimated);
+                        for c = 1:n_bands_estimated
+                            I_c = I(:, :, c);
+                            I_edge_estimated(:, :, c) = I_c(edge_ind);
+                        end
+                        I_edge_estimated = channelConversion(I_edge_estimated, spectral_weights)...
+                            .* repmat(radiance_ratio, n_edge_px, 1, 1);
+                        figure(fg_edge)
+                        hold on
+                        err = mean(abs(I_edge -  I_edge_estimated) ./ abs(I_edge), 3);
+                        scatter(...
+                            edge_distance, err,...
+                            'MarkerEdgeColor', evaluation_plot_colors_spectral(i, :),...
+                            'MarkerFaceColor', evaluation_plot_colors_spectral(i, :),...
+                            'Marker', evaluation_plot_markers{mod(i - 1, length(evaluation_plot_markers)) + 1}...
+                        );
+                        hold off
                     end
 
-                    dp.evaluation.global_spectral.plot_color = evaluation_plot_colors(i, :);
+                    dp.evaluation.global_spectral.plot_color = evaluation_plot_colors_spectral(i, :);
                     dp.evaluation.global_spectral.plot_marker =...
                         evaluation_plot_markers{...
                         mod(i - 1, length(evaluation_plot_markers)) + 1 ...
@@ -560,7 +639,7 @@ for pc = [reference_patch_index, 1:n_patches]
                         mod(i - 1, length(evaluation_plot_styles)) + 1 ...
                         };  
                     [e_table_current, fg_spectral] = evaluateAndSaveSpectral(...
-                        I, I_reference, bands_measured, spectral_weights_evaluation,...
+                        I, I_reference_eval, bands_measured, spectral_weights_evaluation,...
                         dp, true_image_name, algorithms.spectral{i},...
                         name_params_i, fg_spectral...
                         );
@@ -573,6 +652,19 @@ for pc = [reference_patch_index, 1:n_patches]
                 writetable(e_table, [name_params, '_evaluateSpectral.csv']);
                 % Also save completed figures
                 evaluateAndSaveSpectral(output_directory, dp, true_image_filename, algorithms.spectral, fg_spectral);
+                
+                if ~evaluating_center
+                    figure(fg_edge)
+                    legend(algorithms.spectral);
+                    title(sprintf('Relative error around patch %d edge', pc));
+                    xlabel('Position relative to patch borders [pixels]')
+                    ylabel('Relative error (MRAE)')
+                    savefig(...
+                        fg_edge,...
+                        [ name_params, '_errSpectral.fig'], 'compact'...
+                    );
+                    close(fg_edge);
+                end
             end
             
             if color_flag
