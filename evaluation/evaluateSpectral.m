@@ -395,6 +395,7 @@ end
 % Graphical output
 fg_spectral = struct;
 font_size = max(12, floor(0.02 * max([image_height, image_width])));
+can_annotate = min([image_height, image_width]) >= (2 * font_size);
 
 if isfield(options, 'error_map') && options.error_map
     fg_spectral.error_map = figure;
@@ -471,33 +472,37 @@ if isfield(options, 'radiance')
     
     % Generate a figure showing all patches
     if ~isfield(options, 'radiance_fg')
-        fg_spectral.patches = figure;
-        % Show the band with highest average intensity
-        R_spectral_mean = mean(mean(R_spectral, 1), 2);
-        [~, max_ind] = max(R_spectral_mean);
-        background = R_spectral(:, :, max_ind);
-        background = background ./ max(max(background));
-        labels = cell(n_patches, 1);
-        for i = 1:n_patches
-            labels{i} = sprintf('%d', i);
-        end
-        figure_image = insertObjectAnnotation(...
-            background, 'rectangle', patch_rectangles, labels,...
-            'TextBoxOpacity', 0.9, 'FontSize', font_size, 'LineWidth', 2,...
-            'Color', jet(n_patches)...
-        );
-        if has_reference_patch
-            reference_rectangle(3) = reference_rectangle(3) - reference_rectangle(1) + 1;
-            reference_rectangle(4) = reference_rectangle(4) - reference_rectangle(2) + 1;
+        if can_annotate
+            fg_spectral.patches = figure;
+            % Show the band with highest average intensity
+            R_spectral_mean = mean(mean(R_spectral, 1), 2);
+            [~, max_ind] = max(R_spectral_mean);
+            background = R_spectral(:, :, max_ind);
+            background = background ./ max(max(background));
+            labels = cell(n_patches, 1);
+            for i = 1:n_patches
+                labels{i} = sprintf('%d', i);
+            end
             figure_image = insertObjectAnnotation(...
-                figure_image, 'rectangle', reference_rectangle, 'Reference',...
+                background, 'rectangle', patch_rectangles, labels,...
                 'TextBoxOpacity', 0.9, 'FontSize', font_size, 'LineWidth', 2,...
-                'Color', [1, 1, 1]...
+                'Color', jet(n_patches)...
             );
+            if has_reference_patch
+                reference_rectangle(3) = reference_rectangle(3) - reference_rectangle(1) + 1;
+                reference_rectangle(4) = reference_rectangle(4) - reference_rectangle(2) + 1;
+                figure_image = insertObjectAnnotation(...
+                    figure_image, 'rectangle', reference_rectangle, 'Reference',...
+                    'TextBoxOpacity', 0.9, 'FontSize', font_size, 'LineWidth', 2,...
+                    'Color', [1, 1, 1]...
+                );
+            end
+
+            imshow(figure_image);
+            title('Image patches for spectral radiance evaluation')
+        else
+            warning('Image is too small to annotate.');
         end
-        
-        imshow(figure_image);
-        title('Image patches for spectral radiance evaluation')
     end
 end
 
@@ -586,35 +591,39 @@ if isfield(options, 'scanlines')
     
     % Generate a figure showing all lines
     if ~isfield(options, 'scanlines_fg')
-        fg_spectral.scanlines_locations = figure;
-        % Show the band with highest average intensity
-        if isempty(background)
-            R_spectral_mean = mean(mean(R_spectral, 1), 2);
-            [~, max_ind] = max(R_spectral_mean);
-            background = R_spectral(:, :, max_ind);
-            background = background ./ max(max(background));
-        end
-        labels = cell(n_lines, 1);
-        colors = jet(n_lines);
-        n_channels = size(colors, 2);
-        figure_image = repmat(background, 1, 1, n_channels);
-        for i = 1:n_lines
-            labels{i} = sprintf('Line %d', i);
-            n_px_line = length(lines_pixels_indices{i});
-            lines_pixels_indices_rgb =...
-                repmat(lines_pixels_indices{i}, n_channels, 1) +...
-                repelem((0:(n_channels - 1)).' * (image_width * image_height), n_px_line, 1);
-            figure_image(lines_pixels_indices_rgb) = reshape(...
-                repmat(colors(i, :), n_px_line, 1), [], 1 ...
+        if can_annotate
+            fg_spectral.scanlines_locations = figure;
+            % Show the band with highest average intensity
+            if isempty(background)
+                R_spectral_mean = mean(mean(R_spectral, 1), 2);
+                [~, max_ind] = max(R_spectral_mean);
+                background = R_spectral(:, :, max_ind);
+                background = background ./ max(max(background));
+            end
+            labels = cell(n_lines, 1);
+            colors = jet(n_lines);
+            n_channels = size(colors, 2);
+            figure_image = repmat(background, 1, 1, n_channels);
+            for i = 1:n_lines
+                labels{i} = sprintf('Line %d', i);
+                n_px_line = length(lines_pixels_indices{i});
+                lines_pixels_indices_rgb =...
+                    repmat(lines_pixels_indices{i}, n_channels, 1) +...
+                    repelem((0:(n_channels - 1)).' * (image_width * image_height), n_px_line, 1);
+                figure_image(lines_pixels_indices_rgb) = reshape(...
+                    repmat(colors(i, :), n_px_line, 1), [], 1 ...
+                );
+            end
+            figure_image = insertText(...
+                figure_image, lines_endpoints(:, 1:2), 1:n_lines,...
+                'FontSize', font_size, 'BoxColor', colors, 'BoxOpacity', 0.9,...
+                'AnchorPoint', 'LeftTop'...
             );
+            imshow(figure_image);
+            title('Image lines for spectral radiance evaluation')
+        else
+            warning('Image is too small to annotate.');
         end
-        figure_image = insertText(...
-            figure_image, lines_endpoints(:, 1:2), 1:n_lines,...
-            'FontSize', font_size, 'BoxColor', colors, 'BoxOpacity', 0.9,...
-            'AnchorPoint', 'LeftTop'...
-        );
-        imshow(figure_image);
-        title('Image lines for spectral radiance evaluation')
     end
 end
 
