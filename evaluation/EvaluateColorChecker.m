@@ -196,6 +196,8 @@ parameters_list = {
     'reference_patch_index',...
     'centroid_patch_width',...
     'edge_width',...
+    'smoothing_method',...
+    'smoothing_span',...
     'true_image_name',...
     'true_image_filename',...
     'bands_filename',...
@@ -235,7 +237,7 @@ reflectances_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180626_S
 reflectance_data_patch_columns = 13:36;
 
 % Wavelength range to truncate the measured reflectances to
-wavelength_range = [350, 750];
+wavelength_range = [375, 725];
 
 % Maximum degree of the polynomial model of vignetting
 max_degree_vignetting = 5;
@@ -252,6 +254,14 @@ centroid_patch_width = 15;
 
 % Width of the edge region to extract inside, and outside, the patch boundaries
 edge_width = 10;
+
+% Method to use for smoothing curves of error around edges (Refer to the
+% documentation of the Curve Fitting Toolbox's 'smooth' function)
+smoothing_method = 'moving';
+
+% Span to use for smoothing curves of error around edges (Refer to the
+% documentation of the Curve Fitting Toolbox's 'smooth' function)
+smoothing_span = 5;
 
 true_image_name = 'GT'; % Name used in figures. Must not contain spaces.
 true_image_filename = 'colorChecker'; % Name used in filenames. Must not contain spaces.
@@ -539,6 +549,7 @@ for pc = [reference_patch_index, 1:n_patches]
         for k = 1:n_edge_distances
             edge_distance_filters(:, k) = (edge_distance_ind == k);
         end
+        edge_distance_unique = double(edge_distance_unique);
         
         % Evaluate the ColorChecker image with respect to edge error
         fg_edge = [];
@@ -554,7 +565,8 @@ for pc = [reference_patch_index, 1:n_patches]
                 end
                 err_filter = isfinite(err_averaged);
                 fg_edge(c) = figure;
-                plot(edge_distance_unique(err_filter), err_averaged(err_filter), 'Color', [0, 0, 0], 'LineWidth', 2);
+                curve = smooth(edge_distance_unique(err_filter), err_averaged(err_filter), smoothing_span, smoothing_method);
+                plot(edge_distance_unique(err_filter), curve, 'Color', [0, 0, 0], 'LineWidth', 2);
             end
         else
             I = loadImage(qhyper_filename, qhyper_variable_name);
@@ -593,8 +605,9 @@ for pc = [reference_patch_index, 1:n_patches]
             err_filter = isfinite(err_averaged);
             
             fg_edge = figure;
+            curve = smooth(edge_distance_unique(err_filter), err_averaged(err_filter), smoothing_span, smoothing_method);
             plot(...
-                edge_distance_unique(err_filter), err_averaged(err_filter),...
+                edge_distance_unique(err_filter), curve,...
                 'Color', [0, 0, 0], 'LineWidth', 2 ...
             );     
         end
@@ -656,8 +669,9 @@ for pc = [reference_patch_index, 1:n_patches]
                                 err_averaged(k) = mean(squeeze(err(edge_distance_filters(:, k))));
                             end
                             err_filter = isfinite(err_averaged);
+                            curve = smooth(edge_distance_unique(err_filter), err_averaged(err_filter), smoothing_span, smoothing_method);
                             plot(...
-                                edge_distance_unique(err_filter), err_averaged(err_filter),...
+                                edge_distance_unique(err_filter), curve,...
                                 'Color', evaluation_plot_colors_color(i, :),...
                                 'LineWidth', 2,...
                                 'Marker', evaluation_plot_markers{mod(i - 1, length(evaluation_plot_markers)) + 1},...
@@ -736,8 +750,9 @@ for pc = [reference_patch_index, 1:n_patches]
                             err_averaged(k) = mean(squeeze(err(edge_distance_filters(:, k))));
                         end
                         err_filter = isfinite(err_averaged);
+                        curve = smooth(edge_distance_unique(err_filter), err_averaged(err_filter), smoothing_span, smoothing_method);
                         plot(...
-                            edge_distance_unique(err_filter), err_averaged(err_filter),...
+                            edge_distance_unique(err_filter), curve,...
                             'Color', evaluation_plot_colors_spectral(i, :),...
                             'LineWidth', 2,...
                             'Marker', evaluation_plot_markers{mod(i - 1, length(evaluation_plot_markers)) + 1},...
