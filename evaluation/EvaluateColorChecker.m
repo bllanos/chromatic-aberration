@@ -6,7 +6,7 @@
 %
 % ## Input
 %
-% ### ColorChecker image
+% ### ColorChecker image and labels
 % 
 % A raw colour filter array image of a ColorChecker chart must be provided. The
 % image is expected to have been preprocessed, such as using
@@ -15,20 +15,19 @@
 %
 % Along with the captured image, two single-channel label images are required.
 % The first is used for colour calibration, for vignetting correction, and for
-% evaluation of colour-based image estimation algorithms. For the 24 patches of
-% the chart, the corresponding pixels in the label image must have values equal
-% to the patch indices. The uniformly-coloured portions of the frame surrounding
-% the patches, used to calibrate vignetting, must be labelled 25. Lastly, the
-% rest of the image should have a different label (e.g. zero).
+% evaluation of colour images. For the 24 patches of the chart, the
+% corresponding pixels in the label image must have values equal to the patch
+% indices. The uniformly-coloured portions of the frame surrounding the patches,
+% used to calibrate vignetting, must be labelled 25. Lastly, the rest of the
+% image should have a different label (e.g. zero).
 %
-% The second label image is used for evaluation of spectral-based image
-% estimation algorithms. It should have all 24 patches labelled with their
-% indices, but need not have other pixels labelled. The boundaries of the
-% patches in the first label image should be accurate in the reference channel
-% of colour-based models of chromatic aberration (e.g. the Green channel). In
-% contrast, the boundaries of the patches in the second label image should be
-% accurate in the spectral band used as the reference band for spectral models
-% of chromatic aberration.
+% The second label image is used for evaluation of spectral images. It should
+% have all 24 patches labelled with their indices, but need not have other
+% pixels labelled. The boundaries of the patches in the first label image should
+% be accurate in the reference channel of colour-based models of chromatic
+% aberration (e.g. the Green channel). In contrast, the boundaries of the
+% patches in the second label image should be accurate in the spectral band used
+% as the reference band for spectral models of chromatic aberration.
 %
 % ### ColorChecker spectral image
 %
@@ -100,11 +99,10 @@
 %
 % For each estimated ColorChecker patch, RGB error metrics and spectral error
 % metrics, are output in the form of CSV files. Each CSV file contains results
-% for all (RGB or spectral) estimated images. The estimated images will be
-% listed in the files under the unique portions of their filenames. RGB error
-% metrics are saved as '*_evaluateRGB.csv', whereas the spectral error metrics
-% are saved as '*_evaluateSpectral.csv', where '*' contains the number of the
-% patch.
+% for all estimated images. The estimated images will be listed in the files
+% under the unique portions of their filenames. RGB error metrics are saved as
+% '*_evaluateRGB.csv', whereas the spectral error metrics are saved as
+% '*_evaluateSpectral.csv', where '*' contains the number of the patch.
 %
 % Error metrics are also aggregated across images, and saved as
 % '*_evaluateRGB.csv' and '*_evaluateSpectral.csv', where '*' now does not
@@ -152,6 +150,8 @@
 %     into 1D images from the true and reconstructed spectral images.
 %     'evaluateAndSaveSpectral()' is called on these patches to evaluate
 %     spectral reconstruction of the border region.
+%   - The spectral image is converted to colour, and also evaluated as an RGB
+%     image (see below).
 % - RGB images
 %   - The above two evaluations are performed for an RGB image, using
 %     'evaluateAndSaveRGB()'. In this case, the reference image is created from
@@ -161,8 +161,9 @@
 % The evaluation results for all patches are merged into summaries.
 %
 % Note that the extraction of patch centre and border regions uses the
-% appropriate label image for the reconstructed image being evaluated (spectral
-% vs. RGB).
+% appropriate label image for the reconstructed image being evaluated, because
+% the zero-dispersion locations differ between the spectral and colour models of
+% chromatic aberration.
 %
 % ## References
 %
@@ -201,7 +202,9 @@ parameters_list = {
     'true_image_name',...
     'true_image_filename',...
     'bands_filename',...
-    'bands_variable'...
+    'bands_variable',...
+    'color_weights_filename',...
+    'color_weights_variable'...
     };
 
 %% Input data and parameters
@@ -276,6 +279,11 @@ spectral_variable_name = 'I_latent'; % Used only when loading '.mat' files
 bands_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_dispersion/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
 bands_variable = 'bands'; % Variable name in the above file
 
+% Path and filename of a '.mat' file containing the conversion matrix for
+% spectral bands to raw colour channels
+color_weights_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_dispersion/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
+color_weights_variable = 'color_weights'; % Variable name in the above file
+
 % Wildcard for 'ls()' to find the estimated colour images to process.
 % '.mat' or image files can be loaded
 color_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_MATFiles/d2_colorChecker30cm_*_rgb.mat';
@@ -290,7 +298,7 @@ run('SetFixedParameters.m')
 % ## Debugging Flags
 vignettingPolyfitVerbose = true;
 
-%% Load wavelengths first, to avoid accidentally overwriting a variable
+%% Load wavelengths and spectral to colour conversion information first, to avoid accidentally overwriting a variable
 
 load(bands_filename, bands_variable);
 if exist(bands_variable, 'var')
@@ -309,6 +317,14 @@ if ~exist(qhyper_bands_variable, 'var') || isempty(bands_qhyper)
     error('No wavelengths loaded.')
 end
 n_bands_qhyper = length(bands_qhyper);
+
+load(color_weights_filename, color_weights_variable);
+if exist(color_weights_variable, 'var')
+    color_weights = eval(color_weights_variable);
+end
+if ~exist(color_weights_variable, 'var') || isempty(color_weights)
+    error('No spectral to colour conversion matrix loaded.')
+end
 
 %% Calibrate vignetting
 
@@ -512,6 +528,13 @@ for pc = [reference_patch_index, 1:n_patches]
             is_reference_patch = false;
             continue
         end
+        if ~color_flag
+            I_patch_rgb = repmat(...
+                reshape(patch_means_rgb(pc, :), 1, 1, n_channels_rgb),...
+                centroid_patch_width, centroid_patch_width, 1 ...
+            );
+            I_patch_rgb = I_patch_rgb .* repmat(factors, 1, 1, n_channels_rgb);
+        end
         
         % Find the edge of the patch
         
@@ -534,12 +557,23 @@ for pc = [reference_patch_index, 1:n_patches]
         n_edge_px_inner = length(edge_ind_inner);
         I_edge_inner = repmat(patch_mean, n_edge_px_inner, 1, 1);
         I_edge_inner = I_edge_inner .* repmat(factors, 1, 1, numel(patch_mean));
+        if ~color_flag
+            I_edge_inner_rgb = repmat(...
+                reshape(patch_means_rgb(pc, :), 1, 1, n_channels_rgb),...
+                n_edge_px_inner, 1, 1 ...
+            );
+            I_edge_inner_rgb = I_edge_inner_rgb .* repmat(factors, 1, 1, n_channels_rgb);
+        end
         
         patch_xy = [X(edge_ind), Y(edge_ind)];
         factors = vignettingfun(patch_xy) / vignetting_correction_factor;
         n_edge_px = length(edge_ind);
         I_edge = repmat(patch_mean, n_edge_px, 1, 1);
         I_edge = I_edge .* repmat(factors, 1, 1, numel(patch_mean));
+        if ~color_flag
+            I_edge_rgb = repmat(reshape(patch_means_rgb(pc, :), 1, 1, n_channels_rgb), n_edge_px, 1, 1);
+            I_edge_rgb = I_edge_rgb .* repmat(factors, 1, 1, n_channels_rgb);
+        end
         
         % To smooth plots, points will be averaged for each distance from the
         % edge
@@ -552,9 +586,9 @@ for pc = [reference_patch_index, 1:n_patches]
         edge_distance_unique = double(edge_distance_unique);
         
         % Evaluate the ColorChecker image with respect to edge error
-        fg_edge = [];
         err_averaged = zeros(n_edge_distances, 1);
         if color_flag
+            fg_edge_rgb = [];
             err = abs(I_edge - repmat(I_reference(edge_ind), 1, 1, n_channels_rgb)) ./ abs(I_edge);
             for c = 1:n_channels_rgb
                 mask_c = channel_mask(:, :, c);
@@ -564,7 +598,7 @@ for pc = [reference_patch_index, 1:n_patches]
                     err_averaged(k) = mean(squeeze(err(filter_c_edge, :, c)));
                 end
                 err_filter = isfinite(err_averaged);
-                fg_edge(c) = figure;
+                fg_edge_rgb(c) = figure; %#ok<SAGROW>
                 curve = smooth(edge_distance_unique(err_filter), err_averaged(err_filter), smoothing_span, smoothing_method);
                 plot(edge_distance_unique(err_filter), curve, 'Color', [0, 0, 0], 'LineWidth', 2);
             end
@@ -604,7 +638,7 @@ for pc = [reference_patch_index, 1:n_patches]
             end
             err_filter = isfinite(err_averaged);
             
-            fg_edge = figure;
+            fg_edge_spectral = figure;
             curve = smooth(edge_distance_unique(err_filter), err_averaged(err_filter), smoothing_span, smoothing_method);
             plot(...
                 edge_distance_unique(err_filter), curve,...
@@ -616,14 +650,21 @@ for pc = [reference_patch_index, 1:n_patches]
         for evaluating_center = [true, false]
             if evaluating_center
                 I_reference_eval = I_patch;
+                if ~color_flag
+                    I_reference_eval_rgb = I_patch_rgb;
+                end
                 name_params = fullfile(output_directory, [true_image_filename, sprintf('_patch%dCenter', pc)]);
             else
                 I_reference_eval = I_edge_inner;
+                if ~color_flag
+                    I_reference_eval_rgb = I_edge_inner_rgb;
+                end
                 name_params = fullfile(output_directory, [true_image_filename, sprintf('_patch%dEdge', pc)]);
             end
             fg_spectral = struct;
             e_table = [];
             if color_flag
+                e_table_rgb = [];
                 dp.evaluation.global_rgb = struct;
                 dp.evaluation.custom_rgb = struct;
             else
@@ -662,7 +703,7 @@ for pc = [reference_patch_index, 1:n_patches]
                         for c = 1:n_channels_rgb
                             I_c = I(:, :, c);
                             I_edge_estimated_c = I_c(edge_ind);
-                            figure(fg_edge(c))
+                            figure(fg_edge_rgb(c))
                             hold on
                             err = abs(I_edge(:, :, c) -  I_edge_estimated_c) ./ abs(I_edge(:, :, c));
                             for k = 1:n_edge_distances
@@ -692,22 +733,7 @@ for pc = [reference_patch_index, 1:n_patches]
                         e_table = e_table_current;
                     end
                 end
-                writetable(e_table, [name_params, '_evaluateRGB.csv']);
-                
-                if ~evaluating_center
-                    for c = 1:n_channels_rgb
-                        figure(fg_edge(c))
-                        legend(['Raw input'; algorithms_escaped.color]);
-                        title(sprintf('Absolute error around patch %d edge in channel %d', pc, c));
-                        xlabel('Position relative to patch borders [pixels]')
-                        ylabel('Relative error')
-                        savefig(...
-                            fg_edge(c),...
-                            [ name_params, sprintf('_errChannel%d.fig', c)], 'compact'...
-                        );
-                        close(fg_edge(c));
-                    end
-                end
+                e_table_rgb = e_table;
                 
             else
                 for i = 1:n_spectral_algorithms
@@ -725,6 +751,7 @@ for pc = [reference_patch_index, 1:n_patches]
                     radiance_ratio(~isfinite(radiance_ratio)) = 1;
                     
                     if evaluating_center
+                        I_rgb = channelConversion(I(roi(1):roi(2), roi(3):roi(4), :), color_weights);
                         I = channelConversion(I(roi(1):roi(2), roi(3):roi(4), :), spectral_weights)...
                             .* repmat(radiance_ratio, centroid_patch_width, centroid_patch_width, 1);
                     else
@@ -733,17 +760,39 @@ for pc = [reference_patch_index, 1:n_patches]
                             I_c = I(:, :, c);
                             I_edge_estimated_inner(:, 1, c) = I_c(edge_ind_inner);
                         end
+                        I_rgb = channelConversion(I_edge_estimated_inner, color_weights);
                         
                         I_edge_estimated = zeros(n_edge_px, 1, n_bands_estimated);
                         for c = 1:n_bands_estimated
                             I_c = I(:, :, c);
                             I_edge_estimated(:, :, c) = I_c(edge_ind);
                         end
+                        I_edge_estimated_rgb = channelConversion(I_edge_estimated, color_weights);
+                        
+                        for c = 1:n_channels_rgb
+                            figure(fg_edge_rgb(c))
+                            hold on
+                            err = abs(I_edge_rgb(:, :, c) -  I_edge_estimated_rgb(:, :, c)) ./ abs(I_edge_rgb(:, :, c));
+                            for k = 1:n_edge_distances
+                                err_averaged(k) = mean(squeeze(err(edge_distance_filters(:, k))));
+                            end
+                            err_filter = isfinite(err_averaged);
+                            curve = smooth(edge_distance_unique(err_filter), err_averaged(err_filter), smoothing_span, smoothing_method);
+                            plot(...
+                                edge_distance_unique(err_filter), curve,...
+                                'Color', evaluation_plot_colors_spectral(i, :),...
+                                'LineWidth', 2,...
+                                'Marker', evaluation_plot_markers{mod(i - 1, length(evaluation_plot_markers)) + 1},...
+                                'LineStyle', evaluation_plot_styles{mod(i - 1, length(evaluation_plot_styles)) + 1}...
+                                );
+                            hold off
+                        end
+                        
                         I_edge_estimated = channelConversion(I_edge_estimated, spectral_weights)...
                             .* repmat(radiance_ratio, n_edge_px, 1, 1);
                         I = channelConversion(I_edge_estimated_inner, spectral_weights)...
                             .* repmat(radiance_ratio, n_edge_px_inner, 1, 1);
-                        figure(fg_edge)
+                        figure(fg_edge_spectral)
                         hold on
                         err = mean(abs(I_edge -  I_edge_estimated) ./ abs(I_edge), 3);
                         for k = 1:n_edge_distances
@@ -777,36 +826,60 @@ for pc = [reference_patch_index, 1:n_patches]
                     else
                         e_table = e_table_current;
                     end
+                    
+                    e_table_current = evaluateAndSaveRGB(...
+                        I_rgb, I_reference_eval_rgb, dp, true_image_name, algorithms_escaped.spectral{i},...
+                        name_params_i...
+                        );
+                    if ~isempty(e_table_rgb)
+                        e_table_rgb = union(e_table_current, e_table_rgb);
+                    else
+                        e_table_rgb = e_table_current;
+                    end
                 end
                 writetable(e_table, [name_params, '_evaluateSpectral.csv']);
+                writetable(e_table_rgb, [name_params, '_evaluateRGB.csv']);
                 % Also save completed figures
                 evaluateAndSaveSpectral(output_directory, dp, true_image_filename_eval, algorithms_escaped.spectral, fg_spectral);
                 
                 if ~evaluating_center
-                    figure(fg_edge)
+                    figure(fg_edge_spectral)
                     legend(['Bandpass-filtered image'; algorithms_escaped.spectral]);
                     title(sprintf('Relative error around patch %d edge', pc));
                     xlabel('Position relative to patch borders [pixels]')
                     ylabel('Relative error (MRAE)')
                     savefig(...
-                        fg_edge,...
+                        fg_edge_spectral,...
                         [ name_params, '_errSpectral.fig'], 'compact'...
                     );
-                    close(fg_edge);
+                    close(fg_edge_spectral);
+                    
+                    for c = 1:n_channels_rgb
+                        figure(fg_edge_rgb(c))
+                        legend(['Raw input'; algorithms_escaped.color; algorithms_escaped.spectral]);
+                        title(sprintf('Absolute error around patch %d edge in channel %d', pc, c));
+                        xlabel('Position relative to patch borders [pixels]')
+                        ylabel('Relative error')
+                        savefig(...
+                            fg_edge_rgb(c),...
+                            [ name_params, sprintf('_errChannel%d.fig', c)], 'compact'...
+                        );
+                        close(fg_edge_rgb(c));
+                    end
                 end
             end
             
-            if color_flag
-                if evaluating_center
-                    e_centroid_tables_rgb{pc} = e_table;
-                else
-                    e_edge_tables_rgb{pc} = e_table;
-                end
-            else
+            if ~color_flag
                 if evaluating_center
                     e_centroid_tables_spectral{pc} = e_table;
+                    e_centroid_tables_rgb{pc} = e_table_rgb;
                 else
                     e_edge_tables_spectral{pc} = e_table;
+                    e_edge_tables_rgb{pc} = e_table_rgb;
+                end
+                for i = 1:n_spectral_algorithms
+                    algorithm_index = e_table_rgb.Algorithm == algorithms_escaped.spectral{i};
+                    e_table_rgb(algorithm_index, :) = [];
                 end
             end
         end
