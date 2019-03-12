@@ -135,6 +135,9 @@ for i = 1:n_images
         group = algorithm_groups{g};        
         n_rows = size(group, 1);
         n_cols = size(group, 2);
+        n_algorithms = numel(group);
+        labels = cell(n_algorithms, 1);
+        algorithm_filenames = cell(n_algorithms, 1);
         
         I_montage = zeros([n_rows * patch_size(2), n_cols * patch_size(1)], class_images);
         
@@ -144,16 +147,20 @@ for i = 1:n_images
                 patch(2) - half_width, patch(2) + half_width,...
                 patch(1) - half_width, patch(1) + half_width
             ];
+            algorithm_index = 1;
             for row = 1:n_rows
                 for col = 1:n_cols
-                    algorithm = group{((row - 1) * n_cols) + col};
+                    algorithm = group{algorithm_index};
                     use_deconv = (strfind(deconv_suffix, algorithm) == length(algorithm) - length(deconv_suffix));
                     if use_deconv
-                        algorithm_filename = algorithm(1:(end - length(deconv_suffix)));
+                        algorithm_filenames{algorithm_index} = algorithm(1:(end - length(deconv_suffix)));
                     else
-                        algorithm_filename = algorithm;
+                        algorithm_filenames{algorithm_index} = algorithm;
                     end
-                    I_filename = fullfile(input_directory, sprintf('%s%s%s', prefix, algorithm, input_postfix));
+                    I_filename = fullfile(...
+                        input_directory,...
+                        sprintf('%s%s%s', prefix, algorithm_filenames{algorithm_index}, input_postfix)...
+                    );
                     I = imread(I_filename);
 
                     if ~isa(I, class_images)
@@ -197,6 +204,7 @@ for i = 1:n_images
                             end
                         end
 
+                        % Save data for later examination, if desired
                         save(...
                             fullfile(output_directory, sprintf('%s_patch%d_%s_data.mat', prefix, pc, algorithm)),...
                             psf_sz, sun2017Options, psf, krishnan_opts, padding, roi_image, sub_image...
@@ -213,6 +221,8 @@ for i = 1:n_images
                     end
                     I_montage(roi_montage(1):roi_montage(2), roi_montage(3):roi_montage(4), :) =...
                         I(roi_image(1):roi_image(2), roi_image(3):roi_image(4), :);
+                    
+                    algorithm_index = algorithm_index + 1;
                 end
             end
             
@@ -228,12 +238,15 @@ for i = 1:n_images
             );
         
             % Annotate and output
+            algorithm_index = 1;
             for row = 1:n_rows
                 for col = 1:n_cols
-                    label = sprintf('(%s)', char(double('a') + ((row - 1) * n_cols) + col));
+                    label = sprintf('(%s)', char(double('a') + (algorithm_index - 1)));
                     x = col * patch_size(1) - text_offset(1);
                     y = row * patch_size(2) - text_offset(2);
                     text(x, y, label, 'FontSize', font_size);
+                    labels{algorithm_index} = label;
+                    algorithm_index = algorithm_index + 1;
                 end
             end
             print(...
@@ -241,6 +254,12 @@ for i = 1:n_images
                 '-dpdf', '-r300'...
             );
             close(fg);
+            
+            % Output a legend
+            t = table(labels, group{:}, algorithm_filenames, 'VariableNames', {'Label', 'Algorithm', 'SourceFile'});
+            writetable(...
+                t, sprintf('%s_legend.csv', output_filename_prefix)...
+            );
         end
     end
 end
