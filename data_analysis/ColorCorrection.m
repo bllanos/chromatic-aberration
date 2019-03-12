@@ -30,16 +30,16 @@ whitepoint = [1, 1, 1];
 
 % Wildcard for 'ls()' to find the spectral images to process.
 % '.mat' or image files can be loaded
-spectral_wildcard = ''; %'/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_MATFiles/*_latent*.mat';
+spectral_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_MATFiles/*_latent*.mat';
 spectral_variable_name = 'I_latent'; % Used only when loading '.mat' files
 
 % Wildcard for 'ls()' to find the colour images to process.
 % '.mat' or image files can be loaded
-color_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_MATFiles/*_MATLABdemosaic*.mat';
+color_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_MATFiles/*_rgb*.mat';
 color_variable_name = 'I_rgb'; % Used only when loading '.mat' files
 
 % Output directory
-output_directory = '/home/llanos/Downloads/run_on_dataset_allEstimatedImages_sRGB';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_sRGB';
 
 %% Process the images
 
@@ -88,7 +88,7 @@ for i = 1:n_images
     end
     
     I = channelConversion(I, xyz_weights);
-    I = xyz2rgb(I, 'ColorSpace', 'srgb', 'WhitePoint', whitepoint, 'OutputType', 'uint8');
+    I = xyz2rgb(I, 'ColorSpace', 'srgb', 'WhitePoint', whitepoint, 'OutputType', 'uint16');
     saveImages(...
         'image', output_directory, filename,...
         I, '_sRGB', []...
