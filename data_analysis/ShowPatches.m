@@ -32,9 +32,13 @@
 % University of Alberta, Department of Computing Science
 % File created March 11, 2019
 
+% Presently, this script just saves some key information, not a complete set of
+% parameters
+parameters_list = {};
+
 %% Input data and parameters
 
-patch_size = [129, 129]; % Odd integers: Number of columns, number of rows
+patch_size = [101, 101]; % Odd integers: Number of columns, number of rows
 
 % Images to evaluate, as filename prefixes and evaluation patches
 images = struct(...
@@ -42,7 +46,7 @@ images = struct(...
         'flip', true,...
         'patches', [... % Patches are listed as (x, y) image indices of the centre pixel
             723, 1676; % Smallest doll
-            766, 630; % Pattern on book cover
+            766, 610; % Pattern on book cover
             2131, 1455; % Painting inside glass bottle
             1961, 930; % Text reflected in CD
         ]...
@@ -99,8 +103,14 @@ n_channels_rgb = 3;
 % Directory containing the input images
 input_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_sRGB';
 
+% Refer to the MATLAB documentation on "Figure Properties"
 % Output figure paper size, in inches
-output_size = [8.5, 11];
+output_size_page = [10, 10];
+% Output figure width, in inches
+output_width = 7;
+% Horizontal and vertical offsets from the lower left corner of the page, in
+% inches
+output_margin = [0.25, 0.25];
 
 % Output directory
 output_directory = '/home/llanos/Downloads/montage';
@@ -122,7 +132,7 @@ class_images = class(I);
 half_width = floor((patch_size - 1) / 2);
 output_postfix = '.pdf';
 font_size = max(12, floor(0.05 * max(patch_size)));
-text_offset = [font_size * 3, font_size * 1.5];
+text_offset = [font_size * 2, font_size];
 
 %% Process the images
 
@@ -139,32 +149,33 @@ for i = 1:n_images
         labels = cell(n_algorithms, 1);
         algorithm_filenames = cell(n_algorithms, 1);
         
-        I_montage = zeros([n_rows * patch_size(2), n_cols * patch_size(1)], class_images);
+        I_montage = zeros([n_rows * patch_size(2), n_cols * patch_size(1), n_channels_rgb], class_images);
         
         for pc = 1:size(patches, 1)
             patch = patches(pc, :);
             roi_image = [
-                patch(2) - half_width, patch(2) + half_width,...
-                patch(1) - half_width, patch(1) + half_width
+                patch(2) - half_width(2), patch(2) + half_width(2),...
+                patch(1) - half_width(1), patch(1) + half_width(1)
             ];
             algorithm_index = 1;
-            for row = 1:n_rows
-                for col = 1:n_cols
+            
+            for col = 1:n_cols
+                for row = 1:n_rows
                     algorithm = group{algorithm_index};
-                    use_deconv = (strfind(deconv_suffix, algorithm) == length(algorithm) - length(deconv_suffix));
+                    use_deconv = (strfind(algorithm, deconv_suffix) == (length(algorithm) - length(deconv_suffix) + 1));
                     if use_deconv
                         algorithm_filenames{algorithm_index} = algorithm(1:(end - length(deconv_suffix)));
                     else
                         algorithm_filenames{algorithm_index} = algorithm;
                     end
-                    I_filename = fullfile(...
+                    algorithm_filenames{algorithm_index} = fullfile(...
                         input_directory,...
                         sprintf('%s%s%s', prefix, algorithm_filenames{algorithm_index}, input_postfix)...
                     );
-                    I = imread(I_filename);
+                    I = imread(algorithm_filenames{algorithm_index});
 
                     if ~isa(I, class_images)
-                        error('The image "%s" has an unexpected datatype.', I_filename)
+                        error('The image "%s" has an unexpected datatype.', algorithm_filenames{algorithm_index})
                     end
                     if size(I, 3) ~= n_channels_rgb
                         error('The image "%s" does not have %d channels.', n_channels_rgb)
@@ -180,9 +191,9 @@ for i = 1:n_images
                         sub_image_input = im2double(I(...
                             (roi_image(1) - padding):(roi_image(2) + padding),...
                             (roi_image(3) - padding):(roi_image(4) + padding),...
-                            sun2017Options.reference_channel_index...
+                            :...
                         ));
-                        krishnan_opts.blur = sub_image_input;
+                        krishnan_opts.blur = sub_image_input(:, :, sun2017Options.reference_channel_index);
                         psf = cell(n_channels_rgb, 1);
                         [...
                             ~, I_deblur, psf{sun2017Options.reference_channel_index}, ~...
@@ -206,10 +217,14 @@ for i = 1:n_images
 
                         % Save data for later examination, if desired
                         save(...
-                            fullfile(output_directory, sprintf('%s_patch%d_%s_data.mat', prefix, pc, algorithm)),...
-                            psf_sz, sun2017Options, psf, krishnan_opts, padding, roi_image, sub_image...
+                            fullfile(output_directory, sprintf('%spatch%d_%s_data.mat', prefix, pc, algorithm)),...
+                            'psf_sz', 'sun2017Options', 'psf', 'krishnan_opts', 'padding', 'roi_image', 'sub_image'...
                         );
                     
+                        if isinteger(I_montage)
+                            peak_rgb = double(intmax(class_images));
+                            sub_image = sub_image * peak_rgb;
+                        end
                         sub_image = cast(sub_image, class_images);
                         sub_image = sub_image((padding + 1):(end - padding), (padding + 1):(end - padding), :);
                     else
@@ -219,44 +234,51 @@ for i = 1:n_images
                     if flip
                         sub_image = rot90(sub_image, 2);
                     end
-                    I_montage(roi_montage(1):roi_montage(2), roi_montage(3):roi_montage(4), :) =...
-                        I(roi_image(1):roi_image(2), roi_image(3):roi_image(4), :);
+                    I_montage(roi_montage(1):roi_montage(2), roi_montage(3):roi_montage(4), :) = sub_image;
                     
                     algorithm_index = algorithm_index + 1;
                 end
             end
             
-            output_filename_prefix = fullfile(output_directory, sprintf('%s_patch%d_group%d', prefix, pc, g));
+            output_filename_prefix = fullfile(output_directory, sprintf('%spatch%d_group%d', prefix, pc, g));
             
             % Output
             fg = figure;
             imshow(I_montage);
-            set(fg, 'PaperSize', output_size);
+            set(fg, 'PaperUnits', 'inches');
+            set(fg, 'PaperSize', output_size_page);
+            output_height = output_width * size(I_montage, 1) / size(I_montage, 2);
+            set(fg, 'PaperPosition', [output_margin(1) output_margin(2) output_width, output_height]);
             print(...
                 fg, sprintf('%s%s', output_filename_prefix, output_postfix),...
                 '-dpdf', '-r300'...
             );
         
             % Annotate and output
+            for algorithm_index = 1:n_algorithms
+                labels{algorithm_index} = sprintf('(%s)', char(double('a') + (algorithm_index - 1)));
+            end
+            labels = reshape(reshape(labels, n_rows, n_cols).', [], 1);
             algorithm_index = 1;
-            for row = 1:n_rows
-                for col = 1:n_cols
-                    label = sprintf('(%s)', char(double('a') + (algorithm_index - 1)));
+            for col = 1:n_cols
+                for row = 1:n_rows
                     x = col * patch_size(1) - text_offset(1);
                     y = row * patch_size(2) - text_offset(2);
-                    text(x, y, label, 'FontSize', font_size);
-                    labels{algorithm_index} = label;
+                    text(x, y, labels{algorithm_index}, 'FontSize', font_size);
                     algorithm_index = algorithm_index + 1;
                 end
             end
             print(...
-                fg, sprintf('%s_annotated_%s', output_filename_prefix, output_postfix),...
+                fg, sprintf('%s_annotated%s', output_filename_prefix, output_postfix),...
                 '-dpdf', '-r300'...
             );
             close(fg);
             
             % Output a legend
-            t = table(labels, group{:}, algorithm_filenames, 'VariableNames', {'Label', 'Algorithm', 'SourceFile'});
+            labels_table = reshape(reshape(labels, n_rows, n_cols).', [], 1);
+            group_table = reshape(group.', [], 1);
+            algorithm_filenames_table = reshape(reshape(algorithm_filenames, n_rows, n_cols).', [], 1);
+            t = table(labels_table, group_table, algorithm_filenames_table, 'VariableNames', {'Label', 'Algorithm', 'SourceFile'});
             writetable(...
                 t, sprintf('%s_legend.csv', output_filename_prefix)...
             );

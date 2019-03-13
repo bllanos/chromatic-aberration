@@ -277,11 +277,11 @@ solvePatchesMultiADMMOptions.reg_options = solvePatchesADMMOptions.reg_options;
 
 % Kernel sizes must be odd integers. I will set the kernel size based on the
 % estimated amount of dispersion.
-krishnan2011Options.kernel_sz = 9;
+krishnan2011Options.kernel_size = 9;
 
 % Value tuned by finding the 'knee' in the error plot output by
 % 'TuneSunEtAl2017.m'
-krishnan2011Options.min_lambda = 200;
+krishnan2011Options.min_lambda = 386;
 
 % Window in which to estimate the PSF: (y1, x1, y2, x2) of the top left and
 % bottom right corners. (Set it to an empty array to use the entire image.)
