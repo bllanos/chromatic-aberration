@@ -18,6 +18,10 @@
 %   parameter variable names.
 %
 % ## References
+% - Baek, S.-H., Kim, I., Gutierrez, D., & Kim, M. H. (2017). "Compact
+%   single-shot hyperspectral imaging using a prism." ACM Transactions
+%   on Graphics (Proc. SIGGRAPH Asia 2017), 36(6), 217:1–12.
+%   doi:10.1145/3130800.3130896
 %
 % Third-party algorithms:
 % - Sun, T., Peng, Y., & Heidrich, W. (2017). "Revisiting cross-channel
@@ -207,7 +211,7 @@ solvePatchesADMMOptions.admm_options.maxit = [ 500, 500 ];
 solvePatchesADMMOptions.admm_options.varying_penalty_params = [2, 2, 10];
 
 % Types of norms to use on the prior terms
-solvePatchesADMMOptions.admm_options.norms = [false, false, false];
+solvePatchesADMMOptions.admm_options.norms = [true, false, false];
 
 % Whether to apply a non-negativity constraint (in which case, `rho` must
 % have four elements)
@@ -224,9 +228,9 @@ solvePatchesMultiADMMOptions.admm_options = solvePatchesADMMOptions.admm_options
 % will be tested by some image estimation pipelines, and if `patch_sizes`
 % is empty only whole image estimation may be performed.
 patch_sizes = [ % Each row contains a (number of rows, number of columns) pair
-   30 30;
+   128 128;
 ]; 
-paddings = 10;
+paddings = 16;
 
 solvePatchesADMMOptions.patch_options = struct;
 solvePatchesADMMOptions.patch_options.patch_size = patch_sizes(1, :);

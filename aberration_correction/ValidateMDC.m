@@ -130,8 +130,7 @@
 %
 % ## Notes
 % - The image colour space is not altered by this script; RGB images are
-%   produced in the camera's colour space. See 'imreadRAW()' for code to
-%   convert an image to sRGB after demosaicing.
+%   produced in the camera's colour space.
 % - This script does not distinguish between wavelength bands and colour
 %   channels. One can use this script to estimate either a latent
 %   hyperspectral image, or a latent aberration-free RGB image (free from
