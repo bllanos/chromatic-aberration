@@ -174,7 +174,7 @@ rgb_mode = false;
 if rgb_mode
     bands_regex = []; % Not used
     n_channels_rgb = 3;
-    bands = 1:n_channels_rgb;
+    bands = (1:n_channels_rgb).';
     reference_wavelength = []; % Not used
     reference_index = 2; % Green colour channel
     bands_to_rgb = eye(n_channels_rgb);

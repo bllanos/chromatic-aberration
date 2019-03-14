@@ -280,7 +280,7 @@ bands_color = bands;
 if channel_mode
     if has_dispersion && ...
        ((length(bands_color) ~= length(bands_dispersionfun)) ||...
-       any(bands_color ~= bands_dispersionfun))
+       any(bands_color(:) ~= bands_dispersionfun(:)))
         error('When estimating a colour image, the same colour channels must be used by the model of dispersion.');
     end
     color_weights = sensor_map;

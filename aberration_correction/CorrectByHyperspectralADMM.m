@@ -106,6 +106,23 @@
 % - 'image_filenames': A cell vector containing the input image filenames
 %   retrieved based on the wildcard provided in the parameters section of
 %   the script.
+% - 'time': A structure with the following fields concerning execution times:
+%   - 'weights': The time, in seconds, used to choose weights on the
+%     regularization terms. This field is only present if weights selection and
+%     image estimation are done in separate calls to 'solvePatchesADMM()' or
+%     'solvePatchesMultiADMM()', and if there are patch sizes and padding sizes
+%     to test. 'weights' is a 3D array, where the first dimension indexes
+%     images, the second dimension indexes patch sizes, and the third dimension
+%     indexes padding sizes.
+%   - 'image': The time, in seconds, taken to produce the output images or image
+%     patches. If weights selection and image estimation are done in a single
+%     call to 'solvePatchesADMM()' or 'solvePatchesMultiADMM()', then this time
+%     includes the time taken for choosing weights on the regularization terms.
+%     This field is only present if there are patch sizes and padding sizes to
+%     test. 'image' is an array with the same layout as 'weights'.
+%   - 'whole_image': The equivalent of 'image' for whole image estimation.
+%     'whole_image' is a vector with the elements corresponding to the input
+%     images, and is present only if `run_entire_image` is `true`.
 % 
 % Additionally, the file contains the values of all parameters in the first
 % section of the script below, for reference. (Specifically, those listed
@@ -171,10 +188,10 @@ input_images_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % Model of dispersion
 % Can be empty
-reverse_dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dispersion/spectral/full_image/RAWDiskDispersionResults_spectral_polynomial_fromNonReference.mat';
+reverse_dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dispersion/rgb/full_image/RAWDiskDispersionResults_RGB_polynomial_fromNonReference.mat';
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/SonyColorMapData.mat';
+color_map_filename = '/home/llanos/Downloads/RGBColorMapData.mat';
 
 % Output directory for all images and saved parameters
 output_directory = '/home/llanos/Downloads/new_patch';
@@ -183,15 +200,15 @@ output_directory = '/home/llanos/Downloads/new_patch';
 
 % Only estimate a single patch, with its top-left corner at the given (row,
 % column) location. If empty (`[]`), the entire image will be estimated.
-target_patch = [];
+target_patch = [1193, 1007] - [63, 63];
 
 % Only select regularization weights for a single patch, with its top-left
 % corner at the given (row, column) location. If empty (`[]`), regularization
 % weights will be selected for each patch separately. (THIS IS SLOW)
 target_patch_weights = [141, 1115];
 
-% Also compare with (or only run) whole image estimation. Only enable this
-% for small images.
+% Also compare with (or only run) whole image estimation, meaning that the image
+% is treated as a single patch. Only enable this for small images.
 run_entire_image = false;
 
 % Parameters which do not usually need to be changed
@@ -222,7 +239,7 @@ bands_color = bands;
 if channel_mode
     if has_dispersion && ...
        ((length(bands_color) ~= length(bands_dispersionfun)) ||...
-       any(bands_color ~= bands_dispersionfun))
+       any(bands_color(:) ~= bands_dispersionfun(:)))
         error('When estimating a colour image, the same colour channels must be used by the model of dispersion.');
     end
 end
@@ -252,10 +269,30 @@ if ~use_fixed_weights
     n_active_weights = sum(enabled_weights);
 end
 
+single_call = ~use_target_patch_weights ||...
+                    (has_target_patch && use_target_patch_weights && all(target_patch == target_patch_weights));
+double_call = ~single_call && use_target_patch_weights;
+
+n_patch_sizes = size(patch_sizes, 1);
+n_paddings = length(paddings);
+if run_entire_image
+    time.whole_image = zeros(n_images, 1);
+end
+if n_patch_sizes > 0 && n_paddings > 0
+    if double_call
+        time.weights = zeros(n_images, n_patch_sizes, n_paddings);
+    end
+    time.image = zeros(n_images, n_patch_sizes, n_paddings);
+end
+
 if save_all_images
     extra_images = cell(3, 1);
 else
     extra_images = cell(0, 1);
+end
+
+if isfield(options.patch_options, 'target_patch')
+    options.patch_options = rmfield(options.patch_options, 'target_patch');
 end
 
 for i = 1:n_images
@@ -275,9 +312,10 @@ for i = 1:n_images
     
     image_sampling = size(I_raw);
     
-    for ps = 0:size(patch_sizes, 1)
-        for pad = 0:length(paddings)
-            if run_entire_image && ps == 0 && pad == 0
+    for ps = 0:n_patch_sizes
+        for pad = 0:n_paddings
+            is_entire_image_run = (ps == 0 && pad == 0);
+            if run_entire_image && is_entire_image_run
                 options.patch_options.patch_size = image_sampling;
                 options.patch_options.padding = 0;
                 name_params = [name, '_whole'];
@@ -288,30 +326,32 @@ for i = 1:n_images
                     '_patch%dx%d_pad%d',...
                     patch_sizes(ps, 1), patch_sizes(ps, 2), paddings(pad)...
                 )];
+            
+                if has_target_patch
+                    name_params = [name_params, sprintf(...
+                        '_target%dAnd%d',...
+                        target_patch(1), target_patch(2)...
+                        )];
+                end
+                if use_target_patch_weights
+                    name_params = [name_params, sprintf(...
+                        '_weightsTarget%dAnd%d',...
+                        target_patch_weights(1), target_patch_weights(2)...
+                        )];
+                    options.patch_options.target_patch = target_patch_weights;
+                elseif has_target_patch
+                    options.patch_options.target_patch = target_patch;
+                end
             else
                 continue;
             end
             
-            if has_target_patch
-                name_params = [name_params, sprintf(...
-                    '_target%dAnd%d',...
-                    target_patch(1), target_patch(2)...
-                )];
-            end
-            if use_target_patch_weights
-                name_params = [name_params, sprintf(...
-                    '_weightsTarget%dAnd%d',...
-                    target_patch_weights(1), target_patch_weights(2)...
-                )];
-                options.patch_options.target_patch = target_patch_weights;
-            elseif has_target_patch
-                options.patch_options.target_patch = target_patch;
-            end
             if use_fixed_weights
                 name_params = [name_params, '_fixedWeights'];
             end
-            if ~use_target_patch_weights ||...
-                    (has_target_patch && use_target_patch_weights && all(target_patch == target_patch_weights))
+            
+            time_start = tic;
+            if is_entire_image_run || single_call
                 if channel_mode
                     [...
                         I_latent,...
@@ -342,7 +382,7 @@ for i = 1:n_images
                         solvePatchesMultiADMMVerbose...
                     );
                 end
-            elseif use_target_patch_weights
+            elseif double_call
                 if channel_mode
                     [ ~, ~, weights_images ] = solvePatchesADMM(...
                       [], I_raw, bayer_pattern, dispersionfun,...
@@ -365,7 +405,7 @@ for i = 1:n_images
                     );
                     options.sampling_options.show_steps = show_steps_original;
                 end
-                
+
                 reg_options_original = options.reg_options;
                 if channel_mode
                     weights = reshape(weights_images(1, 1, :), 1, []);
@@ -381,6 +421,8 @@ for i = 1:n_images
                 else
                     options.patch_options = rmfield(options.patch_options, 'target_patch');
                 end
+                time.weights(i, ps, pad) = toc(time_start);
+                time_start = tic;
                 
                 if channel_mode
                     [...
@@ -413,6 +455,11 @@ for i = 1:n_images
                     );
                 end
                 options.reg_options = reg_options_original;
+            end
+            if is_entire_image_run
+                time.whole_image(i) = toc(time_start);
+            else
+                time.image(i, ps, pad) = toc(time_start);
             end
 
             if multi_step
@@ -490,7 +537,8 @@ end
 save_variables_list = [ parameters_list, {...
         'bands',...
         'bands_color',...
-        'image_filenames'...
+        'image_filenames',...
+        'time'...
     } ];
 save_data_filename = fullfile(output_directory, 'CorrectByHyperspectralADMM.mat');
 save(save_data_filename, save_variables_list{:});

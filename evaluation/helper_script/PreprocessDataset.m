@@ -182,7 +182,7 @@ if has_dispersion_spectral
     ] = loadDispersionModel(dp.dispersion_spectral_reverse, false, false);
     if channel_mode && ...
        ((length(bands_color) ~= length(bands_dispersionfun)) ||...
-       any(bands_color ~= bands_dispersionfun))
+       any(bands_color(:) ~= bands_dispersionfun(:)))
         error('When estimating colour images, the same colour channels must be used by the model of dispersion.');
     end
 end
