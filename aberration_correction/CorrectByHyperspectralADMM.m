@@ -188,10 +188,10 @@ input_images_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % Model of dispersion
 % Can be empty
-reverse_dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dispersion/rgb/full_image/RAWDiskDispersionResults_RGB_polynomial_fromNonReference.mat';
+reverse_dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dispersion/spectral/full_image/RAWDiskDispersionResults_spectral_polynomial_fromNonReference.mat';
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/Downloads/RGBColorMapData.mat';
+color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/SonyColorMapData.mat';
 
 % Output directory for all images and saved parameters
 output_directory = '/home/llanos/Downloads/new_patch';

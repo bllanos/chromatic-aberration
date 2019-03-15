@@ -218,13 +218,16 @@ function [ bands, I_3D, varargout ] = solvePatchesMultiADMM(...
 %   `reg_options` is a structure with the following fields, controlling
 %   regularization, and regularization weight selection:
 %   - 'demosaic': A logical scalar indicating whether or not to select
-%     regularization weights based on similarity with a demosaicking
-%     result. Presently, the demosaicing result is the bilinear
-%     interpolation of the Green channel (the second channel) of `J`. If
-%     `I_in` is not empty, and 'demosaic' is `true`, regularization weights
-%     will still be selected based on similarity with `I_in.I`. If `I_in`
-%     is empty, and 'demosaic' is `false`, then regularization weights will
-%     be selected using the minimum distance criterion.
+%     regularization weights based on similarity with a demosaicking result.
+%     Presently, the demosaicing result is the bilinearly interpolated version
+%     of the colour channels of `J`. If `I_in` is not empty, and 'demosaic' is
+%     `true`, regularization weights will still be selected based on similarity
+%     with `I_in.I`. If `I_in` is empty, and 'demosaic' is `false`, then
+%     regularization weights will be selected using the minimum distance
+%     criterion.
+%   - 'demosaic_channels': In the context where 'demosaic' is `true` (see
+%     above), a logical vector indicating which channels of the demosaicing
+%     result should be used to evaluate similarity.
 %   - 'enabled': A logical vector, where each element indicates whether the
 %     corresponding regularization term listed above is enabled.
 %   - 'n_iter': A two-element vector, where the first element is the
@@ -765,9 +768,9 @@ parfor j = 1:n_j
                     I_in_p = struct(...
                         'I', reshape(bilinearDemosaic(...
                                 column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)),...
-                                align, [false, true, false]...
-                             ), [], 1),...
-                        'spectral_weights', color_weights_all{t}(2, :)...
+                                align, reg_options_p.demosaic_channels...
+                             ), [], 1, sum(reg_options_p.demosaic_channels)),...
+                        'spectral_weights', color_weights_all{t}(reg_options_p.demosaic_channels, :)...
                     );
                 end
                 in_weightsLowMemory = initWeightsLowMemory(I_in_p, dispersion_matrix_p_weights, numel_p);

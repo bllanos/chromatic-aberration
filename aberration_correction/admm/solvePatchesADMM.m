@@ -172,13 +172,16 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %   `reg_options` is a structure with the following fields, controlling
 %   regularization, and regularization weight selection:
 %   - 'demosaic': A logical scalar indicating whether or not to select
-%     regularization weights based on similarity with a demosaicking
-%     result. Presently, the demosaicing result is the bilinear
-%     interpolation of the Green channel (the second channel) of `J`. If
-%     `I_in` is not empty, and 'demosaic' is `true`, regularization weights
-%     will still be selected based on similarity with `I_in.I`. If `I_in`
-%     is empty, and 'demosaic' is `false`, then regularization weights will
-%     be selected using the minimum distance criterion.
+%     regularization weights based on similarity with a demosaicking result.
+%     Presently, the demosaicing result is the bilinearly interpolated version
+%     of the colour channels of `J`. If `I_in` is not empty, and 'demosaic' is
+%     `true`, regularization weights will still be selected based on similarity
+%     with `I_in.I`. If `I_in` is empty, and 'demosaic' is `false`, then
+%     regularization weights will be selected using the minimum distance
+%     criterion.
+%   - 'demosaic_channels': In the context where 'demosaic' is `true` (see
+%     above), a logical vector indicating which channels of the demosaicing
+%     result should be used to evaluate similarity.
 %   - 'enabled': A logical vector, where each element indicates whether the
 %     corresponding regularization term listed above is enabled.
 %   - 'n_iter': A two-element vector, where the first element is the
@@ -479,7 +482,7 @@ if input_I_in
     end
     I_in_j.spectral_weights = I_in.spectral_weights;
 elseif reg_options.demosaic
-    I_in_j.spectral_weights = sensitivity(2, :);
+    I_in_j.spectral_weights = sensitivity(reg_options.demosaic_channels, :);
 else
     I_in_j = struct;
 end
@@ -633,8 +636,8 @@ parfor j = 1:n_j
                 dispersion_matrix_p_weights = dispersion_matrix_p;
                 I_in_p.I = reshape(bilinearDemosaic(...
                     column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)),...
-                    align, [false, true, false]...
-                ), [], 1);
+                    align, reg_options.demosaic_channels...
+                ), [], 1, sum(reg_options.demosaic_channels));
             end
             in_weightsLowMemory = initWeightsLowMemory(I_in_p, dispersion_matrix_p_weights, numel_p);
             if output_search

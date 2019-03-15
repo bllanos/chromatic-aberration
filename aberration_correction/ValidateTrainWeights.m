@@ -460,7 +460,7 @@ end
 % Sample the error hypersurface
 if n_active_weights < 3 && plot_hypersurface
     
-    I_green_gt = bilinearDemosaic(I_raw, bayer_pattern, [false, true, false]);
+    I_gt = bilinearDemosaic(I_raw, bayer_pattern, solvePatchesADMMOptions.reg_options.demosaic_channels);
 
     % Generate combinations of weights to test
     if isscalar(n_samples)
@@ -512,10 +512,10 @@ if n_active_weights < 3 && plot_hypersurface
 
     % Test the combinations of weights
     all_mse_samples = zeros(n_samples_all, 1);
-    all_green_mse_samples = zeros(n_samples_all, 1);
+    all_demosaic_mse_samples = zeros(n_samples_all, 1);
     I_patch_gt = reshape(I_gt(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :), [], 1);
-    I_in_f.I = I_green_gt(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2));
-    I_in_f.spectral_weights = color_weights(2, :);
+    I_in_f.I = I_gt(patch_lim(1, 1):patch_lim(2, 1), patch_lim(1, 2):patch_lim(2, 2), :);
+    I_in_f.spectral_weights = color_weights(solvePatchesADMMOptions.reg_options.demosaic_channels, :);
     in_weightsLowMemory = initWeightsLowMemory(I_in_f, dispersion_f, 0);
     for s = 1:n_samples_all
         weights_s = all_weights_samples(s, :);
@@ -530,17 +530,17 @@ if n_active_weights < 3 && plot_hypersurface
             channelConversion(in_admm.I, spectral_weights, 1),...
             I_patch_gt...
         );
-        all_green_mse_samples(s) = immse(...
+        all_demosaic_mse_samples(s) = immse(...
              in_weightsLowMemory.Omega_Phi * in_admm.I,...
              reshape(I_in_f.I, [], 1)...
          );
     end
     log_all_mse_samples = log10(all_mse_samples);
-    log_all_green_mse_samples = log10(all_green_mse_samples);
+    log_all_demosaic_mse_samples = log10(all_demosaic_mse_samples);
 
     % Plotting
     spectral_mse_color = [1, 0, 0];
-    green_mse_color = [0, 1, 0];
+    demosaic_mse_color = [0, 1, 0];
     
     figure;
     hold on
@@ -551,8 +551,8 @@ if n_active_weights < 3 && plot_hypersurface
             'Marker', 'o', 'Color', spectral_mse_color...
         );
         plot(...
-            log_all_weights_samples(:, 1), log_all_green_mse_samples,...
-            'Marker', 'o', 'Color', green_mse_color...
+            log_all_weights_samples(:, 1), log_all_demosaic_mse_samples,...
+            'Marker', 'o', 'Color', demosaic_mse_color...
         );
     elseif n_active_weights == 2
         tri = delaunay(log_all_weights_samples(:, 1), log_all_weights_samples(:, 2));
@@ -563,8 +563,8 @@ if n_active_weights < 3 && plot_hypersurface
         );
         trisurf(...
             tri, log_all_weights_samples(:, 1), log_all_weights_samples(:, 2),...
-            log_all_green_mse_samples,...
-            'FaceAlpha', 0.5, 'FaceColor', green_mse_color...
+            log_all_demosaic_mse_samples,...
+            'FaceAlpha', 0.5, 'FaceColor', demosaic_mse_color...
         );
     else
         error('Unexpected number of active weights.');

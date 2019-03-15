@@ -275,6 +275,8 @@ solvePatchesADMMOptions.reg_options.n_iter = [24, 6];
 % multiple regularization weight selection methods will override this
 % option.
 solvePatchesADMMOptions.reg_options.demosaic = true;
+% Which channels of the demosaicking result to use for evaluating similarity
+solvePatchesADMMOptions.reg_options.demosaic_channels = [true, true, true];
 
 solvePatchesMultiADMMOptions.reg_options = solvePatchesADMMOptions.reg_options;
 
