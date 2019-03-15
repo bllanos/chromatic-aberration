@@ -227,6 +227,9 @@ solvePatchesMultiADMMOptions.admm_options = solvePatchesADMMOptions.admm_options
 % Every combination of rows of `patch_sizes` and elements of `paddings`
 % will be tested by some image estimation pipelines, and if `patch_sizes`
 % is empty only whole image estimation may be performed.
+%
+% Only use even integers for the patch and padding sizes, to ensure that patches
+% are valid colour filter array images.
 patch_sizes = [ % Each row contains a (number of rows, number of columns) pair
    128 128;
 ]; 

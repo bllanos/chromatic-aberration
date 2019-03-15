@@ -39,7 +39,7 @@ color_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_Compu
 color_variable_name = 'I_rgb'; % Used only when loading '.mat' files
 
 % Output directory
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_sRGB';
+output_directory = '/home/llanos/Downloads';
 
 %% Process the images
 

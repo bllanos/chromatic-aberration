@@ -199,12 +199,16 @@ output_directory = '/home/llanos/Downloads/new_patch';
 % ## Options for patch-wise image estimation
 
 % Only estimate a single patch, with its top-left corner at the given (row,
-% column) location. If empty (`[]`), the entire image will be estimated.
-target_patch = [1193, 1007] - [63, 63];
+% column) location. If empty (`[]`), the entire image will be estimated. The
+% patch corner indices must be odd integers to avoid creating a patch with a
+% different colour filter array pattern from the whole image.
+target_patch = [1129, 943];
 
 % Only select regularization weights for a single patch, with its top-left
 % corner at the given (row, column) location. If empty (`[]`), regularization
-% weights will be selected for each patch separately. (THIS IS SLOW)
+% weights will be selected for each patch separately. (THIS IS SLOW) Again, the
+% patch corner indices must be odd integers to avoid creating a patch with a
+% different colour filter array pattern from the whole image.
 target_patch_weights = [141, 1115];
 
 % Also compare with (or only run) whole image estimation, meaning that the image
