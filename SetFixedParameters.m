@@ -290,7 +290,7 @@ krishnan2011Options.kernel_size = 9;
 
 % Value tuned by finding the 'knee' in the error plot output by
 % 'TuneSunEtAl2017.m'
-krishnan2011Options.min_lambda = 386;
+krishnan2011Options.min_lambda = 850;
 
 % Window in which to estimate the PSF: (y1, x1, y2, x2) of the top left and
 % bottom right corners. (Set it to an empty array to use the entire image.)

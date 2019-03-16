@@ -103,12 +103,25 @@ algorithm_groups = {...
 padding = 16;
     
 % Filename input postfix
-input_postfix = '_sRGB.tif';
+input_postfix = '_correctedRGB.tif';
 
 n_channels_rgb = 3;
 
 % Directory containing the input images
-input_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_sRGB';
+input_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_correctedRGB';
+
+% Directory containing the linear, uncorrected images, for patch-specific
+% processing with Krishnan et al. 2011 and Sun et al. 2017.
+input_directory_uncorrected = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_MATFiles';
+input_variable_uncorrected = 'I_rgb'; % Used only when loading '.mat' files 
+input_postfix_uncorrected = '.mat';
+
+% Path and filename of a '.mat' file containing the conversion matrix for
+% raw colour channels to XYZ
+xyz_weights_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_correctedRGB/CalibrateColorCorrectionData.mat';
+xyz_weights_variable = 'M_homog'; % Variable name in the above file
+% Whitepoint to use for XYZ to sRGB conversion
+whitepoint = [1, 1, 1];
 
 % Refer to the MATLAB documentation on "Figure Properties"
 % Output figure paper size, in inches
@@ -130,6 +143,14 @@ run('SetFixedParameters.m')
 image_prefixes = fieldnames(images);
 n_images = length(image_prefixes);
 n_groups = length(algorithm_groups);
+
+load(xyz_weights_filename, xyz_weights_variable);
+if exist(xyz_weights_variable, 'var')
+    xyz_weights = eval(xyz_weights_variable);
+end
+if ~exist(xyz_weights_variable, 'var') || isempty(xyz_weights)
+    error('No raw colour to XYZ conversion matrix loaded.')
+end
 
 % Find the class of the image data
 I_filename = fullfile(input_directory, sprintf('%s%s%s', image_prefixes{1}, algorithm_groups{1}{1}, input_postfix));
@@ -172,18 +193,23 @@ for i = 1:n_images
                     use_deconv = (strfind(algorithm, deconv_suffix) == (length(algorithm) - length(deconv_suffix) + 1));
                     if use_deconv
                         algorithm_filenames{algorithm_index} = algorithm(1:(end - length(deconv_suffix)));
+                        algorithm_filenames{algorithm_index} = fullfile(...
+                            input_directory_uncorrected,...
+                            sprintf('%s%s%s', prefix, algorithm_filenames{algorithm_index}, input_postfix_uncorrected)...
+                        );
+                        I = loadImage(algorithm_filenames{algorithm_index}, input_variable_uncorrected);
                     else
                         algorithm_filenames{algorithm_index} = algorithm;
+                        algorithm_filenames{algorithm_index} = fullfile(...
+                            input_directory,...
+                            sprintf('%s%s%s', prefix, algorithm_filenames{algorithm_index}, input_postfix)...
+                        );
+                        I = imread(algorithm_filenames{algorithm_index});
+                        if ~isa(I, class_images)
+                            error('The image "%s" has an unexpected datatype.', algorithm_filenames{algorithm_index})
+                        end
                     end
-                    algorithm_filenames{algorithm_index} = fullfile(...
-                        input_directory,...
-                        sprintf('%s%s%s', prefix, algorithm_filenames{algorithm_index}, input_postfix)...
-                    );
-                    I = imread(algorithm_filenames{algorithm_index});
-
-                    if ~isa(I, class_images)
-                        error('The image "%s" has an unexpected datatype.', algorithm_filenames{algorithm_index})
-                    end
+                    
                     if size(I, 3) ~= n_channels_rgb
                         error('The image "%s" does not have %d channels.', n_channels_rgb)
                     end
@@ -195,11 +221,11 @@ for i = 1:n_images
 
                     if use_deconv
                         krishnan_opts = krishnan2011Options;
-                        sub_image_input = im2double(I(...
+                        sub_image_input = I(...
                             (roi_image(1) - padding):(roi_image(2) + padding),...
                             (roi_image(3) - padding):(roi_image(4) + padding),...
                             :...
-                        ));
+                        );
                         krishnan_opts.blur = sub_image_input(:, :, sun2017Options.reference_channel_index);
                         psf = cell(n_channels_rgb, 1);
                         [...
@@ -228,11 +254,13 @@ for i = 1:n_images
                             'psf_sz', 'sun2017Options', 'psf', 'krishnan_opts', 'padding', 'roi_image', 'sub_image'...
                         );
                     
-                        if isinteger(I_montage)
-                            peak_rgb = double(intmax(class_images));
-                            sub_image = sub_image * peak_rgb;
-                        end
-                        sub_image = cast(sub_image, class_images);
+                        % Colour conversion
+                        sub_image = channelConversion(sub_image, xyz_weights);
+                        sub_image = xyz2rgb(...
+                            sub_image, 'ColorSpace', 'srgb',...
+                            'WhitePoint', whitepoint,...
+                            'OutputType', class_images...
+                        );
                         sub_image = sub_image((padding + 1):(end - padding), (padding + 1):(end - padding), :);
                     else
                         sub_image = I(roi_image(1):roi_image(2), roi_image(3):roi_image(4), :);
