@@ -22,8 +22,8 @@ color_weights_variable = 'color_weights'; % Variable name in the above file
 
 % Path and filename of a '.mat' file containing the conversion matrix for
 % raw colour channels to XYZ
-xyz_weights_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/colorChecker_evaluation/EvaluateColorCheckerData.mat';
-xyz_weights_variable = 'color_correction'; % Variable name in the above file
+xyz_weights_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_correctedRGB/CalibrateColorCorrectionData.mat';
+xyz_weights_variable = 'M_homog'; % Variable name in the above file
 
 % Whitepoint to use for XYZ to sRGB conversion
 whitepoint = [1, 1, 1];
@@ -39,7 +39,7 @@ color_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_Compu
 color_variable_name = 'I_rgb'; % Used only when loading '.mat' files
 
 % Output directory
-output_directory = '/home/llanos/Downloads';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_correctedRGB';
 
 %% Process the images
 

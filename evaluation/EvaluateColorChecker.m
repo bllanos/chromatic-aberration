@@ -14,12 +14,12 @@
 % loaded.
 %
 % Along with the captured image, two single-channel label images are required.
-% The first is used for colour calibration, for vignetting correction, and for
-% evaluation of colour images. For the 24 patches of the chart, the
-% corresponding pixels in the label image must have values equal to the patch
-% indices. The uniformly-coloured portions of the frame surrounding the patches,
-% used to calibrate vignetting, must be labelled 25. Lastly, the rest of the
-% image should have a different label (e.g. zero).
+% The first is used for vignetting correction, and for evaluation of colour
+% images. For the 24 patches of the chart, the corresponding pixels in the label
+% image must have values equal to the patch indices. The uniformly-coloured
+% portions of the frame surrounding the patches, used to calibrate vignetting,
+% must be labelled 25. Lastly, the rest of the image should have a different
+% label (e.g. zero).
 %
 % The second label image is used for evaluation of spectral images. It should
 % have all 24 patches labelled with their indices, but need not have other
@@ -71,6 +71,8 @@
 %   image. 'vignetting_data' is the output argument of the same name of
 %   'vignettingPolyfit()'. Refer to the documentation of 'vignettingPolyfit.m'
 %   for details.
+% - 'vignetting_correction_factor': A scalar used to map vignetting-corrected
+%   intensities back to the scale of the original image intensities.
 % - 'spectral_weights': A matrix for converting pixels in the spectral
 %   space of the estimated spectral images to the spectral space of the
 %   reference reflectance data.
@@ -86,9 +88,6 @@
 %     algorithms which produced the estimated colour images.
 % - 'algorithm_filenames': A structure of the same form as 'algorithms'
 %   containing the names and paths of the input estimated images.
-% - 'color_correction': A 3 x 3 matrix for mapping from the raw RGB colours of
-%   the ColorChecker image to the XYZ colours of the corresponding measured
-%   reflectances.
 % 
 % Additionally, the file contains the values of all parameters listed in
 % `parameters_list`.
@@ -113,19 +112,10 @@
 %
 % ## Detailed description of processing
 %
-% Ideal XYZ colours corresponding to the ColorChecker patches are created by
-% integrating over the products of the measured spectral reflectances and the
-% CIE tristimulus functions. These colours could be converted to RGB, if
-% desired, using a whitepoint of [1, 1, 1] (for an equal energy radiator).
-%
 % A model of vignetting in the image of the ColorChecker is created from the
-% variation in intensity of the ColorChecker's frame. A 3 x 3 colour correction
-% matrix is then fit between the XYZ colours of the measured spectral
-% reflectances and the vignetting-corrected raw image of the ColorChecker, and
-% output for later use in converting the estimated images to the sRGB colour
-% space, for example. The inverse of the vignetting model is applied to the
-% measured spectral reflectances to obtain a "ground truth" image for spectral
-% image evaluation.
+% variation in intensity of the ColorChecker's frame. The inverse of the
+% vignetting model is applied to the measured spectral reflectances to obtain a
+% "ground truth" image for spectral image evaluation.
 %
 % For RGB image evaluation, a ground truth image is created from the
 % vignetting-corrected raw image of the ColorChecker as follows:
@@ -164,14 +154,6 @@
 % appropriate label image for the reconstructed image being evaluated, because
 % the zero-dispersion locations differ between the spectral and colour models of
 % chromatic aberration.
-%
-% ## References
-%
-% The colour correction matrix is calculated based on the description in:
-%
-%   Karaimer, Hakki C., & Brown, Michael S. (2018). "Improving Color
-%   Reproduction Accuracy on Cameras," In IEEE Conference on Computer Vision and
-%   Pattern Recognition (CVPR) (pp. 6440–6449).
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -188,7 +170,6 @@ parameters_list = {
     'qhyper_variable_name',...
     'qhyper_bands_filename',...
     'qhyper_bands_variable',...
-    'xyzbar_filename',...
     'reflectances_filename',...
     'reflectance_data_patch_columns',...
     'wavelength_range',...
@@ -229,9 +210,6 @@ qhyper_variable_name = 'I_hyper'; % Used only when loading '.mat' files
 % the bandpass-filtered image
 qhyper_bands_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/channel_scaling/sensor.mat';
 qhyper_bands_variable = 'bands'; % Variable name in the above file
-
-% CIE tristimulus functions
-xyzbar_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180614_ASTM_E308/Table1_CIE1931_2DegStandardObserver.csv';
 
 % Sample spectral reflectances
 reflectances_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180626_SpectralCharacterizationOfSetup/spectra_averaged.csv';
@@ -359,49 +337,6 @@ bands_measured = bands_measured(bands_filter);
 n_bands_measured = length(bands_measured);
 reflectances = sample_table{bands_filter, reflectance_data_patch_columns};
 
-% Find sample colours
-xyzbar_table = readtable(xyzbar_filename);
-lambda_xyzbar = xyzbar_table{:, 1};
-xyzbar = xyzbar_table{:, 2:end};
-
-[reflectances_rgb, reflectances_xyz] = reflectanceToColor(...
-    bands_measured, ones(size(bands_measured)),... % Equal energy radiator
-    bands_measured, reflectances,...
-    lambda_xyzbar, xyzbar...
-    );
-reflectances_rgb_integer = floor(256 * reflectances_rgb);
-
-figure;
-hold on
-names_legend = cell(n_patches, 1);
-disp('Measured reflectance sRGB colours under an equal energy illuminant:');
-for pc = 1:n_patches
-    plot(...
-        bands_measured, reflectances(:, pc),...
-        'Color', reflectances_rgb(pc, :), 'LineWidth', 2, 'Marker', 'none'...
-    );
-    % Recover original variable names, which contained spaces
-    names_legend{pc} = strsplit(sample_table.Properties.VariableDescriptions{reflectance_data_patch_columns(pc)}, ':');
-    names_legend{pc} = names_legend{pc}{end};
-    if isempty(names_legend{pc})
-        names_legend{pc} = sample_table.Properties.VariableNames{reflectance_data_patch_columns(pc)};
-    end
-
-    fprintf(...
-        '\t%s: %d, %d, %d\n', names_legend{pc},...
-        reflectances_rgb_integer(pc, 1),...
-        reflectances_rgb_integer(pc, 2),...
-        reflectances_rgb_integer(pc, 3)...
-    );
-end
-hold off
-title('Measured reflectance spectral signals')
-xlabel('\lambda [nm]')
-ylabel('Relative spectral signal')
-legend(names_legend);
-ax = gca;
-ax.Color = [0.5 0.5 0.5];
-
 spectral_weights = resamplingWeights(...
     bands_measured, bands_estimated, findSamplingOptions.interpolant, findSamplingOptions.bands_padding...
 );
@@ -455,7 +390,6 @@ channel_mask = bayerMask(image_sampling(1), image_sampling(2), bayer_pattern);
 X = X - 0.5; % Place coordinates at pixel centres
 Y = Y - 0.5;
 
-% For calculating a colour correction matrix
 patch_means_rgb = zeros(n_patches, n_channels_rgb);
 
 %% Evaluate each patch of the ColorChecker
@@ -886,10 +820,6 @@ for pc = [reference_patch_index, 1:n_patches]
     end
 end
 
-%% Create a colour correction matrix
-
-color_correction = (reflectances_xyz.') / (patch_means_rgb.');
-
 %% Save results for all patches
 
 e_rgb_summary_table = mergeRGBTables(e_centroid_tables_rgb);
@@ -917,8 +847,9 @@ writetable(...
 %% Save parameters and additional data to a file
 save_variables_list = [ parameters_list, {
     'bands_estimated', 'bands_measured', 'bands_qhyper',...
-    'vignetting_data', 'spectral_weights', 'spectral_weights_qhyper',...
-    'algorithms', 'algorithm_filenames', 'color_correction'...
+    'vignetting_data', 'vignetting_correction_factor',...
+    'spectral_weights', 'spectral_weights_qhyper',...
+    'algorithms', 'algorithm_filenames'...
 } ];
 save_data_filename = fullfile(output_directory, 'EvaluateColorCheckerData.mat');
 save(save_data_filename, save_variables_list{:});
