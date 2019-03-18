@@ -267,7 +267,22 @@ end
 % Maximum and minimum number of grid search iterations
 % Song et al. 2016 used a fixed number of 6 iterations, but I don't know
 % what range of regularization weights they were searching within.
-solvePatchesADMMOptions.reg_options.n_iter = [24, 6];
+%
+% Set a desired maximum relative error between the weight selected after an
+% infinite number of iterations, and the weight after the maximum number of
+% iterations:
+desired_weights_relative_error = 0.01;
+% At each iteration, after the first, the relative error is reduced to this
+% fraction of its previous value
+weights_iter_reduction = 2/3;
+log10_distance = max(log10(solvePatchesADMMOptions.reg_options.maximum_weights) -...
+    log10(solvePatchesADMMOptions.reg_options.minimum_weights));
+weights_iter_max = ceil(1 + (... % Add one to discount the first iteration
+    log((log10(1 + desired_weights_relative_error) / log10_distance)) /...
+    log(weights_iter_reduction)...
+));
+
+solvePatchesADMMOptions.reg_options.n_iter = [weights_iter_max, 6];
 
 % Select regularization weights based on similarity to a demosaicking
 % result, instead of using the minimum distance criterion, if no true image
