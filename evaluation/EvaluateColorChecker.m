@@ -247,9 +247,9 @@ smoothing_span = 5;
 true_image_name = 'GT'; % Name used in figures. Must not contain spaces.
 true_image_filename = 'colorChecker'; % Name used in filenames. Must not contain spaces.
 
-% Wildcard for 'ls()' to find the estimated spectral images to process.
-% '.mat' or image files can be loaded
-spectral_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_MATFiles/d2_colorChecker30cm_*_latent.mat';
+% Wildcard for 'ls()' to find the estimated spectral images to process (can be
+% empty). '.mat' or image files can be loaded.
+spectral_wildcard = []; %'/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_MATFiles/d2_colorChecker30cm_*_latent.mat';
 spectral_variable_name = 'I_latent'; % Used only when loading '.mat' files
 
 % Path and filename of a '.mat' file containing the wavelengths corresponding to
@@ -262,13 +262,13 @@ bands_variable = 'bands'; % Variable name in the above file
 color_weights_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_dispersion/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
 color_weights_variable = 'color_weights'; % Variable name in the above file
 
-% Wildcard for 'ls()' to find the estimated colour images to process.
-% '.mat' or image files can be loaded
-color_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_MATFiles/d2_colorChecker30cm_*_rgb.mat';
+% Wildcard for 'ls()' to find the estimated colour images to process (can be
+% empty). '.mat' or image files can be loaded.
+color_wildcard = []; %'/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_MATFiles/d2_colorChecker30cm_*_rgb.mat';
 color_variable_name = 'I_rgb'; % Used only when loading '.mat' files
 
 % Output directory
-output_directory = '/home/llanos/Downloads/colorChecker_evaluation';
+output_directory = '/home/llanos/Downloads';
 
 % ## Parameters which do not usually need to be changed
 run('SetFixedParameters.m')
@@ -278,30 +278,38 @@ vignettingPolyfitVerbose = true;
 
 %% Load wavelengths and spectral to colour conversion information first, to avoid accidentally overwriting a variable
 
-load(bands_filename, bands_variable);
-if exist(bands_variable, 'var')
-    bands_estimated = eval(bands_variable);
-end
-if ~exist(bands_variable, 'var') || isempty(bands_estimated)
-    error('No wavelengths loaded.')
-end
-n_bands_estimated = length(bands_estimated);
+has_spectral = ~isempty(spectral_wildcard);
+has_color = ~isempty(color_wildcard);
 
-load(qhyper_bands_filename, qhyper_bands_variable);
-if exist(qhyper_bands_variable, 'var')
-    bands_qhyper = eval(qhyper_bands_variable);
-end
-if ~exist(qhyper_bands_variable, 'var') || isempty(bands_qhyper)
-    error('No wavelengths loaded.')
-end
-n_bands_qhyper = length(bands_qhyper);
+bands_estimated = [];
+bands_qhyper = [];
+color_weights = [];
+if has_spectral
+    load(bands_filename, bands_variable);
+    if exist(bands_variable, 'var')
+        bands_estimated = eval(bands_variable);
+    end
+    if ~exist(bands_variable, 'var') || isempty(bands_estimated)
+        error('No wavelengths loaded.')
+    end
+    n_bands_estimated = length(bands_estimated);
 
-load(color_weights_filename, color_weights_variable);
-if exist(color_weights_variable, 'var')
-    color_weights = eval(color_weights_variable);
-end
-if ~exist(color_weights_variable, 'var') || isempty(color_weights)
-    error('No spectral to colour conversion matrix loaded.')
+    load(qhyper_bands_filename, qhyper_bands_variable);
+    if exist(qhyper_bands_variable, 'var')
+        bands_qhyper = eval(qhyper_bands_variable);
+    end
+    if ~exist(qhyper_bands_variable, 'var') || isempty(bands_qhyper)
+        error('No wavelengths loaded.')
+    end
+    n_bands_qhyper = length(bands_qhyper);
+
+    load(color_weights_filename, color_weights_variable);
+    if exist(color_weights_variable, 'var')
+        color_weights = eval(color_weights_variable);
+    end
+    if ~exist(color_weights_variable, 'var') || isempty(color_weights)
+        error('No spectral to colour conversion matrix loaded.')
+    end
 end
 
 %% Calibrate vignetting
@@ -337,38 +345,58 @@ bands_measured = bands_measured(bands_filter);
 n_bands_measured = length(bands_measured);
 reflectances = sample_table{bands_filter, reflectance_data_patch_columns};
 
-spectral_weights = resamplingWeights(...
-    bands_measured, bands_estimated, findSamplingOptions.interpolant, findSamplingOptions.bands_padding...
-);
-spectral_weights_evaluation = eye(n_bands_measured);
+spectral_weights = [];
+spectral_weights_evaluation = [];
+spectral_weights_qhyper = [];
+if has_spectral
+    spectral_weights = resamplingWeights(...
+        bands_measured, bands_estimated, findSamplingOptions.interpolant, findSamplingOptions.bands_padding...
+    );
+    spectral_weights_evaluation = eye(n_bands_measured);
 
-spectral_weights_qhyper = resamplingWeights(...
-    bands_measured, bands_qhyper, findSamplingOptions.interpolant, findSamplingOptions.bands_padding...
-);
+    spectral_weights_qhyper = resamplingWeights(...
+        bands_measured, bands_qhyper, findSamplingOptions.interpolant, findSamplingOptions.bands_padding...
+    );
+end
 
 %% Prepare for image evaluation
 
 % Images to be evaluated, and evaluation parameters
-algorithm_filenames.spectral = listFiles(spectral_wildcard);
-n_spectral_algorithms = length(algorithm_filenames.spectral);
+algorithm_filenames.spectral = {};
+n_spectral_algorithms = 0;
+if has_spectral
+    algorithm_filenames.spectral = listFiles(spectral_wildcard);
+    n_spectral_algorithms = length(algorithm_filenames.spectral);
+end
 
-algorithm_filenames.color = listFiles(color_wildcard);
-algorithm_names = trimCommon([algorithm_filenames.spectral; algorithm_filenames.color]);
+algorithm_filenames.color = {};
+if has_color
+    algorithm_filenames.color = listFiles(color_wildcard);
+end
+if has_color || has_spectral
+    algorithm_names = trimCommon([algorithm_filenames.spectral; algorithm_filenames.color]);
+else
+    algorithm_names = {};
+end
 algorithms.spectral = algorithm_names(1:n_spectral_algorithms);
 algorithms.color = algorithm_names((n_spectral_algorithms + 1):end);
 algorithms_escaped.spectral = strrep(algorithms.spectral, '_', '\_');
 algorithms_escaped.color = strrep(algorithms.color, '_', '\_');
 n_color_algorithms = length(algorithms.color);
 
-I_spectral_label = imread(spectral_label_filename);
-if size(I_spectral_label, 3) ~= 1
-    error('Expected the spectral dispersion label image, "%s", to have only one channel.', spectral_label_filename);
+if has_spectral
+    I_spectral_label = imread(spectral_label_filename);
+    if size(I_spectral_label, 3) ~= 1
+        error('Expected the spectral dispersion label image, "%s", to have only one channel.', spectral_label_filename);
+    end
 end
 
 e_centroid_tables_rgb = cell(n_patches, 1);
 e_edge_tables_rgb = cell(n_patches, 1);
-e_centroid_tables_spectral = cell(n_patches, 1);
-e_edge_tables_spectral = cell(n_patches, 1);
+if has_spectral
+    e_centroid_tables_spectral = cell(n_patches, 1);
+    e_edge_tables_spectral = cell(n_patches, 1);
+end
 
 evaluation_plot_colors_spectral = jet(n_spectral_algorithms);
 evaluation_plot_colors_color = jet(n_color_algorithms);
@@ -396,11 +424,15 @@ patch_means_rgb = zeros(n_patches, n_channels_rgb);
 
 % For spectral evaluation, first use the reference patch to calibrate the
 % intensity alignment between the reference and estimated images
-is_reference_patch = true;
+is_reference_patch = has_spectral;
+color_flags = true;
+if has_spectral
+    color_flags(2) = false;
+end
 for pc = [reference_patch_index, 1:n_patches]
-    for color_flag = [true, false]
+    for color_flag = color_flags
         if color_flag
-            if is_reference_patch
+            if is_reference_patch                    
                 continue
             end
             I_label = I_color_label;
@@ -624,8 +656,13 @@ for pc = [reference_patch_index, 1:n_patches]
             end
 
             if color_flag
-                for i = 1:n_color_algorithms
-                    I = loadImage(algorithm_filenames.color{i}, color_variable_name);
+                for i = 0:n_color_algorithms
+                    if i
+                        I = loadImage(algorithm_filenames.color{i}, color_variable_name);
+                    else
+                        I = repmat(I_reference, 1, 1, n_channels_rgb);
+                        I(~channel_mask) = NaN;
+                    end
                     if evaluating_center
                         I = I(roi(1):roi(2), roi(3):roi(4), :);
                     else
@@ -634,31 +671,39 @@ for pc = [reference_patch_index, 1:n_patches]
                             I_c = I(:, :, c);
                             I_edge_estimated_inner(:, 1, c) = I_c(edge_ind_inner);
                         end
-                        for c = 1:n_channels_rgb
-                            I_c = I(:, :, c);
-                            I_edge_estimated_c = I_c(edge_ind);
-                            figure(fg_edge_rgb(c))
-                            hold on
-                            err = abs(I_edge(:, :, c) -  I_edge_estimated_c) ./ abs(I_edge(:, :, c));
-                            for k = 1:n_edge_distances
-                                err_averaged(k) = mean(squeeze(err(edge_distance_filters(:, k))));
+                        if i
+                            for c = 1:n_channels_rgb
+                                I_c = I(:, :, c);
+                                I_edge_estimated_c = I_c(edge_ind);
+                                figure(fg_edge_rgb(c))
+                                hold on
+                                err = abs(I_edge(:, :, c) -  I_edge_estimated_c) ./ abs(I_edge(:, :, c));
+                                for k = 1:n_edge_distances
+                                    err_averaged(k) = mean(squeeze(err(edge_distance_filters(:, k))));
+                                end
+                                err_filter = isfinite(err_averaged);
+                                curve = smooth(edge_distance_unique(err_filter), err_averaged(err_filter), smoothing_span, smoothing_method);
+                                plot(...
+                                    edge_distance_unique(err_filter), curve,...
+                                    'Color', evaluation_plot_colors_color(i, :),...
+                                    'LineWidth', 2,...
+                                    'Marker', evaluation_plot_markers{mod(i - 1, length(evaluation_plot_markers)) + 1},...
+                                    'LineStyle', evaluation_plot_styles{mod(i - 1, length(evaluation_plot_styles)) + 1}...
+                                    );
+                                hold off
                             end
-                            err_filter = isfinite(err_averaged);
-                            curve = smooth(edge_distance_unique(err_filter), err_averaged(err_filter), smoothing_span, smoothing_method);
-                            plot(...
-                                edge_distance_unique(err_filter), curve,...
-                                'Color', evaluation_plot_colors_color(i, :),...
-                                'LineWidth', 2,...
-                                'Marker', evaluation_plot_markers{mod(i - 1, length(evaluation_plot_markers)) + 1},...
-                                'LineStyle', evaluation_plot_styles{mod(i - 1, length(evaluation_plot_styles)) + 1}...
-                                );
-                            hold off
                         end
                         I = I_edge_estimated_inner;
                     end
-                    name_params_i = [name_params, '_', algorithms.color{i}];
+                    if i
+                        name_params_i = [name_params, '_', algorithms.color{i}];
+                        escaped_name = algorithms_escaped.color{i};
+                    else
+                        name_params_i = [name_params, '_input'];
+                        escaped_name = 'Raw input';
+                    end
                     e_table_current = evaluateAndSaveRGB(...
-                        I, I_reference_eval, dp, true_image_name, algorithms_escaped.color{i},...
+                        I, I_reference_eval, dp, true_image_name, escaped_name,...
                         name_params_i...
                     );
                     if ~isempty(e_table)
@@ -803,12 +848,16 @@ for pc = [reference_patch_index, 1:n_patches]
                 end
             end
             
-            if ~color_flag
+            if ~color_flag || ~has_spectral
                 if evaluating_center
-                    e_centroid_tables_spectral{pc} = e_table;
+                    if has_spectral
+                        e_centroid_tables_spectral{pc} = e_table;
+                    end
                     e_centroid_tables_rgb{pc} = e_table_rgb;
                 else
-                    e_edge_tables_spectral{pc} = e_table;
+                    if has_spectral
+                        e_edge_tables_spectral{pc} = e_table;
+                    end
                     e_edge_tables_rgb{pc} = e_table_rgb;
                 end
                 for i = 1:n_spectral_algorithms
@@ -833,16 +882,18 @@ writetable(...
     fullfile(output_directory, [true_image_filename, '_edges_evaluateRGB.csv'])...
 );
 
-e_spectral_summary_table = mergeSpectralTables(e_centroid_tables_spectral);
-writetable(...
-    e_spectral_summary_table,...
-    fullfile(output_directory, [true_image_filename, '_centers_evaluateSpectral.csv'])...
-);
-e_spectral_summary_table = mergeSpectralTables(e_edge_tables_spectral);
-writetable(...
-    e_spectral_summary_table,...
-    fullfile(output_directory, [true_image_filename, '_edges_evaluateSpectral.csv'])...
-);
+if has_spectral
+    e_spectral_summary_table = mergeSpectralTables(e_centroid_tables_spectral);
+    writetable(...
+        e_spectral_summary_table,...
+        fullfile(output_directory, [true_image_filename, '_centers_evaluateSpectral.csv'])...
+    );
+    e_spectral_summary_table = mergeSpectralTables(e_edge_tables_spectral);
+    writetable(...
+        e_spectral_summary_table,...
+        fullfile(output_directory, [true_image_filename, '_edges_evaluateSpectral.csv'])...
+    );
+end
 
 %% Save parameters and additional data to a file
 save_variables_list = [ parameters_list, {

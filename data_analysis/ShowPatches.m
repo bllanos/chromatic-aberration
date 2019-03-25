@@ -84,24 +84,24 @@ images = struct(...
 deconv_suffix = '_krishnan';
 algorithm_groups = {...
     {...
-        'MATLABdemosaic_rgb', 'MATLABdemosaic_cct_rgb', 'MATLABdemosaic_rgb_krishnan', 'MATLABdemosaic_channelWarp_rgb';
-        'ARI_rgb', 'ARI_cct_rgb', 'ARI_rgb_krishnan', 'ARI_channelWarp_rgb';
-        'bilinear_rgb', 'bilinear_cct_rgb', 'bilinear_rgb_krishnan', 'bilinear_channelWarp_rgb';    
-        'bands6_L2L2NonNeg_DMfw_latent', 'bands6_L1L1NonNeg_DMfw_latent', 'bands6_L2NonNeg_DMfw_latent', 'bands6_L1NonNeg_DMfw_latent'
+        %'MATLABdemosaic_rgb', 'MATLABdemosaic_cct_rgb', 'MATLABdemosaic_rgb_krishnan', 'MATLABdemosaic_channelWarp_rgb';
+        'ARI_rgb', 'ARI_cct_rgb', 'ARI_rgb_krishnan', 'ARI_channelWarp_rgb', 'bands6_L2NonNeg_DMfw_latent';
+        'bilinear_rgb', 'bilinear_cct_rgb', 'bilinear_rgb_krishnan', 'bilinear_channelWarp_rgb', 'bands6_L1NonNeg_DMfw_latent';    
+        %'bands6_L2L2NonNeg_DMfw_latent', 'bands6_L1L1NonNeg_DMfw_latent', 'bands6_L2NonNeg_DMfw_latent', 'bands6_L1NonNeg_DMfw_latent'
     };
     {...
-        %'RGB_L2L2NonNeg_DMfw_ignoreDispersion_rgb', 'RGB_L1L1NonNeg_DMfw_ignoreDispersion_rgb', 'RGB_L2NonNeg_DMfw_ignoreDispersion_rgb', 'RGB_L1NonNeg_DMfw_ignoreDispersion_rgb';
-        'RGB_L2L2NonNeg_DMfw_rgb', 'RGB_L1L1NonNeg_DMfw_rgb', 'RGB_L2NonNeg_DMfw_rgb', 'RGB_L1NonNeg_DMfw_rgb';
-        'bilinear_rgb', 'bilinear_cct_rgb', 'bilinear_rgb_krishnan', 'bilinear_channelWarp_rgb';
-        'bands6_L2L2NonNeg_DMfw_latent', 'bands6_L1L1NonNeg_DMfw_latent', 'bands6_L2NonNeg_DMfw_latent', 'bands6_L1NonNeg_DMfw_latent';
-        'bands6_L2L2NonNeg_DMfw_ignoreDispersion_latent', 'bands6_L1L1NonNeg_DMfw_ignoreDispersion_latent', 'bands6_L2NonNeg_DMfw_ignoreDispersion_latent', 'bands6_L1NonNeg_DMfw_ignoreDispersion_latent'...
-    }...
+        'bands6_L2NonNeg_DMfw_ignoreDispersion_latent', 'RGB_L2NonNeg_DMfw_rgb', 'bands6_L2NonNeg_DMfw_latent', 'bands6_L2NonNeg_DM3fw_latent', 'ARI_cct_rgb';
+        'bands6_L1NonNeg_DMfw_ignoreDispersion_latent', 'RGB_L1NonNeg_DMfw_rgb', 'bands6_L1NonNeg_DMfw_latent', 'bands6_L1NonNeg_DM3fw_latent', 'ARI_channelWarp_rgb';
+    };...
+%     {...
+%         'bilinear_rgb', 'bilinear_channelWarp_rgb', 'bands6_L1NonNeg_DMfw_latent'
+%     }...
 };
 
 % Padding to add for the methods of Krishnan et al. 2011 and Sun et al. 2017.,
 % to reduce image border artifacts
 padding = 16;
-    
+
 % Filename input postfix
 input_postfix = '_correctedRGB.tif';
 
@@ -125,7 +125,7 @@ whitepoint = [1, 1, 1];
 
 % Refer to the MATLAB documentation on "Figure Properties"
 % Output figure paper size, in inches
-output_size_page = [10, 10];
+output_size_page = [15, 15];
 % Output figure width, in inches
 output_width = 7;
 % Horizontal and vertical offsets from the lower left corner of the page, in
@@ -293,7 +293,7 @@ for i = 1:n_images
             for algorithm_index = 1:n_algorithms
                 labels{algorithm_index} = sprintf('(%s)', char(double('a') + (algorithm_index - 1)));
             end
-            labels = reshape(reshape(labels, n_rows, n_cols).', [], 1);
+            labels = reshape(reshape(labels, n_cols, n_rows).', [], 1);
             algorithm_index = 1;
             for col = 1:n_cols
                 for row = 1:n_rows
