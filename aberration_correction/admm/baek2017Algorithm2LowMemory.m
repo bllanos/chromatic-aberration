@@ -58,9 +58,12 @@ function in = baek2017Algorithm2LowMemory(weights, options, in, varargin)
 %   - 'tol': A three-element vector containing convergence tolerances. The
 %     first element is the tolerance value to use with MATLAB's 'pcg()'
 %     function, such as when solving the I-minimization step of the ADMM
-%     algorithm. The second and third elements are the absolute and
-%     relative tolerance values for the ADMM algorithm, as explained in
-%     Section 3.3.1 of Boyd et al. 2011.
+%     algorithm. The second and third elements are the absolute and relative
+%     tolerance values for the ADMM algorithm, as explained in Section 3.3.1 of
+%     Boyd et al. 2011. These last two elements will be normalized by the number
+%     of spectral bands or channels in `I`, because as the number of bands
+%     increases, the values in each individual band shrink in order for `I` to
+%     match the brightness of `J`.
 %   - 'varying_penalty_params': If empty (`[]`), the penalty parameters
 %     passed in 'rho' will be fixed across all ADMM iterations. Otherwise,
 %     'varying_penalty_params' is a three-element vector containing the
@@ -221,6 +224,10 @@ function in = baek2017Algorithm2LowMemory(weights, options, in, varargin)
 nargoutchk(1, 1);
 narginchk(3, 4);
 
+% Enable output of a '.mat' file containing information for examining
+% convergence
+save_iterations = false;
+
 if ~isempty(varargin)
     verbose = varargin{1};
 else
@@ -260,6 +267,10 @@ end
 % Initialization
 len_I = length(in.I);
 in.M_Omega_Phi_J = in.M_Omega_Phi.' * in.J;
+n_bands = len_I / length(in.J);
+if n_bands ~= round(n_bands)
+    error('The ratio between the number of elements in `I` and `J` is not an integer.');
+end
 
 % Select the appropriate algorithm variant
 if all(~norms) && ~nonneg
@@ -286,6 +297,19 @@ else
         
     active_constraints = [norms, nonneg];
     n_Z = find(active_constraints, 1, 'last');
+    
+    if save_iterations
+        center_px_iter = zeros(options.maxit(2), n_bands);
+        center_px_ind = ceil(length(in.J) * ((1:n_bands) - 0.5));
+        pcg_n_iter = zeros(options.maxit(2), 1);
+        pcg_relres_iter = zeros(options.maxit(2), 1);
+        pcg_flag_iter = zeros(options.maxit(2), 1);
+        R_norm_iter = zeros(options.maxit(2), n_Z);
+        S_norm_iter = zeros(options.maxit(2), n_Z);
+        epsilon_pri_iter = zeros(options.maxit(2), n_Z);
+        epsilon_dual_iter = zeros(options.maxit(2), n_Z);
+        changed_penalty_parameters = false(options.maxit(2), n_Z);
+    end
     
     % Initialization
     len_Z = zeros(n_Z, 1);
@@ -319,6 +343,11 @@ else
             fprintf('%d:    PCG (flag = %d, relres = %g, iter = %d)\n',...
                 iter, flag, relres, iter_pcg...
                 );
+        end
+        if save_iterations
+            pcg_n_iter(iter) = iter_pcg;
+            pcg_relres_iter(iter) = relres;
+            pcg_flag_iter(iter) = flag;
         end
         
         converged = true;
@@ -357,15 +386,15 @@ else
             
             % Calculate stopping criteria
             % See Section 3.3.1 of Boyd et al. 2011.
-            epsilon_pri(z_ind) = sqrt(len_Z(z_ind)) * options.tol(2) +...
-                options.tol(3) * max([norm(in.g{z_ind}), norm(in.Z{z_ind})]);
+            epsilon_pri(z_ind) = (sqrt(len_Z(z_ind)) * options.tol(2) +...
+                options.tol(3) * max([norm(in.g{z_ind}), norm(in.Z{z_ind})])) / n_bands;
             in.Y{z_ind} = rho(z_ind) * in.U{z_ind};
             if z_ind == nonneg_ind
-                epsilon_dual(z_ind) = sqrt(len_I) * options.tol(2) +...
-                    options.tol(3) * norm(in.Y{z_ind});
+                epsilon_dual(z_ind) = (sqrt(len_I) * options.tol(2) +...
+                    options.tol(3) * norm(in.Y{z_ind})) / n_bands;
             else
-                epsilon_dual(z_ind) = sqrt(len_I) * options.tol(2) +...
-                    options.tol(3) * norm(in.G_T{z_ind} * in.Y{z_ind});
+                epsilon_dual(z_ind) = (sqrt(len_I) * options.tol(2) +...
+                    options.tol(3) * norm(in.G_T{z_ind} * in.Y{z_ind})) / n_bands;
             end
             converged = converged &&...
                 (R_norm(z_ind) < epsilon_pri(z_ind) && S_norm(z_ind) < epsilon_dual(z_ind));
@@ -378,6 +407,16 @@ else
                     iter, z_ind, epsilon_pri(z_ind), epsilon_dual(z_ind)...
                 );
             end
+            if save_iterations
+                R_norm_iter(iter, z_ind) = R_norm(z_ind);
+                S_norm_iter(iter, z_ind) = S_norm(z_ind);
+                epsilon_pri_iter(iter, z_ind) = epsilon_pri(z_ind);
+                epsilon_dual_iter(iter, z_ind) = epsilon_dual(z_ind);
+            end
+        end
+        
+        if save_iterations
+            center_px_iter(iter, :) = reshape(in.I(center_px_ind), 1, []);
         end
 
         % Check against stopping criteria
@@ -405,6 +444,9 @@ else
             end
             soft_thresholds = weights ./ rho(1:n_priors);
             inner(any(changed));
+            if save_iterations
+                changed_penalty_parameters(iter, :) = changed.';
+            end
         else
             inner(false);
         end
@@ -416,6 +458,14 @@ else
         else
             fprintf('Maximum number of iterations, %d, reached without convergence.\n', iter);
         end
+    end
+    if save_iterations
+        save(...
+            sprintf('saveIterations_bands%d_datetime_%s.mat', n_bands, num2str(now)),...
+            'n_bands', 'center_px_iter', 'center_px_ind', 'pcg_n_iter', 'pcg_relres_iter',...
+            'pcg_flag_iter', 'R_norm_iter', 'S_norm_iter', 'epsilon_pri_iter',...
+            'epsilon_dual_iter', 'changed_penalty_parameters', 'iter', 'converged'...
+        );
     end
 end
 

@@ -194,7 +194,7 @@ reverse_dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Res
 color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/SonyColorMapData.mat';
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/Downloads/new_patch';
+output_directory = '/home/llanos/Downloads/stricter_epsilon';
 
 % ## Options for patch-wise image estimation
 
@@ -202,14 +202,14 @@ output_directory = '/home/llanos/Downloads/new_patch';
 % column) location. If empty (`[]`), the entire image will be estimated. The
 % patch corner indices must be odd integers to avoid creating a patch with a
 % different colour filter array pattern from the whole image.
-target_patch = [1129, 943];
+target_patch = [1601, 767];
 
 % Only select regularization weights for a single patch, with its top-left
 % corner at the given (row, column) location. If empty (`[]`), regularization
 % weights will be selected for each patch separately. (THIS IS SLOW) Again, the
 % patch corner indices must be odd integers to avoid creating a patch with a
 % different colour filter array pattern from the whole image.
-target_patch_weights = [141, 1115];
+target_patch_weights = [1601, 767];
 
 % Also compare with (or only run) whole image estimation, meaning that the image
 % is treated as a single patch. Only enable this for small images.
