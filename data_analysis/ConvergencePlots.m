@@ -11,12 +11,12 @@
 
 % Image estimation parameters and results '.mat' file, such as output by
 % 'CorrectByHyperspectralADMM.m'
-parameters_filename = '/home/llanos/Downloads/stricter_epsilon/CorrectByHyperspectralADMM.mat';
+parameters_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190325_ADMM_Convergence/stricter_epsilon/CorrectByHyperspectralADMM.mat';
 
 % Wildcard for 'ls()' to find the 'saveIterations*.mat' files to load.
 % Only the last few files will be loaded, corresponding to the steps in
 % multi-stage image estimation.
-input_data_wildcard = '/home/llanos/Downloads/stricter_epsilon/saveIterations*.mat';
+input_data_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190325_ADMM_Convergence/stricter_epsilon/saveIterations*.mat';
 
 %% Initialization
 
@@ -201,6 +201,16 @@ end
 
 % Add legends to plots
 figure(fg_px);
+% Also add a zero line, to make visual inspection easier
+hold on
+plot(...
+    [1 iter_offset], [0, 0],...
+    'Color', [0, 0, 0],...
+    'LineWidth', 1,...
+    'Marker', 'none',...
+    'LineStyle', '-'...
+);
+hold off
 legend_str_px = vertcat(legend_str_px{:});
 legend(legend_str_px{:});
 

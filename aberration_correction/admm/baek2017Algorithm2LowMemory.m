@@ -60,10 +60,7 @@ function in = baek2017Algorithm2LowMemory(weights, options, in, varargin)
 %     function, such as when solving the I-minimization step of the ADMM
 %     algorithm. The second and third elements are the absolute and relative
 %     tolerance values for the ADMM algorithm, as explained in Section 3.3.1 of
-%     Boyd et al. 2011. These last two elements will be normalized by the number
-%     of spectral bands or channels in `I`, because as the number of bands
-%     increases, the values in each individual band shrink in order for `I` to
-%     match the brightness of `J`.
+%     Boyd et al. 2011.
 %   - 'varying_penalty_params': If empty (`[]`), the penalty parameters
 %     passed in 'rho' will be fixed across all ADMM iterations. Otherwise,
 %     'varying_penalty_params' is a three-element vector containing the
@@ -267,10 +264,6 @@ end
 % Initialization
 len_I = length(in.I);
 in.M_Omega_Phi_J = in.M_Omega_Phi.' * in.J;
-n_bands = len_I / length(in.J);
-if n_bands ~= round(n_bands)
-    error('The ratio between the number of elements in `I` and `J` is not an integer.');
-end
 
 % Select the appropriate algorithm variant
 if all(~norms) && ~nonneg
@@ -299,6 +292,10 @@ else
     n_Z = find(active_constraints, 1, 'last');
     
     if save_iterations
+        n_bands = len_I / length(in.J);
+        if n_bands ~= round(n_bands)
+            error('The ratio between the number of elements in `I` and `J` is not an integer.');
+        end
         center_px_iter = zeros(options.maxit(2), n_bands);
         center_px_ind = ceil(length(in.J) * ((1:n_bands) - 0.5));
         pcg_n_iter = zeros(options.maxit(2), 1);
@@ -386,15 +383,15 @@ else
             
             % Calculate stopping criteria
             % See Section 3.3.1 of Boyd et al. 2011.
-            epsilon_pri(z_ind) = (sqrt(len_Z(z_ind)) * options.tol(2) +...
-                options.tol(3) * max([norm(in.g{z_ind}), norm(in.Z{z_ind})])) / n_bands;
+            epsilon_pri(z_ind) = sqrt(len_Z(z_ind)) * options.tol(2) +...
+                options.tol(3) * max([norm(in.g{z_ind}), norm(in.Z{z_ind})]);
             in.Y{z_ind} = rho(z_ind) * in.U{z_ind};
             if z_ind == nonneg_ind
-                epsilon_dual(z_ind) = (sqrt(len_I) * options.tol(2) +...
-                    options.tol(3) * norm(in.Y{z_ind})) / n_bands;
+                epsilon_dual(z_ind) = sqrt(len_I) * options.tol(2) +...
+                    options.tol(3) * norm(in.Y{z_ind});
             else
-                epsilon_dual(z_ind) = (sqrt(len_I) * options.tol(2) +...
-                    options.tol(3) * norm(in.G_T{z_ind} * in.Y{z_ind})) / n_bands;
+                epsilon_dual(z_ind) = sqrt(len_I) * options.tol(2) +...
+                    options.tol(3) * norm(in.G_T{z_ind} * in.Y{z_ind});
             end
             converged = converged &&...
                 (R_norm(z_ind) < epsilon_pri(z_ind) && S_norm(z_ind) < epsilon_dual(z_ind));
