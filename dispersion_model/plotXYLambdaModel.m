@@ -73,7 +73,8 @@ function plotXYLambdaModel(X, x_field, disparity, disparity_field, varargin)
 %   evaluates models of dispersion in X, Y, and lambda, or which evaluates
 %   a separate set of models in X and Y for each colour channel.
 %
-% See also xylambdaPolyfit, xylambdaSplinefit, statsToDisparity
+% See also xylambdaPolyfit, xylambdaSplinefit, statsToDisparity,
+% plotXYLambdaModel2
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
