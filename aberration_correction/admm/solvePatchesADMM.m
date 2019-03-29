@@ -50,7 +50,7 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %   to the model of dispersion.
 %
 % [ I, I_rgb, weights_images, J_full, J_est, I_warped, search ] = solvePatchesADMM(...)
-%   Additionally returns the search path taken to select regularizaion
+%   Additionally returns the search path taken to select regularization
 %   weights for a single image patch. This call syntax is available only
 %   when `patch_options.target_patch` exists.
 %

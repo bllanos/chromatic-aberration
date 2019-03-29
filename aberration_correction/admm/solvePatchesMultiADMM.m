@@ -2,14 +2,19 @@ function [ bands, I_3D, varargout ] = solvePatchesMultiADMM(...
     I_in, J_2D, align, dispersionfun, color_map, color_bands, sampling_options,...
     admm_options, reg_options, patch_options, varargin...
 )
-% SOLVEPATCHESMULTIADMM  Repeat ADMM at different spectral resolutions
+% SOLVEPATCHESMULTIADMM  Run ADMM at different spectral resolutions
 %
 % ## Usage
 %
-% This is a version of 'solvePatchesADMM()' which estimates the image at
-% successively higher spectral resolutions, for improved stability.
-% 'solvePatchesADMM()' estimates the image directly at the given spectral
-% resolution.
+% This is a version of 'solvePatchesADMM()' which assumes that the image can be
+% estimated at arbitrary spectral resolutions. As such, it will choose the
+% appropriate spectral resolution, and can estimate the image at successively
+% higher spectral resolutions if desired.
+%
+% In contrast, 'solvePatchesADMM()' estimates the image directly at a given
+% spectral resolution. Consequently, 'solvePatchesADMM()' is appropriate when
+% the output image is composed of colour channels, which are categorical, not
+% sampled, representations of spectral information.
 %
 % ## Syntax
 % [ bands, I ] = solvePatchesMultiADMM(...
@@ -52,7 +57,7 @@ function [ bands, I_3D, varargout ] = solvePatchesMultiADMM(...
 %   to the model of dispersion.
 %
 % [ bands, I, I_rgb, weights_images, J_full, J_est, I_warped, search ] = solvePatchesMultiADMM(...)
-%   Additionally returns the search path taken to select regularizaion
+%   Additionally returns the search path taken to select regularization
 %   weights for a single image patch, at the highest spectral resolution.
 %   This call syntax is available only when `patch_options.target_patch`
 %   exists.
@@ -137,16 +142,16 @@ function [ bands, I_3D, varargout ] = solvePatchesMultiADMM(...
 %   The following fields are in addition to those used by
 %   'findSampling()':
 %   - 'progression': A character vector describing how to select the
-%     intermediate numbers of wavelengths at which to estimate the latent
-%     image. The final number of wavelengths, denoted by 'S' below, is
-%     determined by calling 'findSampling()' with the options given
-%     above.
-%     - 'sequential': Use the following numbers of wavelengths: 1, 2, 3,
-%       ..., S.
-%     - 'doubling': Use the following numbers of wavelengths: 1, 2, 4, 8,
-%       ..., 2 ^ floor(log_2(S)), S. (If 'S' is equal to `2 ^
-%       floor(log_2(S))`, then the sequence ends with `2 ^
-%       floor(log_2(S))`.)
+%     intermediate numbers of bands at which to estimate the latent image. The
+%     final number of bands, denoted by 'S' below, is determined by calling
+%     'findSampling()' with the options given above.
+%     - 'sequential': Use the following numbers of wavelengths: 3, 4, 5, ..., S.
+%       If 'S' is less than 3, then the sequence is just 'S'.
+%     - 'doubling': Use the following numbers of wavelengths: 4, 8, ...,
+%       2 ^ floor(log_2(S)), S. (If 'S' is equal to `2 ^ floor(log_2(S))`, then
+%       the sequence ends with `2 ^ floor(log_2(S))`.) If 'S' is less than 4,
+%       then the sequence is just 'S'.
+%     - 'last': Estimate the latent image at 'S' bands directly.
 %   - 'show_steps': A logical scalar which, if `true`, causes the function
 %     to return the images for all intermediate numbers of wavelengths, not
 %     only for 'S' wavelengths. When 'show_steps' is `true`:
@@ -522,14 +527,20 @@ if enabled_weights(2) && n_bands_final < 2
     error('Cannot enable spectral regularization because the output image will have a single channel or spectral band.');
 end
 if strcmp(sampling_options.progression, 'sequential')
-    n_bands_all = 1:n_bands_final;
+    n_bands_all = min(3, n_bands_final):n_bands_final;
 elseif strcmp(sampling_options.progression, 'doubling')
-    np2 = nextpow2(n_bands_final);
-    if 2 ^ np2 == n_bands_final
-        n_bands_all = pow2(0:np2);
+    if n_bands_final > 3
+        np2 = nextpow2(n_bands_final);
+        if 2 ^ np2 == n_bands_final
+            n_bands_all = pow2(0:np2);
+        else
+            n_bands_all = [pow2(0:(np2 - 1)) n_bands_final];
+        end
     else
-        n_bands_all = [pow2(0:(np2 - 1)) n_bands_final];
+        n_bands_all = n_bands_final;
     end
+elseif strcmp(sampling_options.progression, 'last')
+    n_bands_all = n_bands_final;
 else
     error('Unrecognized value of `sampling_options.progression`.');
 end

@@ -169,7 +169,7 @@ solvePatchesMultiADMMOptions.sampling_options = findSamplingOptions;
 
 % How to choose spectral resolutions lower than the one given by
 % 'findSampling()' based on the above options.
-solvePatchesMultiADMMOptions.sampling_options.progression = 'doubling';
+solvePatchesMultiADMMOptions.sampling_options.progression = 'last';
 
 % Output the results for the lower spectral resolutions. CAUTION: Not
 % recommended when estimating large images, because of memory consumption.
@@ -211,7 +211,7 @@ solvePatchesADMMOptions.admm_options.maxit = [ 500, 500 ];
 solvePatchesADMMOptions.admm_options.varying_penalty_params = [2, 2, 10];
 
 % Types of norms to use on the prior terms
-solvePatchesADMMOptions.admm_options.norms = [true, false, false];
+solvePatchesADMMOptions.admm_options.norms = [true, true, false];
 
 % Whether to apply a non-negativity constraint (in which case, `rho` must
 % have four elements)
@@ -231,7 +231,7 @@ solvePatchesMultiADMMOptions.admm_options = solvePatchesADMMOptions.admm_options
 % Only use even integers for the patch and padding sizes, to ensure that patches
 % are valid colour filter array images.
 patch_sizes = [ % Each row contains a (number of rows, number of columns) pair
-   128 128;
+   64 64;
 ]; 
 paddings = 16;
 
@@ -291,7 +291,7 @@ solvePatchesADMMOptions.reg_options.n_iter = [weights_iter_max, 6];
 % option.
 solvePatchesADMMOptions.reg_options.demosaic = true;
 % Which channels of the demosaicking result to use for evaluating similarity
-solvePatchesADMMOptions.reg_options.demosaic_channels = [true, true, true];
+solvePatchesADMMOptions.reg_options.demosaic_channels = [false, true, false];
 
 solvePatchesMultiADMMOptions.reg_options = solvePatchesADMMOptions.reg_options;
 
