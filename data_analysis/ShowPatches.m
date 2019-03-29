@@ -39,38 +39,45 @@ parameters_list = {};
 %% Input data and parameters
 
 patch_size = [101, 101]; % Odd integers: Number of columns, number of rows
+inset_fraction = 0.18; % Dimensions of region to extract for the inset, as a fraction of the patch size
+inset_magnification = 2; % Integer factor by which to magnify the region extracted for the inset
 
 % Images to evaluate, as filename prefixes and evaluation patches
+%
+% Patches are listed as (x, y) image indices of the centre pixel, followed by
+% the (x, y) image indices of the centre pixel for the inset. The inset must lie
+% within the borders of the patch.
 images = struct(...
     'd1_colorChecker30cm_', struct(...
         'flip', false,...
-        'patches', [... % Patches are listed as (x, y) image indices of the centre pixel
-            1963, 1526; % 'mm' sign
-            286, 1471 % 'X-rite'
+        'patches', [...
+            1963, 1526, 1981, 1503; % 'mm' sign
+            286, 1471, 290, 1471 % 'X-rite'
         ]...
     ),...
     'd2_book_', struct(...
         'flip', true,...
-        'patches', [... % Patches are listed as (x, y) image indices of the centre pixel
-            723, 1676; % Smallest doll
-            766, 610; % Pattern on book cover
-            2131, 1455; % Painting inside glass bottle
-            437, 196 % Edge between two colours on book cover
+        'patches', [...
+            723, 1676, 726, 1688; % Smallest doll
+            766, 610, 792, 634; % Pattern on book cover
+            2131, 1455, 2094, 1436; % Painting inside glass bottle
+            1789, 1366, 1750, 1379; % Box for glass bottle
+            437, 196, 437, 196 % Edge between two colours on book cover
         ]...
     ),...
     'd2_glass_', struct(...
         'flip', true,...
         'patches', [...
-            1028, 830; % Dots in shadow of crystal ball
-            2361, 743 % Dot beside star trophy
+            927, 1071, 912, 1070; % Dots in shadow of crystal ball
+            2361, 743, 2353, 730 % Dot beside star trophy
         ]...
     ),...
     'd2_ship_', struct(...
         'flip', true,...
         'patches', [...
-            1662, 533; % Rock, noise pattern, and dolphin on upper right
-            70, 1081; % Stern lantern
-            1704, 1439 % Noise pattern
+            633, 465, 640, 465; % Specular highlight on dolphin's head
+            1662, 533, 1677, 521; % Rock, noise pattern, and dolphin on upper right
+            2363, 1359, 2363, 1359 % Noise pattern
         ]...
     )...
 );
@@ -127,7 +134,7 @@ whitepoint = [1, 1, 1];
 % Output figure paper size, in inches
 output_size_page = [15, 15];
 % Output figure width, in inches
-output_width = 7;
+output_width = 9.5;
 % Horizontal and vertical offsets from the lower left corner of the page, in
 % inches
 output_margin = [0.25, 0.25];
@@ -157,7 +164,15 @@ I_filename = fullfile(input_directory, sprintf('%s%s%s', image_prefixes{1}, algo
 I = imread(I_filename);
 class_images = class(I);
 
+inset_size = floor(inset_fraction * patch_size);
+inset_size(mod(inset_size, 2) == 0) = inset_size(mod(inset_size, 2) == 0) + 1;
+inset_size_output = inset_magnification * inset_size;
+roi_inset_output = [
+    patch_size(2) - inset_size_output(2) + 1, patch_size(2),...
+    1, inset_size_output(1)
+];
 half_width = floor((patch_size - 1) / 2);
+inset_half_width = floor((inset_size - 1) / 2);
 output_postfix = '.pdf';
 font_size = max(12, floor(0.05 * max(patch_size)));
 text_offset = [font_size * 2, font_size];
@@ -180,10 +195,15 @@ for i = 1:n_images
         I_montage = zeros([n_rows * patch_size(2), n_cols * patch_size(1), n_channels_rgb], class_images);
         
         for pc = 1:size(patches, 1)
-            patch = patches(pc, :);
+            patch = patches(pc, 1:2);
             roi_image = [
                 patch(2) - half_width(2), patch(2) + half_width(2),...
                 patch(1) - half_width(1), patch(1) + half_width(1)
+            ];
+            inset = patches(pc, 3:4) - roi_image([3, 1]) + 1;
+            roi_inset = [
+                inset(2) - inset_half_width(2), inset(2) + inset_half_width(2),...
+                inset(1) - inset_half_width(1), inset(1) + inset_half_width(1)
             ];
             algorithm_index = 1;
             
@@ -266,9 +286,25 @@ for i = 1:n_images
                         sub_image = I(roi_image(1):roi_image(2), roi_image(3):roi_image(4), :);
                     end
                     
+                    % Prepare inset
+                    sub_image_inset = sub_image(roi_inset(1):roi_inset(2), roi_inset(3):roi_inset(4), :);
+                    sub_image_inset = imresize(...
+                        sub_image_inset, [inset_size_output(2) inset_size_output(1)],...
+                        'nearest'...
+                    );
+                    % Add a small border
+                    sub_image_inset(1, :, :) = 0;
+                    sub_image_inset(end, :, :) = 0;
+                    sub_image_inset(:, 1, :) = 0;
+                    sub_image_inset(:, end, :) = 0;
+                    
                     if flip
                         sub_image = rot90(sub_image, 2);
+                        sub_image_inset = rot90(sub_image_inset, 2);
                     end
+                    sub_image(roi_inset_output(1):roi_inset_output(2), roi_inset_output(3):roi_inset_output(4), :) = sub_image_inset;
+                    
+
                     I_montage(roi_montage(1):roi_montage(2), roi_montage(3):roi_montage(4), :) = sub_image;
                     
                     algorithm_index = algorithm_index + 1;
