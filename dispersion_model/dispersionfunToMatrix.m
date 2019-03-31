@@ -1,27 +1,30 @@
-function [ W, image_bounds_out ] = dispersionfunToMatrix(dispersionfun, lambda, image_sampling_in, varargin)
+function [...
+    W, image_bounds_out, lambda_dispersion...
+] = dispersionfunToMatrix(dispersionfun, spectral_options, image_sampling_in, varargin)
 % DISPERSIONFUNTOMATRIX  Convert a warp model to a warp matrix, or use it
 % directly to warp an image
 %
 % ## Syntax
 % W = dispersionfunToMatrix(...
-%   dispersionfun, lambda, image_sampling_in [, image_sampling_out,...
+%   dispersionfun, spectral_options, image_sampling_in [, image_sampling_out,...
 %   image_bounds, negate, offset]...
 % )
 % I_in = dispersionfunToMatrix(...
-%   dispersionfun, lambda, image_sampling_in, I_out [,...
+%   dispersionfun, spectral_options, image_sampling_in, I_out [,...
 %   image_bounds, negate, offset]...
 % )
 % [ ____, image_bounds ] = dispersionfunToMatrix(____)
+% [ ____, image_bounds, lambda_dispersion ] = dispersionfunToMatrix(____)
 %
 % ## Description
 % W = dispersionfunToMatrix(...
-%   dispersionfun, lambda, image_sampling_in [, image_sampling_out,...
+%   dispersionfun, spectral_options, image_sampling_in [, image_sampling_out,...
 %   image_bounds, negate, offset]...
 % )
 %   Returns a matrix for distorting a vectorized image.
 %
 % I_in = dispersionfunToMatrix(...
-%   dispersionfun, lambda, image_sampling_in, I_out [,...
+%   dispersionfun, spectral_options, image_sampling_in, I_out [,...
 %   image_bounds, negate, offset]...
 % )
 %   Returns the distorted version of the input image.
@@ -29,6 +32,10 @@ function [ W, image_bounds_out ] = dispersionfunToMatrix(dispersionfun, lambda, 
 % [ ____, image_bounds ] = dispersionfunToMatrix(____)
 %   Additionally returns the boundaries of the undistorted image in the
 %   coordinate system of the distorted image.
+%
+% [ ____, image_bounds, lambda_dispersion ] = dispersionfunToMatrix(____)
+%   Additionally returns the spectral bands at which the dispersion model was
+%   sampled.
 %
 % ## Input Arguments
 %
@@ -38,9 +45,63 @@ function [ W, image_bounds_out ] = dispersionfunToMatrix(dispersionfun, lambda, 
 %   y_1, lambda), returns the displacement vector from the distorted
 %   position `X_1` to its undistorted position (x_2, y_2, lambda).
 %
-% lambda -- Wavelength bands
-%   A vector of length 'n' containing the wavelengths or colour channel
-%   indices at which to evaluate the warp model
+% spectral_options -- Spectral sampling options
+%   `spectral_options` is a structure of options controlling the spectral
+%   sampling of dispersion, and allowing for simultaneous warping, and spectral
+%   resampling or conversion to colour.
+%
+%   The following fields are mandatory:
+%   - 'bands_in': A vector of length 'n' containing the wavelengths or colour
+%     channel indices at which the images to be warped are sampled. 'bands_in'
+%     must have the same length as the size of `I_out` in its third dimension.
+%     `bands_in` must contain evenly-spaced values if spectral resampling is to
+%     occur (depending on the options below).
+%
+%   The following fields are optional:
+%   - 'resolution': A non-negative scalar providing the desired approximate
+%     spacing, in pixels, between the images for consecutive wavelengths at
+%     which the dispersion is to be sampled. If 'resolution' is zero or is
+%     missing, the dispersion function will be evaluated at the elements of
+%     'bands_in'. Otherwise, it will be evaluated at a set of wavelengths which
+%     would, if dispersion varied linearly with wavelength, have images which
+%     are shifted relative to those for neighbouring wavelengths by
+%     approximately 'resolution' pixels.
+%   - 'bands_out': A vector of length 'm' containing the wavelengths at which
+%     the warped images must be sampled. If 'bands_out' is missing, it will be
+%     set equal to 'bands_in'. Either 'bands_out', or 'color_map' and
+%     'color_bands' can be present, not both.
+%   - 'color_map': A 2D array with 'm' rows, where `color_map(i, j)` is the
+%     sensitivity of the i-th colour channel of the warped image to the j-th
+%     spectral band in `color_bands`. In contrast with the `sensitivity`
+%     argument of 'solvePatchesADMM()', `color_map` is not a colour conversion
+%     matrix, as it does not perform the desired numerical integration, over the
+%     spectrum, that is part of colour conversion. Either 'bands_out', or
+%     'color_map' and 'color_bands' can be present, not both.
+%   - 'color_bands': A vector, of length equal to the size of the second
+%     dimension of 'color_map', containing the wavelengths at which the
+%     sensitivity functions in `color_map` have been sampled. `color_bands(j)`
+%     is the wavelength corresponding to `color_map(:, j)`. The values in
+%     'color_bands' are expected to be evenly-spaced. Either 'bands_out', or
+%     'color_map' and 'color_bands' can be present, not both.
+%   - 'int_method': The numerical integration method to use when
+%     integrating over the responses of colour channels to compute colour
+%     values. `int_method` is passed to `integrationWeights()` as its `method`
+%     input argument. 'int_method' is not used if 'color_map' and 'color_bands'
+%     are not present.
+%   - 'bands_padding': Padding to use when computing spectral interpolation
+%     matrices. Refer to the documentation of the 'padding' input argument of
+%     'resamplingWeights()' for details, in 'resamplingWeights.m'.
+%   - 'interpolant': The function convolved with spectral signals to interpolate
+%     them during resampling. 'interpolant' is passed to 'resamplingWeights()'
+%     as its `f` input argument. Refer to the documentation of
+%     'resamplingWeights.m' for more details.
+%
+%   The above optional fields should either not be present if the dispersion
+%   matrix is to operate on colour channels instead of spectral bands, or should
+%   be given values which disable spectral resampling and conversion to colour,
+%   because it is nonsensical to resample colour channels. In the latter case,
+%   'resolution' should be zero, and 'bands_out' should be the same as
+%   'bands_in'. 'color_map' and 'color_bands' should not be present.
 %
 % image_sampling_in -- Distorted image dimensions
 %   A two-element vector containing the image height, and width,
@@ -73,11 +134,10 @@ function [ W, image_bounds_out ] = dispersionfunToMatrix(dispersionfun, lambda, 
 %   overlap exactly, then `image_bounds` should be set as follows:
 %     `image_bounds = [0, 0, image_sampling_in(2), image_sampling_in(1)]`
 %
-%   If `image_bounds` is empty or not passed, it will be set to the
-%   bounding box of the undistorted coordinates of the distorted image.
-%   More precisely, in this case, all pixels in the distorted image will be
-%   generated, as implemented in `W`, by bilinear interpolation of four
-%   different pixels in the undistorted image.
+%   If `image_bounds` is empty or not passed, it will be set to the bounding box
+%   of the undistorted coordinates of the distorted image. In this case, all
+%   pixels in the distorted image will be generated, as implemented in `W`, by
+%   bilinear interpolation of four different pixels in the undistorted image.
 %
 %   Otherwise, if `image_bounds` is not empty, and describes a space which
 %   is smaller than the bounding box of the undistorted coordinates of the
@@ -102,26 +162,33 @@ function [ W, image_bounds_out ] = dispersionfunToMatrix(dispersionfun, lambda, 
 % ## Output Arguments
 %
 % W -- Warp matrix
-%   A (n_px_in x n)-by-(n_px_out x n) sparse array (n = length(lambda))
-%   which warps the undistorted image to the distorted image, according to
-%   the equation:
+%   A (n_px_in x m)-by-(n_px_out x n) sparse array.
+%   - n is `length(spectral_options.bands_in)`, and
+%   - m is `length(spectral_options.bands_out)` or
+%     `size(spectral_options.color_map, 1)`, depending on which of
+%     `spectral_options.bands_out` or `spectral_options.color_map` exists.
+%
+%   `W` warps the undistorted image to the distorted image, and may
+%   simutaneously change the spectral sampling of the image or convert it to
+%   colour, depending on the settings in `spectral_options`. `W` operates
+%   according to the equation:
 %     `I_distorted = W * I_undistorted`
 %   `I_undistorted` is a vectorized form of an image where all pixels have
 %   been rearranged from columnwise order into a column vector.
 %   `I_undistorted(i + n_px_out * (k - 1))` is the value of the k-th
 %   wavelength band, or colour channel, at the i-th pixel of the
-%   undistorted image. Similarly, `I_distorted(j + n_px_in * (k - 1))` is
-%   the value of the k-th wavelength band or colour channel at the j-th
+%   undistorted image. Similarly, `I_distorted(j + n_px_in * (p - 1))` is
+%   the value of the p-th wavelength band or colour channel at the j-th
 %   pixel of the distorted image.
 %
 % I_in -- Output image
-%   An image_sampling_in(1) x image_sampling_in(2) x length(lambda) array
-%   containing the version of `I_out` distorted according to `dispersionfun`.
-%   The call syntax where `I_in` is returned instead of `W` is more memory
-%   efficient, because `W` consumes a lot of memory. However, calling this
-%   function for different values of `I_out`, to apply the same warp to
-%   different images, is equivalent to recomputing `W`, and is therefore slower
-%   than computing `W` and then applying it to the images.
+%   An image_sampling_in(1) x image_sampling_in(2) x m array containing the
+%   version of `I_out` distorted according to `dispersionfun`. The call syntax
+%   where `I_in` is returned instead of `W` is more memory efficient, because
+%   `W` consumes a lot of memory. However, calling this function for different
+%   values of `I_out`, to apply the same warp to different images, is equivalent
+%   to recomputing `W`, and is therefore slower than computing `W` and then
+%   applying it to the images.
 %
 % image_bounds -- Undistorted image coordinate frame
 %   A copy of the `image_bounds` input argument, or its calculated version,
@@ -129,32 +196,66 @@ function [ W, image_bounds_out ] = dispersionfunToMatrix(dispersionfun, lambda, 
 %   Refer to the documentation of the `image_bounds` input argument above
 %   for details.
 %
+% lambda_dispersion -- Dispersion evaluation wavelengths
+%   A vector containing the wavelengths at which `dispersionfun` was calculated.
+%   If 'spectral_options.resolution' is zero or is missing, `lambda_dispersion`
+%   is equal to 'spectral_optionsbands_in'. Otherwise, it is calculated as
+%   described in the following section.
+%
 % ## Algorithm
 %
-% `W` is created by first finding the undistorted position of each pixel in
-% the distorted image, using `dispersionfun`. Second, the function determines
+% In the case where spectral resampling or conversion to colour is not required,
+% `W` is created by first finding the undistorted position of each pixel in the
+% distorted image, using `dispersionfun`. Second, the function determines
 % bilinear interpolation weights on the pixels in the undistorted image
-% corresponding to the undistorted position, and enters these weights into
-% `W`. Therefore, `W(j + n_px_in * (k - 1), i + n_px_out * (k - 1))` is the
-% weight of the i-th pixel in the undistorted image in the bilinear
-% interpolation calculation yielding the j-th pixel in the distorted image,
-% for the k-th wavelength band.
+% corresponding to the undistorted position, and enters these weights into `W`.
+% Therefore, `W(j + n_px_in * (k - 1), i + n_px_out * (k - 1))` is the weight of
+% the i-th pixel in the undistorted image in the bilinear interpolation
+% calculation yielding the j-th pixel in the distorted image, for the k-th
+% colour channel or spectral band.
+%
+% If spectral resampling or conversion to colour is required, `W` is equivalent
+% to the product of three matrices, `W = C_1 * W_0 * C_2`. `C_2` converts the
+% undistorted image to the spectral sampling space used to calculate dispersion.
+% `W_0` warps the image, and `C_1` converts the result to the output spectral
+% bands or colour channels.
+%
+% When `spectral_options.resolution` is greater than zero, the function
+% determines the wavelengths at which to evaluate `dispersionfun` as follows:
+% - Select the four pixels that are the centers of the four quadrants of the
+%   distorted image. (The center of the image is not selected, because
+%   dispersion is often negligible in the image center. The corners of the image
+%   are not selected because dispersion is not modelled with as much accuracy at
+%   the edges of the image.)
+% - Select lower and upper wavelengths, `lambda_0` and `lambda_1`, at which to
+%   evaluate dispersion by finding the smallest and largest wavelengths,
+%   respectively, across `spectral_options.bands_in`,
+%   `spectral_options.bands_out`, and `spectral_options.color_bands`.
+% - Evaluate `dispersionfun` at `lambda_0` and `lambda_1`, at each of the four
+%   pixels previously selected.
+% - Find the longest displacement between the dispersion vectors for `lambda_0`
+%   and `lambda_1` across the four pixels.
+% - Divide the longest displacement by `spectral_options.resolution` to obtain
+%   the number of sub-intervals, `n_intervals`, into which to divide the
+%   wavelength interval from lambda_0 to lambda_1.
+% - The wavelengths at which to evaluate the model of dispersion are
+%   `lambda_dispersion = linspace(lambda_0, lambda_1, n_intervals + 1)`.
 %
 % ## Notes
-% - This function is presently not suitable for downsampling an image
+% - This function is presently not suitable for spatially downsampling an image
 %   during warping, as proper downsampling would involve blurring to avoid
-%   aliasing.
+%   aliasing, as opposed to simple bilinear interpolation.
 %
 % ## References
 % - V. Rudakova and P. Monasse. "Precise Correction of Lateral Chromatic
 %   Aberration in Images," Lecture Notes on Computer Science, 8333, pp.
 %   12–22, 2014.
-%   - See the end of section 3 on computing the values of a warped image.
+%   - See the end of Section 3 on computing the values of a warped image.
 % - J. Brauers and T. Aach. "Geometric Calibration of Lens and Filter
 %   Distortions for Multispectral Filter-Wheel Cameras," IEEE Transactions
 %   on Image Processing, vol. 20, no. 2, pp. 496-505, 2011.
-%   - Bilinear interpolation is used to compensate for chromatic
-%     aberration (page 501).
+%   - Bilinear interpolation is used to compensate for chromatic aberration
+%     (page 501).
 % - Bilinear interpolation formulae:
 %   https://en.wikipedia.org/wiki/Bilinear_interpolation
 %
@@ -165,7 +266,7 @@ function [ W, image_bounds_out ] = dispersionfunToMatrix(dispersionfun, lambda, 
 % University of Alberta, Department of Computing Science
 % File created May 6, 2018
 
-nargoutchk(1, 2);
+nargoutchk(1, 3);
 narginchk(3, 7);
 
 image_passed = false;
