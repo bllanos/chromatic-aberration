@@ -52,7 +52,7 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 %   `dispersion_matrix` can be empty (`[]`), if there is no model of
 %   dispersion. Otherwise, `dispersion_matrix` must be a matrix for warping
 %   `I`, the latent image, to the space of `J`, which is affected by
-%   dispersion.
+%   dispersion, and simultaneously converting `I` to the colour space of `J`.
 %
 % sensitivity -- Spectral band conversion matrix
 %   A 2D array, where `sensitivity(i, j)` is the sensitivity of the i-th
@@ -266,15 +266,15 @@ if compute_all
     has_dispersion = ~isempty(dispersion_matrix);
     if has_dispersion
         if isfloat(dispersion_matrix) && ismatrix(dispersion_matrix)
-            if size(dispersion_matrix, 1) ~= n_elements_I
-                error('`dispersion_matrix` must have as many rows as there are pixels in `J` times bands.');
+            if size(dispersion_matrix, 1) ~= size(out.Omega, 1)
+                error('`dispersion_matrix` must have as many rows as there are values in `J`.');
             elseif size(dispersion_matrix, 2) ~= n_elements_I
                 error('`dispersion_matrix` must have as many columns as there are values in `I`.');
             end
         else
             error('`dispersion_matrix` must be a floating-point matrix.');
         end
-        out.Omega_Phi = out.Omega * dispersion_matrix;
+        out.Omega_Phi = dispersion_matrix;
     end
 
     out.G = cell(n_priors, 1); 
@@ -325,9 +325,10 @@ if compute_all
 
     out.I = zeros(n_elements_I, 1);
     if strcmp(options.init, 'uniform')
-        out.InitMatrix = out.M * channelConversionMatrix(image_sampling, sum(sensitivity, 2));
         if has_dispersion
-            out.InitMatrix = out.InitMatrix * dispersion_matrix;
+            out.InitMatrix = out.M * dispersion_matrix;
+        else
+            out.InitMatrix = out.M * channelConversionMatrix(image_sampling, sum(sensitivity, 2));
         end
     elseif ~strcmp(options.init, 'zero')
         error('Unrecognized value of `options.init`.');
