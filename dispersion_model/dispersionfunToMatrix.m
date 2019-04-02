@@ -279,8 +279,8 @@ if has_color_map
         error('If `options.color_map` exists, then `options.bands_out` must also exist.');
     end
     color_map = options.color_map;
-    if size(color_map, 1) ~= n_bands_out
-        error('`options.color_map` must have as many rows as the length of `options.bands_out`.');
+    if size(color_map, 2) ~= n_bands_out
+        error('`options.color_map` must have as many columns as the length of `options.bands_out`.');
     end
 end
 
@@ -345,6 +345,7 @@ if do_post_resampling
         post_map = colorWeights(...
             color_map, bands_out, bands_dispersion, color_weights_options...
         );
+        n_bands_out = size(color_map, 1);
     else
         post_map = resamplingWeights(...
             bands_out, bands_dispersion, post_interpolant, options.bands_padding...
@@ -436,6 +437,9 @@ for col = 1:image_sampling(2)
     neighbour_y = reshape(neighbour_index_y - 0.5, [], n_offsets);
 
     % Replicate pixels outside the image boundaries
+    %
+    % MATLAB's sparse matrix constructor will add values for coefficients given
+    % the same index in the sparse matrix.
     neighbour_index_x(neighbour_index_x < 1) = 1;
     neighbour_index_x(neighbour_index_x > image_sampling(2)) = image_sampling(2);
     neighbour_index_y(neighbour_index_y < 1) = 1;
@@ -493,8 +497,8 @@ for col = 1:image_sampling(2)
     else
         index_out_linear = sub2ind(...
             [n_px_lambda_out, n_px_lambda_in],...
-            repmat((1:image_sampling(1)).' + image_sampling(1) * (col - 1), n_bands_out, 1) + repelem((0:(n_bands_out - 1)).', image_sampling(1), 1),...
-            repmat((1:n_px_lambda_in).', n_px_col, 1)...
+            repmat(repmat((1:image_sampling(1)).' + image_sampling(1) * (col - 1), n_bands_out, 1) + repelem((0:(n_bands_out - 1)).', image_sampling(1), 1), n_px_lambda_in, 1),...
+            repelem((1:n_px_lambda_in).', image_sampling(1) * n_bands_out, 1)...
         );
         W(index_out_linear) = reshape(W_col_all, [], 1);
     end

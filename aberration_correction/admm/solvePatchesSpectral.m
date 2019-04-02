@@ -730,7 +730,8 @@ parfor j = 1:n_j
 
             % Solve for the output patch
             n_bands_t = n_bands_all(t);
-            numel_p = prod(image_sampling_p) * n_bands_t;
+            n_px_p = prod(image_sampling_p);
+            numel_p = n_px_p * n_bands_t;
             n_bands_t1 = n_bands_t - 1;
             color_weights_t = color_weights_all{t};
             enabled_weights_t = enabled_weights;
@@ -784,12 +785,21 @@ parfor j = 1:n_j
                         'spectral_weights', spectral_weights_all{t}...
                     );
                 else
-                    dispersion_matrix_p_weights = dispersion_matrix_p;
+                    n_demosaic_channels = sum(reg_options.demosaic_channels);
+                    demosaic_row_indices = zeros(n_demosaic_channels * n_px_p, 1);
+                    dc_output_ind = 0;
+                    for dc = 1:length(reg_options.demosaic_channels)
+                        if reg_options.demosaic_channels(dc)
+                            dc_output_ind = dc_output_ind + 1;
+                            demosaic_row_indices(((dc_output_ind - 1) * n_px_p + 1):(dc_output_ind * n_px_p)) = (((dc - 1) * n_px_p + 1):(dc * n_px_p)).';
+                        end
+                    end
+                    dispersion_matrix_p_weights = dispersion_matrix_p(demosaic_row_indices, :);
                     I_in_p = struct(...
                         'I', reshape(bilinearDemosaic(...
                                 column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)),...
                                 align, reg_options_p.demosaic_channels...
-                             ), [], 1, sum(reg_options_p.demosaic_channels)),...
+                             ), [], 1, n_demosaic_channels),...
                         'spectral_weights', color_weights_all{t}(reg_options_p.demosaic_channels, :)...
                     );
                 end

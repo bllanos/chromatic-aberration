@@ -542,7 +542,8 @@ parfor j = 1:n_j
         ];
         patch_end_row = min(corner(1) + patch_size(1) - 1, image_sampling(1));
         image_sampling_p(1) = diff(patch_lim_rows) + 1;
-        numel_p = prod(image_sampling_p) * n_channels;
+        n_px_p = prod(image_sampling_p);
+        numel_p = n_px_p * n_channels;
         
         if has_dispersion
             dispersion_matrix_p = dispersionfunToMatrix(...
@@ -571,16 +572,30 @@ parfor j = 1:n_j
             end
                         
         elseif input_I_in || reg_options.demosaic
-            I_in_p = struct('spectral_weights', sensitivity);
             if input_I_in
                 dispersion_matrix_p_weights = [];
-                I_in_p.I = column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.I_in(1):channels_in.I_in(2));
+                I_in_p = struct(...
+                    'spectral_weights', sensitivity,...
+                    'I', column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.I_in(1):channels_in.I_in(2))...
+                );
             else
-                dispersion_matrix_p_weights = dispersion_matrix_p;
-                I_in_p.I = reshape(bilinearDemosaic(...
-                    column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)),...
-                    align, reg_options.demosaic_channels...
-                ), [], 1, sum(reg_options.demosaic_channels));
+                n_demosaic_channels = sum(reg_options.demosaic_channels);
+                demosaic_row_indices = zeros(n_demosaic_channels * n_px_p, 1);
+                dc_output_ind = 0;
+                for dc = 1:length(reg_options.demosaic_channels)
+                    if reg_options.demosaic_channels(dc)
+                        dc_output_ind = dc_output_ind + 1;
+                        demosaic_row_indices(((dc_output_ind - 1) * n_px_p + 1):(dc_output_ind * n_px_p)) = (((dc - 1) * n_px_p + 1):(dc * n_px_p)).';
+                    end
+                end
+                dispersion_matrix_p_weights = dispersion_matrix_p(demosaic_row_indices, :);
+                I_in_p = struct(...
+                    'spectral_weights', sensitivity(reg_options.demosaic_channels, :),...
+                    'I', reshape(bilinearDemosaic(...
+                        column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)),...
+                        align, reg_options.demosaic_channels...
+                    ), [], 1, n_demosaic_channels)...
+                );
             end
             in_weightsLowMemory = initWeightsLowMemory(I_in_p, dispersion_matrix_p_weights, numel_p);
             if output_search
