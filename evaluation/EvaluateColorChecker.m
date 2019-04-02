@@ -47,6 +47,18 @@
 % A '.mat' file containing a variable 'xyzbar', which can be used as the
 % `C` input argument of 'cieSpectralToColor()'.
 %
+% #### Colour space conversion data
+% A '.mat' file containing several variables, which is the output of
+% 'SonyColorMap.m', for example. The following variables are required:
+% - 'sensor_map': A 2D array, where `sensor_map(i, j)` is the sensitivity
+%   of the i-th colour channel of the output sensor response images to the
+%   j-th spectral band of the spectral images.
+% - 'channel_mode': A Boolean value indicating whether the input colour
+%   space is a set of colour channels (true) or a set of spectral bands
+%   (false). A value of `false` is required.
+% - 'bands': A vector containing the wavelengths corresponding to the
+%   second dimension of 'sensor_map'.
+%
 % ### Estimated images
 %
 % Two filepath wildcards in the script parameters below are used to locate the
@@ -184,8 +196,7 @@ parameters_list = {
     'true_image_filename',...
     'bands_filename',...
     'bands_variable',...
-    'color_weights_filename',...
-    'color_weights_variable'...
+    'color_map_filename'...
     };
 
 %% Input data and parameters
@@ -257,10 +268,8 @@ spectral_variable_name = 'I_latent'; % Used only when loading '.mat' files
 bands_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_dispersion/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
 bands_variable = 'bands'; % Variable name in the above file
 
-% Path and filename of a '.mat' file containing the conversion matrix for
-% spectral bands to raw colour channels
-color_weights_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_dispersion/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
-color_weights_variable = 'color_weights'; % Variable name in the above file
+% Colour space conversion data
+color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/NikonD5100ColorMapData.mat';
 
 % Wildcard for 'ls()' to find the estimated colour images to process (can be
 % empty). '.mat' or image files can be loaded.
@@ -303,13 +312,18 @@ if has_spectral
     end
     n_bands_qhyper = length(bands_qhyper);
 
-    load(color_weights_filename, color_weights_variable);
-    if exist(color_weights_variable, 'var')
-        color_weights = eval(color_weights_variable);
+    model_variables_required = { 'sensor_map', 'channel_mode', 'bands' };
+    load(color_map_filename, model_variables_required{:});
+    if ~all(ismember(model_variables_required, who))
+        error('One or more of the required colour space conversion variables is not loaded.')
     end
-    if ~exist(color_weights_variable, 'var') || isempty(color_weights)
-        error('No spectral to colour conversion matrix loaded.')
+    if channel_mode
+        error('The input space of the colour conversion data must be a spectral space, not a space of colour channels.')
     end
+    bands_color = bands;
+    color_weights = colorWeights(...
+        sensor_map, bands_color, bands_estimated, findSamplingOptions...
+    );
 end
 
 %% Calibrate vignetting

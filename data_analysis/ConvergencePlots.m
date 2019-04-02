@@ -16,7 +16,7 @@ parameters_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190325_
 % Wildcard for 'ls()' to find the 'saveIterations*.mat' files to load.
 % Only the last few files will be loaded, corresponding to the steps in
 % multi-stage image estimation.
-input_data_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190325_ADMM_Convergence/stricter_epsilon/saveIterations*.mat';
+input_data_wildcard = '/home/llanos/Downloads/temp/saveIterations*.mat';
 
 %% Initialization
 
@@ -28,14 +28,14 @@ else
     bands = {bands};
 end
 
-enabled_weights = solvePatchesMultiADMMOptions.reg_options.enabled;
+enabled_weights = solvePatchesSpectralOptions.reg_options.enabled;
 n_weights = length(enabled_weights);
-if length(solvePatchesADMMOptions.reg_options.enabled) ~= n_weights ||...
-        any(solvePatchesADMMOptions.reg_options.enabled ~= enabled_weights)
+if length(solvePatchesColorOptions.reg_options.enabled) ~= n_weights ||...
+        any(solvePatchesColorOptions.reg_options.enabled ~= enabled_weights)
     error('It is not clear what the set of enabled regularization terms is.');
 end
-nonneg = solvePatchesMultiADMMOptions.admm_options.nonneg;
-if solvePatchesADMMOptions.admm_options.nonneg ~= nonneg
+nonneg = solvePatchesSpectralOptions.admm_options.nonneg;
+if solvePatchesColorOptions.admm_options.nonneg ~= nonneg
     error('It is not clear whether a non-negativity constraint is enabled.');
 end
 n_z = sum(enabled_weights) + nonneg;

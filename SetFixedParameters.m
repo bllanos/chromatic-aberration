@@ -46,11 +46,14 @@ parameters_list = [parameters_list, {
     'save_all_images',...
     'bayer_pattern',...
     'findSamplingOptions',...
+    'dispersionfunToMatrixOptions',...
+    'imageFormationSamplingOptions',...
+    'imageFormationPatchOptions',...
     'patch_sizes',...
     'paddings',...
     'use_fixed_weights',...
-    'solvePatchesADMMOptions',...
-    'solvePatchesMultiADMMOptions'...
+    'solvePatchesColorOptions',...
+    'solvePatchesSpectralOptions'...
     'krishnan2011Options',...
     'sun2017Options'...
     }];
@@ -132,6 +135,7 @@ bayer_pattern = 'gbrg';
 
 %% Spectral resampling parameters
 
+% ### 'findSampling()'
 % Options for 'findSampling()'. Refer to the documentation of
 % 'findSampling.m' for more details.
 
@@ -164,30 +168,62 @@ findSamplingOptions.interpolant = @gaussian;
 % sensitivities or ground truth spectral radiances
 findSamplingOptions.interpolant_ref = @triangle;
 
-% Additional options for 'solvePatchesMultiADMM()'
-solvePatchesMultiADMMOptions.sampling_options = findSamplingOptions;
+% ### 'dispersionfunToMatrix()'
+% Similar options for 'dispersionfunToMatrix()'. Refer to the documentation of
+% the `spectral_options` input argument in 'dispersionfunToMatrix.m' for
+% details.
+
+% Resolution at which to sample spectral dispersion
+dispersionfunToMatrixOptions.resolution = 0.1; % pixels
+
+dispersionfunToMatrixOptions.int_method = findSamplingOptions.int_method;
+dispersionfunToMatrixOptions.support_threshold = findSamplingOptions.support_threshold;
+
+dispersionfunToMatrixOptions.bands_padding = findSamplingOptions.bands_padding;
+
+dispersionfunToMatrixOptions.interpolant = findSamplingOptions.interpolant;
+dispersionfunToMatrixOptions.interpolant_ref = findSamplingOptions.interpolant_ref;
+
+% ### 'imageFormation()'
+imageFormationSamplingOptions = struct(...
+    'resolution', dispersionfunToMatrixOptions.resolution,...
+    'int_method', findSamplingOptions.int_method,...
+    'support_threshold', findSamplingOptions.support_threshold,...
+    'bands_padding', findSamplingOptions.bands_padding,...
+    'interpolant', findSamplingOptions.interpolant_ref,...
+    'interpolant_ref', findSamplingOptions.interpolant_ref...
+);
+
+imageFormationPatchOptions.patch_size = patch_sizes(1, :);
+imageFormationPatchOptions.padding = paddings(1);
+
+% ### Additional options for 'solvePatchesSpectral()'
+solvePatchesSpectralOptions.sampling_options = findSamplingOptions;
+solvePatchesSpectralOptions.sampling_options.resolution = dispersionfunToMatrixOptions.resolution;
 
 % How to choose spectral resolutions lower than the one given by
 % 'findSampling()' based on the above options.
-solvePatchesMultiADMMOptions.sampling_options.progression = 'last';
+solvePatchesSpectralOptions.sampling_options.progression = 'last';
 
 % Output the results for the lower spectral resolutions. CAUTION: Not
-% recommended when estimating large images, because of memory consumption.
-solvePatchesMultiADMMOptions.sampling_options.show_steps = false;
+% recommended when estimating large images, when
+% `solvePatchesSpectralOptions.sampling_options.progression` is not `'last'`,
+% because of memory consumption.
+solvePatchesSpectralOptions.sampling_options.show_steps = false;
 
 %% Hyperspectral image estimation parameters
 
 % ## Image estimation options
 
-solvePatchesADMMOptions.admm_options = struct;
+solvePatchesColorOptions.admm_options = struct;
 
 % Whether to make the spectral gradient the same size as the image
-solvePatchesADMMOptions.admm_options.full_GLambda = false;
+solvePatchesColorOptions.admm_options.full_GLambda = false;
 
 % Penalty parameters in ADMM, the `rho` input argument.
 % Sample values seem to be in the range 1-10 (see pages 89, 93, and 95 of
 % Boyd et al. 2011)
-solvePatchesADMMOptions.admm_options.rho = [ 1, 1, 1, 1 ];
+solvePatchesColorOptions.admm_options.rho = [ 1, 1, 1, 1 ];
 
 % Weights on the prior terms. Baek et al. (2017) used [1e-5, 0.1]. Setting
 % elements to zero disables the corresponding regularization term during
@@ -198,29 +234,29 @@ weights = [ 1e-2, 0, 0 ];
 % are 10^-4 to 10^-3 (page 21 of Boyd et al. 2011).
 % The first element is the tolerance for the conjugate gradients method. MATLAB
 % uses a default value of 10^-6
-solvePatchesADMMOptions.admm_options.tol = [ 1e-5, 1e-5, 1e-5 ];
+solvePatchesColorOptions.admm_options.tol = [ 1e-5, 1e-5, 1e-5 ];
 
 % Maximum number of inner and outer iterations, the `maxit` input argument.
 % The first element applies to the conjugate gradients method. MATLAB
 % uses a default value of 20.
-solvePatchesADMMOptions.admm_options.maxit = [ 500, 500 ];
+solvePatchesColorOptions.admm_options.maxit = [ 500, 500 ];
 
 % Parameters for adaptively changing the penalty parameters for improved
 % convergence speed. (Disable adaptive penalty parameter variation by
 % setting this option to an empty array.)
-solvePatchesADMMOptions.admm_options.varying_penalty_params = [2, 2, 10];
+solvePatchesColorOptions.admm_options.varying_penalty_params = [2, 2, 10];
 
 % Types of norms to use on the prior terms
-solvePatchesADMMOptions.admm_options.norms = [true, true, false];
+solvePatchesColorOptions.admm_options.norms = [true, true, false];
 
 % Whether to apply a non-negativity constraint (in which case, `rho` must
 % have four elements)
-solvePatchesADMMOptions.admm_options.nonneg = true;
+solvePatchesColorOptions.admm_options.nonneg = true;
 
 % Image initialization method
-solvePatchesADMMOptions.admm_options.init = 'zero';
+solvePatchesColorOptions.admm_options.init = 'zero';
 
-solvePatchesMultiADMMOptions.admm_options = solvePatchesADMMOptions.admm_options;
+solvePatchesSpectralOptions.admm_options = solvePatchesColorOptions.admm_options;
 
 % ## Options for patch-wise image estimation
 
@@ -235,33 +271,33 @@ patch_sizes = [ % Each row contains a (number of rows, number of columns) pair
 ]; 
 paddings = 16;
 
-solvePatchesADMMOptions.patch_options = struct;
-solvePatchesADMMOptions.patch_options.patch_size = patch_sizes(1, :);
-solvePatchesADMMOptions.patch_options.padding = paddings(1);
+solvePatchesColorOptions.patch_options = struct;
+solvePatchesColorOptions.patch_options.patch_size = patch_sizes(1, :);
+solvePatchesColorOptions.patch_options.padding = paddings(1);
 
-solvePatchesMultiADMMOptions.patch_options = solvePatchesADMMOptions.patch_options;
+solvePatchesSpectralOptions.patch_options = solvePatchesColorOptions.patch_options;
 
 % ## Options for selecting regularization weights
 
-solvePatchesADMMOptions.reg_options = struct;
+solvePatchesColorOptions.reg_options = struct;
 
-solvePatchesADMMOptions.reg_options.enabled = logical(weights(1, :));
+solvePatchesColorOptions.reg_options.enabled = logical(weights(1, :));
 
-solvePatchesADMMOptions.reg_options.low_guess = [1e-3, 1e-3, 1e-3];
-solvePatchesADMMOptions.reg_options.high_guess = [1e3, 1e3, 1e3];
-solvePatchesADMMOptions.reg_options.tol = 1e-6;
+solvePatchesColorOptions.reg_options.low_guess = [1e-3, 1e-3, 1e-3];
+solvePatchesColorOptions.reg_options.high_guess = [1e3, 1e3, 1e3];
+solvePatchesColorOptions.reg_options.tol = 1e-6;
 
 use_fixed_weights = false;
 if use_fixed_weights
-    solvePatchesADMMOptions.reg_options.minimum_weights = weights;
-    solvePatchesADMMOptions.reg_options.maximum_weights = weights;
+    solvePatchesColorOptions.reg_options.minimum_weights = weights;
+    solvePatchesColorOptions.reg_options.maximum_weights = weights;
 else
     % Minimum values to use for regularization weights (and to use to set
     % the origin of the minimum distance function)
-    solvePatchesADMMOptions.reg_options.minimum_weights = eps * ones(1, length(weights));
+    solvePatchesColorOptions.reg_options.minimum_weights = eps * ones(1, length(weights));
     % Maximum values to use for regularization weights (and to use to set
     % the origin of the minimum distance function)
-    solvePatchesADMMOptions.reg_options.maximum_weights = 1e10 * ones(1, length(weights));
+    solvePatchesColorOptions.reg_options.maximum_weights = 1e10 * ones(1, length(weights));
 end
 
 % Maximum and minimum number of grid search iterations
@@ -275,25 +311,25 @@ desired_weights_relative_error = 0.01;
 % At each iteration, after the first, the relative error is reduced to this
 % fraction of its previous value
 weights_iter_reduction = 2/3;
-log10_distance = max(log10(solvePatchesADMMOptions.reg_options.maximum_weights) -...
-    log10(solvePatchesADMMOptions.reg_options.minimum_weights));
+log10_distance = max(log10(solvePatchesColorOptions.reg_options.maximum_weights) -...
+    log10(solvePatchesColorOptions.reg_options.minimum_weights));
 weights_iter_max = ceil(1 + (... % Add one to discount the first iteration
     log((log10(1 + desired_weights_relative_error) / log10_distance)) /...
     log(weights_iter_reduction)...
 ));
 
-solvePatchesADMMOptions.reg_options.n_iter = [weights_iter_max, 6];
+solvePatchesColorOptions.reg_options.n_iter = [weights_iter_max, 6];
 
 % Select regularization weights based on similarity to a demosaicking
 % result, instead of using the minimum distance criterion, if no true image
 % is provided for regularization weight selection. Scripts which use
 % multiple regularization weight selection methods will override this
 % option.
-solvePatchesADMMOptions.reg_options.demosaic = true;
+solvePatchesColorOptions.reg_options.demosaic = true;
 % Which channels of the demosaicking result to use for evaluating similarity
-solvePatchesADMMOptions.reg_options.demosaic_channels = [false, true, false];
+solvePatchesColorOptions.reg_options.demosaic_channels = [false, true, false];
 
-solvePatchesMultiADMMOptions.reg_options = solvePatchesADMMOptions.reg_options;
+solvePatchesSpectralOptions.reg_options = solvePatchesColorOptions.reg_options;
 
 %% ## Parameters for third-party algorithms
 
@@ -344,5 +380,5 @@ sun2017Options.reference_channel_index = 2;
 %% ## Debugging Flags
 
 findSamplingVerbose = true;
-solvePatchesADMMVerbose = true;
-solvePatchesMultiADMMVerbose = true;
+solvePatchesColorVerbose = true;
+solvePatchesSpectralVerbose = true;

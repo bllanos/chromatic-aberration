@@ -1,8 +1,8 @@
-function [ I_3D, varargout ] = solvePatchesADMM(...
-    I_in, J_2D, align, dispersionfun, sensitivity, lambda,...
+function [ I_3D, varargout ] = solvePatchesColor(...
+    I_in, J_2D, align, dispersionfun,...
     admm_options, reg_options, patch_options, varargin...
 )
-% SOLVEPATCHESADMM  Run ADMM (loosely) as in Algorithm 2 of Baek et al. 2017, with weight selection and patch-wise decomposition
+% SOLVEPATCHESCOLOR  Run ADMM (loosely) as in Algorithm 2 of Baek et al. 2017, with weight selection and patch-wise decomposition
 %
 % ## Usage
 %
@@ -10,46 +10,43 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 % 'baek2017Algorithm2()`, 'selectWeightsGrid()', 'trainWeights()', and
 % 'solvePatchesAligned()' for improved efficiency.
 %
+% This function is specialized for the case where the latent image to be
+% estimated is expressed in terms of colour channels, such that the conversion
+% to the colour space of the observed image is an identity mapping. Presently,
+% because of the `align` input argument, the function can only work with RGB
+% images, but it could easily be extended to work with multispectral filter
+% arrays.
+%
 % ## Syntax
-% I = solvePatchesADMM(...
-%   I_in, J, align, dispersionfun, sensitivity, lambda,...
+% I = solvePatchesColor(...
+%   I_in, J, align, dispersionfun,...
 %   admm_options, reg_options, patch_options [, verbose]...
 % )
-% [ I, I_rgb ] = solvePatchesADMM(___)
-% [ I, I_rgb, weights_images ] = solvePatchesADMM(___)
-% [ I, I_rgb, weights_images, J_full ] = solvePatchesADMM(___)
-% [ I, I_rgb, weights_images, J_full, J_est ] = solvePatchesADMM(___)
-% [ I, I_rgb, weights_images, J_full, J_est, I_warped ] = solvePatchesADMM(___)
-% [ I, I_rgb, weights_images, J_full, J_est, I_warped, search ] = solvePatchesADMM(...)
+% [ I, weights_images ] = solvePatchesColor(___)
+% [ I, weights_images, J_full ] = solvePatchesColor(___)
+% [ I, weights_images, J_full, J_est ] = solvePatchesColor(___)
+% [ I, weights_images, J_full, J_est, search ] = solvePatchesColor(...)
 %
 % ## Description
-% I = solvePatchesADMM(...
-%   I_in, J, align, dispersionfun, sensitivity, lambda,...
+% I = solvePatchesColor(...
+%   I_in, J, align, dispersionfun,...
 %   admm_options, reg_options, patch_options [, verbose]...
 % )
-%   Estimate a latent RGB or hyperspectral image `I` from dispersion in
-%   the input RAW image `J`.
+%   Estimate a latent colour image `I` from dispersion in the input RAW image
+%   `J`.
 %
-% [ I, I_rgb ] = solvePatchesADMM(___)
-%   Additionally returns the RGB equivalent of the latent image.
-%
-% [ I, I_rgb, weights_images ] = solvePatchesADMM(___)
+% [ I, weights_images ] = solvePatchesColor(___)
 %   Additionally returns images illustrating the weights selected for the
 %   regularization terms in the optimization problem.
 %
-% [ I, I_rgb, weights_images, J_full ] = solvePatchesADMM(___)
-%   Additionally returns a version of the RGB equivalent of the latent
-%   image, warped according to the model of dispersion.
+% [ I, weights_images, J_full ] = solvePatchesColor(___)
+%   Additionally returns a version of the latent image, warped according to the
+%   model of dispersion.
 %
-% [ I, I_rgb, weights_images, J_full, J_est ] = solvePatchesADMM(___)
-%   Additionally returns the forward model estimate of the input RAW image
-%   `J`.
+% [ I, weights_images, J_full, J_est ] = solvePatchesColor(___)
+%   Additionally returns the forward model estimate of the input RAW image `J`.
 %
-% [ I, I_rgb, weights_images, J_full, J_est, I_warped ] = solvePatchesADMM(___)
-%   Additionally returns the version of the latent image warped according
-%   to the model of dispersion.
-%
-% [ I, I_rgb, weights_images, J_full, J_est, I_warped, search ] = solvePatchesADMM(...)
+% [ I, weights_images, J_full, J_est, search ] = solvePatchesColor(...)
 %   Additionally returns the search path taken to select regularization
 %   weights for a single image patch. This call syntax is available only
 %   when `patch_options.target_patch` exists.
@@ -70,13 +67,6 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %     estimated latent image will be compared. 'I' and `J` must have the
 %     same sizes in their first two dimensions. (i.e. They must have the
 %     same image resolutions.)
-%   - 'spectral_weights': A 2D array, where `spectral_weights(i, j)` is the
-%     sensitivity of the i-th colour channel or spectral band of 'I' to the
-%     j-th colour channel or spectral band of the estimated latent image.
-%     `spectral_weights` is a matrix mapping colours in the estimated
-%     latent image to colours in the representation of 'I'.
-%     `spectral_weights` must account for any numerical intergration that
-%     is part of colour/spectral conversion.
 %
 % J -- Input RAW image
 %   A 2D array containing the raw colour-filter pattern data of an image,
@@ -88,27 +78,14 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %   as the `sensorAlignment` input argument of `demosaic()`.
 %
 % dispersionfun -- Model of dispersion
-%   `dispersionfun` can be empty (`[]`), if there is no model of
-%   dispersion. Otherwise, `dispersionfun` must be a function handle, such
-%   as produced by 'makeDispersionfun()'. `dispersionfun(X)`, where `X` is
-%   a three-element row vector (x, y, l), returns the dispersion vector for
-%   the position (x, y) in `J` corresponding to light with wavelength or
-%   colour channel index `l`. The dispersion vector points from the
-%   corresponding position in the reference spectral band or colour channel
-%   to position (x, y). This function will negate dispersion vectors in
+%   `dispersionfun` can be empty (`[]`), if there is no model of dispersion.
+%   Otherwise, `dispersionfun` must be a function handle, such as produced by
+%   'makeDispersionfun()'. `dispersionfun(X)`, where `X` is a three-element row
+%   vector (x, y, l), returns the dispersion vector for the position (x, y) in
+%   `J` corresponding to light with colour channel index `l`. The dispersion
+%   vector points from the corresponding position in the reference colour
+%   channel to position (x, y). This function will negate dispersion vectors in
 %   order to create a warp matrix from `I` to `J`.
-%
-% sensitivity -- Colour space basis vectors
-%   A 2D array, where `sensitivity(i, j)` is the sensitivity of the i-th
-%   colour channel of `J` to the j-th colour channel or spectral band of
-%   `I`. `sensitivity` is a matrix mapping colours/spectra in `I` to
-%   colours in `J`.
-%
-% lambda -- Spectral bands or colour channel indices
-%   A vector of length 'c' containing the wavelengths or colour channel
-%   indices at which to evaluate the dispersion model encapsulated by
-%   `dispersionfun`. 'c' is the desired number of spectral bands or colour
-%   channels in `I`, and will be the size of `I` in its third dimension.
 %
 % admm_options -- Image estimation algorithm options
 %   `admm_options` is a structure with the following fields, containing
@@ -120,10 +97,10 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %     non-negativity constraint on the solution, and is only required if
 %     the 'nonneg' field is `true`.
 %   - 'full_GLambda': A Boolean value used as the `replicate` input
-%     argument of 'spectralGradient()' when creating the spectral gradient
-%     matrix for regularizing the spectral dimension of the latent image.
+%     argument of 'spectralGradient()' when creating the cross-channel gradient
+%     matrix for regularizing the channel dimension of the latent image.
 %     Refer to the documentation of 'spectralGradient.m' for details.
-%     'full_GLambda' is not used if spectral regularization is disabled by
+%     'full_GLambda' is not used if cross-channel regularization is disabled by
 %     `reg_options.enabled`.
 %   - 'maxit': A two-element vector. The first element contains the maximum
 %     number of iterations to use with MATLAB's 'pcg()' function during the
@@ -157,15 +134,16 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %   - 'init': A character vector specifying how to initialize the latent
 %     image `out.I`:
 %     - 'zero': `out.I` will be a zero vector.
-%     - 'uniform': `out.I` will be a pattern of uniform spectral
+%     - 'uniform': `out.I` will be a pattern of uniform cross-channel
 %       intensities that best fits the input image `J`.
 %
 % reg_options -- Regularization weight selection options
 %   There are three regularization terms which can be enabled:
 %   1 - Regularization of the spatial gradient of the image, as in Equation
 %       6 of Baek et al. 2017.
-%   2 - Regularization of the spectral gradient of the spatial gradient of
-%       the image, as in Equation 6 in Baek et al. 2017.
+%   2 - Regularization of the cross-channel gradient of the spatial gradient of
+%       the image, as in Equation 6 in Baek et al. 2017. This regularization
+%       term is not very meaningful for colour images.
 %   3 - A second-order gradient prior designed to penalize colour-filter
 %       array artifacts, implemented in antiMosaicMatrix.m.
 %
@@ -259,13 +237,8 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 % ## Output Arguments
 %
 % I -- Latent image
-%   A size(J, 1) x size(J, 2) x length(lambda) array, storing the estimated
-%   latent image corresponding to `J`.
-%
-% I_rgb -- Latent colour image
-%   The colour equivalent of the latent image, generated using the colour
-%   space conversion data in `sensitivity`. An size(J, 1) x size(J, 2) x
-%   size(sensitivity, 1) array.
+%   A size(J, 1) x size(J, 2) x 3 array, storing the estimated latent image
+%   corresponding to `J`.
 %
 % weights_images -- Selected regularization weights
 %   A size(J, 1) x size(J, 2) x w array, where 'w' is the number of `true`
@@ -279,18 +252,13 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %   `true`, then `weights_images` is empty (`[]`);
 %
 % J_full -- Warped latent colour image
-%   A colour image produced by warping `I` according to the dispersion
-%   model, followed by conversion to the colour space of `J`. An size(J, 1)
-%   x size(J, 2) x size(sensitivity, 1) array.
+%   An image produced by warping `I` according to the dispersion model. A
+%   size(J, 1) x size(J, 2) x 3 array.
 %
 % J_est -- Re-estimated input RAW image
 %   The mosaiced version of `J_full`, representing the result of passing
 %   `I` through the forward model of dispersion and image capture. An array
 %   with the same dimensions as `J`.
-%
-% I_warped -- Warped latent image
-%   An size(J, 1) x size(J, 2) x length(lambda) array, storing the latent
-%   image warped according to the dispersion model.
 %
 % search -- Grid search method for regularization weight selection search path
 %   The `search` output argument of 'weightsLowMemory()'. `search` is
@@ -304,16 +272,14 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 % - If all elements of `reg_options.enabled` are `false`, and
 %   `admm_options.nonneg` is `false`, then this function will find a
 %   solution to the problem:
-%     argmin_i (||M * Omega * Phi * i - j||_2) ^ 2
-%   where `M` performs mosaicing, `Omega` converts colours to the colour
-%   space of `J`, and `Phi` warps the image according to the dispersion
-%   model. `i` and `j` are the vectorized versions of the latent and input
-%   images, respectively. If the linear system is underdetermined, the
-%   function will find the minimum-norm least squares solution. If the
-%   problem is sufficiently determined, as it may be in cases where `i` has
-%   fewer spectral bands or colour channels than `j` has colour channels,
-%   then the function will find the iterative approximation to the exact
-%   solution (using MATLAB's 'pcg()' function), or will find a
+%     argmin_i (||M * Phi * i - j||_2) ^ 2
+%   where `M` performs mosaicing, and `Phi` warps the image according to the
+%   dispersion model. `i` and `j` are the vectorized versions of the latent and
+%   input images, respectively. If the linear system is underdetermined, the
+%   function will find the minimum-norm least squares solution. If the problem
+%   is sufficiently determined, as it may be in cases where `i` has fewer colour
+%   channels than `j`, then the function will find the iterative approximation
+%   to the exact solution (using MATLAB's 'pcg()' function), or will find a
 %   least-squares solution (in the overdetermined case).
 % - In contrast to 'selectWeightsGrid()', the origin of the minimum
 %   distance criterion is always set using `reg_options.minimum_weights`
@@ -337,7 +303,7 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %
 % ## References
 %
-% This function implements Algorithm 2 in the first set of supplemental
+% This function is based on Algorithm 2 in the first set of supplemental
 % material of the following article:
 %
 %   Baek, S.-H., Kim, I., Gutierrez, D., & Kim, M. H. (2017). "Compact
@@ -346,14 +312,12 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %     doi:10.1145/3130800.3130896
 %
 % Depending on the options passed, this function implements variants of the
-% algorithm: L2-norm priors instead of L1-norm priors, an extra prior
-% designed to remove colour-filter array artifacts, and a non-negativity
-% constraint. I implemented the non-negativity constraint by adding an
-% extra term to the ADMM x-minimization step, and an additional
-% z-minimization and dual update step. This is different from the
-% constrained optimization examples in Boyd et. al. 2011, sections 4.2.5
-% and 5.2, but I think it matches the format given at the start of Chapter
-% 5.
+% algorithm: L2-norm priors instead of L1-norm priors, an extra prior term, and
+% a non-negativity constraint. I implemented the non-negativity constraint by
+% adding an extra term to the ADMM x-minimization step, and an additional
+% z-minimization and dual update step. This is different from the constrained
+% optimization examples in Boyd et. al. 2011, sections 4.2.5 and 5.2, but I
+% think it matches the format given at the start of Chapter 5.
 %
 % A non-negativity constraint was used in (among other works):
 %
@@ -405,16 +369,16 @@ function [ I_3D, varargout ] = solvePatchesADMM(...
 %     thresholds]."
 % - Section 4.3.2 of Boyd et al. 2011, "Early Termination"
 %
-% See also baek2017Algorithm2LowMemory, weightsLowMemory,
-% solvePatchesAligned
+% See also baek2017Algorithm2LowMemory, weightsLowMemory, solvePatchesAligned,
+% solvePatchesSpectral
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
 % University of Alberta, Department of Computing Science
 % File created October 5, 2018
 
-narginchk(9, 10);
-nargoutchk(1, 7);
+narginchk(7, 8);
+nargoutchk(1, 5);
 
 verbose = false;
 if ~isempty(varargin)
@@ -427,7 +391,7 @@ end
 
 % Input argument parsing
 
-output_search = nargout > 6;
+output_search = nargout > 4;
 do_single_patch = isfield(patch_options, 'target_patch');
 if output_search && ~do_single_patch
     error('`search` can only be output when `patch_options.target_patch` exists.');
@@ -438,26 +402,24 @@ if has_dispersion && ~isa(dispersionfun, 'function_handle')
     error('`dispersionfun` must be a function handle.');
 end
 
-nargout_before_weights = 2;
+nargout_before_weights = 1;
 output_weights = (nargout > nargout_before_weights) && ~all(reg_options.minimum_weights == reg_options.maximum_weights);
 input_I_in = ~isempty(I_in);
+n_auxiliary_images = 0;
 if nargout > nargout_before_weights
     n_auxiliary_images = nargout - 2;
-else
-    n_auxiliary_images = 1;
 end
 image_sampling = [size(J_2D, 1), size(J_2D, 2)];
 patch_size = patch_options.patch_size;
 padding = patch_options.padding;
-n_bands = length(lambda);
-n_channels_rgb = size(sensitivity, 1);
+n_channels = 3; % RGB
 enabled_weights = reg_options.enabled;
 n_active_weights = sum(enabled_weights);
 if all(~enabled_weights) && output_weights
     error('Cannot output selected regularization weights, because all regularization terms are disabled.');
 end
-if enabled_weights(2) && n_bands < 2
-    error('Cannot enable spectral regularization when `lambda` has length one.');
+if enabled_weights(2) && n_channels < 2
+    error('Cannot enable cross-channel regularization when there is only one channel.');
 end
 use_min_norm = all(~enabled_weights) && ~admm_options.nonneg;
 
@@ -474,17 +436,6 @@ if input_I_in
     if any(image_sampling ~= [size(I_in.I, 1), size(I_in.I, 2)])
         error('The spatial dimensions of `I_in.I` must match those of `J`.')
     end
-    if n_bands ~= size(I_in.spectral_weights, 2)
-        error('The number of wavelengths in `lambda` must equal the size of `I_in.spectral_weights` in its second dimension.');
-    end
-    if size(I_in.spectral_weights, 1) ~= size(I_in.I, 3)
-        error('The number of rows of `I_in.spectral_weights` must equal the size of `I_in.I` in its third dimension.');
-    end
-    I_in_j.spectral_weights = I_in.spectral_weights;
-elseif reg_options.demosaic
-    I_in_j.spectral_weights = sensitivity(reg_options.demosaic_channels, :);
-else
-    I_in_j = struct;
 end
 
 if do_single_patch
@@ -498,10 +449,6 @@ if do_single_patch
             'g at the image boundaries, the target patch corner must hav',...
             'e odd integer coordinates.']);
     end
-end
-
-if n_bands ~= size(sensitivity, 2)
-    error('The number of wavelengths in `lambda` must equal the size of `sensitivity` in its second dimension.');
 end
 
 if verbose
@@ -519,26 +466,18 @@ n_channels_in = n_channels_in + channels_in.J(2);
 
 % Channel indices in the output concatenation of images
 n_channels_out = 0;
-channels_out.I = n_channels_out + [1, n_bands]; % Estimated latent image
+channels_out.I = n_channels_out + [1, n_channels]; % Estimated latent image
 n_channels_out = n_channels_out + channels_out.I(2);
+if output_weights
+    channels_out.I_weights = n_channels_out + [1, n_active_weights];
+    n_channels_out = n_channels_out + channels_out.I_weights(2);
+end
 if n_auxiliary_images > 0
-    channels_out.I_rgb = n_channels_out + [1, n_channels_rgb];
-    n_channels_out = n_channels_out + channels_out.I_rgb(2);
-    if output_weights
-        channels_out.I_weights = n_channels_out + [1, n_active_weights];
-        n_channels_out = n_channels_out + channels_out.I_weights(2);
-    end
+    channels_out.J_full = n_channels_out + [1, n_channels];
+    n_channels_out = n_channels_out + channels_out.J_full(2);
     if n_auxiliary_images > 1
-        channels_out.J_full = n_channels_out + [1, n_channels_rgb];
-        n_channels_out = n_channels_out + channels_out.J_full(2);
-        if n_auxiliary_images > 2
-            channels_out.J_est = n_channels_out + [1, size(J_2D, 3)];
-            n_channels_out = n_channels_out + channels_out.J_est(2);
-            if n_auxiliary_images > 3
-                channels_out.I_warped = n_channels_out + [1, n_bands];
-                n_channels_out = n_channels_out + channels_out.I_warped(2);
-            end
-        end
+        channels_out.J_est = n_channels_out + [1, size(J_2D, 3)];
+        n_channels_out = n_channels_out + channels_out.J_est(2);
     end
 end
 
@@ -587,6 +526,11 @@ parfor j = 1:n_j
     col_out_width = diff(cols_trim_out) + 1;
     column_out_j = zeros(size(column_in_j, 1), col_out_width, n_channels_out);
     
+    if has_dispersion
+        dispersion_options = struct('bands_in', (1:n_channels).');
+    end
+    sensitivity = eye(n_channels);
+    
     % Process each patch within the column
     for i = 1:n_i
         corner(1) = (i - 1) * patch_size(1) + 1 + patch_offset(1);
@@ -598,12 +542,11 @@ parfor j = 1:n_j
         ];
         patch_end_row = min(corner(1) + patch_size(1) - 1, image_sampling(1));
         image_sampling_p(1) = diff(patch_lim_rows) + 1;
-        numel_p = prod(image_sampling_p) * n_bands;
+        numel_p = prod(image_sampling_p) * n_channels;
         
         if has_dispersion
             dispersion_matrix_p = dispersionfunToMatrix(...
-                dispersionfun, lambda, image_sampling_p, image_sampling_p,...
-                [0, 0, image_sampling_p(2), image_sampling_p(1)], true,...
+                dispersionfun, dispersion_options, image_sampling_p, true,...
                 flip(corner) - 1 ...
             );
         else
@@ -628,7 +571,7 @@ parfor j = 1:n_j
             end
                         
         elseif input_I_in || reg_options.demosaic
-            I_in_p = I_in_j;
+            I_in_p = struct('spectral_weights', sensitivity);
             if input_I_in
                 dispersion_matrix_p_weights = [];
                 I_in_p.I = column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.I_in(1):channels_in.I_in(2));
@@ -676,49 +619,32 @@ parfor j = 1:n_j
             end
         end
         
-        patches_I_ij_3D = reshape(patches_I_ij, [image_sampling_p n_bands]);
+        patches_I_ij_3D = reshape(patches_I_ij, [image_sampling_p n_channels]);
         column_out_j(...
             corner(1):patch_end_row, :, channels_out.I(1):channels_out.I(2)...
         ) = patches_I_ij_3D(rows_trim_out(1):rows_trim_out(2), cols_trim_out(1):cols_trim_out(2), :);
     
         if n_auxiliary_images > 0
-            patches_I_rgb_ij = in_admm.Omega * patches_I_ij;
-            patches_I_rgb_ij_3D = reshape(patches_I_rgb_ij, [image_sampling_p n_channels_rgb]);
-            column_out_j(...
-                corner(1):patch_end_row, :, channels_out.I_rgb(1):channels_out.I_rgb(2)...
-            ) = patches_I_rgb_ij_3D(rows_trim_out(1):rows_trim_out(2), cols_trim_out(1):cols_trim_out(2), :);
-        
+            if has_dispersion
+                patches_J_full_ij = dispersion_matrix_p * patches_I_ij;
+                patches_J_full_ij_3D = reshape(patches_J_full_ij, [image_sampling_p n_channels]);
+                column_out_j(...
+                    corner(1):patch_end_row, :, channels_out.J_full(1):channels_out.J_full(2)...
+                ) = patches_J_full_ij_3D(rows_trim_out(1):rows_trim_out(2), cols_trim_out(1):cols_trim_out(2), :);
+            else
+                patches_J_full_ij = patches_I_ij;
+                column_out_j(...
+                    corner(1):patch_end_row, :, channels_out.J_full(1):channels_out.J_full(2)...
+                ) = column_out_j(...
+                    corner(1):patch_end_row, :, channels_out.I(1):channels_out.I(2)...
+                );
+            end
+
             if n_auxiliary_images > 1
-                if has_dispersion
-                    patches_I_warped_ij = dispersion_matrix_p * patches_I_ij;
-                    patches_J_full_ij = in_admm.Omega * patches_I_warped_ij;
-                    patches_J_full_ij_3D = reshape(patches_J_full_ij, [image_sampling_p n_channels_rgb]);
-                    column_out_j(...
-                        corner(1):patch_end_row, :, channels_out.J_full(1):channels_out.J_full(2)...
-                    ) = patches_J_full_ij_3D(rows_trim_out(1):rows_trim_out(2), cols_trim_out(1):cols_trim_out(2), :);
-                else
-                    patches_I_warped_ij = patches_I_ij_3D;
-                    patches_J_full_ij = patches_I_rgb_ij;
-                    column_out_j(...
-                        corner(1):patch_end_row, :, channels_out.J_full(1):channels_out.J_full(2)...
-                    ) = column_out_j(...
-                        corner(1):patch_end_row, :, channels_out.I_rgb(1):channels_out.I_rgb(2)...
-                    );
-                end
-                
-                if n_auxiliary_images > 2
-                    patches_J_est_ij_3D = reshape(in_admm.M * patches_J_full_ij, [image_sampling_p size(J_2D, 3)]);
-                    column_out_j(...
-                        corner(1):patch_end_row, :, channels_out.J_est(1):channels_out.J_est(2)...
-                    ) = patches_J_est_ij_3D(rows_trim_out(1):rows_trim_out(2), cols_trim_out(1):cols_trim_out(2), :);
-                    
-                    if n_auxiliary_images > 3
-                        patches_I_warped_ij_3D = reshape(patches_I_warped_ij, [image_sampling_p n_bands]);
-                        column_out_j(...
-                            corner(1):patch_end_row, :, channels_out.I_warped(1):channels_out.I_warped(2)...
-                        ) = patches_I_warped_ij_3D(rows_trim_out(1):rows_trim_out(2), cols_trim_out(1):cols_trim_out(2), :);
-                    end
-                end
+                patches_J_est_ij_3D = reshape(in_admm.M * patches_J_full_ij, [image_sampling_p size(J_2D, 3)]);
+                column_out_j(...
+                    corner(1):patch_end_row, :, channels_out.J_est(1):channels_out.J_est(2)...
+                ) = patches_J_est_ij_3D(rows_trim_out(1):rows_trim_out(2), cols_trim_out(1):cols_trim_out(2), :);
             end
         end
         
@@ -754,23 +680,17 @@ else
 end
 I_3D = images_out(:, :, channels_out.I(1):channels_out.I(2));
 
+varargout = cell(1, nargout - 1);
 if n_auxiliary_images > 0
-    varargout = cell(1, nargout - 1);
-    varargout{1} = images_out(:, :, channels_out.I_rgb(1):channels_out.I_rgb(2));
+    varargout{2} = images_out(:, :, channels_out.J_full(1):channels_out.J_full(2));
     if n_auxiliary_images > 1
-        varargout{3} = images_out(:, :, channels_out.J_full(1):channels_out.J_full(2));
-        if n_auxiliary_images > 2
-            varargout{4} = images_out(:, :, channels_out.J_est(1):channels_out.J_est(2));
-            if n_auxiliary_images > 3
-                varargout{5} = images_out(:, :, channels_out.I_warped(1):channels_out.I_warped(2));
-            end
-        end
+        varargout{3} = images_out(:, :, channels_out.J_est(1):channels_out.J_est(2));
     end
 end
 if output_weights
-    varargout{2} = images_out(:, :, channels_out.I_weights(1):channels_out.I_weights(2));
+    varargout{1} = images_out(:, :, channels_out.I_weights(1):channels_out.I_weights(2));
 elseif nargout > nargout_before_weights
-    varargout{2} = [];
+    varargout{1} = [];
 end
 if output_search
     varargout(end) = search_out(1);

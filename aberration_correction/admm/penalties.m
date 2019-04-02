@@ -65,7 +65,7 @@ function in = penalties( J, I, M_Omega_Phi, G, norms, in )
 %   efficiency.
 %
 % See also initPenalties, baek2017Algorithm2, weightsLowMemory,
-% solvePatchesADMM
+% solvePatchesColor
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang

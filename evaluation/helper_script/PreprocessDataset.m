@@ -26,18 +26,10 @@ illuminant_temperature = 6504; % From https://en.wikipedia.org/wiki/Standard_ill
 % Colour channel to use for radiance normalization
 normalization_channel = 2;
 
-% ## Operational parameters
-
-% Patch size and padding to use for converting spectral images to colour
-% and RAW images
-imageFormationOptions.patch_size = [100, 100];
-imageFormationOptions.padding = 10;
-
 %% RGB colour space
 
 n_channels_rgb = 3;
 bands_rgb = 1:n_channels_rgb;
-sensor_map_rgb = eye(n_channels_rgb);
 
 %% Find and/or prepare to generate the dataset images
 
@@ -57,7 +49,6 @@ if has_spectral && ~has_color_map
 end
 
 bands = [];
-color_weights_reference = [];
 bands_variable = 'bands';
 if has_spectral
     spectral_filenames = listFiles(dp.spectral_images_wildcard);
@@ -128,24 +119,22 @@ if has_color_map
                 'atent images must be defined at the same colour channels a'...
                 's the colour conversion data.']);
         end
-        color_weights = sensor_map;
         spectral_weights = eye(length(bands_color));
-        color_weights_reference = color_weights;
     else
         if isfield(dp, 'fix_bands') && dp.fix_bands
             findSamplingOptions.power_threshold = 1;
             findSamplingOptions.n_bands = 0;
             findSamplingOptions.support_threshold = 0;
-            solvePatchesMultiADMMOptions.sampling_options.power_threshold = findSamplingOptions.power_threshold;
-            solvePatchesMultiADMMOptions.sampling_options.n_bands = findSamplingOptions.n_bands;
-            solvePatchesMultiADMMOptions.sampling_options.support_threshold = findSamplingOptions.support_threshold;
+            solvePatchesSpectralOptions.sampling_options.power_threshold = findSamplingOptions.power_threshold;
+            solvePatchesSpectralOptions.sampling_options.n_bands = findSamplingOptions.n_bands;
+            solvePatchesSpectralOptions.sampling_options.support_threshold = findSamplingOptions.support_threshold;
         end
         if has_spectral
-            [color_weights, spectral_weights, bands, color_weights_reference] = findSampling(...
+            [~, spectral_weights, bands] = findSampling(...
               sensor_map, bands_color, bands_spectral, findSamplingOptions, findSamplingVerbose...
             );
         else
-            [color_weights, ~, bands] = findSampling(...
+            [~, ~, bands] = findSampling(...
               sensor_map, bands_color, bands_color, findSamplingOptions, findSamplingVerbose...
             );
         end
@@ -252,7 +241,9 @@ end
 
 %% Miscellaneous
 
-solvePatchesADMMOptions.patch_options.patch_size = dp.patch_size;
-solvePatchesADMMOptions.patch_options.padding = dp.padding;
-solvePatchesMultiADMMOptions.patch_options.patch_size = dp.patch_size;
-solvePatchesMultiADMMOptions.patch_options.padding = dp.padding;
+solvePatchesColorOptions.patch_options.patch_size = dp.patch_size;
+solvePatchesColorOptions.patch_options.padding = dp.padding;
+solvePatchesSpectralOptions.patch_options.patch_size = dp.patch_size;
+solvePatchesSpectralOptions.patch_options.padding = dp.padding;
+imageFormationPatchOptions.patch_size = dp.patch_size;
+imageFormationPatchOptions.padding = dp.padding;

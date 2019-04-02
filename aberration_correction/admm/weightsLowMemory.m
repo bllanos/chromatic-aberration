@@ -233,7 +233,7 @@ function [ I, weights, in, in_admm, varargout ] = weightsLowMemory(...
 %     doi:10.1088/0266-5611/18/4/314
 %
 % See also selectWeightsGrid, penalties, baek2017Algorithm2LowMemory,
-% solvePatchesADMM
+% solvePatchesColor
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang

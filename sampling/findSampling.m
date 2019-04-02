@@ -298,11 +298,9 @@ if max(abs(diff_color_bands - color_bands_spacing)) > 1e-6
     error('`color_bands` must contain equally-spaced values.')
 end
 
-spectral_bands_spacing = zeros(n_cells, 1);
 for i = 1:n_cells
     diff_spectral_bands = diff(spectral_bands{i});
-    spectral_bands_spacing(i) = diff_spectral_bands(1);
-    if max(abs(diff_spectral_bands - spectral_bands_spacing(i))) > 1e-6
+    if max(abs(diff_spectral_bands - diff_spectral_bands(1))) > 1e-6
         if is_cell_spectral_bands
             error('`spectral_bands{%d}` does not contain equally-spaced values.', i)
         else
@@ -376,22 +374,7 @@ if verbose
 end
 
 % Construct a colour conversion matrix
-if color_bands_spacing > bands_spacing
-    % Upsample the spectral sensitivities
-    upsampling_map = resamplingWeights(...
-        bands, color_bands, options.interpolant_ref, padding...
-    );
-    color_map_upsampled = (upsampling_map * (color_map.')).';
-    int_weights = integrationWeights(bands, options.int_method);
-    color_weights = color_map_upsampled * diag(int_weights);
-else
-    % Upsample the sampled spectra
-    upsampling_map = resamplingWeights(...
-        color_bands, bands, options.interpolant, padding...
-    );
-    int_weights = integrationWeights(color_bands, options.int_method);
-    color_weights = color_map * diag(int_weights) * upsampling_map;
-end
+color_weights = colorWeights(color_map, color_bands, bands, options);
 
 % Construct a spectral resampling matrix
 spectral_weights = cell(size(spectral_bands));
@@ -408,22 +391,7 @@ end
 if output_reference_weights        
     color_weights_reference = cell(size(spectral_bands));
     for i = 1:n_cells
-        if color_bands_spacing > spectral_bands_spacing(i)
-            % Upsample the spectral sensitivities
-            upsampling_map = resamplingWeights(...
-                spectral_bands{i}, color_bands, options.interpolant_ref, padding...
-            );
-            color_map_upsampled = (upsampling_map * (color_map.')).';
-            int_weights = integrationWeights(spectral_bands{i}, options.int_method);
-            color_weights_reference{i} = color_map_upsampled * diag(int_weights);
-        else
-            % Upsample the reference spectra
-            upsampling_map = resamplingWeights(...
-                color_bands, spectral_bands{i}, options.interpolant_ref, padding...
-            );
-            int_weights = integrationWeights(color_bands, options.int_method);
-            color_weights_reference{i} = color_map * diag(int_weights) * upsampling_map;
-        end
+        color_weights_reference{i} = colorWeights(color_map, color_bands, spectral_bands{i}, options);
     end
     if ~is_cell_spectral_bands
         color_weights_reference = color_weights_reference{1};

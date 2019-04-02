@@ -1,24 +1,24 @@
-function [ W, bands_dispersion ] = dispersionfunToMatrix(dispersionfun, spectral_options, image_sampling, varargin)
+function [ W, bands_dispersion ] = dispersionfunToMatrix(dispersionfun, options, image_sampling, varargin)
 % DISPERSIONFUNTOMATRIX  Convert a warp model to a warp matrix, or use it
 % directly to warp an image
 %
 % ## Syntax
 % W = dispersionfunToMatrix(...
-%   dispersionfun, spectral_options, image_sampling [, negate, offset]...
+%   dispersionfun, options, image_sampling [, negate, offset]...
 % )
 % I_out = dispersionfunToMatrix(...
-%   dispersionfun, spectral_options, I_in [, negate, offset]...
+%   dispersionfun, options, I_in [, negate, offset]...
 % )
 % [ ____, bands_dispersion ] = dispersionfunToMatrix(____)
 %
 % ## Description
 % W = dispersionfunToMatrix(...
-%   dispersionfun, spectral_options, image_sampling [, negate, offset]...
+%   dispersionfun, options, image_sampling [, negate, offset]...
 % )
 %   Returns a matrix for distorting a vectorized image.
 %
 % I_out = dispersionfunToMatrix(...
-%   dispersionfun, spectral_options, I_in [, negate, offset]...
+%   dispersionfun, options, I_in [, negate, offset]...
 % )
 %   Returns the distorted version of the input image.
 %
@@ -34,8 +34,8 @@ function [ W, bands_dispersion ] = dispersionfunToMatrix(dispersionfun, spectral
 %   displacement vector from the distorted position `X_1` to its undistorted
 %   position (x_2, y_2, lambda).
 %
-% spectral_options -- Spectral sampling options
-%   `spectral_options` is a structure of options controlling the spectral
+% options -- Spectral sampling options
+%   `options` is a structure of options controlling the spectral
 %   sampling of dispersion, and allowing for simultaneous warping, and spectral
 %   resampling or conversion to colour.
 %
@@ -62,14 +62,19 @@ function [ W, bands_dispersion ] = dispersionfunToMatrix(dispersionfun, spectral
 %     evenly-spaced.
 %   - 'color_map': A 2D array with 'm' rows, where `color_map(i, j)` is the
 %     sensitivity of the i-th colour channel of the warped image to the j-th
-%     spectral band in `bands_out`. In contrast with the `sensitivity`
-%     argument of 'solvePatchesADMM()', `color_map` is not a colour conversion
+%     spectral band in `bands_out`. `color_map` is not a colour conversion
 %     matrix, as it does not perform the desired numerical integration, over the
 %     spectrum, that is part of colour conversion.
+%   - 'support_threshold': A fraction indicating what proportion of the
+%     peak magnitude of a colour channel's sensitivity function the user
+%     considers to be effectively zero (i.e. no sensitivity).
+%     'support_threshold' is used to find the endpoints of the sequence of
+%     wavelengths at which dispersion is evaluated. 'support_threshold' is not
+%     used if 'color_map' is not present, and defaults to zero if not passed.
 %   - 'int_method': The numerical integration method to use when
 %     integrating over the responses of colour channels to compute colour
-%     values. `int_method` is passed to `integrationWeights()` as its `method`
-%     input argument. 'int_method' is not used if 'color_map' is not present.
+%     values. `int_method` is used by `colorWeights()`, but is not used if
+%     'color_map' is not present.
 %   - 'bands_padding': Padding to use when computing spectral interpolation
 %     matrices. Refer to the documentation of the 'padding' input argument of
 %     'resamplingWeights()' for details, in 'resamplingWeights.m'.
@@ -77,10 +82,10 @@ function [ W, bands_dispersion ] = dispersionfunToMatrix(dispersionfun, spectral
 %     them from the sampling space of 'bands_in' to the sampling space of
 %     'bands_dispersion' or 'bands_out'. 'interpolant' is passed to
 %     'resamplingWeights()' as its `f` input argument. Refer to the
-%     documentation of 'resamplingWeights.m' for more details. Note that the
-%     interpolation from the sampling space of 'bands_dispersion' to the
-%     sampling space of 'bands_out' is linear interpolation regardless of the
-%     value of 'interpolant'.
+%     documentation of 'resamplingWeights.m' for more details.
+%   - 'interpolant_ref': Similar to 'interpolant', but for interpolation from
+%     the sampling space of 'bands_dispersion' to the sampling space of
+%     'bands_out'.
 %
 %   The above optional fields should not be present if the dispersion matrix is
 %   to operate on colour channels instead of spectral bands, because colour
@@ -113,12 +118,12 @@ function [ W, bands_dispersion ] = dispersionfunToMatrix(dispersionfun, spectral
 %
 % W -- Warp matrix
 %   A (n_px x m)-by-(n_px x n) sparse array.
-%   - n is `length(spectral_options.bands_in)`, and
-%   - m is `length(spectral_options.bands_out)`
+%   - n is `length(options.bands_in)`, and
+%   - m is `length(options.bands_out)`
 %
 %   `W` warps the undistorted image to the distorted image, and may
 %   simutaneously change the spectral sampling of the image or convert it to
-%   colour, depending on the settings in `spectral_options`. `W` operates
+%   colour, depending on the settings in `options`. `W` operates
 %   according to the equation:
 %     `I_distorted = W * I_undistorted`
 %   `I_undistorted` is a vectorized form of an image where all pixels have been
@@ -139,8 +144,8 @@ function [ W, bands_dispersion ] = dispersionfunToMatrix(dispersionfun, spectral
 %
 % bands_dispersion -- Dispersion evaluation wavelengths
 %   A vector containing the wavelengths at which `dispersionfun` was evaluated.
-%   If 'spectral_options.resolution' is zero or is missing, `bands_dispersion`
-%   is equal to 'spectral_options.bands_in'. Otherwise, it is calculated as
+%   If 'options.resolution' is zero or is missing, `bands_dispersion`
+%   is equal to 'options.bands_in'. Otherwise, it is calculated as
 %   described in the following section.
 %
 % ## Algorithm
@@ -161,7 +166,7 @@ function [ W, bands_dispersion ] = dispersionfunToMatrix(dispersionfun, spectral
 % image, and `C_1` converts the result to the output spectral bands or colour
 % channels.
 %
-% When `spectral_options.resolution` is greater than zero, the function
+% When `options.resolution` is greater than zero, the function
 % determines the wavelengths at which to evaluate `dispersionfun` as follows:
 % - Select the four pixels that are the centers of the four quadrants of the
 %   distorted image. (The center of the image is not selected, because
@@ -170,13 +175,17 @@ function [ W, bands_dispersion ] = dispersionfunToMatrix(dispersionfun, spectral
 %   the edges of the image.)
 % - Select lower and upper wavelengths, `lambda0` and `lambda1`, at which to
 %   evaluate dispersion, by finding the smallest and largest wavelengths,
-%   respectively, across `spectral_options.bands_in`, and
-%   `spectral_options.bands_out`.
+%   respectively, across `options.bands_in`, and
+%   `options.bands_out`. If `options.support_threshold` and
+%   `options.color_map` are both present, then `lambda0` and `lambda1` are
+%   constrained to the region of the spectrum in which `options.color_map` has
+%   values which are fractions of at least `options.support_threshold` of the
+%   peak values of their respective channels.
 % - Evaluate `dispersionfun` at `lambda0` and `lambda1`, at the four pixels
 %   previously selected.
-% - Find the longest displacement between the dispersion vectors for `lambda0`
+% - Find the mean displacement between the dispersion vectors for `lambda0`
 %   and `lambda1` across the four pixels.
-% - Divide the longest displacement by `spectral_options.resolution` to obtain
+% - Divide the mean displacement by `options.resolution` to obtain
 %   the number of sub-intervals, `n_intervals`, into which to divide the
 %   wavelength interval from `lambda0` to `lambda1`.
 % - The wavelengths at which to evaluate the model of dispersion are
@@ -204,7 +213,7 @@ function [ W, bands_dispersion ] = dispersionfunToMatrix(dispersionfun, spectral
 % - Bilinear interpolation formulae:
 %   https://en.wikipedia.org/wiki/Bilinear_interpolation
 %
-% See also xylambdaPolyfit, xylambdaSplinefit, makeDispersionfun, warpImage
+% See also xylambdaPolyfit, xylambdaSplinefit, makeDispersionfun
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -215,7 +224,7 @@ nargoutchk(1, 2);
 narginchk(3, 5);
 
 % Parse input arguments
-bands_in = spectral_options.bands_in;
+bands_in = options.bands_in;
 if size(bands_in, 2) > size(bands_in, 1)
     bands_in = bands_in.';
 end
@@ -228,7 +237,7 @@ if image_passed
     I_in = image_sampling;
     image_sampling = [size(I_in, 1), size(I_in, 2)];
     if size(I_in, 3) ~= n_bands_in
-        error('`I_in` must have a size of `length(spectral_options.bands_in)` in its third dimension.');
+        error('`I_in` must have a size of `length(options.bands_in)` in its third dimension.');
     end
     I_in = reshape(I_in, [], 1);
 else
@@ -260,7 +269,18 @@ n_bands_out = length(bands_out);
 if do_post_resampling && (n_bands_out > 1)
     diff_bands = diff(bands_out);
     if max(abs(diff_bands - diff_bands(1))) > 1e-6
-        error('`spectral_options.bands_out` must contain equally-spaced values.')
+        error('`options.bands_out` must contain equally-spaced values.')
+    end
+end
+
+has_color_map = isfield(options, 'color_map');
+if has_color_map
+    if ~do_post_resampling
+        error('If `options.color_map` exists, then `options.bands_out` must also exist.');
+    end
+    color_map = options.color_map;
+    if size(color_map, 1) ~= n_bands_out
+        error('`options.color_map` must have as many rows as the length of `options.bands_out`.');
     end
 end
 
@@ -273,6 +293,17 @@ if do_pre_resampling
     % Choose a sequence of wavelengths at which to evaluate dispersion
     lambda0 = min(min(bands_in), min(bands_out));
     lambda1 = max(max(bands_in), max(bands_out));
+    if has_color_map && isfield(options, 'support_threshold')
+        if options.support_threshold < 0
+            error('`options.support_threshold` must be non-negative.');
+        end
+        color_map_relative = abs(color_map) ./ repmat(max(abs(color_map), [], 2), 1, n_bands_out);
+        color_map_relative_logical = any(color_map_relative >= options.support_threshold, 1);
+        ind = find(color_map_relative_logical, 1, 'first');
+        lambda0 = max(bands_out(ind), lambda0);
+        ind = find(color_map_relative_logical, 1, 'last');
+        lambda1 = min(bands_out(ind), lambda1);
+    end
     sample_points = [
         image_sampling(2), image_sampling(1);
         3 * image_sampling(2), image_sampling(1);
@@ -284,7 +315,7 @@ if do_pre_resampling
     distance_samples = dispersionfun(sample_points);
     distance_samples = diff(distance_samples, 1, 1);
     distance_samples = dot(distance_samples, distance_samples, 2);
-    distance_samples = sqrt(max(distance_samples));
+    distance_samples = sqrt(mean(distance_samples));
     n_bands_dispersion = max(ceil(distance_samples / options.resolution), 1) + 1;
     bands_dispersion = linspace(lambda0, lambda1, n_bands_dispersion);
 else
@@ -295,7 +326,7 @@ end
 if n_bands_in > 1 && (do_pre_resampling || do_post_resampling)
     diff_bands = diff(bands_in);
     if max(abs(diff_bands - diff_bands(1))) > 1e-6
-        error('`spectral_options.bands_in` must contain equally-spaced values.')
+        error('`options.bands_in` must contain equally-spaced values.')
     end
 end
 
@@ -306,20 +337,18 @@ if do_pre_resampling
     );
 end
 if do_post_resampling
+    color_weights_options = options;
     if do_pre_resampling
-        post_interpolant = @triangle;
-    else
-        post_interpolant = options.interpolant;
+        color_weights_options.interpolant = options.interpolant_ref;
     end
-    post_map = resamplingWeights(...
-        bands_out, bands_dispersion, post_interpolant, options.bands_padding...
-    );
-    if isfield(options, 'color_map')
-        if size(options.color_map, 1) ~= n_bands_out
-            error('`options.color_map` must have as many rows as the length of `options.bands_out`.');
-        end
-        int_weights = integrationWeights(color_bands, options.int_method);
-        post_map = color_map * diag(int_weights) * post_map;
+    if has_color_map
+        post_map = colorWeights(...
+            color_map, bands_out, bands_dispersion, color_weights_options...
+        );
+    else
+        post_map = resamplingWeights(...
+            bands_out, bands_dispersion, post_interpolant, options.bands_padding...
+        );
     end
 end
 
@@ -357,6 +386,7 @@ if do_post_resampling
     );
 end
 if do_pre_resampling
+    % This will consume a lot of memory for large images
     pre_map = sparse(...
         repmat(repmat((0:(n_bands_dispersion - 1)).', n_bands_in, 1), n_px, 1) * n_px + repelem((1:n_px).', n_bands_in * n_bands_dispersion, 1),...
         repmat(repelem((0:(n_bands_in - 1)).', n_bands_dispersion, 1), n_px, 1) * n_px + repelem((1:n_px).', n_bands_in * n_bands_dispersion, 1),...

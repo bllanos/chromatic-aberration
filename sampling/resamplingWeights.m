@@ -60,10 +60,6 @@ function weights = resamplingWeights(dst, src, f, padding)
 % ## Notes
 % - In the special case where `src` has only one element, `weights` will be
 %   a column vector of ones with the length of `dst`.
-% - In the special case where `src` and `dst` are identical, `weights` will
-%   be an identity matrix.
-% - If `src` has length one, its sampling frequency is undefined, so
-%   `weights` is set to a column vector of ones.
 %
 % ## References
 % - The code is loosely based on the "Ideal Bandlimited Interpolation"

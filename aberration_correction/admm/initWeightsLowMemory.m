@@ -15,10 +15,11 @@ function out = initWeightsLowMemory(I_in, dispersion_matrix, len_I)
 %   (`[]`).
 %
 % dispersion_matrix -- Model of dispersion
-%   `dispersion_matrix` can be empty (`[]`), if there is no model of
-%   dispersion. Otherwise, `dispersion_matrix` must be a matrix for warping
-%   `I`, the estimated latent image, to the space `I_in.I`, which is
-%   affected by dispersion. If `I_in.I` is not affected by dispersion, then
+%   `dispersion_matrix` can be empty (`[]`), if there is no model of dispersion.
+%   Otherwise, `dispersion_matrix` must be a matrix for warping `I`, the
+%   estimated latent image, to the space of `I_in.I`, which is affected by
+%   dispersion. `dispersion_matrix` must also convert `I` to the colour space of
+%   `I_in.I`. If `I_in.I` is not affected by dispersion, then
 %   `dispersion_matrix` should be empty.
 %
 % len_I -- Image size
@@ -46,9 +47,10 @@ if ~isempty(I_in)
         error('The number of rows of `I_in.spectral_weights` must equal the size of `I_in.I` in its third dimension.');
     end
     image_sampling = [size(I_in.I, 1), size(I_in.I, 2)];
-    out.Omega_Phi = channelConversionMatrix(image_sampling, I_in.spectral_weights);
-    if ~isempty(dispersion_matrix)
-        out.Omega_Phi = out.Omega_Phi * dispersion_matrix;
+    if isempty(dispersion_matrix)
+        out.Omega_Phi = channelConversionMatrix(image_sampling, I_in.spectral_weights);
+    else
+        out.Omega_Phi = dispersion_matrix;
     end
     out.I_est = zeros(numel(I_in.I), 1);
 end

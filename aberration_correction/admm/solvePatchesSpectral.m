@@ -1,35 +1,33 @@
-function [ bands, I_3D, varargout ] = solvePatchesMultiADMM(...
+function [ bands, I_3D, varargout ] = solvePatchesSpectral(...
     I_in, J_2D, align, dispersionfun, color_map, color_bands, sampling_options,...
     admm_options, reg_options, patch_options, varargin...
 )
-% SOLVEPATCHESMULTIADMM  Run ADMM at different spectral resolutions
+% SOLVEPATCHESSPECTRAL  Run ADMM for spectral image estimation
 %
 % ## Usage
 %
-% This is a version of 'solvePatchesADMM()' which assumes that the image can be
-% estimated at arbitrary spectral resolutions. As such, it will choose the
-% appropriate spectral resolution, and can estimate the image at successively
-% higher spectral resolutions if desired.
-%
-% In contrast, 'solvePatchesADMM()' estimates the image directly at a given
-% spectral resolution. Consequently, 'solvePatchesADMM()' is appropriate when
-% the output image is composed of colour channels, which are categorical, not
-% sampled, representations of spectral information.
+% This function is the equivalent of 'solvePatchesColor()' for spectral image
+% estimation. It assumes that the image can be estimated at arbitrary spectral
+% resolutions. As such, it will choose the appropriate spectral resolution, and
+% can estimate the image at successively higher spectral resolutions if desired.
+% 'solvePatchesColor()' is appropriate when the output image is composed of
+% colour channels, which are categorical, not sampled, representations of
+% spectral information.
 %
 % ## Syntax
-% [ bands, I ] = solvePatchesMultiADMM(...
+% [ bands, I ] = solvePatchesSpectral(...
 %   I_in, J, align, dispersionfun, color_map, color_bands, sampling_options,...
 %   admm_options, reg_options, patch_options [, verbose]...
 % )
-% [ bands, I, I_rgb ] = solvePatchesMultiADMM(___)
-% [ bands, I, I_rgb, weights_images ] = solvePatchesMultiADMM(___)
-% [ bands, I, I_rgb, weights_images, J_full ] = solvePatchesMultiADMM(___)
-% [ bands, I, I_rgb, weights_images, J_full, J_est ] = solvePatchesMultiADMM(___)
-% [ bands, I, I_rgb, weights_images, J_full, J_est, I_warped ] = solvePatchesMultiADMM(___)
-% [ bands, I, I_rgb, weights_images, J_full, J_est, I_warped, search ] = solvePatchesMultiADMM(...)
+% [ bands, I, I_rgb ] = solvePatchesSpectral(___)
+% [ bands, I, I_rgb, weights_images ] = solvePatchesSpectral(___)
+% [ bands, I, I_rgb, weights_images, J_full ] = solvePatchesSpectral(___)
+% [ bands, I, I_rgb, weights_images, J_full, J_est ] = solvePatchesSpectral(___)
+% [ bands, I, I_rgb, weights_images, J_full, J_est, I_warped ] = solvePatchesSpectral(___)
+% [ bands, I, I_rgb, weights_images, J_full, J_est, I_warped, search ] = solvePatchesSpectral(...)
 %
 % ## Description
-% [ bands, I ] = solvePatchesMultiADMM(...
+% [ bands, I ] = solvePatchesSpectral(...
 %   I_in, J, align, dispersionfun, color_map, color_bands, sampling_options,...
 %   admm_options, reg_options, patch_options [, verbose]...
 % )
@@ -37,26 +35,26 @@ function [ bands, I_3D, varargout ] = solvePatchesMultiADMM(...
 %   the input RAW image `J`, and also return the wavelengths corresponding
 %   to the spectral bands of `I`.
 %
-% [ bands, I, I_rgb ] = solvePatchesMultiADMM(___)
+% [ bands, I, I_rgb ] = solvePatchesSpectral(___)
 %   Additionally returns the RGB equivalent of the latent image.
 %
-% [ bands, I, I_rgb, weights_images ] = solvePatchesMultiADMM(___)
+% [ bands, I, I_rgb, weights_images ] = solvePatchesSpectral(___)
 %   Additionally returns images illustrating the weights selected for the
 %   regularization terms in the optimization problem.
 %
-% [ bands, I, I_rgb, weights_images, J_full ] = solvePatchesMultiADMM(___)
+% [ bands, I, I_rgb, weights_images, J_full ] = solvePatchesSpectral(___)
 %   Additionally returns a version of the RGB equivalent of the latent
 %   image, warped according to the model of dispersion.
 %
-% [ bands, I, I_rgb, weights_images, J_full, J_est ] = solvePatchesMultiADMM(___)
+% [ bands, I, I_rgb, weights_images, J_full, J_est ] = solvePatchesSpectral(___)
 %   Additionally returns the forward model estimate of the input RAW image
 %   `J`.
 %
-% [ bands, I, I_rgb, weights_images, J_full, J_est, I_warped ] = solvePatchesMultiADMM(___)
+% [ bands, I, I_rgb, weights_images, J_full, J_est, I_warped ] = solvePatchesSpectral(___)
 %   Additionally returns the version of the latent image warped according
 %   to the model of dispersion.
 %
-% [ bands, I, I_rgb, weights_images, J_full, J_est, I_warped, search ] = solvePatchesMultiADMM(...)
+% [ bands, I, I_rgb, weights_images, J_full, J_est, I_warped, search ] = solvePatchesSpectral(...)
 %   Additionally returns the search path taken to select regularization
 %   weights for a single image patch, at the highest spectral resolution.
 %   This call syntax is available only when `patch_options.target_patch`
@@ -91,23 +89,20 @@ function [ bands, I_3D, varargout ] = solvePatchesMultiADMM(...
 %   as the `sensorAlignment` input argument of `demosaic()`.
 %
 % dispersionfun -- Model of dispersion
-%   `dispersionfun` can be empty (`[]`), if there is no model of
-%   dispersion. Otherwise, `dispersionfun` must be a function handle, such
-%   as produced by 'makeDispersionfun()'. `dispersionfun(X)`, where `X` is
-%   a three-element row vector (x, y, l), returns the dispersion vector for
-%   the position (x, y) in `J` corresponding to light with wavelength or
-%   colour channel index `l`. The dispersion vector points from the
-%   corresponding position in the reference spectral band or colour channel
-%   to position (x, y). This function will negate dispersion vectors in
-%   order to create a warp matrix from `I` to `J`.
+%   `dispersionfun` can be empty (`[]`), if there is no model of dispersion.
+%   Otherwise, `dispersionfun` must be a function handle, such as produced by
+%   'makeDispersionfun()'. `dispersionfun(X)`, where `X` is a three-element row
+%   vector (x, y, l), returns the dispersion vector for the position (x, y) in
+%   `J` corresponding to light with wavelength `l`. The dispersion vector points
+%   from the corresponding position in the reference spectral band to position
+%   (x, y). This function will negate dispersion vectors in order to create a
+%   warp matrix from `I` to `J`.
 %
 % color_map -- Colour channel spectral sensitivities
-%   A 2D array, where `color_map(i, j)` is the sensitivity of the i-th
-%   colour channel of `J` to the j-th spectral band in `color_bands`. In
-%   contrast with the `sensitivity` argument of 'solvePatchesADMM()',
-%   `color_map` is not a colour conversion matrix, as it does not
-%   necessarily perform the desired numerical integration, over the
-%   spectrum, that is part of colour conversion.
+%   A 2D array, where `color_map(i, j)` is the sensitivity of the i-th colour
+%   channel of `J` to the j-th spectral band in `color_bands`. `color_map` is
+%   not a colour conversion matrix, as it does not perform the desired numerical
+%   integration, over the spectrum, that is part of colour conversion.
 %
 % color_bands -- Wavelength bands for colour channel sensitivities
 %   A vector, of length equal to the size of the second dimension of
@@ -116,19 +111,17 @@ function [ bands, I_3D, varargout ] = solvePatchesMultiADMM(...
 %   wavelength corresponding to `color_map(:, j)`. The values in
 %   `color_bands` are expected to be evenly-spaced.
 %
-%   The values in `color_bands` are also the wavelengths at which to
-%   evaluate the dispersion model encapsulated by `dispersionfun`. It is
-%   assumed that the dispersion model can also be evaluated at any
-%   wavelength from `color_bands(1)` to `color_bands(end)`, not only at
-%   the values given in `color_bands`.
-%
 % sampling_options -- Spectral sampling options
 %   `sampling_options` is a structure with the following fields used by
-%   'findSampling()':
+%   'findSampling()' and 'dispersionfunToMatrix()':
+%   - 'resolution': A non-negative scalar providing the desired approximate
+%     spacing, in pixels, between the images for consecutive wavelengths at
+%     which the dispersion is to be sampled. If 'resolution' is zero or is
+%     missing, the dispersion function will be evaluated at the same spectral
+%     sampling as the estimated image.
 %   - 'int_method': The numerical integration method to use when
 %     integrating over the responses of colour channels to compute colour
-%     values. `int_method` is passed to `integrationWeights()` as its
-%     `method` input argument.
+%     values. `int_method` is used by `colorWeights()`.
 %   - 'power_threshold': An option used by 'findSampling()' to select
 %     spectral sampling points.
 %   - 'n_bands': An option used by 'findSampling()' to select
@@ -138,9 +131,16 @@ function [ bands, I_3D, varargout ] = solvePatchesMultiADMM(...
 %     considers to be effectively zero (i.e. no sensitivity).
 %   - 'bands_padding': An option used by 'findSampling()' to control how
 %     spectral signals are extrapolated.
+%   - 'interpolant': The function convolved with spectral signals to interpolate
+%     them from the sampling space of the estimated image to another sampling
+%     space. 'interpolant' is passed to 'resamplingWeights()' as its `f` input
+%     argument. Refer to the documentation of 'resamplingWeights.m' for more
+%     details.
+%   - 'interpolant_ref': Similar to 'interpolant', but for interpolating between
+%     the spectral sampling spaces of quantities other than the estimated image.
 %
 %   The following fields are in addition to those used by
-%   'findSampling()':
+%   'findSampling()' and 'dispersionfunToMatrix()':
 %   - 'progression': A character vector describing how to select the
 %     intermediate numbers of bands at which to estimate the latent image. The
 %     final number of bands, denoted by 'S' below, is determined by calling
@@ -269,7 +269,7 @@ function [ bands, I_3D, varargout ] = solvePatchesMultiADMM(...
 %     the next. When the change is less than this threshold, and the
 %     minimum number of iterations has been reached, iteration terminates.
 %
-%   With 'solvePatchesADMM()', if 'minimum_weights' and 'maximum_weights'
+%   With 'solvePatchesColor()', if 'minimum_weights' and 'maximum_weights'
 %   were identical, regularization weight selection was disabled, and these
 %   values were used as the final regularization weights.
 %
@@ -386,20 +386,15 @@ function [ bands, I_3D, varargout ] = solvePatchesMultiADMM(...
 %
 % ## Notes
 %
-% - All notes in the documentation of 'solvePatchesADMM()' apply to this
+% - All notes in the documentation of 'solvePatchesColor()' apply to this
 %   function as well.
-% - It does not make sense to use this function to estimate images in a
-%   space of colour channels, as opposed to spectral bands. Colour channels
-%   represent overlapping regions of the spectrum, and therefore cannot be
-%   resampled in a physically-meaningful way, unlike spectral bands.
-%   'solvePatchesADMM()' should be used to estimate colour images.
 %
 % ## References
-% - See references of 'solvePatchesADMM()'.
+% - See references of 'solvePatchesColor()'.
 %
 % ## Future Work
 %
-% - See future work for 'solvePatchesADMM()'.
+% - See future work for 'solvePatchesColor()'.
 % - The multi-resolution image estimation approach taken by this function
 %   could be leveraged for more sophisticated regularization methods:
 %   - Anisotropic smoothing: The image spatial gradient could be subject to
@@ -414,7 +409,7 @@ function [ bands, I_3D, varargout ] = solvePatchesMultiADMM(...
 % - The patch size could be varied as a function of the spectral
 %   resolution.
 %
-% See also solvePatchesADMM, baek2017Algorithm2LowMemory, weightsLowMemory
+% See also solvePatchesColor, baek2017Algorithm2LowMemory, weightsLowMemory
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -490,7 +485,7 @@ if input_I_in
         error('The spatial dimensions of `I_in.I` must match those of `J`.')
     end
     if length(I_in.spectral_bands) ~= size(I_in.I, 3)
-        error('The number of rows of `I_in.spectral_bands` must equal the size of `I_in.I` in its third dimension.');
+        error('The length of `I_in.spectral_bands` must equal the size of `I_in.I` in its third dimension.');
     end
 end
 if length(color_bands) ~= size(color_map, 2)
@@ -691,6 +686,20 @@ parfor j = 1:n_j
         end
     end
     
+    if has_dispersion
+        dispersion_options_I_warped = struct(...
+            'resolution', sampling_options.resolution,...
+            'support_threshold', sampling_options.support_threshold,...
+            'bands_padding', sampling_options.bands_padding,...
+            'interpolant', sampling_options.interpolant,...
+            'interpolant_ref', sampling_options.interpolant_ref...
+        );
+        dispersion_options = dispersion_options_I_warped;
+        dispersion_options.bands_out = color_bands;
+        dispersion_options.color_map = color_map;
+        dispersion_options.int_method = sampling_options.int_method;
+    end
+    
     % Process each patch within the column
     for i = 1:n_i
         corner(1) = (i - 1) * patch_size(1) + 1 + patch_offset(1);
@@ -710,9 +719,9 @@ parfor j = 1:n_j
         output_step = 1;
         for t = 1:n_steps
             if has_dispersion
+                dispersion_options.bands_in = bands_all{t};
                 dispersion_matrix_p = dispersionfunToMatrix(...
-                    dispersionfun, bands_all{t}, image_sampling_p, image_sampling_p,...
-                    [0, 0, image_sampling_p(2), image_sampling_p(1)], true,...
+                    dispersionfun, dispersion_options, image_sampling_p, true,...
                     flip(corner) - 1 ...
                 );
             else
@@ -836,14 +845,12 @@ parfor j = 1:n_j
 
                     if n_auxiliary_images > 1
                         if has_dispersion
-                            patches_I_warped_ij = dispersion_matrix_p * patches_I_ij;
-                            patches_J_full_ij = in_admm.Omega * patches_I_warped_ij;
+                            patches_J_full_ij = dispersion_matrix_p * patches_I_ij;
                             patches_J_full_ij_3D = reshape(patches_J_full_ij, [image_sampling_p n_channels_rgb]);
                             column_out_j(...
                                 corner(1):patch_end_row, :, (color_inc + channels_out.J_full(1)):(color_inc + channels_out.J_full(1) + n_channels_rgb1)...
                             ) = patches_J_full_ij_3D(rows_trim_out(1):rows_trim_out(2), cols_trim_out(1):cols_trim_out(2), :);
                         else
-                            patches_I_warped_ij = patches_I_ij_3D;
                             patches_J_full_ij = patches_I_rgb_ij;
                             column_out_j(...
                                 corner(1):patch_end_row, :, (color_inc + channels_out.J_full(1)):(color_inc + channels_out.J_full(1) + n_channels_rgb1)...
@@ -859,10 +866,24 @@ parfor j = 1:n_j
                             ) = patches_J_est_ij_3D(rows_trim_out(1):rows_trim_out(2), cols_trim_out(1):cols_trim_out(2), :);
 
                             if n_auxiliary_images > 3
-                                patches_I_warped_ij_3D = reshape(patches_I_warped_ij, [image_sampling_p n_bands_t]);
-                                column_out_j(...
-                                    corner(1):patch_end_row, :, (spectral_inc + channels_out.I_warped(1)):(spectral_inc + channels_out.I_warped(1) + n_bands_t1)...
-                                ) = patches_I_warped_ij_3D(rows_trim_out(1):rows_trim_out(2), cols_trim_out(1):cols_trim_out(2), :);
+                                if has_dispersion
+                                    dispersion_options_I_warped.bands_in = bands_all{t};
+                                    dispersion_matrix_p_I_warped = dispersionfunToMatrix(...
+                                        dispersionfun, dispersion_options_I_warped, image_sampling_p, true,...
+                                        flip(corner) - 1 ...
+                                    );
+                                    patches_I_warped_ij = dispersion_matrix_p_I_warped * patches_I_ij;
+                                    patches_I_warped_ij_3D = reshape(patches_I_warped_ij, [image_sampling_p n_bands_t]);
+                                    column_out_j(...
+                                        corner(1):patch_end_row, :, (spectral_inc + channels_out.I_warped(1)):(spectral_inc + channels_out.I_warped(1) + n_bands_t1)...
+                                    ) = patches_I_warped_ij_3D(rows_trim_out(1):rows_trim_out(2), cols_trim_out(1):cols_trim_out(2), :);
+                                else
+                                    column_out_j(...
+                                        corner(1):patch_end_row, :, (spectral_inc + channels_out.I_warped(1)):(spectral_inc + channels_out.I_warped(1) + n_bands_t1)...
+                                    ) = column_out_j(...
+                                        corner(1):patch_end_row, :, (spectral_inc + channels_out.I(1)):(spectral_inc + channels_out.I(1) + n_bands_t1)...
+                                    );
+                                end
                             end
                         end
                     end
