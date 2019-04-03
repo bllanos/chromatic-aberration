@@ -227,16 +227,16 @@ solvePatchesColorOptions.admm_options.rho = [ 1, 1, 1, 1 ];
 % image estimation.
 weights = [ 1e-2, 0, 0 ];
 
-% Convergence tolerances in ADMM. Reasonable values for the third element
-% are 10^-4 to 10^-3 (page 21 of Boyd et al. 2011).
 % The first element is the tolerance for the conjugate gradients method. MATLAB
-% uses a default value of 10^-6
-solvePatchesColorOptions.admm_options.tol = [ 1e-5, 1e-5, 1e-5 ];
+% uses a default value of 10^-6. The second value is the relative convergence
+% tolerance in ADMM. Reasonable values are 10^-4 to 10^-3 (page 21 of Boyd et
+% al. 2011).
+solvePatchesColorOptions.admm_options.tol = [ 1e-5, 1e-3 ];
 
 % Maximum number of inner and outer iterations, the `maxit` input argument.
 % The first element applies to the conjugate gradients method. MATLAB
 % uses a default value of 20.
-solvePatchesColorOptions.admm_options.maxit = [ 500, 500 ];
+solvePatchesColorOptions.admm_options.maxit = [ 500, 1000 ];
 
 % Parameters for adaptively changing the penalty parameters for improved
 % convergence speed. (Disable adaptive penalty parameter variation by

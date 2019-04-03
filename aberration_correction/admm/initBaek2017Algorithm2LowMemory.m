@@ -114,13 +114,14 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 %     number of iterations to use with MATLAB's 'pcg()' function during
 %     image initialization. The second element of `maxit` is not used by
 %     this function.
-%   - 'tol': A three-element vector containing convergence tolerances. The
+%   - 'tol': A two-element vector containing convergence tolerances. The
 %     first element is the tolerance value to use with MATLAB's 'pcg()'
 %     function, such as when solving the I-minimization step of the ADMM
-%     algorithm. The second and third elements are the absolute and
-%     relative tolerance values for the ADMM algorithm, as explained in
-%     Section 3.3.1 of Boyd et al. 2011. This function only uses the first
-%     element.
+%     algorithm. The second element is the relative tolerance value for the ADMM
+%     algorithm, as explained in Section 3.3.1 of Boyd et al. 2011. This
+%     function will use the first element when initializing the latent image
+%     `out.I`, and will use the second element to compute an absolute tolerance
+%     for the ADMM algorithm (`out.absolute_tol`).
 %   - 'init': A character vector specifying how to initialize the latent
 %     image `out.I`:
 %     - 'zero': `out.I` will be a zero vector.
@@ -303,6 +304,19 @@ if compute_all
     out.M_Omega_Phi = out.M * out.Omega_Phi;
     
     out.J = reshape(J_2D, [], 1);
+    
+    % Compute a conservative absolute convergence tolerance that reflects the
+    % magnitude of a typical value in the latent image.
+    %
+    % Suppose that the latent image has a uniform spectral intensity, and
+    % therefore the intensity in each colour channel is the product of the sum
+    % of the spectral sensitivity of that colour channel and the intensity of
+    % the latent image. Find the median intensity in the raw image, and assume
+    % that it corresponds to the colour channel with the highest mean spectral
+    % sensitivity, then find the corresponding uniform spectral intensity. Set
+    % an absolute convergence tolerance as the product of the relative
+    % convergence tolerance and this uniform spectral intensity.
+    out.absolute_tol = options.tol(2) * median(out.J) ./ max(sum(sensitivity, 2));
 
     out.M_Omega_Phi_J = zeros(n_elements_I, 1);
     out.G_T = cell(n_priors, 1);

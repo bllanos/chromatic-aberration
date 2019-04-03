@@ -55,12 +55,11 @@ function in = baek2017Algorithm2LowMemory(weights, options, in, varargin)
 %   - 'nonneg': A Boolean scalar specifying whether or not to enable a
 %     non-negativity constraint on the estimated image. If `true`, 'rho'
 %     must have four elements.
-%   - 'tol': A three-element vector containing convergence tolerances. The
+%   - 'tol': A two-element vector containing convergence tolerances. The
 %     first element is the tolerance value to use with MATLAB's 'pcg()'
 %     function, such as when solving the I-minimization step of the ADMM
-%     algorithm. The second and third elements are the absolute and relative
-%     tolerance values for the ADMM algorithm, as explained in Section 3.3.1 of
-%     Boyd et al. 2011.
+%     algorithm. The second element is the relative tolerance for the ADMM
+%     algorithm, as explained in Section 3.3.1 of Boyd et al. 2011.
 %   - 'varying_penalty_params': If empty (`[]`), the penalty parameters
 %     passed in 'rho' will be fixed across all ADMM iterations. Otherwise,
 %     'varying_penalty_params' is a three-element vector containing the
@@ -110,6 +109,8 @@ function in = baek2017Algorithm2LowMemory(weights, options, in, varargin)
 %   - 'U': A cell vector with the same format as 'g', containing the scaled
 %     ADMM dual variables.
 %   - 'R': The subtraction of 'Z' from 'g'.
+%   - 'absolute_tol': The absolute tolerance value for the ADMM algorithm, as
+%     explained in Section 3.3.1 of Boyd et al. 2011.
 %
 %   Note that if elements of `weights` are zero, the corresponding elements
 %   of many of the above fields are not needed. Likewise, the elements of
@@ -383,15 +384,15 @@ else
             
             % Calculate stopping criteria
             % See Section 3.3.1 of Boyd et al. 2011.
-            epsilon_pri(z_ind) = sqrt(len_Z(z_ind)) * options.tol(2) +...
-                options.tol(3) * max([norm(in.g{z_ind}), norm(in.Z{z_ind})]);
+            epsilon_pri(z_ind) = sqrt(len_Z(z_ind)) * in.absolute_tol +...
+                options.tol(2) * max([norm(in.g{z_ind}), norm(in.Z{z_ind})]);
             in.Y{z_ind} = rho(z_ind) * in.U{z_ind};
             if z_ind == nonneg_ind
-                epsilon_dual(z_ind) = sqrt(len_I) * options.tol(2) +...
-                    options.tol(3) * norm(in.Y{z_ind});
+                epsilon_dual(z_ind) = sqrt(len_I) * in.absolute_tol +...
+                    options.tol(2) * norm(in.Y{z_ind});
             else
-                epsilon_dual(z_ind) = sqrt(len_I) * options.tol(2) +...
-                    options.tol(3) * norm(in.G_T{z_ind} * in.Y{z_ind});
+                epsilon_dual(z_ind) = sqrt(len_I) * in.absolute_tol +...
+                    options.tol(2) * norm(in.G_T{z_ind} * in.Y{z_ind});
             end
             converged = converged &&...
                 (R_norm(z_ind) < epsilon_pri(z_ind) && S_norm(z_ind) < epsilon_dual(z_ind));

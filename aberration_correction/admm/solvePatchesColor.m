@@ -117,12 +117,11 @@ function [ I_3D, varargout ] = solvePatchesColor(...
 %   - 'nonneg': A Boolean scalar specifying whether or not to enable a
 %     non-negativity constraint on the estimated image. If `true`, 'rho'
 %     must have four elements.
-%   - 'tol': A three-element vector containing convergence tolerances. The
+%   - 'tol': A two-element vector containing convergence tolerances. The
 %     first element is the tolerance value to use with MATLAB's 'pcg()'
 %     function, such as when solving the I-minimization step of the ADMM
-%     algorithm. The second and third elements are the absolute and
-%     relative tolerance values for the ADMM algorithm, as explained in
-%     Section 3.3.1 of Boyd et al. 2011.
+%     algorithm. The second element is the relative tolerance for the ADMM
+%     algorithm, as explained in Section 3.3.1 of Boyd et al. 2011.
 %   - 'varying_penalty_params': If empty (`[]`), the penalty parameters
 %     passed in 'rho' will be fixed across all ADMM iterations. Otherwise,
 %     'varying_penalty_params' is a three-element vector containing the
