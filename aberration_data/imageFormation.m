@@ -186,7 +186,7 @@ nargoutchk(1, 4);
 
 n_output_images = nargout;
 
-verbose = false;
+verbose = true;
 
 if verbose
     tic
@@ -253,6 +253,9 @@ if has_dispersion
     dispersion_options.bands_out = color_bands;
     dispersion_options.color_map = color_map;
     dispersion_options.int_method = sampling_options.int_method;
+else
+    dispersion_options_I_warped = [];
+    dispersion_options = [];
 end
 
 if verbose
@@ -261,10 +264,8 @@ end
 
 % Channel indices in the input concatenation of images
 n_channels_in = 0;
-if input_I_in
-    channels_in.I_in = [ 1, size(I_hyper.I, 3) ]; % True image
-    n_channels_in = n_channels_in + channels_in.I_in(2);
-end
+channels_in.I_in = [ 1, size(I_hyper, 3) ];
+n_channels_in = n_channels_in + channels_in.I_in(2);
 
 % Channel indices in the output concatenation of images
 n_channels_out = 0;
@@ -304,7 +305,7 @@ for j = 1:n_j
         min(j * patch_size(2) + padding + patch_offset(2), image_sampling(2))
     ];
     columns_in{j} = zeros(image_sampling(1), diff(cols_ind_in) + 1, n_channels_in);
-    columns_in{j}(:, :, channels_in.I_in(1):channels_in.I_in(2)) = I_hyper.I(:, cols_ind_in(1):cols_ind_in(2), :);
+    columns_in{j}(:, :, channels_in.I_in(1):channels_in.I_in(2)) = I_hyper(:, cols_ind_in(1):cols_ind_in(2), :);
 end
 
 if verbose
@@ -348,7 +349,7 @@ parfor j = 1:n_j
             if n_output_images > 1
                 if has_dispersion
                     patches_J_full_ij_3D = dispersionfunToMatrix(...
-                        dispersionfun, dispersion_options, image_sampling_p, true,...
+                        dispersionfun, dispersion_options, patches_I_ij_3D, true,...
                         flip(corner) - 1 ...
                         );
                     column_out_j(...
@@ -366,13 +367,13 @@ parfor j = 1:n_j
                 if n_output_images > 2
                     patches_J_est_ij_3D = mosaic(patches_J_full_ij_3D, align);
                     column_out_j(...
-                        corner(1):patch_end_row, :, (raw_inc + channels_out.J_est(1)):(raw_inc + channels_out.J_est(1) + sz_J3 - 1)...
+                        corner(1):patch_end_row, :, channels_out.J_est(1)...
                     ) = patches_J_est_ij_3D(rows_trim_out(1):rows_trim_out(2), cols_trim_out(1):cols_trim_out(2), :);
 
                     if n_output_images > 3
                         if has_dispersion
                             patches_I_warped_ij_3D = dispersionfunToMatrix(...
-                                dispersionfun, dispersion_options_I_warped, image_sampling_p, true,...
+                                dispersionfun, dispersion_options_I_warped, patches_I_ij_3D, true,...
                                 flip(corner) - 1 ...
                             );
                             column_out_j(...

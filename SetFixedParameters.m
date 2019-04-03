@@ -194,9 +194,6 @@ imageFormationSamplingOptions = struct(...
     'interpolant_ref', findSamplingOptions.interpolant_ref...
 );
 
-imageFormationPatchOptions.patch_size = patch_sizes(1, :);
-imageFormationPatchOptions.padding = paddings(1);
-
 % ### Additional options for 'solvePatchesSpectral()'
 solvePatchesSpectralOptions.sampling_options = findSamplingOptions;
 solvePatchesSpectralOptions.sampling_options.resolution = dispersionfunToMatrixOptions.resolution;
@@ -276,6 +273,9 @@ solvePatchesColorOptions.patch_options.patch_size = patch_sizes(1, :);
 solvePatchesColorOptions.patch_options.padding = paddings(1);
 
 solvePatchesSpectralOptions.patch_options = solvePatchesColorOptions.patch_options;
+
+imageFormationPatchOptions.patch_size = patch_sizes(1, :);
+imageFormationPatchOptions.padding = paddings(1);
 
 % ## Options for selecting regularization weights
 

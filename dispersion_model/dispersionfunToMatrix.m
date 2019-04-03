@@ -256,8 +256,10 @@ if ~isempty(varargin)
 end
 
 % Process spectral sampling options
-do_post_resampling = isfield(options, 'bands_out');
-if do_post_resampling
+do_pre_resampling = isfield(options, 'resolution') && (options.resolution ~= 0);
+has_bands_out = isfield(options, 'bands_out');
+do_post_resampling = has_bands_out || do_pre_resampling;
+if has_bands_out
     bands_out = options.bands_out;
 else
     bands_out = bands_in;
@@ -266,7 +268,7 @@ if size(bands_out, 2) > size(bands_out, 1)
     bands_out = bands_out.';
 end
 n_bands_out = length(bands_out);
-if do_post_resampling && (n_bands_out > 1)
+if has_bands_out && (n_bands_out > 1)
     diff_bands = diff(bands_out);
     if max(abs(diff_bands - diff_bands(1))) > 1e-6
         error('`options.bands_out` must contain equally-spaced values.')
@@ -275,7 +277,7 @@ end
 
 has_color_map = isfield(options, 'color_map');
 if has_color_map
-    if ~do_post_resampling
+    if ~has_bands_out
         error('If `options.color_map` exists, then `options.bands_out` must also exist.');
     end
     color_map = options.color_map;
@@ -284,7 +286,6 @@ if has_color_map
     end
 end
 
-do_pre_resampling = isfield(options, 'resolution') && (options.resolution ~= 0);
 if do_pre_resampling
     if options.resolution < 0
         error('`options.resolution` must be non-negative.');
@@ -314,6 +315,7 @@ if do_pre_resampling
     sample_points = [repelem(sample_points, 2, 1), repmat([lambda0; lambda1], n_sample_points, 1)]; 
     distance_samples = dispersionfun(sample_points);
     distance_samples = diff(distance_samples, 1, 1);
+    distance_samples = distance_samples(1:2:end, :);
     distance_samples = dot(distance_samples, distance_samples, 2);
     distance_samples = sqrt(mean(distance_samples));
     n_bands_dispersion = max(ceil(distance_samples / options.resolution), 1) + 1;
@@ -339,6 +341,9 @@ end
 if do_post_resampling
     color_weights_options = options;
     if do_pre_resampling
+        post_interpolant = options.interpolant;
+    else
+        post_interpolant = options.interpolant_ref;
         color_weights_options.interpolant = options.interpolant_ref;
     end
     if has_color_map
@@ -467,7 +472,7 @@ for col = 1:image_sampling(2)
 
     % Find linear indices for pixels
     neighbour_index_linear = sub2ind(...
-        [image_sampling, n_bands_in],...
+        [image_sampling, n_bands_dispersion],...
         neighbour_index_y,...
         neighbour_index_x,...
         neighbour_index_lambda...
@@ -495,7 +500,7 @@ for col = 1:image_sampling(2)
     end
 
     if image_passed
-        W(:, col, :) = reshape(W_col_all * I_in, n_px, 1, n_bands_out);
+        W(:, col, :) = reshape(W_col_all * I_in, image_sampling(1), 1, n_bands_out);
     else
         W_rows_col = repmat(...
                 repmat(...
@@ -509,9 +514,10 @@ for col = 1:image_sampling(2)
         );
         W_cols_col = repelem((1:n_px_lambda_in).', image_sampling(1) * n_bands_out, 1);
         [row_filter, col_filter, W_vals_col] = find(W_col_all);
+        linear_filter = sub2ind(size(W_col_all), row_filter, col_filter);
         n_values_new = n_values + length(W_vals_col);
-        W_rows((n_values + 1):n_values_new) = W_rows_col(row_filter);
-        W_cols((n_values + 1):n_values_new) = W_cols_col(col_filter);
+        W_rows((n_values + 1):n_values_new) = W_rows_col(linear_filter);
+        W_cols((n_values + 1):n_values_new) = W_cols_col(linear_filter);
         W_vals((n_values + 1):n_values_new) = W_vals_col;
         n_values = n_values_new;
     end
