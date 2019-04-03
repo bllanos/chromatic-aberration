@@ -250,9 +250,6 @@ solvePatchesColorOptions.admm_options.norms = [true, true, false];
 % have four elements)
 solvePatchesColorOptions.admm_options.nonneg = true;
 
-% Image initialization method
-solvePatchesColorOptions.admm_options.init = 'zero';
-
 solvePatchesSpectralOptions.admm_options = solvePatchesColorOptions.admm_options;
 
 % ## Options for patch-wise image estimation

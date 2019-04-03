@@ -130,11 +130,6 @@ function [ I_3D, varargout ] = solvePatchesColor(...
 %     parameters in the ADMM iterations will vary, so as to speed up
 %     convergence. Refer to Section 3.4.1 of Boyd et al. 2011 for a full
 %     explanation.
-%   - 'init': A character vector specifying how to initialize the latent
-%     image `out.I`:
-%     - 'zero': `out.I` will be a zero vector.
-%     - 'uniform': `out.I` will be a pattern of uniform cross-channel
-%       intensities that best fits the input image `J`.
 %
 % reg_options -- Regularization weight selection options
 %   There are three regularization terms which can be enabled:

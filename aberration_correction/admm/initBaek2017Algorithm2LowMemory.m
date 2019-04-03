@@ -122,11 +122,6 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 %     function will use the first element when initializing the latent image
 %     `out.I`, and will use the second element to compute an absolute tolerance
 %     for the ADMM algorithm (`out.absolute_tol`).
-%   - 'init': A character vector specifying how to initialize the latent
-%     image `out.I`:
-%     - 'zero': `out.I` will be a zero vector.
-%     - 'uniform': `out.I` will be a pattern of uniform spectral
-%       intensities that best fits the input image `J`.
 %
 % out -- Preallocated arrays and intermediate data
 %   The `in` input/output argument of 'baek2017Algorithm2LowMemory()'.
@@ -151,9 +146,6 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 %   - 'A_const_noWeights': A partial computation of 'A' which is
 %     independent of the ADMM penalty parameters, and of the regularization
 %     weights.
-%   - 'InitMatrix': A matrix, present only if `options.init` is
-%     `'uniform'`, used to project a uniform spectral intensity image onto
-%     the input image `J`.
 %
 %   The 'A_const' field will only be initialized/updated when `weights` is
 %   passed.
@@ -171,20 +163,6 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 % Supervised by Dr. Y.H. Yang
 % University of Alberta, Department of Computing Science
 % File created October 9, 2018
-
-    function initI()
-        if isfield(out, 'InitMatrix')
-            [out.I(1:size(out.InitMatrix, 2)), ~] = pcg(...
-                out.InitMatrix, out.J, options.tol(1), options.maxit(1)...
-            );
-            out.I((size(out.InitMatrix, 2) + 1):end) = repmat(...
-                out.I(1:size(out.InitMatrix, 2)),...
-                (size(out.Omega, 2) / size(out.InitMatrix, 2) - 1), 1 ...
-            );
-        else
-            out.I = zeros(size(out.I));
-        end
-    end
 
 if nargin == 6
     compute_all = true;
@@ -212,7 +190,7 @@ elseif nargin == 3
     options = varargin{3};
 elseif nargin == 1
     out = varargin{1};
-    initI();
+    out.I = zeros(size(out.I));
     return;
 else
     error('Unexpected number of input arguments.')
@@ -338,16 +316,6 @@ if compute_all
     out.b = zeros(n_elements_I, 1);
 
     out.I = zeros(n_elements_I, 1);
-    if strcmp(options.init, 'uniform')
-        if has_dispersion
-            out.InitMatrix = out.M * dispersion_matrix;
-        else
-            out.InitMatrix = out.M * channelConversionMatrix(image_sampling, sum(sensitivity, 2));
-        end
-    elseif ~strcmp(options.init, 'zero')
-        error('Unrecognized value of `options.init`.');
-    end
-    initI();
 
     active_constraints = [norms, nonneg];
     n_Z = find(active_constraints, 1, 'last');
