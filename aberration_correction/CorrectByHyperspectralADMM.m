@@ -195,7 +195,7 @@ reverse_dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Res
 color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/SonyColorMapData.mat';
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/Downloads/temp';
+output_directory = '/home/llanos/Downloads';
 
 % ## Options for patch-wise image estimation
 
@@ -203,7 +203,7 @@ output_directory = '/home/llanos/Downloads/temp';
 % column) location. If empty (`[]`), the entire image will be estimated. The
 % patch corner indices must be odd integers to avoid creating a patch with a
 % different colour filter array pattern from the whole image.
-target_patch = [1601, 767];
+target_patch = [1603, 769];
 
 % Only select regularization weights for a single patch, with its top-left
 % corner at the given (row, column) location. If empty (`[]`), regularization
@@ -230,7 +230,7 @@ has_dispersion = ~isempty(reverse_dispersion_model_filename);
 if has_dispersion
     [...
         dispersion_data, bands_dispersionfun, transform_data...
-    ] = loadDispersionModel(reverse_dispersion_model_filename, false, false);
+    ] = loadDispersionModel(reverse_dispersion_model_filename, false);
 end
 
 model_variables_required = { 'sensor_map', 'channel_mode', 'bands' };

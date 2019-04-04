@@ -306,18 +306,16 @@ if do_pre_resampling
         lambda1 = min(bands_out(ind), lambda1);
     end
     sample_points = [
-        image_sampling(2), image_sampling(1);
-        3 * image_sampling(2), image_sampling(1);
-        image_sampling(2), 3 * image_sampling(1);
-        3 * image_sampling(2), 3 * image_sampling(1);
-    ] / 4;
+        (image_sampling(2) / 4 * [1; 3; 1; 3]) + offset(1),...
+        (image_sampling(1) / 4 * [1; 1; 3; 3]) + offset(2)
+    ] - 0.5;
     n_sample_points = size(sample_points, 1);
     sample_points = [repelem(sample_points, 2, 1), repmat([lambda0; lambda1], n_sample_points, 1)]; 
     distance_samples = dispersionfun(sample_points);
     distance_samples = diff(distance_samples, 1, 1);
     distance_samples = distance_samples(1:2:end, :);
     distance_samples = dot(distance_samples, distance_samples, 2);
-    distance_samples = sqrt(mean(distance_samples));
+    distance_samples = mean(sqrt(distance_samples));
     n_bands_dispersion = max(ceil(distance_samples / options.resolution), 1) + 1;
     bands_dispersion = linspace(lambda0, lambda1, n_bands_dispersion);
 else
