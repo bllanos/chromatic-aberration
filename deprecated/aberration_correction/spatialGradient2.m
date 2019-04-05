@@ -1,3 +1,5 @@
+% This function may still have bugs.
+
 function [ G_xy2, G_diag2 ] = spatialGradient2(image_sampling)
 % SPATIALGRADIENT2  Create sparse matrices acting as image second-order spatial gradient operators
 %

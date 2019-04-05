@@ -60,12 +60,12 @@ n_px_c2 = n_px * c2;
 % Row indices
 % For each output pixel in each output colour channel, iterate over the colour
 % channels of the input colour space
-rows = repelem((1:n_px_c2).', c1);
+rows = repelem((1:n_px_c2).', c1, 1);
 
 % Column indices
 % Iterate over the input colour channels for each pixel, and repeat for each
 % output colour channel
-columns = repmat(repelem((1:n_px).', c1), c2, 1) +...
+columns = repmat(repelem((1:n_px).', c1, 1), c2, 1) +...
     repmat((0:(c1 - 1)).' * n_px, n_px_c2, 1);
 
 % Matrix values
