@@ -55,7 +55,7 @@ function [ G_xy, G_diag ] = spatialGradient(image_sampling)
 %   the MATLAB help page for the 'imgradientxy()' function.
 %   (https://www.mathworks.com/help/images/ref/imgradientxy.html)
 %
-% See also spatialGradient2, spectralGradient
+% See also spectralGradient
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang

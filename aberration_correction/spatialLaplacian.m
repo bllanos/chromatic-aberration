@@ -60,7 +60,7 @@ function [ L ] = spatialLaplacian(image_sampling)
 %     Deconvolution." IEEE Transactions on Image Processing, vol. 25, no.
 %     11, pp. 5316-5330, 2016. doi:10.1109/TIP.2016.2601489
 %
-% See also spatialGradient, spatialGradient2, spectralGradient
+% See also spatialGradient, spectralGradient
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang

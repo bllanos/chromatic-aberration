@@ -65,8 +65,8 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 %   gradient of the image in Equation 6 of Baek et al. 2017. `weights(2)`
 %   is the 'beta' weight on the regularization of the spectral gradient of
 %   the spatial gradient of the image in Equation 6 of Baek et al. 2017.
-%   `weights(3)` is the weight on a second-order gradient prior designed to
-%   penalize colour-filter array artifacts.
+%   `weights(3)` is a weight on the regularization of the spatial Laplacian of
+%   the image, as used in Song et al. 2016.
 %
 %   Values of zero in `weights` indicate that the corresponding
 %   regularization terms are disabled. Note that if all elements of
@@ -155,9 +155,12 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 %   weight has been normalized by the length of the vector whose norm is
 %   the regularization term to which it corresponds.
 %
+% ## References
+%
+% Refer to the references of 'baek2017Algorithm2LowMemory.m'.
+%
 % See also baek2017Algorithm2LowMemory, baek2017Algorithm2, mosaicMatrix,
-% antiMosaicMatrix, channelConversionMatrix, spatialGradient,
-% spectralGradient
+% channelConversionMatrix, spatialGradient, spectralGradient, spatialLaplacian
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -275,7 +278,7 @@ if compute_all
             ] * G_xy;
     end
     if enabled_weights(3)
-        out.G{3} = antiMosaicMatrix(image_sampling, align) * out.Omega_Phi;
+        out.G{3} = spatialLaplacian([image_sampling, n_bands]);
     end
 
     out.M = mosaicMatrix(image_sampling, align);

@@ -192,13 +192,8 @@ solvePatchesSpectralOptions.sampling_options.show_steps = true;
 
 if has_spectral
     image_sampling_patch_spectral = [full_patch_size, length(bands_spectral)];
-    n_spectral_weights = n_weights - 1;
-    patch_operators_spectral = cell(n_spectral_weights, 1);
+    patch_operators_spectral = cell(n_weights, 1);
     for w = 1:n_weights
-        if w > n_spectral_weights
-            % The anti-mosaicking prior is applied in RGB space
-            continue;
-        end
         if w == 1 || w == 2
             G = spatialGradient(image_sampling_patch_spectral);
         end
@@ -237,10 +232,7 @@ for w = 1:n_weights
         G = G_lambda * G;
     end
     if w == 3
-        % The Bayer pattern code changes depending on the location of the
-        % patch, but only if the patch has an odd integer vertical or
-        % horizontal offset relative to the image origin
-        G = antiMosaicMatrix(full_patch_size, bayer_pattern);
+        G = spatialLaplacian(image_sampling_patch_rgb);
     end
     patch_operators_rgb{w} = G;
 end
@@ -338,9 +330,6 @@ for i = 1:n_images
                 (corners_i(pc, 2) - padding):(corners_i(pc, 2) + (patch_size(2) + padding - 1)), : ...
             );
             for w = 1:n_weights
-                if w > n_spectral_weights
-                    continue;
-                end
                 err_vector = patch_operators_spectral{w} * reshape(patch, [], 1);
                 patch_penalties_spectral_L1{i}(pc, w) = mean(abs(err_vector));
                 patch_penalties_spectral_L2{i}(pc, w) = dot(err_vector, err_vector) / length(err_vector);

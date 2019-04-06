@@ -25,7 +25,7 @@ function [ M ] = antiMosaicMatrix(image_sampling, align)
 % M -- Penalty matrix
 %   A (n_px x 3) x (n_px * 3) array, where `n_px = prod(image_sampling)`.
 %   `M` produces penalty values for each pixel in a 3-channel (RGB) image
-%   that is not measured in the corresponding RAW (color-filter array)
+%   that is not measured in the corresponding RAW (colour-filter array)
 %   image:
 %     `P = M * I`
 %   `I` is a vectorized form of an image where all pixels have been
@@ -88,7 +88,7 @@ narginchk(2, 2);
 if length(image_sampling) ~= 2
     error('The `image_sampling` input argument must contain an image height and width only.');
 elseif any(mod(image_sampling, 2) ~= 0)
-    error('The image dimensions must be even integers in order for the image to be a valid color filter array.');
+    error('The image dimensions must be even integers in order for the image to be a valid colour filter array.');
 end
 
 % Does the first Red value at the first Green pixel use a horizontal or

@@ -818,11 +818,9 @@ for d = 1:n_dispersion
                                 G = G_lambda * G;
                             end
                             if aw == 3
-                                G = antiMosaicMatrix(image_sampling_f, align_f);
-                                err_vector = G * reshape(patches_I_rgb_gt_ij, [], 1);
-                            else
-                                err_vector = G * reshape(patches_I_gt_ij, [], 1);
+                                G = spatialLaplacian(image_sampling_f_3);
                             end
+                            err_vector = G * reshape(patches_I_gt_ij, [], 1);
                             if solvePatchesSpectralOptions.admm_options.norms(aw)
                                 penalty = mean(abs(err_vector));
                             else

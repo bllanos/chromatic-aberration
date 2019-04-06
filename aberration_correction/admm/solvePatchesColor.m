@@ -138,8 +138,8 @@ function [ I_3D, varargout ] = solvePatchesColor(...
 %   2 - Regularization of the cross-channel gradient of the spatial gradient of
 %       the image, as in Equation 6 in Baek et al. 2017. This regularization
 %       term is not very meaningful for colour images.
-%   3 - A second-order gradient prior designed to penalize colour-filter
-%       array artifacts, implemented in antiMosaicMatrix.m.
+%   3 - Regularization of the spatial Laplacian of the image, as in Song et al.
+%       2016.
 %
 %   `reg_options` is a structure with the following fields, controlling
 %   regularization, and regularization weight selection:

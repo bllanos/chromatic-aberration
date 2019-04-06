@@ -22,7 +22,7 @@ function [ M ] = mosaicMatrix(image_sampling, align)
 %
 % M -- Mosaicing matrix
 %   A n_px x (n_px * 3) array, where `n_px = prod(image_sampling)`. `M`
-%   converts 3-channel (RGB) images to RAW (color-filter array) images:
+%   converts 3-channel (RGB) images to RAW (colour-filter array) images:
 %     `J = M * I`
 %   `I` is a vectorized form of an image where all pixels have been
 %   rearranged from columnwise order into a column vector. Specifically, if

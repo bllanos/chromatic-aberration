@@ -22,8 +22,8 @@ function in = baek2017Algorithm2LowMemory(weights, options, in, varargin)
 %   gradient of the image in Equation 6 of Baek et al. 2017. `weights(2)`
 %   is the 'beta' weight on the regularization of the spectral gradient of
 %   the spatial gradient of the image in Equation 6 of Baek et al. 2017.
-%   `weights(3)` is the weight on a second-order gradient prior designed to
-%   penalize colour-filter array artifacts.
+%   `weights(3)` is a weight on the regularization of the spatial Laplacian of
+%   the image, as used in Song et al. 2016.
 %
 %   If all elements of `weights` are zero, and `options.nonneg` is `false`,
 %   this function will throw an error, in contrast to
@@ -81,8 +81,7 @@ function in = baek2017Algorithm2LowMemory(weights, options, in, varargin)
 %     regularization operators corresponding to each of the regularization
 %     terms. `G{1}` is `G_xy`, the spatial gradient operator. `G{2}` is
 %     `G_lambda_xy`, the spectral-spatial mixed second order gradient
-%     operator. `G{3} is `B_Omega_Phi`, the operator penalizing the image's
-%     ressemblance to a colour-filter array.
+%     operator. `G{3} is `L_xy`, the spatial Laplacian operator.
 %   - 'G_T': A cell vector containing the transposed versions of the
 %     elements of 'G'.
 %   - 'G_2': A cell vector, where `G_2{i} = G_T{i} * G{i}`.
@@ -145,14 +144,20 @@ function in = baek2017Algorithm2LowMemory(weights, options, in, varargin)
 %     on Graphics (Proc. SIGGRAPH Asia 2017), 36(6), 217:1–12.
 %     doi:10.1145/3130800.3130896
 %
-% Depending on the options passed, this function also implements variants
-% of the algorithm: L2 priors instead of L1 priors, an extra prior designed
-% to remove colour-filter array artifacts, and a non-negativity constraint.
-% I implemented the non-negativity constraint by adding an extra term to
-% the ADMM x-minimization step, and an additional z-minimization and dual
-% update step. This is different from the constrained optimization examples
-% in Boyd et. al. 2011, sections 4.2.5 and 5.2, but I think it matches the
-% format given at the start of Chapter 5.
+% Depending on the options passed, this function also implements variants of the
+% algorithm: L2 priors instead of L1 priors, an extra prior on the image spatial
+% Laplacian, and a non-negativity constraint. I implemented the non-negativity
+% constraint by adding an extra term to the ADMM x-minimization step, and an
+% additional z-minimization and dual update step. This is different from the
+% constrained optimization examples in Boyd et. al. 2011, sections 4.2.5 and
+% 5.2, but I think it matches the format given at the start of Chapter 5.
+%
+% The Laplacian energy is one of the penalty terms used by:
+%
+%   Song, Y., Brie, D., Djermoune, E.-H., & Henrot, S.. "Regularization
+%     Parameter Estimation for Non-Negative Hyperspectral Image
+%     Deconvolution." IEEE Transactions on Image Processing, vol. 25, no.
+%     11, pp. 5316-5330, 2016. doi:10.1109/TIP.2016.2601489
 %
 % A non-negativity constraint was used in (among other works):
 %

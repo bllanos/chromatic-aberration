@@ -75,7 +75,7 @@ I_raw = im2double(I_raw);
 image_height = size(I_raw, 1);
 image_width = size(I_raw, 2);
 if any(mod([image_height, image_width], 2) ~= 0)
-    error('The image dimensions must be even integers in order for the image to be a valid color filter array.');
+    error('The image dimensions must be even integers in order for the image to be a valid colour filter array.');
 end
 
 mask = bayerMask( image_height, image_width, align );

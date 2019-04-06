@@ -211,8 +211,8 @@ function [ bands, I_3D, varargout ] = solvePatchesSpectral(...
 %       6 of Baek et al. 2017.
 %   2 - Regularization of the spectral gradient of the spatial gradient of
 %       the image, as in Equation 6 in Baek et al. 2017.
-%   3 - A second-order gradient prior designed to penalize colour-filter
-%       array artifacts, implemented in antiMosaicMatrix.m.
+%   3 - Regularization of the spatial Laplacian of the image, as in Song et al.
+%       2016.
 %
 %   `reg_options` is a structure with the following fields, controlling
 %   regularization, and regularization weight selection:
