@@ -420,7 +420,9 @@ for i = 1:n_images
                     options.reg_options.minimum_weights(enabled_weights) = weights;
                     options.reg_options.maximum_weights(enabled_weights) = weights;
                 else
-                    options.reg_options.multi_weights = reshape(weights_images(1, 1, :), n_active_weights, []).';
+                    weights = reshape(weights_images(1, 1, :), n_active_weights, []).';
+                    options.reg_options.multi_weights = zeros(size(weights, 1), n_weights);
+                    options.reg_options.multi_weights(:, enabled_weights) = weights;
                 end
                 if has_target_patch
                     options.patch_options.target_patch = target_patch;

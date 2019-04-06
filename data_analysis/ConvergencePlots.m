@@ -11,12 +11,12 @@
 
 % Image estimation parameters and results '.mat' file, such as output by
 % 'CorrectByHyperspectralADMM.m'
-parameters_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190325_ADMM_Convergence/stricter_epsilon/CorrectByHyperspectralADMM.mat';
+parameters_filename = '/home/llanos/Downloads/L1_spatial/CorrectByHyperspectralADMM.mat';
 
 % Wildcard for 'ls()' to find the 'saveIterations*.mat' files to load.
 % Only the last few files will be loaded, corresponding to the steps in
 % multi-stage image estimation.
-input_data_wildcard = '/home/llanos/Downloads/temp/saveIterations*.mat';
+input_data_wildcard = '/home/llanos/Downloads/L1_spatial/saveIterations*.mat';
 
 %% Initialization
 
@@ -176,7 +176,7 @@ for s = 1:n_steps
         );
         hold off
         
-        if s == 1 && z_ind_plot == 1
+        if s == 1 || ~ishghandle(fg_penalty_changes)
             fg_penalty_changes = figure;
             title('Iterations where penalty parameters changed');
             xlabel('Cumulative ADMM iteration number');
