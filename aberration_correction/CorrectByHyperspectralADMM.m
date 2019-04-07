@@ -184,7 +184,7 @@ parameters_list = {
 
 % Wildcard for 'ls()' to find the images to process.
 % '.mat' or image files can be loaded
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/exposure_blending/d2_book*_unfiltered.mat';
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/exposure_blending/d2_colorChecker30cm_unfiltered.mat';
 input_images_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % Model of dispersion
@@ -203,14 +203,14 @@ output_directory = '/home/llanos/Downloads';
 % column) location. If empty (`[]`), the entire image will be estimated. The
 % patch corner indices must be odd integers to avoid creating a patch with a
 % different colour filter array pattern from the whole image.
-target_patch = [1603, 769];
+target_patch = [];
 
 % Only select regularization weights for a single patch, with its top-left
 % corner at the given (row, column) location. If empty (`[]`), regularization
 % weights will be selected for each patch separately. (THIS IS SLOW) Again, the
 % patch corner indices must be odd integers to avoid creating a patch with a
 % different colour filter array pattern from the whole image.
-target_patch_weights = [1601, 767];
+target_patch_weights = [1406, 272];
 
 % Also compare with (or only run) whole image estimation, meaning that the image
 % is treated as a single patch. Only enable this for small images.
