@@ -70,9 +70,9 @@
 % contains results for all measured spectra (other than the reference
 % measurement) and spectral images. The spectral data being evaluated will be
 % listed in the files under the unique portions of the input filenames. There
-% are two entries for each test measurement, corresponding to the cases where
-% either the reference, or the test measurement, was resampled when the two were
-% converted to the same sampling space.
+% are two columns for each error metric, corresponding to the cases where either
+% the reference ('toOther'), or the test measurement ('toReference'), was
+% resampled when the two were converted to the same sampling space.
 %
 % Spectral error metrics computed per measurement location are saved as
 % '*_perPatchEvaluation.csv'.
@@ -93,8 +93,8 @@
 % For each non-reference set of measured spectra, and spectral image, the script
 % provides three options for how it should be aligned with the reference set of
 % measured spectra:
-% - 'none': The spectra are treated as absolute measurements, and are compared
-%   as-is.
+% - 'uniform': The spectra are treated as absolute measurements, but are scaled
+%   so that the median intensities of all sets of spectra are the same.
 % - 'reference': Spectra are matched to the reference set by rescaling them so
 %   that they are identical to the reference set for a designated reference
 %   point (e.g. a white patch).
@@ -113,7 +113,7 @@
 % List of parameters to save with results
 parameters_list = {
     'images_filenames',...
-    'images_variable',...
+    'images_variables',...
     'bands_filenames',...
     'bands_variable',...
     'location_filename',...
@@ -169,7 +169,7 @@ location_variable = 'patch_centers'; % Variable name in the file
 
 % Label image for vignetting calibration (an image file, not a '.mat' file).
 % Can be empty (`[]`), in which case vignetting correction will not be used.
-vignetting_mask_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/colorChecker_preprocessed/unfiltered/d2_colorChecker30cm_unfiltered_background0_patches1to24_frame25.png';
+vignetting_mask_filename = []; '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/colorChecker_preprocessed/unfiltered/d2_colorChecker30cm_unfiltered_background0_patches1to24_frame25.png';
 vignetting_mask_label = 25; % The value of pixels which are to be used to calibrate vignetting
 
 % Maximum degree of the polynomial model of vignetting
@@ -331,19 +331,14 @@ for i = 1:n_images
                 I(:, :, vignetting_calibration_bands(i)), mask_vignetting,...
                 max_degree_vignetting, bayer_pattern, vignettingPolyfitVerbose...
             );
-            % Make the vignetting relative to the center of the image, which is valid if we
-            % assume that the center of the image is within the domain of samples used to
-            % fit the vignetting model
-            vignetting_correction_factor = vignettingfun([size(I, 2), size(I, 1)] / 2);
-            I = correctVignetting(I, vignettingfun) * vignetting_correction_factor;
+            I = correctVignetting(I, vignettingfun);
         else
             for c = 1:size(I, 3)
                 [vignettingfun, vignetting_data] = vignettingPolyfit(...
                     I(:, :, c), mask_vignetting,...
                     max_degree_vignetting, bayer_pattern, vignettingPolyfitVerbose...
                 );
-                vignetting_correction_factor = vignettingfun([size(I, 2), size(I, 1)] / 2);
-                I(:, :, c) = correctVignetting(I(:, :, c), vignettingfun) * vignetting_correction_factor;
+                I(:, :, c) = correctVignetting(I(:, :, c), vignettingfun);
             end
         end
     end
@@ -358,6 +353,12 @@ for i = 1:n_images
 end
 
 %% Register all spectra with the reference spectra
+
+if strcmp(alignment_method, 'uniform')
+    reference_median = median(spectra_reference, 'all');
+    spectra_reference = spectra_reference ./ reference_median;
+    spectra(1, :) = num2cell(spectra_reference, 1);
+end
 
 n_eval = n_all - 1;
 n_alignments = 2;
@@ -404,8 +405,8 @@ for i = 2:n_all
         elseif strcmp(alignment_method, 'reference')
             scaling_i = spectra_aligned_reference_i(:, reference_patch_index) ./ ...
                 spectra_aligned_i(:, reference_patch_index);
-        elseif strcmp(alignment_method, 'none')
-            scaling_i = ones(size(spectra_aligned_i, 1));
+        elseif strcmp(alignment_method, 'uniform')
+            scaling_i = repmat(reference_median ./ median(spectra_aligned_i, 'all'), size(spectra_aligned_i, 1), 1);
         else
             error('Unrecognized value of `alignment_method`.');
         end
@@ -450,11 +451,7 @@ for s = 1:n_spectra
         'Color', 'k', 'LineWidth', 2, 'Marker', 'none'...
     );
     xlabel('Wavelength [nm]');
-    if strcmp(alignment_method, 'none')
-        ylabel('Radiance');
-    else
-        ylabel('Relative radiance');
-    end
+    ylabel('Relative radiance');
     for i = 1:n_eval
         plot_color = plot_colors(i, :);
         plot_marker = 'none';
@@ -483,7 +480,7 @@ for s = 1:n_spectra
         end
     end
         
-    title(sprintf('Spectral radiance for patch %d', s));
+    title(sprintf('Spectral radiance for patch %d, using "%s" alignment method', s, alignment_method));
     hold off
     legend(conditions_escaped{:});
     savefig(...

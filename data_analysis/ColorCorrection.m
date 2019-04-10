@@ -15,10 +15,13 @@
 
 %% Input data and parameters
 
-% Path and filename of a '.mat' file containing the conversion matrix for
-% spectral bands to raw colour channels
-color_weights_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_dispersion/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
-color_weights_variable = 'color_weights'; % Variable name in the above file
+% Path and filename of a '.mat' file containing the sampling information needed
+% to convert spectral bands to raw colour channels
+sampling_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_dispersion/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
+
+% Path and filename of a '.mat' file containing the colour space conversion data
+% needed to convert spectral bands to raw colour channels
+color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/SonyColorMapData.mat';
 
 % Path and filename of a '.mat' file containing the conversion matrix for
 % raw colour channels to XYZ
@@ -39,7 +42,7 @@ color_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_Compu
 color_variable_name = 'I_rgb'; % Used only when loading '.mat' files
 
 % Output directory
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_correctedRGB';
+output_directory = '/home/llanos/Downloads';
 
 %% Process the images
 
@@ -58,13 +61,22 @@ end
 n_images = n_spectral + n_color;
 
 if n_spectral ~= 0
-    load(color_weights_filename, color_weights_variable);
-    if exist(color_weights_variable, 'var')
-        color_weights = eval(color_weights_variable);
+    variables_required = { 'sensor_map', 'bands' };
+    load(color_map_filename, variables_required{:});
+    if ~all(ismember(variables_required, who))
+        error('One or more of the required colour space conversion variables is not loaded.')
     end
-    if ~exist(color_weights_variable, 'var') || isempty(color_weights)
-        error('No spectral to colour conversion matrix loaded.')
+    bands_color = bands;
+    clear bands
+
+    variables_required = { 'findSamplingOptions', 'bands' };
+    load(sampling_filename, variables_required{:});
+    if ~all(ismember(variables_required, who))
+        error('One or more of the required sampling variables is not loaded.')
     end
+    color_weights = colorWeights(...
+        sensor_map, bands_color, bands, findSamplingOptions...
+    );
 end
 
 if n_images ~= 0
