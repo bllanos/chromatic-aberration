@@ -103,8 +103,7 @@
 %   of spectra.
 %
 % ## Notes
-% - This script presently does not correct spectral images for vignetting, in
-%   contrast to 'EvaluateColorChecker.m'.
+% - This script can correct spectral images for vignetting, if desired.
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -119,6 +118,11 @@ parameters_list = {
     'bands_variable',...
     'location_filename',...
     'location_variable',...
+    'vignetting_mask_filename',...
+    'vignetting_mask_label',...
+    'max_degree_vignetting',...
+    'vignetting_erosion_radius',...
+    'vignetting_calibration_bands',...
     'spectra_filenames',...
     'spectra_data_columns',...
     'wavelength_range',...
@@ -151,6 +155,24 @@ images_interpolants = {
 % measured spectra
 location_filename = [];
 location_variable = 'patch_centers'; % Variable name in the file
+
+% Label image for vignetting calibration (an image file, not a '.mat' file).
+% Can be empty (`[]`), in which case vignetting correction will not be used.
+vignetting_mask_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/colorChecker_preprocessed/unfiltered/d2_colorChecker30cm_unfiltered_background0_patches1to24_frame25.png';
+vignetting_mask_label = 25; % The value of pixels which are to be used to calibrate vignetting
+
+% Maximum degree of the polynomial model of vignetting
+max_degree_vignetting = 5;
+
+% Radius of a disk structuring element to use for morphological erosion of the
+% vignetting calibration mask
+vignetting_erosion_radius = 3;
+
+% A vector indicating, for each image, which band should be used to
+% calibrate vignetting. Zero elements are interpreted to mean that vignetting
+% correction should be calibrated separately for each band.
+vignetting_calibration_bands = [
+];
 
 % Measured spectra CSV files, with the reference set's filename given first
 spectra_filenames = {
@@ -190,6 +212,9 @@ output_directory = '/home/llanos/Downloads';
 
 % ## Parameters which do not usually need to be changed
 run('SetFixedParameters.m')
+
+% ## Debugging Flags
+vignettingPolyfitVerbose = true;
 
 %% Load information describing the spectral images
 
@@ -265,12 +290,48 @@ for i = 1:n_measurement_sets
     spectra(i, :) = num2cell(spectra_i, 2);
 end
 
+correct_vignetting = ~isempty(vignetting_mask_filename);
+if correct_vignetting
+    I_vignetting_label = imread(vignetting_mask_filename);
+    if size(I_vignetting_label, 3) ~= 1
+        error('Expected the vignetting mask image, "%s", to have only one channel.', vignetting_mask_filename);
+    end
+    mask_vignetting = (I_vignetting_label == vignetting_mask_label);
+    se_clean = strel('disk', vignetting_erosion_radius);
+    mask_vignetting = imerode(mask_vignetting, se_clean);
+end
+
 if mod(patch_side_length, 2) == 0
     error('`patch_side_length` should be an odd integer.');
 end
 half_width = floor(patch_side_length / 2);
 for i = 1:n_images
     I = loadImage(images_filenames{i}, images_variable);
+    
+    % Correct vignetting
+    if correct_vignetting
+        if vignetting_calibration_bands(i) ~= 0
+            [vignettingfun, vignetting_data] = vignettingPolyfit(...
+                I(:, :, vignetting_calibration_bands(i)), mask_vignetting,...
+                max_degree_vignetting, bayer_pattern, vignettingPolyfitVerbose...
+            );
+            % Make the vignetting relative to the center of the image, which is valid if we
+            % assume that the center of the image is within the domain of samples used to
+            % fit the vignetting model
+            vignetting_correction_factor = vignettingfun([size(I, 2), size(I, 1)] / 2);
+            I = correctVignetting(I, vignettingfun) * vignetting_correction_factor;
+        else
+            for c = 1:size(I, 3)
+                [vignettingfun, vignetting_data] = vignettingPolyfit(...
+                    I(:, :, c), mask_vignetting,...
+                    max_degree_vignetting, bayer_pattern, vignettingPolyfitVerbose...
+                );
+                vignetting_correction_factor = vignettingfun([size(I, 2), size(I, 1)] / 2);
+                I(:, :, c) = correctVignetting(I(:, :, c), vignettingfun) * vignetting_correction_factor;
+            end
+        end
+    end
+
     for j = 1:n_spectra
         roi = [
             patch_centers(2) - half_width, patch_centers(2) + half_width,...
