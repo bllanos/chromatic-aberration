@@ -137,7 +137,7 @@ parameters_list = {
 % A list of filenames of spectral images to evaluate.
 % '.mat' or image files can be loaded
 images_filenames = {
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/channel_scaling/d2_colorChecker30cm_dHyper';
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/channel_scaling/d2_colorChecker30cm_dHyper.mat';
     '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_MATFiles/d2_colorChecker30cm_bands6_L1NonNeg_DMfw_latent.mat'...
 };
 % Variables used only when loading '.mat' files
@@ -201,17 +201,6 @@ spectra_data_columns = {
     2:25
 };
 
-% Interpolation functions to use when resampling the measured spectra to
-% different spectral resolutions. Presently, the script assumes that the
-% reference set of measured spectra has an associated interpolation function
-% which results in an identity mapping for interpolation to the same set of
-% spectral bands.
-spectra_interpolants = {
-    @triangle;
-    @triangle;
-    @triangle
-};
-
 % Wavelength range to truncate spectral measurements to
 wavelength_range = [375, 725];
 
@@ -261,16 +250,17 @@ if has_images && length(bands_filenames) ~= n_images
     end
 end
     
-bands = cell(n_all, 1);
+bands_cell = cell(n_all, 1);
 for i = 1:n_images
     load(bands_filenames_rep{i}, bands_variable);
     if exist(bands_variable, 'var')
-        bands{i + n_measurement_sets} = eval(bands_variable);
+        bands_cell{i + n_measurement_sets} = eval(bands_variable);
     end
-    if ~exist(bands_variable, 'var') || isempty(bands{i + n_measurement_sets})
+    if ~exist(bands_variable, 'var') || isempty(bands_cell{i + n_measurement_sets})
         error('No wavelengths loaded from file "%s".', bands_filenames_rep{i})
     end
 end
+bands = bands_cell;
 
 if has_images
     load(location_filename, location_variable);
@@ -302,6 +292,10 @@ for i = 1:n_measurement_sets
             error('The number of reference measurements is not consistent with the number of image locations.');
         end
         spectra = cell(n_all, n_spectra);
+        
+        % Convert to an evenly-spaced sampling
+        bands_reference = linspace(bands{i}(1), bands{i}(end), length(bands{i}));
+        [spectra_i, bands{i}] = resampleArrays(bands{i}, spectra_i, bands_reference, 'spline');
         spectra_reference = spectra_i;
     else
         if n_spectra ~= size(spectra_i, 2)
@@ -309,7 +303,7 @@ for i = 1:n_measurement_sets
                 size(spectra_i, 2), spectra_filenames{i}, n_spectra);
         end
     end
-    spectra(i, :) = num2cell(spectra_i, 2);
+    spectra(i, :) = num2cell(spectra_i, 1);
 end
 
 correct_vignetting = ~isempty(vignetting_mask_filename);
@@ -359,7 +353,7 @@ for i = 1:n_images
             patch_centers(2) - half_width, patch_centers(2) + half_width,...
             patch_centers(1) - half_width, patch_centers(1) + half_width
         ];
-        spectra(i + n_measurement_sets, j) = mean(mean(I(roi(1):roi(2), roi(3):roi(4), :), 1), 2);
+        spectra{i + n_measurement_sets, j} = squeeze(mean(mean(I(roi(1):roi(2), roi(3):roi(4), :), 1), 2));
     end
 end
 
@@ -375,31 +369,32 @@ for i = 2:n_all
         align_to_reference = (direction == 1);
         
         % Match spectral sampling space
-        if align_to_reference
-            src_bands = bands{i};
-            dst_bands = bands{1};
-        else
-            src_bands = bands{1};
-            dst_bands = bands{i};
-        end
-        if i <= n_measurement_sets
-            spectral_weights_other = resamplingWeights(...
-                dst_bands, src_bands, spectra_interpolants{i}, findSamplingOptions.bands_padding...
+        if i <= n_measurement_sets && align_to_reference
+            spectra_aligned_i = resampleArrays(...
+                bands{i}, spectra_i, bands{1},...
+                'spline', 'extrap'...
             );
+        elseif i <= n_measurement_sets
+            spectra_aligned_i = spectra_i;
+        elseif align_to_reference
+            spectral_weights_other = resamplingWeights(...
+                bands{1}, bands{i}, images_interpolants{i - n_measurement_sets}, findSamplingOptions.bands_padding...
+            );
+            spectra_aligned_i = (channelConversion(spectra_i.', spectral_weights_other, 2)).';
         else
             spectral_weights_other = resamplingWeights(...
-                dst_bands, src_bands, images_interpolants{i - n_measurement_sets}, findSamplingOptions.bands_padding...
+                bands{i}, bands{i}, images_interpolants{i - n_measurement_sets}, findSamplingOptions.bands_padding...
             );
+            spectra_aligned_i = (channelConversion(spectra_i.', spectral_weights_other, 2)).';
         end
-        spectra_aligned_i = channelConversion(spectra_i, spectral_weights_other, 2);
         if align_to_reference
             spectra_aligned_reference_i = spectra_reference;
         else
-            spectral_weights_reference = resamplingWeights(...
-                dst_bands, src_bands, spectra_interpolants{1}, findSamplingOptions.bands_padding...
+            spectra_aligned_reference_i = resampleArrays(...
+                bands{1}, spectra_reference, bands{i},...
+                'spline', 'extrap'...
             );
-            spectra_aligned_reference_i = channelConversion(spectra_reference, spectral_weights_reference, 2);
-            spectra_aligned_reference(i - 1, :) = num2cell(spectra_aligned_reference_i, 2);
+            spectra_aligned_reference(i - 1, :) = num2cell(spectra_aligned_reference_i, 1);
         end
         
         % Match spectral intensities
@@ -415,7 +410,7 @@ for i = 2:n_all
             error('Unrecognized value of `alignment_method`.');
         end
         scaling_i(~isfinite(scaling_i)) = 1;
-        spectra_aligned_eval(i - 1, :, direction) = num2cell(spectra_aligned_i * repmat(scaling_i, n_spectra, 1));            
+        spectra_aligned_eval(i - 1, :, direction) = num2cell(spectra_aligned_i .* repmat(scaling_i, 1, n_spectra), 1);            
     end
 end
 
@@ -426,19 +421,21 @@ for i = 1:n_all
     if i <= n_measurement_sets
         [~, conditions{i}] = fileparts(spectra_filenames{i});
     else
-        [~, conditions{i}] = fileparts(image_filenames{i - n_measurement_sets});
+        [~, conditions{i}] = fileparts(images_filenames{i - n_measurement_sets});
     end
 end
 
 conditions = trimCommon(conditions);
-conditions_escaped = strrep(algorithms.spectral, '_', '\_');
+conditions_escaped = strrep(conditions, '_', '\_');
 
-e_tables_reference_bands = cell(n_patches, 1);
-e_tables_other_bands = cell(n_patches, 1);
+e_tables_reference_bands = cell(n_spectra, 1);
+e_tables_other_bands = cell(n_spectra, 1);
 
 plot_colors = jet(n_eval);
 plot_markers = {'v', 'o', '+', '*', '<', '.', 'x', 's', 'd', '^', 'p', 'h', '>'};
 plot_styles = {'--', ':', '-.'};
+
+output_full_filename = fullfile(output_directory, output_filename);
 
 %% Evaluation and graphical output
 
@@ -481,7 +478,7 @@ for s = 1:n_spectra
                     rmse(i, s, direction),...
                     mrae(i, s, direction),...
                     gof(i, s, direction)...
-                ] = metrics(spectra_aligned_eval{i, s, direction}, spectra_aligned_reference(i, s), 1, 0, false);
+                ] = metrics(spectra_aligned_eval{i, s, direction}, spectra_aligned_reference{i, s}, 1, 0, false);
             end
         end
     end
@@ -491,7 +488,7 @@ for s = 1:n_spectra
     legend(conditions_escaped{:});
     savefig(...
         fg, [...
-            output_filename,...
+            output_full_filename,...
             sprintf(...
                 '_evalPatch%d_X%dY%dW%dH%d.fig',...
                 s,...
@@ -506,6 +503,7 @@ for s = 1:n_spectra
 end
 
 % Output a CSV file of per-patch statistics
+e_spectral = struct('Source', {conditions(2:end)});
 for s = 1:n_spectra
     e_spectral.(sprintf('Patch%d_MRAE_toReference', s)) = mrae(:, s, 1);
     e_spectral.(sprintf('Patch%d_RMSE_toReference', s)) = rmse(:, s, 1);
@@ -514,12 +512,11 @@ for s = 1:n_spectra
     e_spectral.(sprintf('Patch%d_RMSE_toOther', s)) = rmse(:, s, 2);
     e_spectral.(sprintf('Patch%d_GOF_toOther', s)) = gof(:, s, 2);    
 end
-e_spectral.Source = conditions(2:end);
 e_spectral_table = struct2table(e_spectral);
-writetable(e_spectral_table, [output_filename, '_perPatchEvaluation.csv']);
+writetable(e_spectral_table, [output_full_filename, '_perPatchEvaluation.csv']);
 
 % Output a global CSV file
-e_spectral = struct('Source', conditions(2:end));
+e_spectral = struct('Source', {conditions(2:end)});
 e_spectral.MRAE_max_toReference = max(mrae(:, :, 1), [], 2);
 e_spectral.MRAE_mean_toReference = mean(mrae(:, :, 1), 2);
 e_spectral.MRAE_median_toReference = median(mrae(:, :, 1), 2);
@@ -540,7 +537,7 @@ e_spectral.GOF_mean_toOther = mean(gof(:, :, 2), 2);
 e_spectral.GOF_median_toOther = median(gof(:, :, 2), 2);
 
 e_spectral_table = struct2table(e_spectral);
-writetable(e_spectral_table, [output_filename, '_summaryEvaluation.csv']);
+writetable(e_spectral_table, [output_full_filename, '_summaryEvaluation.csv']);
 
 %% Save parameters and additional data to a file
 save_variables_list = [ parameters_list, {

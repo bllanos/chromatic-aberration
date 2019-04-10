@@ -220,6 +220,9 @@ if (n_x1 ~= n_x2) || ~all(x1(:) == x2(:))
 
         sz = size(Z);
         dim_Z = find(sz == n_xsrc, 1);
+        if isempty(dim_Z)
+            error('Dimensions of array do not match the length of its set of sampling points.');
+        end
         sz_new = sz;
         sz_new(dim_Z) = n_x_new;
         permute_vector = [dim_Z, 1:(dim_Z - 1), (dim_Z + 1):ndims(Z)];
