@@ -136,24 +136,35 @@ parameters_list = {
 
 % A list of filenames of spectral images to evaluate.
 % '.mat' or image files can be loaded
-images_filenames = { [] };
-images_variable = 'img_hs'; % Used only when loading '.mat' files
+images_filenames = {
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/channel_scaling/d2_colorChecker30cm_dHyper';
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_MATFiles/d2_colorChecker30cm_bands6_L1NonNeg_DMfw_latent.mat'...
+};
+% Variables used only when loading '.mat' files
+images_variables = {
+    'I_hyper';
+    'I_latent'
+};
 
 % Filenames of '.mat' files containing the wavelengths corresponding to the
 % bands in the spectral images. Either one file can be given, or one file per
 % image.
-bands_filenames = { [] };
+bands_filenames = {
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/channel_scaling/sensor.mat';
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_dispersion/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat'
+};
 bands_variable = 'bands'; % Variable name in the above files
 
 % Interpolation functions to use when resampling the spectral images to
 % different spectral resolutions.
 images_interpolants = {
+    @delta;
     @gaussian
 };
 
 % Filename of a '.mat' file containing the image locations corresponding to the
 % measured spectra
-location_filename = [];
+location_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/colorChecker_preprocessed/d2_colorChecker30cm_patchCenters.mat';
 location_variable = 'patch_centers'; % Variable name in the file
 
 % Label image for vignetting calibration (an image file, not a '.mat' file).
@@ -172,21 +183,32 @@ vignetting_erosion_radius = 3;
 % calibrate vignetting. Zero elements are interpreted to mean that vignetting
 % correction should be calibrated separately for each band.
 vignetting_calibration_bands = [
+    0;
+    3
 ];
 
 % Measured spectra CSV files, with the reference set's filename given first
 spectra_filenames = {
     '/home/llanos/GoogleDrive/ThesisResearch/Data/20180626_SpectralCharacterizationOfSetup/spectra_averaged.csv';
+    '/home/llanos/GoogleDrive/ThesisResearch/Data/20190407_ColorChecker_GoSpectro/goSpectro_colorChecker.csv'
+    '/home/llanos/GoogleDrive/ThesisResearch/Data/20190409_ColorChecker_bookScene_GoSpectro/goSpectro_colorChecker.csv'
 };
 
 % Indices of the columns of interest in the CSV files
 spectra_data_columns = {
     13:36;
+    2:25;
+    2:25
 };
 
 % Interpolation functions to use when resampling the measured spectra to
-% different spectral resolutions.
+% different spectral resolutions. Presently, the script assumes that the
+% reference set of measured spectra has an associated interpolation function
+% which results in an identity mapping for interpolation to the same set of
+% spectral bands.
 spectra_interpolants = {
+    @triangle;
+    @triangle;
     @triangle
 };
 
@@ -208,7 +230,7 @@ patch_side_length = 15;
 output_filename = 'colorChecker';
 
 % Output directory
-output_directory = '/home/llanos/Downloads';
+output_directory = '/home/llanos/Downloads/global';
 
 % ## Parameters which do not usually need to be changed
 run('SetFixedParameters.m')
@@ -306,7 +328,7 @@ if mod(patch_side_length, 2) == 0
 end
 half_width = floor(patch_side_length / 2);
 for i = 1:n_images
-    I = loadImage(images_filenames{i}, images_variable);
+    I = loadImage(images_filenames{i}, images_variables{i});
     
     % Correct vignetting
     if correct_vignetting
@@ -360,27 +382,24 @@ for i = 2:n_all
             src_bands = bands{1};
             dst_bands = bands{i};
         end
-        if align_to_reference
-            if i <= n_measurement_sets
-                spectral_weights = resamplingWeights(...
-                    dst_bands, src_bands, spectra_interpolants{i}, findSamplingOptions.bands_padding...
-                );
-            else
-                spectral_weights = resamplingWeights(...
-                    dst_bands, src_bands, images_interpolants{i - n_measurement_sets}, findSamplingOptions.bands_padding...
-                );
-            end
+        if i <= n_measurement_sets
+            spectral_weights_other = resamplingWeights(...
+                dst_bands, src_bands, spectra_interpolants{i}, findSamplingOptions.bands_padding...
+            );
         else
-            spectral_weights = resamplingWeights(...
-                dst_bands, src_bands, spectra_interpolants{1}, findSamplingOptions.bands_padding...
+            spectral_weights_other = resamplingWeights(...
+                dst_bands, src_bands, images_interpolants{i - n_measurement_sets}, findSamplingOptions.bands_padding...
             );
         end
+        spectra_aligned_i = channelConversion(spectra_i, spectral_weights_other, 2);
         if align_to_reference
-            spectra_aligned_i = channelConversion(spectra_i, spectral_weights, 2);
             spectra_aligned_reference_i = spectra_reference;
         else
-            spectra_aligned_i = spectra_i;
-            spectra_aligned_reference_i = channelConversion(spectra_reference, spectral_weights, 2);
+            spectral_weights_reference = resamplingWeights(...
+                dst_bands, src_bands, spectra_interpolants{1}, findSamplingOptions.bands_padding...
+            );
+            spectra_aligned_reference_i = channelConversion(spectra_reference, spectral_weights_reference, 2);
+            spectra_aligned_reference(i - 1, :) = num2cell(spectra_aligned_reference_i, 2);
         end
         
         % Match spectral intensities
@@ -395,12 +414,8 @@ for i = 2:n_all
         else
             error('Unrecognized value of `alignment_method`.');
         end
-        
-        spectra_aligned_eval(i - 1, :, direction) = num2cell(spectra_aligned_i * repmat(scaling_i, n_spectra, 1));
-        
-        if ~align_to_reference
-            spectra_aligned_reference(i - 1, :) = num2cell(spectra_aligned_reference_i, 2);
-        end               
+        scaling_i(~isfinite(scaling_i)) = 1;
+        spectra_aligned_eval(i - 1, :, direction) = num2cell(spectra_aligned_i * repmat(scaling_i, n_spectra, 1));            
     end
 end
 
