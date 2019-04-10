@@ -54,11 +54,11 @@ function [e_spectral, varargout] = evaluateSpectral(...
 %   - 'error_map': If `true`, then this function will produce a 'metric'
 %     error map figure. Defaults to `false` if absent.
 %   - 'radiance': A matrix, where each row is a four-element vector
-%     describing an image patch (center pixel x-coordinate, center pixel
-%     y-coordinate, width, and height). Image patches widths and heights
-%     must be odd integers. For each image patch, a figure will be
-%     generated containing plots of spectral information from the two
-%     images, averaged within the image patch.
+%     describing an image patch (center pixel integer x-coordinate, center pixel
+%     integer y-coordinate, width, and height). Image patches widths and heights
+%     must be odd integers. For each image patch, a figure will be generated
+%     containing plots of spectral information from the two images, averaged
+%     within the image patch.
 %   - 'radiance_fg': (Optional) A vector of figure handles. The output
 %     produced for 'radiance' will be added to these figures, instead of
 %     being shown in new figures. It is assumed that the existing figures
