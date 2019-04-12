@@ -203,14 +203,14 @@ output_directory = '/home/llanos/Downloads';
 % column) location. If empty (`[]`), the entire image will be estimated. The
 % patch corner indices must be odd integers to avoid creating a patch with a
 % different colour filter array pattern from the whole image.
-target_patch = [];
+target_patch = [1405, 271];
 
 % Only select regularization weights for a single patch, with its top-left
 % corner at the given (row, column) location. If empty (`[]`), regularization
 % weights will be selected for each patch separately. (THIS IS SLOW) Again, the
 % patch corner indices must be odd integers to avoid creating a patch with a
 % different colour filter array pattern from the whole image.
-target_patch_weights = [1406, 272];
+target_patch_weights = [1405, 271];
 
 % Also compare with (or only run) whole image estimation, meaning that the image
 % is treated as a single patch. Only enable this for small images.
@@ -311,10 +311,23 @@ for i = 1:n_images
         error('Expected a RAW image, represented as a 2D array, not a higher-dimensional array.');
     end
     
+    target_patch_i = target_patch;
+    target_patch_weights_i = target_patch_weights;
     if has_dispersion
+        roi = modelSpaceTransform(...
+            size(I_raw), transform_data.model_space, transform_data.fill, true...
+        );
         [dispersionfun, I_raw] = makeDispersionForImage(...
             dispersion_data, I_raw, transform_data, true...
         );
+        if has_target_patch
+            target_patch_i(1) = target_patch_i(1) - roi(1) + 1;
+            target_patch_i(2) = target_patch_i(2) - roi(3) + 1;
+        end
+        if use_target_patch_weights
+            target_patch_weights_i(1) = target_patch_weights_i(1) - roi(1) + 1;
+            target_patch_weights_i(2) = target_patch_weights_i(2) - roi(3) + 1;
+        end
     else
         dispersionfun = [];
     end
@@ -337,19 +350,39 @@ for i = 1:n_images
                 )];
             
                 if has_target_patch
+                    patch_lim = patchBoundaries(...
+                        image_sampling, patch_sizes(ps, :), paddings(pad), target_patch_i...
+                    );
+                    if any(patch_lim(1, :) >= patch_lim(2, :))
+                        if has_dispersion
+                            error('The target patch is outside the region of valid dispersion.');
+                        else
+                            error('The target patch is outside the image.');
+                        end
+                    end
                     name_params = [name_params, sprintf(...
                         '_target%dAnd%d',...
                         target_patch(1), target_patch(2)...
                         )];
                 end
                 if use_target_patch_weights
+                    patch_lim = patchBoundaries(...
+                        image_sampling, patch_sizes(ps, :), paddings(pad), target_patch_weights_i...
+                    );
+                    if any(patch_lim(1, :) >= patch_lim(2, :))
+                        if has_dispersion
+                            error('The target patch for weights selection is outside the region of valid dispersion.');
+                        else
+                            error('The target patch for weights selection is outside the image.');
+                        end
+                    end
                     name_params = [name_params, sprintf(...
                         '_weightsTarget%dAnd%d',...
                         target_patch_weights(1), target_patch_weights(2)...
                         )];
-                    options.patch_options.target_patch = target_patch_weights;
+                    options.patch_options.target_patch = target_patch_weights_i;
                 elseif has_target_patch
-                    options.patch_options.target_patch = target_patch;
+                    options.patch_options.target_patch = target_patch_i;
                 end
             else
                 continue;
@@ -425,7 +458,7 @@ for i = 1:n_images
                     options.reg_options.multi_weights(:, enabled_weights) = weights;
                 end
                 if has_target_patch
-                    options.patch_options.target_patch = target_patch;
+                    options.patch_options.target_patch = target_patch_i;
                 else
                     options.patch_options = rmfield(options.patch_options, 'target_patch');
                 end

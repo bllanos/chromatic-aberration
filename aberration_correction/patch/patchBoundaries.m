@@ -70,7 +70,7 @@ function [ patch_lim, trim ] = patchBoundaries(...
 % University of Alberta, Department of Computing Science
 % File created August 7, 2018
 
-nargoutchk(2, 2);
+nargoutchk(1, 2);
 narginchk(4, 4);
 
 patch_lim = [

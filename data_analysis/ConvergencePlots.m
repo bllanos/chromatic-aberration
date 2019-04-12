@@ -11,12 +11,12 @@
 
 % Image estimation parameters and results '.mat' file, such as output by
 % 'CorrectByHyperspectralADMM.m'
-parameters_filename = '/home/llanos/Downloads/L1_spatial/CorrectByHyperspectralADMM.mat';
+parameters_filename = 'CorrectByHyperspectralADMM.mat';
 
 % Wildcard for 'ls()' to find the 'saveIterations*.mat' files to load.
 % Only the last few files will be loaded, corresponding to the steps in
 % multi-stage image estimation.
-input_data_wildcard = '/home/llanos/Downloads/L1_spatial/saveIterations*.mat';
+input_data_wildcard = 'saveIterations*.mat';
 
 %% Initialization
 
@@ -54,6 +54,11 @@ data_filenames = data_filenames((end - n_steps + 1):end);
 
 iter_offset = 0;
 legend_str_z = {};
+
+fg_penalty_changes = figure;
+title('Iterations where penalty parameters changed');
+xlabel('Cumulative ADMM iteration number');
+            
 for s = 1:n_steps
     load(data_filenames{s});
     bands_s = bands{s};
@@ -176,13 +181,7 @@ for s = 1:n_steps
         );
         hold off
         
-        if s == 1 || ~ishghandle(fg_penalty_changes)
-            fg_penalty_changes = figure;
-            title('Iterations where penalty parameters changed');
-            xlabel('Cumulative ADMM iteration number');
-        else
-            figure(fg_penalty_changes);
-        end
+        figure(fg_penalty_changes);
         legend_str_z{end + 1} = sprintf('Change in \\rho_{%d}', z_ind_plot);
         hold on
         plot(...

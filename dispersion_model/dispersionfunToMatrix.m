@@ -317,6 +317,8 @@ if do_pre_resampling
     distance_samples = dot(distance_samples, distance_samples, 2);
     distance_samples = mean(sqrt(distance_samples));
     n_bands_dispersion = max(ceil(distance_samples / options.resolution), 1) + 1;
+    % Downsampling spectra produces artifacts
+    n_bands_dispersion = max(n_bands_dispersion, n_bands_in);
     bands_dispersion = linspace(lambda0, lambda1, n_bands_dispersion);
 else
     bands_dispersion = bands_in;

@@ -17,7 +17,7 @@
 
 % Path and filename of a '.mat' file containing the sampling information needed
 % to convert spectral bands to raw colour channels
-sampling_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_dispersion/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
+sampling_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/CorrectByHyperspectralADMM_bandsStep8.mat';
 
 % Path and filename of a '.mat' file containing the colour space conversion data
 % needed to convert spectral bands to raw colour channels
@@ -31,18 +31,18 @@ xyz_weights_variable = 'M_homog'; % Variable name in the above file
 % Whitepoint to use for XYZ to sRGB conversion
 whitepoint = [1, 1, 1];
 
-% Wildcard for 'ls()' to find the spectral images to process.
+% Wildcard for 'ls()' to find the spectral images to process (can be empty (`[]`)).
 % '.mat' or image files can be loaded
-spectral_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_MATFiles/*_latent*.mat';
+spectral_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/*step8_latent*.mat';
 spectral_variable_name = 'I_latent'; % Used only when loading '.mat' files
 
-% Wildcard for 'ls()' to find the colour images to process.
+% Wildcard for 'ls()' to find the colour images to process (can be empty (`[]`)).
 % '.mat' or image files can be loaded
-color_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_MATFiles/*_rgb*.mat';
+color_wildcard = []; %'/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_MATFiles/*_rgb*.mat';
 color_variable_name = 'I_rgb'; % Used only when loading '.mat' files
 
 % Output directory
-output_directory = '/home/llanos/Downloads';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential';
 
 %% Process the images
 

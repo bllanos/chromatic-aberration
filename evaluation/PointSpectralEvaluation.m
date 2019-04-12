@@ -138,11 +138,27 @@ parameters_list = {
 % '.mat' or image files can be loaded
 images_filenames = {
     '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/channel_scaling/d2_colorChecker30cm_dHyper.mat';
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_MATFiles/d2_colorChecker30cm_bands6_L1NonNeg_DMfw_latent.mat'...
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_MATFiles/d2_colorChecker30cm_bands6_L1NonNeg_DMfw_latent.mat';...
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/d2_colorChecker30cm_unfiltered_patch128x128_pad16_weightsTarget1405And271_step1_latent.mat';...
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/d2_colorChecker30cm_unfiltered_patch128x128_pad16_weightsTarget1405And271_step2_latent.mat';...
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/d2_colorChecker30cm_unfiltered_patch128x128_pad16_weightsTarget1405And271_step3_latent.mat';...
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/d2_colorChecker30cm_unfiltered_patch128x128_pad16_weightsTarget1405And271_step4_latent.mat';...
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/d2_colorChecker30cm_unfiltered_patch128x128_pad16_weightsTarget1405And271_step5_latent.mat';...
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/d2_colorChecker30cm_unfiltered_patch128x128_pad16_weightsTarget1405And271_step6_latent.mat';...
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/d2_colorChecker30cm_unfiltered_patch128x128_pad16_weightsTarget1405And271_step7_latent.mat';...
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/d2_colorChecker30cm_unfiltered_patch128x128_pad16_weightsTarget1405And271_step8_latent.mat'...
 };
 % Variables used only when loading '.mat' files
 images_variables = {
     'I_hyper';
+    'I_latent';
+    'I_latent';
+    'I_latent';
+    'I_latent';
+    'I_latent';
+    'I_latent';
+    'I_latent';
+    'I_latent';
     'I_latent'
 };
 
@@ -151,14 +167,30 @@ images_variables = {
 % image.
 bands_filenames = {
     '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/channel_scaling/sensor.mat';
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_dispersion/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat'
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_dispersion/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/CorrectByHyperspectralADMM_bandsStep1.mat';
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/CorrectByHyperspectralADMM_bandsStep2.mat';
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/CorrectByHyperspectralADMM_bandsStep3.mat';
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/CorrectByHyperspectralADMM_bandsStep4.mat';
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/CorrectByHyperspectralADMM_bandsStep5.mat';
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/CorrectByHyperspectralADMM_bandsStep6.mat';
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/CorrectByHyperspectralADMM_bandsStep7.mat';
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/CorrectByHyperspectralADMM_bandsStep8.mat'
 };
 bands_variable = 'bands'; % Variable name in the above files
 
 % Interpolation functions to use when resampling the spectral images to
 % different spectral resolutions.
 images_interpolants = {
-    @delta;
+    @triangle;
+    @gaussian;
+    @gaussian;
+    @gaussian;
+    @gaussian;
+    @gaussian;
+    @gaussian;
+    @gaussian;
+    @gaussian;
     @gaussian
 };
 
@@ -169,11 +201,11 @@ location_variable = 'patch_centers'; % Variable name in the file
 
 % Label image for vignetting calibration (an image file, not a '.mat' file).
 % Can be empty (`[]`), in which case vignetting correction will not be used.
-vignetting_mask_filename = []; '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/colorChecker_preprocessed/unfiltered/d2_colorChecker30cm_unfiltered_background0_patches1to24_frame25.png';
+vignetting_mask_filename = []; %'/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/colorChecker_preprocessed/unfiltered/d2_colorChecker30cm_unfiltered_background0_patches1to24_frame25.png';
 vignetting_mask_label = 25; % The value of pixels which are to be used to calibrate vignetting
 
 % Maximum degree of the polynomial model of vignetting
-max_degree_vignetting = 5;
+max_degree_vignetting = 8;
 
 % Radius of a disk structuring element to use for morphological erosion of the
 % vignetting calibration mask
@@ -184,19 +216,31 @@ vignetting_erosion_radius = 3;
 % correction should be calibrated separately for each band.
 vignetting_calibration_bands = [
     0;
-    3
+    3;
+    2;
+    2;
+    3;
+    3;
+    4;
+    4;
+    5;
+    5
 ];
 
 % Measured spectra CSV files, with the reference set's filename given first
 spectra_filenames = {
     '/home/llanos/GoogleDrive/ThesisResearch/Data/20180626_SpectralCharacterizationOfSetup/spectra_averaged.csv';
-    '/home/llanos/GoogleDrive/ThesisResearch/Data/20190407_ColorChecker_GoSpectro/goSpectro_colorChecker.csv'
-    '/home/llanos/GoogleDrive/ThesisResearch/Data/20190409_ColorChecker_bookScene_GoSpectro/goSpectro_colorChecker.csv'
+    '/home/llanos/GoogleDrive/ThesisResearch/Data/20190407_ColorChecker_GoSpectro_afternoonOutdoors/goSpectro_colorChecker_afternoonSun.csv';
+    '/home/llanos/GoogleDrive/ThesisResearch/Data/20190409_ColorChecker_morningOutdoors_bookScene_GoSpectro/goSpectro_colorChecker_morningSun.csv';
+    '/home/llanos/GoogleDrive/ThesisResearch/Data/20190411_ColorChecker_GoSpectro_Indoors/goSpectro_colorChecker_workLamps1.csv';
+    '/home/llanos/GoogleDrive/ThesisResearch/Data/20190411_ColorChecker_GoSpectro_Indoors/goSpectro_colorChecker_workLamps2.csv'
 };
 
 % Indices of the columns of interest in the CSV files
 spectra_data_columns = {
     13:36;
+    2:25;
+    2:25;
     2:25;
     2:25
 };
@@ -219,7 +263,7 @@ patch_side_length = 15;
 output_filename = 'colorChecker';
 
 % Output directory
-output_directory = '/home/llanos/Downloads/global';
+output_directory = '/home/llanos/Downloads/global_vignettingCorrection';
 
 % ## Parameters which do not usually need to be changed
 run('SetFixedParameters.m')
@@ -345,8 +389,8 @@ for i = 1:n_images
 
     for j = 1:n_spectra
         roi = [
-            patch_centers(2) - half_width, patch_centers(2) + half_width,...
-            patch_centers(1) - half_width, patch_centers(1) + half_width
+            patch_centers(j, 2) - half_width, patch_centers(j, 2) + half_width,...
+            patch_centers(j, 1) - half_width, patch_centers(j, 1) + half_width
         ];
         spectra{i + n_measurement_sets, j} = squeeze(mean(mean(I(roi(1):roi(2), roi(3):roi(4), :), 1), 2));
     end
@@ -489,8 +533,8 @@ for s = 1:n_spectra
             sprintf(...
                 '_evalPatch%d_X%dY%dW%dH%d.fig',...
                 s,...
-                patch_centers(1),...
-                patch_centers(2),...
+                patch_centers(s, 1),...
+                patch_centers(s, 2),...
                 patch_side_length,...
                 patch_side_length...
             )...
