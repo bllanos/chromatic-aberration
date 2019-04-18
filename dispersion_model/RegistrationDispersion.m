@@ -1,26 +1,18 @@
 %% Chromatic aberration calibration from captured images
-% Obtain dispersion models from RAW images of disk calibration patterns.
+% Obtain dispersion models from arbitrary multi-channel (spectral or
+% demosaiced-colour) images by registering bands/colour channels.
 %
 % ## Usage
 % Modify the parameters, the first code section below, then run.
 %
-% This script can either model dispersion between colour channels, or
-% dispersion between images taken under different optical filters.
+% This script can create new models of dispersion from scratch, or start
+% from existing models of dispersion to speed up convergence.
 %
 % ## Input
 %
 % Refer to the first code section below.
 %
 % ## Output
-%
-% ### Vignetting-corrected images
-% 
-% Image files with names of the form '*_vignettingCorrected.tif', where '*'
-% is the name of the original input image, are saved if
-% `save_corrected_images` is `true`, and if masks for calibrating
-% vignetting are found with the input images. The images are versions of
-% the input images which have been corrected for vignetting, and are used
-% to compute dispersion models.
 %
 % ### Graphical output from 'plotXYLambdaModel()'
 % - Displayed if `plot_model` is `true`.
@@ -29,25 +21,21 @@
 %
 % Four '.mat' files, each containing the following variables:
 %
-% - 'grouped_filenames': A cell vector of cell vectors of input image
-%   filenames retrieved based on the wildcard provided in the parameters
-%   section of the script. Each of the inner cell vectors groups the images
-%   of the same scene taken under different spectral filters, if spectral
-%   dispersion is being modelled. Otherwise, the inner cell vectors are of
-%   length one.
+% - 'image_filenames': A cell vector of input image filenames retrieved
+%   based on the wildcard provided in the parameters section of the script.
 % - 'centers': The independent variables data used for fitting the
 %   model of dispersion. `centers` is a structure array, with one field
-%   containing the image positions of the centres of disks fitted to image
-%   blobs. `centers(i, k)` is the centre of the ellipse fitted to the i-th
-%   image blob, with k representing either the k-th bandpass filter, or the
-%   k-th colour channel (depending on `rgb_mode`).
+%   containing the positions of the centres of image patches registered
+%   between colour channels or spectral bands. `centers(i, k)` is the
+%   centre of the i-th image patch, with k representing either the k-th
+%   spectral band, or the k-th colour channel.
 % - 'disparity': The dependent variables data used for fitting the
 %   model of dispersion. `disparity` is the first output argument of
 %   'statsToDisparity()', produced when 'statsToDisparity()' was called
 %   with `centers` as one of its input arguments. The format of `disparity`
 %   is described in the documentation of 'statsToDisparity()'. `disparity`
-%   contains the dispersion vectors between the centres of disks fit to
-%   image blobs for different wavelength bands or colour channels.
+%   contains the dispersion vectors between the centres of registered
+%   patches for different wavelength bands or colour channels.
 % - 'dispersion_data': The model of dispersion, modeling the mapping from
 %   `centers` to `disparity`. `dispersion_data` can be converted to a
 %   function form using `dispersionfun = makeDispersionfun(dispersion_data)`
@@ -97,33 +85,39 @@
 % - V. Rudakova and P. Monasse. "Precise Correction of Lateral Chromatic
 %   Aberration in Images," Lecture Notes on Computer Science, 8333, pp.
 %   12–22, 2014.
+% - The idea of using mutual information to evaluate image alignment is
+%   mentioned in, among other articles,
+%
+%   Brauers, J., Schulte, B., & Aach, T. (2008). "Multispectral
+%     Filter-Wheel Cameras: Geometric Distortion Model and Compensation
+%     Algorithms." IEEE Transactions on Image Processing, 17(12),
+%     2368-2380. doi:10.1109/TIP.2008.2006605
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
 % University of Alberta, Department of Computing Science
-% File created April 23, 2018
+% File created April 17, 2019
 
 % List of parameters to save with results
 parameters_list = {
-        'mask_ext',...
-        'mask_threshold',...
-        'rgb_mode',...
-        'bands_regex',...
+        'input_images_variable_name',...
+        'forward_dispersion_model_filename',...
+        'bands_filename',...
+        'bands_variable',...
         'bands',...
+        'bands_to_rgb',...
         'reference_wavelength',...
         'reference_index',...
+        'reg_patch_options',...
+        'reg_optimizer',...
+        'reg_metric',...
+        'reg_pyramid_levels',...
         'distance_outlier_threshold',...
-        'bands_to_rgb',...
-        'bayer_pattern',...
-        'cleanup_radius',...
-        'k0',...
-        'findAndFitDisks_options',...
         'dispersion_fieldname',...
+        'fill_image',...
         'max_degree_xy_dispersion',...
         'max_degree_lambda',...
-        'spline_smoothing_options',...
-        'max_degree_xy_vignetting',...
-        'quantiles'...
+        'spline_smoothing_options'...
     };
 
 %% Input data and parameters
@@ -133,80 +127,62 @@ parameters_list = {
 % Wildcard for 'ls()' to find the images to process. All images are
 % expected to be in one directory.
 %
-% Images are expected to have been preprocessed, such as using
-% 'PreprocessRAWImages.m', so that they do not need to be linearized after
-% being loaded. For image format files, images will simply be loaded with
-% the Image Processing Toolbox 'imread()' function. For '.mat' files, the
-% variable to be loaded must be provided in the script parameters.
-%
-% RAW (non-demosaicked) images are expected.
-%
-% This script will also search for image masks, using filenames which are
-% constructed by appending '_maskDisks' or '_maskVignetting', and
-% `mask_ext` (below) to the filepaths (after stripping file extensions and
-% wavelength information).
-% - Masks with filenames containing '_maskVignetting' define regions for
-%   calibrating vignetting corrections to be applied to the image prior to
-%   calibrating models of dispersion. If no mask is found for an image, the
-%   image will not be corrected for vignetting.
-% - Masks with filenames containing '_maskDisks' are used to avoid
-%   processing irrelevant portions of images when calibrating models of
-%   dispersion. If no mask is found for an image, the entire image will be
-%   searched for disks for dispersion calibration.
-input_images_wildcard = '/home/graphicslab/Documents/llanos/Data/20190208_ComputarLens/dataset/exposure_blending/*disks*nm.mat';
-input_images_variable_name = 'I_raw'; % Used only when loading '.mat' files
+% Images can either be spectral images, or demosaiced colour images,
+% although the latter type of images may not give good results because of
+% demosaicing artifacts.
+input_images_wildcard = '/home/graphicslab/Documents/llanos/Data/20190208_ComputarLens/dataset/channel_scaling/*disks32cm*_dHyper.mat';
+input_images_variable_name = 'I_hyper'; % Used only when loading '.mat' files
 
-% Mask filename extension (without the '.')
-mask_ext = 'png';
-
-% Threshold used to binarize mask images, if they are not already binary
-% images.
-mask_threshold = 0.5; % In a range of intensities from 0 to 1
-
-bayer_pattern = 'gbrg'; % Colour-filter pattern
+% Model of dispersion to use as an initial guess
+% Can be empty
+forward_dispersion_model_filename = '/home/graphicslab/Documents/llanos/Results/Copied elsewhere/20190208_ComputarLens/dispersion/spectral/full_image/RAWDiskDispersionResults_spectral_spline_fromReference.mat';
 
 % ## Spectral information
 
-% Find dispersion between colour channels, as opposed to between images
-% taken under different spectral bands
+% Find dispersion between colour channels, as opposed to between spectral
+% bands
 rgb_mode = false;
 
 if rgb_mode
-    bands_regex = []; % Not used
-    n_channels_rgb = 3;
-    bands = (1:n_channels_rgb).';
+    n_bands = 3;
+    bands = (1:n_bands).';
     reference_wavelength = []; % Not used
     reference_index = 2; % Green colour channel
-    bands_to_rgb = eye(n_channels_rgb);
+    bands_to_rgb = eye(n_bands);
+    bands_filename = []; % Not used
+    bands_variable = []; % Not used
 else
-    % Wavelengths will be expected within filenames, extracted using this
-    % regular expression
-    bands_regex = '_(\d+)nm';
+    % Path and filename of a '.mat' file containing the wavelengths corresponding to
+    % the spectral image.
+    bands_filename = '/home/graphicslab/Documents/llanos/Data/20190208_ComputarLens/dataset/channel_scaling/sensor.mat';
+    bands_variable = 'bands'; % Variable name in the above file
     reference_wavelength = 587.6;
 end
-% Threshold number of standard deviations of distance used to reject matches
-% between disks
+
+% ## Patch-wise image registration
+% (Options for 'registerPatches()')
+
+reg_patch_options = struct('patch_size', [64, 64], 'padding', 16);
+% Useful for debugging
+% reg_patch_options.target_patch = [1405, 271];
+
+% Use mutual information as an image registration metric
+[reg_optimizer, reg_metric] = imregconfig('multimodal');
+reg_optimizer.MaximumIterations = 500;
+
+% The `'PyramidLevels'` input argument of 'imregtform()'
+reg_pyramid_levels = 3;
+
+% ## Threshold number of standard deviations of distance used to reject
+% dispersion vectors
 distance_outlier_threshold = 3;
-
-% ## Vignetting correction
-
-% Parameters for polynomial model fitting
-max_degree_xy_vignetting = 5;
-
-% Quantiles used for clipping to produce nice output images (for display,
-% not for calculation)
-quantiles = [0.01, 0.99];
-
-% ## Disk fitting
-cleanup_radius = 2; % Morphological operations radius for 'findAndFitDisks()'
-k0 = 0.5; % `k0` argument of 'findAndFitDisks()'
-findAndFitDisks_options.bright_disks = false;
-findAndFitDisks_options.mask_as_threshold = false;
-findAndFitDisks_options.group_channels = ~rgb_mode;
-findAndFitDisks_options.area_outlier_threshold = 3;
 
 % ## Dispersion model generation
 dispersion_fieldname = 'center';
+
+% Force the dispersion model to declare that it is valid over the entire
+% image?
+fill_image = true;
 
 % Parameters for polynomial model fitting
 max_degree_xy_dispersion = 12;
@@ -222,14 +198,10 @@ spline_smoothing_options = struct(...
 );
 
 % ## Output directory
-output_directory = '/home/graphicslab/Documents/llanos/Results/20190208_ComputarLens/dispersion/spectral';
+output_directory = '/home/graphicslab/Documents/llanos/Results/dispersion_registration';
 
 % ## Debugging Flags
-vignettingPolyfitVerbose = false;
-
-findAndFitDisksVerbose.verbose_disk_search = true;
-findAndFitDisksVerbose.verbose_disk_refinement = false;
-findAndFitDisksVerbose.display_final_centers = true;
+registerPatchesVerbose = true;
 
 statsToDisparityVerbose.display_raw_values = true;
 statsToDisparityVerbose.display_raw_disparity = true;
@@ -237,147 +209,86 @@ statsToDisparityVerbose.filter = struct(...
     dispersion_fieldname, true...
 );
 
-save_corrected_images = true; % Images corrected for vignetting
 xylambdaFitVerbose = true;
 plot_model = true;
 
-%% Find the images
+%% Load calibration data
 
-if rgb_mode
-    [...
-        grouped_filenames, path, group_names...
-    ] = findAndGroupImages(input_images_wildcard);
-
-else
-    [...
-        grouped_filenames, path, group_names, bands...
-    ] = findAndGroupImages(input_images_wildcard, bands_regex);
-
+if ~rgb_mode
+    load(bands_filename, bands_variable);
+    if exist(bands_variable, 'var')
+        bands = eval(bands_variable);
+    end
+    if ~exist(bands_variable, 'var') || isempty(bands)
+        error('No wavelengths loaded.')
+    end
+    n_bands = length(bands);
+    
     [~, reference_index] = min(abs(bands - reference_wavelength));
-
+    
+    if plot_model
+        n_lambda_plot = min(20, n_bands);
+    end
+    
     % `bands_to_rgb` is used for visualization purposes only, and so does
     % not need to be accurate
     bands_to_rgb = sonyQuantumEfficiency(bands);
     % Normalize, for improved colour saturation
     bands_to_rgb = bands_to_rgb ./ max(max(bands_to_rgb));
+end
 
-    if plot_model
-        n_lambda_plot = min(20, length(bands));
+has_dispersion = ~isempty(forward_dispersion_model_filename);
+if has_dispersion
+    [...
+        dispersion_data_init, bands_dispersionfun, transform_data...
+    ] = loadDispersionModel(forward_dispersion_model_filename, true);
+
+    if rgb_mode && ((n_bands ~= length(bands_dispersionfun)) ||...
+           any(n_bands(:) ~= bands_dispersionfun(:)))
+            error('Unexpected colour channels used by the model of dispersion.');
     end
 end
-n_groups = length(grouped_filenames);
-n_bands = length(bands);
+
+%% Find the images
+
+image_filenames = listFiles(input_images_wildcard);
+n_images = length(image_filenames);
 
 %% Process the images
 
-centers_cell = cell(n_groups, 1);
+centers_cell = cell(n_images, 1);
 image_size = [];
-for g = 1:n_groups
-    
-    % Find any mask for vignetting calibration
-    mask_filename = fullfile(path, [group_names{g}, '_maskVignetting.', mask_ext]);
-    mask_listing = dir(mask_filename);
-    use_vignetting_correction = ~isempty(mask_listing);
-    if use_vignetting_correction
-        vignetting_mask = imread(mask_filename);
-        if size(vignetting_mask, 3) ~= 1
-            error('Expected the vignetting mask, "%s", to have only one channel.', mask_filename);
-        end
-        if ~islogical(vignetting_mask)
-            vignetting_mask = imbinarize(vignetting_mask, mask_threshold);
-        end
-    end
+for g = 1:n_images    
 
-    % Find any mask for dispersion calibration
-    mask_filename = fullfile(path, [group_names{g}, '_maskDisks.', mask_ext]);
-    mask_listing = dir(mask_filename);
-    if isempty(mask_listing)
-        mask = [];
-    else
-        mask = imread(mask_filename);
-        if size(mask, 3) ~= 1
-            error('Expected the dispersion calibration mask, "%s", to have only one channel.', mask_filename);
-        end
-        if ~islogical(mask)
-            mask = imbinarize(mask, mask_threshold);
-        end
-    end
-
-    I = loadImage(grouped_filenames{g}{1}, input_images_variable_name);
+    I = loadImage(image_filenames{g}, input_images_variable_name);
     if isempty(image_size)
         image_size = size(I);
     elseif any(image_size ~= size(I))
         error('Not all images have the same dimensions.');
     end
     
-    % Vignetting correction
-    if use_vignetting_correction
-        vignettingfun = vignettingPolyfit(...
-            I, vignetting_mask, max_degree_xy_vignetting, bayer_pattern, vignettingPolyfitVerbose...
-        );
-        I = correctVignetting(I, vignettingfun);
-        if save_corrected_images
-            I_out_debug = clipAndRemap(I, 'uint8', 'quantiles', quantiles);
-            [~, I_out_filename] = fileparts(grouped_filenames{g}{1});
-            saveImages(...
-                'image', output_directory, I_out_filename,...
-                I_out_debug, '_vignettingCorrected', []...
-                );
-        end
-    end
-
-    if rgb_mode
-        centers_cell{g} = findAndFitDisks(...
-            I, mask, bayer_pattern, [], cleanup_radius, k0,...
-            findAndFitDisks_options, findAndFitDisksVerbose...
-        );
-    else
-        centers_g = cell(n_bands, 1);
-        centers_g{1} = findAndFitDisks(...
-            I, mask, bayer_pattern, [], cleanup_radius, k0,...
-            findAndFitDisks_options, findAndFitDisksVerbose...
-        );
-
-        for i = 2:n_bands
-            I = loadImage(grouped_filenames{g}{i}, input_images_variable_name);
-            if any(image_size ~= size(I))
-                error('Not all images have the same dimensions.');
-            end
-            
-            if use_vignetting_correction
-                vignettingfun = vignettingPolyfit(...
-                    I, vignetting_mask, max_degree_xy_vignetting, bayer_pattern, vignettingPolyfitVerbose...
-                    );
-                I = correctVignetting(I, vignettingfun);
-                if save_corrected_images
-                    I_out_debug = clipAndRemap(I, 'uint8', 'quantiles', quantiles);
-                    [~, I_out_filename] = fileparts(grouped_filenames{g}{i});
-                    saveImages(...
-                        'image', output_directory, I_out_filename,...
-                        I_out_debug, '_vignettingCorrected', []...
-                        );
-                end
-            end
-            
-            centers_g{i} = findAndFitDisks(...
-                I, mask, bayer_pattern, [], cleanup_radius, k0,...
-                findAndFitDisks_options, findAndFitDisksVerbose...
+    if has_dispersion
+        if g == 1
+            dispersionfun_init = makeDispersionForImage(...
+                dispersion_data_init, I, transform_data...
             );
         end
-
-        centers_cell{g} = centers_g;
+        centers_cell{g} = registerPatches(...
+            I, reference_index, reg_patch_options, reg_optimizer, reg_metric,...
+            reg_pyramid_levels, bands, dispersionfun_init, registerPatchesVerbose...
+        );
+    else
+        centers_cell{g} = registerPatches(...
+            I, reference_index, reg_patch_options, reg_optimizer, reg_metric,...
+            reg_pyramid_levels, registerPatchesVerbose...
+        );
     end
 end
 
 %% Fit dispersion models to the results
 
-if rgb_mode
-    % Centers are already matched between colour channels, but we can still
-    % filter out outlier matches
-    for g = 1:n_groups
-        centers_cell{g} = mat2cell(centers_cell{g}, size(centers_cell{g}, 1), ones(1, n_channels_rgb)).';
-    end
-end
+% Centers are already matched between colour channels/bands, but we can still
+% filter out outlier matches
 centers = matchByVectors(centers_cell, dispersion_fieldname, reference_index, distance_outlier_threshold);
 
 x_fields = struct(...
@@ -390,11 +301,18 @@ disparity = statsToDisparity(...
 );
 
 % Indicate where in the image the model is usable
-centers_unpacked = permute(reshape([centers.(dispersion_fieldname)], 2, []), [2 1]);
-model_space.corners = [
-    min(centers_unpacked(:, 1)), min(centers_unpacked(:, 2));
-    max(centers_unpacked(:, 1)), max(centers_unpacked(:, 2))
-    ];
+if fill_image
+    model_space.corners = [
+        -Inf, -Inf;
+        Inf, Inf
+        ];
+else
+    centers_unpacked = permute(reshape([centers.(dispersion_fieldname)], 2, []), [2 1]);
+    model_space.corners = [
+        min(centers_unpacked(:, 1)), min(centers_unpacked(:, 2));
+        max(centers_unpacked(:, 1)), max(centers_unpacked(:, 2))
+        ];
+end
 model_space.corners = max(model_space.corners, 0.5);
 model_space.corners(model_space.corners(:, 1) > (image_size(2) - 0.5), 1) = (image_size(2) - 0.5);
 model_space.corners(model_space.corners(:, 2) > (image_size(1) - 0.5), 2) = (image_size(1) - 0.5);
@@ -402,7 +320,7 @@ model_space.image_size = image_size;
 model_space.system = 'image';
 
 save_variables_list = [ parameters_list, {...
-    'grouped_filenames',...
+    'image_filenames',...
     'centers',...
     'disparity',...
     'dispersion_data',...
@@ -464,7 +382,7 @@ for model_from_reference = [true, false]
         end
 
         % Save results to a file
-        filename = 'RAWDiskDispersionResults';
+        filename = 'RegistrationDispersionResults';
         if rgb_mode
             filename = [filename, '_RGB_'];
         else
