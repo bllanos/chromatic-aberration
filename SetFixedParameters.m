@@ -223,8 +223,9 @@ solvePatchesColorOptions.admm_options.full_GLambda = false;
 solvePatchesColorOptions.admm_options.rho = [ 1, 1, 1, 1 ];
 
 % Weights on the prior terms. Baek et al. (2017) used [1e-5, 0.1]. Setting
-% elements to zero disables the corresponding regularization term during
-% image estimation.
+% elements to zero disables the corresponding regularization term during image
+% estimation. The numerical values are used only if `use_fixed_weights` below is
+% `true`. Otherwise, regularization weight values are selected automatically.
 weights = [ 1e-2, 0, 0 ];
 
 % The first element is the tolerance for the conjugate gradients method. MATLAB
@@ -244,7 +245,7 @@ solvePatchesColorOptions.admm_options.maxit = [ 500, 1000 ];
 solvePatchesColorOptions.admm_options.varying_penalty_params = [2, 2, 10];
 
 % Types of norms to use on the prior terms
-solvePatchesColorOptions.admm_options.norms = [true, true, false];
+solvePatchesColorOptions.admm_options.norms = [false, true, false];
 
 % Whether to apply a non-negativity constraint (in which case, `rho` must
 % have four elements)
@@ -261,7 +262,7 @@ solvePatchesSpectralOptions.admm_options = solvePatchesColorOptions.admm_options
 % Only use even integers for the patch and padding sizes, to ensure that patches
 % are valid colour filter array images.
 patch_sizes = [ % Each row contains a (number of rows, number of columns) pair
-   64 64;
+   128, 128;
 ]; 
 paddings = 16;
 
@@ -304,7 +305,7 @@ end
 % Set a desired maximum relative error between the weight selected after an
 % infinite number of iterations, and the weight after the maximum number of
 % iterations:
-desired_weights_relative_error = 0.01;
+desired_weights_relative_error = 0.05;
 % At each iteration, after the first, the relative error is reduced to this
 % fraction of its previous value
 weights_iter_reduction = 2/3;

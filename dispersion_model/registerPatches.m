@@ -131,6 +131,8 @@ nargoutchk(1, 1);
 
 verbose = false;
 has_dispersion = false;
+dispersionfun = [];
+bands = [];
 if ~isempty(varargin)
     if islogical(varargin{1})
         verbose = varargin{1};

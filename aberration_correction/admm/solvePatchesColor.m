@@ -559,7 +559,6 @@ parfor j = 1:n_j
             if(verbose)
                 fprintf('Computing the minimum-norm least squares solution...\n');
             end
-            in_admm.J = reshape(column_in_j(patch_lim_rows(1):patch_lim_rows(2), :, channels_in.J(1):channels_in.J(2)), [], 1);
             patches_I_ij = lsqminnorm(in_admm.M_Omega_Phi, in_admm.J);
             if(verbose)
                 fprintf('\t...done.\n');
@@ -574,15 +573,19 @@ parfor j = 1:n_j
                 );
             else
                 n_demosaic_channels = sum(reg_options.demosaic_channels);
-                demosaic_row_indices = zeros(n_demosaic_channels * n_px_p, 1);
-                dc_output_ind = 0;
-                for dc = 1:length(reg_options.demosaic_channels)
-                    if reg_options.demosaic_channels(dc)
-                        dc_output_ind = dc_output_ind + 1;
-                        demosaic_row_indices(((dc_output_ind - 1) * n_px_p + 1):(dc_output_ind * n_px_p)) = (((dc - 1) * n_px_p + 1):(dc * n_px_p)).';
+                if has_dispersion
+                    demosaic_row_indices = zeros(n_demosaic_channels * n_px_p, 1);
+                    dc_output_ind = 0;
+                    for dc = 1:length(reg_options.demosaic_channels)
+                        if reg_options.demosaic_channels(dc)
+                            dc_output_ind = dc_output_ind + 1;
+                            demosaic_row_indices(((dc_output_ind - 1) * n_px_p + 1):(dc_output_ind * n_px_p)) = (((dc - 1) * n_px_p + 1):(dc * n_px_p)).';
+                        end
                     end
+                    dispersion_matrix_p_weights = dispersion_matrix_p(demosaic_row_indices, :);
+                else
+                    dispersion_matrix_p_weights = [];
                 end
-                dispersion_matrix_p_weights = dispersion_matrix_p(demosaic_row_indices, :);
                 I_in_p = struct(...
                     'spectral_weights', sensitivity(reg_options.demosaic_channels, :),...
                     'I', reshape(bilinearDemosaic(...

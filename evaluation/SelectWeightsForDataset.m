@@ -155,7 +155,7 @@ run('SetAlgorithms.m')
 n_patches = 10;
 
 % Output directory for all images and saved parameters
-output_directory = '/home/graphicslab/Documents/llanos/Results/20190208_ComputarLens/weights_selection_dispersion';
+output_directory = '/home/llanos/Downloads/weights_selection_dispersion';
 
 % Produce console output to describe the processing in this script
 verbose = true;
@@ -167,7 +167,7 @@ run('SetFixedParameters.m')
 %% Check for problematic parameters
 
 if use_fixed_weights
-    error('Weights should be fixed by running ''SelectWeightsForDataset.m'', not using the `use_fixed_weights` parameter in ''SetFixedParameters.m''');
+    error('The `use_fixed_weights` parameter in ''SetFixedParameters.m'' should be `false` when running this script.');
 end
 
 if sum(criteria) == 0

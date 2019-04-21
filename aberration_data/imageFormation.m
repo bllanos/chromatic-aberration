@@ -1,6 +1,6 @@
 function varargout = imageFormation(...
     I_hyper, bands, color_map, color_bands, sampling_options, patch_options,...
-    dispersionfun, align...
+    varargin...
 )
 % IMAGEFORMATION  Patch-wise conversion of a spectral image to RGB and RAW images
 %
@@ -185,6 +185,9 @@ narginchk(6, 8);
 nargoutchk(1, 4);
 
 n_output_images = nargout;
+if (n_output_images > 2) && (nargin < 8)
+    error('`align` must be passed if `J_est` is to be output.');
+end
 
 verbose = true;
 
@@ -195,9 +198,20 @@ end
 % Input argument parsing
 do_single_patch = isfield(patch_options, 'target_patch');
 
-has_dispersion = ~isempty(dispersionfun);
-if has_dispersion && ~isa(dispersionfun, 'function_handle')
-    error('`dispersionfun` must be a function handle.');
+has_dispersion = ~isempty(varargin) && ~isempty(varargin{1});
+if has_dispersion
+    dispersionfun = varargin{1};
+    if ~isa(dispersionfun, 'function_handle')
+        error('`dispersionfun` must be a function handle.');
+    end
+else
+    dispersionfun = [];
+end
+
+if length(varargin) > 1
+    align = varargin{2};
+else
+    align = [];
 end
 
 image_sampling = [size(I_hyper, 1), size(I_hyper, 2)];

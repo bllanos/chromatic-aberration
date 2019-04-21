@@ -234,8 +234,10 @@ run('SetFixedParameters.m')
 
 %% Check for problematic parameters
 
-if use_fixed_weights
-    error('Weights should be fixed by running ''SelectWeightsForDataset.m'', not using the `use_fixed_weights` parameter in ''SetFixedParameters.m''');
+if use_fixed_weights && ~strcmp(solvePatchesSpectralOptions.sampling_options.progression, 'last')
+    error(['Weights should be fixed by running ''SelectWeightsForDataset.m',...
+        ', not using the `use_fixed_weights` parameter in ''SetFixedParameters.m',...
+        ', unless `solvePatchesSpectralOptions.sampling_options.progression` is `''last''`']);
 end
 
 use_automatic_weights = isempty(admm_algorithms_filename);
