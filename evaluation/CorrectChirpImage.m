@@ -203,9 +203,10 @@
 % states that 0.1 pixels is the threshold at which dispersion becomes
 % perceptible, whereas dispersion of 0.3 pixels and above is noticeable:
 %
-%   V. Rudakova and P. Monasse. "Precise Correction of Lateral Chromatic
-%     Aberration in Images," Lecture Notes on Computer Science, 8333, pp.
-%     12–22, 2014.
+%   Rudakova, V. & Monasse, P. (2014). "Precise correction of lateral
+%     chromatic aberration in images" (Guanajuato). 6th Pacific-Rim
+%     Symposium on Image and Video Technology, PSIVT 2013. Springer Verlag.
+%     doi:10.1007/978-3-642-53842-1_2
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang

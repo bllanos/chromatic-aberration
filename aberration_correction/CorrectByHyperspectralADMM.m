@@ -29,8 +29,7 @@
 % ### Model of dispersion
 %
 % A '.mat' file containing several variables, which is the output of
-% 'RAWDiskDispersion.m', 'DoubleConvexThickLensDispersion.m' or
-% 'BimaterialImages.m', for example. The following variables are required:
+% 'RAWDiskDispersion.m', for example. The following variables are required:
 % - 'dispersion_data': A model of chromatic aberration, modeling the warping
 %   from the reference colour channel or wavelength band to the other
 %   colour channels or wavelength bands. `dispersion_data` can be converted to
@@ -40,9 +39,9 @@
 %   aberration. It must be set to `false`.
 % - 'bands': A vector containing the wavelengths or colour channel indices
 %   at which the dispersion model was originally fit. In the case of colour
-%   channels, 'bands' is needed to check if the dispersion model is compatible
-%   with the colour space conversion data (see below). Otherwise, it is not
-%   used.
+%   channels, 'bands' is needed to check if the dispersion model is
+%   compatible with the colour space conversion data (see below).
+%   Otherwise, it is not used.
 %
 % The following two additional variables are optional. If they are present,
 % they will be used for the following purposes:
