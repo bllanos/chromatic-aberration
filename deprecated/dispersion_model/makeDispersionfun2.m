@@ -1,4 +1,9 @@
-function [ dispersionfun ] = makeDispersionfun(data, varargin)
+function [ dispersionfun ] = makeDispersionfun2(data, varargin)
+% This function is an archived, lower-memory use version of
+% 'makeDispersionfun()'. Its low memory use was made unnecessary by changes
+% to client code, which reduced the size of the input arguments passed to
+% its output function.
+%
 % MAKEDISPERSIONFUN  Create a function to evaluate a model of disparity in three variables
 %
 % ## Syntax
@@ -12,7 +17,7 @@ function [ dispersionfun ] = makeDispersionfun(data, varargin)
 % ## Input Arguments
 %
 % dispersion_data -- Model data
-%   The `splinefun_data` output argument of 'xylambdaSplinefit()', or the
+%   The `dispersion_data` output argument of 'xylambdaSplinefit()', or the
 %   `polyfun_data` output argument of 'xylambdaPolyfit()'.
 %
 % T -- Coordinate transformation
@@ -129,19 +134,19 @@ end
         for dim = 1:n_spatial_dim
             disparity_normalized(:, dim) = repmat(data_d.coeff_affine(1, dim), n_d, 1) +...
                 dot(repmat(data_d.coeff_affine(2:end, dim).', n_d, 1), xylambda_normalized, 2);
-            distances = repmat(...
-                xylambda_normalized, size(data_d.coeff_basis, 1), 1 ...
-            ) - repelem(...
-                data_d.xylambda_training, n_d, 1 ...
-            );
-            distances = sqrt(dot(distances, distances, 2));
-            if channel_mode
-                G = splineKernel2D(distances);
-            else
-                G = splineKernel3D(distances);
+            for j = 1:size(data_d.coeff_basis, 1)
+                distances = xylambda_normalized - repmat(...
+                    data_d.xylambda_training(j, :), n_d, 1 ...
+                );
+                distances = sqrt(dot(distances, distances, 2));
+                if channel_mode
+                    G = splineKernel2D(distances);
+                else
+                    G = splineKernel3D(distances);
+                end
+                disparity_normalized(:, dim) = disparity_normalized(:, dim)  +...
+                    data_d.coeff_basis(j, dim) * G;
             end
-            disparity_normalized(:, dim) = disparity_normalized(:, dim)  +...
-                sum(reshape(repelem(data_d.coeff_basis(:, dim), n_d, 1) .* G, n_d, []), 2);
         end
     end
 
@@ -155,12 +160,14 @@ end
         xylambda_normalized_3d = permute(xylambda_normalized, [1 3 2]);
         
         disparity_normalized = ones(n_d, n_spatial_dim + 1);
-        vandermonde_matrix = prod(...
-            repmat(xylambda_normalized_3d, 1, data_d.n_powers, 1)...
-            .^ repmat(data_d.powers, n_d, 1, 1), 3 ...
-        );
-        disparity_normalized(:, 1) = vandermonde_matrix * data_d.coeff_x;
-        disparity_normalized(:, 2) = vandermonde_matrix * data_d.coeff_y;
+        for j = 1:n_d
+            vandermonde_vector = prod(...
+                repmat(xylambda_normalized_3d(j, :, :), 1, data_d.n_powers, 1)...
+                .^ data_d.powers, 3 ...
+                );
+            disparity_normalized(j, 1) = dot(vandermonde_vector, data_d.coeff_x);
+            disparity_normalized(j, 2) = dot(vandermonde_vector, data_d.coeff_y);
+        end
     end
 
     function disparity = modelfun(xylambda)
