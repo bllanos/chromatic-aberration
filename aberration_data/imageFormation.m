@@ -122,8 +122,8 @@ function varargout = imageFormation(...
 %     rather than for the entire image. While a border around the patch
 %     will have been estimated, with a width given by 'padding', it will
 %     not be included in the output. Prior to its removal, the border
-%     region will be used to calculate output images aside from `I`, to
-%     limit artifacts from image warping.
+%     region will be used to calculate all output images, to limit
+%     artifacts from image warping.
 %
 % dispersionfun -- Model of dispersion
 %   `dispersionfun` can be empty (`[]`), if there is no model of dispersion.
