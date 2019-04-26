@@ -167,12 +167,12 @@ parameters_list = {
 
 % Wildcard for 'ls()' to find the images to process. All images are
 % expected to be in one directory.
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/preprocessed_images/exposure_blended/*nm.mat';
+input_images_wildcard = 'C:\Users\GraphicsLab\Documents\llanos\Results\Copied elsewhere\20190208_ComputarLens\dataset\exposure_blending\*nm.mat';
 input_images_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % Wildcard for 'ls()' to find the images used to calibrate the relative spectral
 % sensitivity. All images are expected to be in one directory.
-reference_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/preprocessed_images/exposure_blended/*nm.mat';
+reference_images_wildcard = 'C:\Users\GraphicsLab\Documents\llanos\Results\Copied elsewhere\20190208_ComputarLens\dataset\exposure_blending\*nm.mat';
 reference_images_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % Wavelengths will be expected within filenames, extracted using this
@@ -189,10 +189,15 @@ range = [0, 0.95];
 use_bias = false;
 
 % ## Output directory
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/channel_scaling';
+output_directory = 'C:\Users\GraphicsLab\Documents\llanos\Results\channel_scaling';
 
 % ## Colour conversion parameters
 run('SetFixedParameters.m')
+% Override interpolation settings.
+findSamplingOptions.interpolant = findSamplingOptions.interpolant_ref;
+imageFormationSamplingOptions.interpolant = findSamplingOptions.interpolant;
+% Change options elsewhere just in case other scripts use these parameters
+dispersionfunToMatrixOptions.interpolant = findSamplingOptions.interpolant;
 
 % Colour-filter pattern (overrides the version in 'SetFixedParameters.m')
 bayer_pattern = 'gbrg';
@@ -242,14 +247,11 @@ channel_mode = false;
 sensor_map_relative_sum = sum(sensor_map_relative, 2);
 reference_index = find(sensor_map_relative_sum == n_bands);
 
-color_weights_options = findSamplingOptions;
-color_weights_options.interpolant = findSamplingOptions.interpolant_ref;
 color_weights = colorWeights(...
-    sensor_map_relative, bands, bands, color_weights_options...
+    sensor_map_relative, bands, bands, findSamplingOptions...
 );
 
 color_weights_sum = sum(color_weights(reference_index, :));
-color_weights = color_weights ./ color_weights_sum;
 sensor_map = sensor_map_relative ./ color_weights_sum;
 
 %% Visualization

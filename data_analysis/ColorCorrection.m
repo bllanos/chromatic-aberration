@@ -16,16 +16,18 @@
 %% Input data and parameters
 
 % Path and filename of a '.mat' file containing the sampling information needed
-% to convert spectral bands to raw colour channels
-sampling_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/CorrectByHyperspectralADMM_bandsStep8.mat';
+% to convert spectral bands to raw colour channels. Can be empty (`[]`) if there
+% are no spectral images to process.
+sampling_filename = 'C:\Users\GraphicsLab\Documents\llanos\Results\channel_scaling\sensor.mat';
 
-% Path and filename of a '.mat' file containing the colour space conversion data
-% needed to convert spectral bands to raw colour channels
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/SonyColorMapData.mat';
+% Path and filename of a '.mat' file containing the colour space conversion
+% data needed to convert spectral bands to raw colour channels. Can be
+% empty (`[]`) if there are no spectral images to process.
+color_map_filename = 'C:\Users\GraphicsLab\Documents\llanos\Results\channel_scaling\sensor.mat';
 
 % Path and filename of a '.mat' file containing the conversion matrix for
 % raw colour channels to XYZ
-xyz_weights_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_correctedRGB/CalibrateColorCorrectionData.mat';
+xyz_weights_filename = 'C:\Users\GraphicsLab\Documents\llanos\Results\CalibrateColorCorrectionData_filtered.mat';
 xyz_weights_variable = 'M_homog'; % Variable name in the above file
 
 % Whitepoint to use for XYZ to sRGB conversion
@@ -33,16 +35,16 @@ whitepoint = [1, 1, 1];
 
 % Wildcard for 'ls()' to find the spectral images to process (can be empty (`[]`)).
 % '.mat' or image files can be loaded
-spectral_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/*step8_latent*.mat';
-spectral_variable_name = 'I_latent'; % Used only when loading '.mat' files
+spectral_wildcard = 'C:\Users\GraphicsLab\Documents\llanos\Results\channel_scaling\*_dHyper.mat';
+spectral_variable_name = 'I_hyper'; % Used only when loading '.mat' files
 
 % Wildcard for 'ls()' to find the colour images to process (can be empty (`[]`)).
 % '.mat' or image files can be loaded
-color_wildcard = []; %'/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_MATFiles/*_rgb*.mat';
+color_wildcard = 'C:\Users\GraphicsLab\Documents\llanos\Results\bandpassFiltered_warpCorrected\*_unwarped.mat';
 color_variable_name = 'I_rgb'; % Used only when loading '.mat' files
 
 % Output directory
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential';
+output_directory = 'C:\Users\GraphicsLab\Documents\llanos\Results\bandpassFiltered_warpCorrected_correctedRGB';
 
 %% Process the images
 

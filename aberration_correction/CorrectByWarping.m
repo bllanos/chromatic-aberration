@@ -125,21 +125,20 @@ parameters_list = {
 
 % Wildcard for 'ls()' to find the images to process.
 % '.mat' or image files can be loaded
-input_images_wildcard = 'C:\Users\GraphicsLab\Documents\llanos\Results\run_on_dataset_ignoreDispersion\*_latent.mat';
-input_images_variable_name = 'I_latent'; % Used only when loading '.mat' files
+input_images_wildcard = 'C:\Users\GraphicsLab\Documents\llanos\Results\channel_scaling\*_dHyper.mat';
+input_images_variable_name = 'I_hyper'; % Used only when loading '.mat' files
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/SonyColorMapData.mat';
+color_map_filename = 'C:\Users\GraphicsLab\Documents\llanos\Results\channel_scaling\sensor.mat';
 
 % Path and filename of a '.mat' file containing the information needed to
 % convert spectral bands to raw colour channels. `sampling_filename` can be
 % empty (`[]`), and is ignored, if the colour space conversion data
 % indicates that the images are in colour. The file must contain a vector,
 % `bands`, of wavelengths corresponding to the spectral bands of the
-% spectral images. If `disable_interpolation`, below, is `false`, the file
-% must also contain a variable, `findSamplingOptions`, as defined in
-% 'SetFixedParameters.m'.
-sampling_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/CorrectByHyperspectralADMM_bandsStep8.mat';
+% spectral images. It must also contain a variable, `findSamplingOptions`,
+% as defined in 'SetFixedParameters.m'.
+sampling_filename = 'C:\Users\GraphicsLab\Documents\llanos\Results\channel_scaling\sensor.mat';
 
 % Model of dispersion
 forward_dispersion_model_filename = 'C:\Users\GraphicsLab\Documents\llanos\Data\20190208_ComputarLens\dispersion\spectral\full_image\RAWDiskDispersionResults_spectral_polynomial_fromReference.mat';
@@ -150,10 +149,10 @@ forward_dispersion_model_filename = 'C:\Users\GraphicsLab\Documents\llanos\Data\
 % the `options` input argument of `dispersionfunToMatrix` only has a
 % 'bands_in' field. It only makes sense for this parameter to be `true`
 % when the spectral images were obtained using narrowband optical filters.
-disable_interpolation = false;
+disable_interpolation = true;
 
 % Output directory for all images and saved parameters
-output_directory = 'C:\Users\GraphicsLab\Documents\llanos\Results\run_on_dataset_ignoreDispersion_warpCorrected';
+output_directory = 'C:\Users\GraphicsLab\Documents\llanos\Results\bandpassFiltered_warpCorrected';
 
 % Parameters which do not usually need to be changed. Some of these
 % parameters will be overridden by the input data.
@@ -191,10 +190,10 @@ else
     if isempty(bands)
         error('`bands` was not loaded from "%s".', sampling_filename)
     end
-    if ~disable_interpolation
-        if isempty(findSamplingOptions)
-            error('`findSamplingOptions` was not loaded from "%s".', sampling_filename)
-        end
+    if isempty(findSamplingOptions)
+        error('`findSamplingOptions` was not loaded from "%s".', sampling_filename)
+    end
+    if disable_interpolation
         color_weights = colorWeights(...
             sensor_map, bands_color, bands, findSamplingOptions...
         );
