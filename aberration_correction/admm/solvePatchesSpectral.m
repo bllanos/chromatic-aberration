@@ -589,40 +589,40 @@ end
 n_channels_in = 0;
 if input_I_in
     channels_in.I_in = [ 1, size(I_in.I, 3) ]; % True image
-    n_channels_in = n_channels_in + channels_in.I_in(2);
+    n_channels_in = channels_in.I_in(2);
 end
 sz_J3 = size(J_2D, 3);
 channels_in.J = n_channels_in + [1, sz_J3]; % Input image
-n_channels_in = n_channels_in + channels_in.J(2);
+n_channels_in = channels_in.J(2);
 
 % Channel indices in the output concatenation of images
 n_channels_out = 0;
 channels_out.I = n_channels_out + [1, n_bands_total]; % Estimated latent image
-n_channels_out = n_channels_out + channels_out.I(2);
+n_channels_out = channels_out.I(2);
 if n_auxiliary_images > 0
     channels_out.I_rgb = n_channels_out + [1, n_channels_rgb_total];
-    n_channels_out = n_channels_out + channels_out.I_rgb(2);
+    n_channels_out = channels_out.I_rgb(2);
     if output_weights
         if show_steps
             channels_out.I_weights = n_channels_out + [1, n_active_weights * n_steps];
         else
             channels_out.I_weights = n_channels_out + [1, n_active_weights];
         end
-        n_channels_out = n_channels_out + channels_out.I_weights(2);
+        n_channels_out = channels_out.I_weights(2);
     end
     if n_auxiliary_images > 1
         channels_out.J_full = n_channels_out + [1, n_channels_rgb_total];
-        n_channels_out = n_channels_out + channels_out.J_full(2);
+        n_channels_out = channels_out.J_full(2);
         if n_auxiliary_images > 2
             if show_steps
                 channels_out.J_est = n_channels_out + [1, sz_J3 * n_steps];
             else
                 channels_out.J_est = n_channels_out + [1, sz_J3];
             end
-            n_channels_out = n_channels_out + channels_out.J_est(2);
+            n_channels_out = channels_out.J_est(2);
             if n_auxiliary_images > 3
                 channels_out.I_warped = n_channels_out + [1, n_bands_total];
-                n_channels_out = n_channels_out + channels_out.I_warped(2);
+                n_channels_out = channels_out.I_warped(2);
             end
         end
     end

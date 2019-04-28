@@ -195,9 +195,8 @@ if verbose
 end
 
 % Channel indices in the input concatenation of images
-n_channels_in = 0;
 channels_in.I_in = [ 1, size(I, 3) ];
-n_channels_in = n_channels_in + channels_in.I_in(2);
+n_channels_in = channels_in.I_in(2);
 
 % Divide the input images into columns which will be sent to individual
 % parallel workers

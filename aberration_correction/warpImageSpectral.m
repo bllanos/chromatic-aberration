@@ -212,18 +212,17 @@ if verbose
 end
 
 % Channel indices in the input concatenation of images
-n_channels_in = 0;
 channels_in.I_in = [ 1, size(I_hyper, 3) ];
-n_channels_in = n_channels_in + channels_in.I_in(2);
+n_channels_in = channels_in.I_in(2);
 
 % Channel indices in the output concatenation of images
 n_channels_out = 0;
 if n_output_images > 0
     channels_out.I_rgb = n_channels_out + [1, n_channels_rgb];
-    n_channels_out = n_channels_out + channels_out.I_rgb(2);
+    n_channels_out = channels_out.I_rgb(2);
     if n_output_images > 1
         channels_out.I_warped = n_channels_out + [1, n_bands];
-        n_channels_out = n_channels_out + channels_out.I_warped(2);
+        n_channels_out = channels_out.I_warped(2);
     end
 end
 
