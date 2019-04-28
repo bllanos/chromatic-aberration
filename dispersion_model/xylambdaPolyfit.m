@@ -151,7 +151,11 @@ function [ polyfun, polyfun_data ] = xylambdaPolyfit(...
 % wavelengths. The polynomials need to be well-behaved between the
 % wavelengths. Omitting all data for certain wavelengths from the training
 % data, and then testing on those wavelengths is the only way to estimate
-% the prediction error between wavelengths.
+% the prediction error between wavelengths. The first and last wavelengths
+% are always part of the training sets, however, because all polynomials
+% extrapolate poorly, and so testing on the extreme wavelengths just adds
+% to the estimated variance of all candidate models and makes it more
+% difficult to choose one.
 %
 % If there are two wavelengths, the polynomial model will be constrained to
 % have degree one in wavelength, rather than using cross-validation to set
@@ -223,6 +227,7 @@ n_models = sz(2);
 verbose = false;
 lambda = (1:n_models).';
 max_degree_lambda = 0;
+min_degree_lambda = 0;
 channel_mode = true;
 if length(varargin) == 1
     verbose = varargin{1};
@@ -232,6 +237,8 @@ elseif length(varargin) > 1
     max_degree_lambda = max(1, min(varargin{2}, n_lambda - 2));
     if n_lambda == 1
         max_degree_lambda = 0;
+    elseif n_lambda == 2
+        min_degree_lambda = 1;
     elseif isempty(lambda)
         error('There must be at least one wavelength in `lambda`.');
     end
@@ -309,8 +316,9 @@ end
 
 powers = [];
 n_powers = [];
-mean_mse = zeros(max_degree_xy + 1, max_degree_lambda + 1);
-std_mse = zeros(max_degree_xy + 1, max_degree_lambda + 1);
+n_degree_lambda = max_degree_lambda - min_degree_lambda + 1;
+mean_mse = zeros(max_degree_xy + 1, n_degree_lambda);
+std_mse = zeros(max_degree_xy + 1, n_degree_lambda);
 for c = 1:n_models
     if channel_mode
         if c == reference_channel
@@ -340,13 +348,13 @@ for c = 1:n_models
 
     % Use cross validation to find the optimal polynomial complexity
     for deg_xy = 0:max_degree_xy
-        for deg_lambda = 0:max_degree_lambda
+        for deg_lambda = min_degree_lambda:max_degree_lambda
             [powers, n_powers] = powersarray(deg_xy, deg_lambda);
             if use_basic_crossval
                 mse = crossval(@crossvalfun, dataset_normalized, 'kfold', n_folds);
             else
-                mse = zeros(n_folds, n_lambda);
-                for b = 1:n_lambda
+                mse = zeros(n_folds, n_lambda - 2);
+                for b = 2:(n_lambda - 1)
                     testset_b = dataset_normalized(lambda_filter_ind(b):(lambda_filter_ind(b + 1) - 1), :);
                     trainset_b = dataset_normalized([1:(lambda_filter_ind(b) - 1), lambda_filter_ind(b + 1):end], :);
                     n_train_b = size(trainset_b, 1);
@@ -359,7 +367,7 @@ for c = 1:n_models
                         perm_bf = randperm(n_train_b);
                         testset_bf = [testset_b; trainset_b(perm_bf(1:fold_size), :)];
                         trainset_bf = trainset_b(perm_bf((fold_size + 1):end), :);
-                        mse(f, b) = crossvalfun(trainset_bf, testset_bf);
+                        mse(f, b - 1) = crossvalfun(trainset_bf, testset_bf);
                     end
                 end
             end
@@ -377,13 +385,9 @@ for c = 1:n_models
     min_mse_std = std_mse(ind);
     choice_mse = mean_mse - min_mse_std - min_mse;
     possible_choices = (choice_mse <= 0);
-    [deg_xy_matrix, deg_lambda_matrix] = ndgrid(0:max_degree_xy, 0:max_degree_lambda);
+    [deg_xy_matrix, deg_lambda_matrix] = ndgrid(0:max_degree_xy, min_degree_lambda:max_degree_lambda);
     % Prioritize simplicity with respect to wavelength
-    if n_lambda == 2
-        polyfun_data(c).degree_lambda = 1;
-    else
-        polyfun_data(c).degree_lambda = min(deg_lambda_matrix(possible_choices));
-    end
+    polyfun_data(c).degree_lambda = min(deg_lambda_matrix(possible_choices));
     possible_choices_lambda_best = possible_choices & (deg_lambda_matrix == polyfun_data(c).degree_lambda);
     polyfun_data(c).degree_xy = min(deg_xy_matrix(possible_choices_lambda_best));
 
@@ -392,7 +396,7 @@ for c = 1:n_models
         mse_minus1std = mean_mse - min_mse_std;
         mse_plus1std = mean_mse + min_mse_std;
         figure;
-        if max_degree_lambda == 0
+        if n_degree_lambda == 1
             hold on
             plot(deg_xy_matrix, mse_minus1std, 'r-');
             plot(deg_xy_matrix, mse_plus1std, 'r-');
