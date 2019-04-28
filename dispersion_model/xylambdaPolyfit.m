@@ -65,7 +65,9 @@ function [ polyfun, polyfun_data ] = xylambdaPolyfit(...
 %
 % max_degree_lambda -- Maximum degree for the third independent variable
 %   The maximum degree of the third independent variable in the set of
-%   permissible polynomial models.
+%   permissible polynomial models. It will be capped at `length(lambda) -
+%   2`, but then will be set to zero, if `lambda` has length `1`, or one,
+%   if `lambda` has length `2`.
 %
 % verbose -- Debugging and visualization controls
 %   If `verbose` is `true`, graphical output will be generated for
@@ -141,6 +143,20 @@ function [ polyfun, polyfun_data ] = xylambdaPolyfit(...
 % Each model can be thought of as having a maximum degree of zero in the
 % 'lambda' variable.
 %
+% When modelling data for wavelengths, data is partitioned during
+% cross-validation first by wavelength. All data for one wavelength is set
+% aside for validation. Part of the data for the other wavelengths is added
+% to this validation set, while the rest is used for training. This
+% procedure is necessary because there are only a limited number of
+% wavelengths. The polynomials need to be well-behaved between the
+% wavelengths. Omitting all data for certain wavelengths from the training
+% data, and then testing on those wavelengths is the only way to estimate
+% the prediction error between wavelengths.
+%
+% If there are two wavelengths, the polynomial model will be constrained to
+% have degree one in wavelength, rather than using cross-validation to set
+% the degree in wavelength.
+%
 % ## References
 % - MATLAB Help page for the polyfit() function
 % - T. Hastie and R. Tibshirani. The Elements of Statistical Learning: Data
@@ -199,6 +215,8 @@ function [ polyfun, polyfun_data ] = xylambdaPolyfit(...
 nargoutchk(1, 2);
 narginchk(5, 8);
 
+n_folds = 10; % Number of cross-validation folds
+
 sz = size(X);
 n_models = sz(2);
 
@@ -210,16 +228,23 @@ if length(varargin) == 1
     verbose = varargin{1};
 elseif length(varargin) > 1
     lambda = varargin{1};
-    max_degree_lambda = varargin{2};
+    n_lambda = length(lambda);
+    max_degree_lambda = max(1, min(varargin{2}, n_lambda - 2));
+    if n_lambda == 1
+        max_degree_lambda = 0;
+    elseif isempty(lambda)
+        error('There must be at least one wavelength in `lambda`.');
+    end
     n_models = 1;
     channel_mode = false;
-    if sz(2) ~= length(lambda)
+    if sz(2) ~= n_lambda
         error('Expected as many wavelengths in `lambda` as the size of `X` in the third dimension.')
     end
     if length(varargin) > 2
         verbose = varargin{3};
     end
 end
+use_basic_crossval = channel_mode || n_lambda < 3;
 
 n_spatial_dim = 2;
 if length(X(1).(x_field)) ~= n_spatial_dim
@@ -232,6 +257,9 @@ if size(lambda, 2) > size(lambda, 1)
     lambda = lambda.';
 end
 lambda_unpacked = repelem(lambda, sz(1), 1);
+if ~use_basic_crossval
+    lambda_filter = repelem((1:n_lambda).', sz(1), 1);
+end
 disparity_unpacked = reshape(permute(disparity.(disparity_field), [1 3 2]), [], 2);
 
 % Find the reference colour channel
@@ -250,9 +278,16 @@ end
 
 dataset = [X_unpacked lambda_unpacked disparity_unpacked];
 
-% Filter NaN values
-dataset = dataset(all(isfinite(dataset), 2), :);
+% Filter NaN values. I assume that NaN values are evenly-distributed across
+% `lambda` values. Otherwise, stratified cross-validation might be
+% necessary.
+dataset_filter = all(isfinite(dataset), 2);
+dataset = dataset(dataset_filter, :);
 n_points = size(dataset, 1);
+if ~use_basic_crossval
+    lambda_filter = lambda_filter(dataset_filter);
+    lambda_filter_ind = find([1; diff(lambda_filter); 1]);
+end
 
 % Create one model per colour channel, or one model for all wavelengths
 polyfun_data = struct(...
@@ -307,9 +342,29 @@ for c = 1:n_models
     for deg_xy = 0:max_degree_xy
         for deg_lambda = 0:max_degree_lambda
             [powers, n_powers] = powersarray(deg_xy, deg_lambda);
-            mse = crossval(@crossvalfun, dataset_normalized); % Defaults to 10-fold cross validation
-            mean_mse(deg_xy + 1, deg_lambda + 1)  = mean(mse);
-            std_mse(deg_xy + 1, deg_lambda + 1)  = std(mse);
+            if use_basic_crossval
+                mse = crossval(@crossvalfun, dataset_normalized, 'kfold', n_folds);
+            else
+                mse = zeros(n_folds, n_lambda);
+                for b = 1:n_lambda
+                    testset_b = dataset_normalized(lambda_filter_ind(b):(lambda_filter_ind(b + 1) - 1), :);
+                    trainset_b = dataset_normalized([1:(lambda_filter_ind(b) - 1), lambda_filter_ind(b + 1):end], :);
+                    n_train_b = size(trainset_b, 1);
+                    if n_train_b <= n_folds
+                        error('Insufficient data for cross-validation.');
+                    else
+                        fold_size = floor(n_train_b / n_folds);
+                    end
+                    for f = 1:n_folds
+                        perm_bf = randperm(n_train_b);
+                        testset_bf = [testset_b; trainset_b(perm_bf(1:fold_size), :)];
+                        trainset_bf = trainset_b(perm_bf((fold_size + 1):end), :);
+                        mse(f, b) = crossvalfun(trainset_bf, testset_bf);
+                    end
+                end
+            end
+            mean_mse(deg_xy + 1, deg_lambda + 1) = mean(mse(:));
+            std_mse(deg_xy + 1, deg_lambda + 1) = std(mse(:));
         end
     end
 
@@ -324,7 +379,11 @@ for c = 1:n_models
     possible_choices = (choice_mse <= 0);
     [deg_xy_matrix, deg_lambda_matrix] = ndgrid(0:max_degree_xy, 0:max_degree_lambda);
     % Prioritize simplicity with respect to wavelength
-    polyfun_data(c).degree_lambda = min(deg_lambda_matrix(possible_choices));
+    if n_lambda == 2
+        polyfun_data(c).degree_lambda = 1;
+    else
+        polyfun_data(c).degree_lambda = min(deg_lambda_matrix(possible_choices));
+    end
     possible_choices_lambda_best = possible_choices & (deg_lambda_matrix == polyfun_data(c).degree_lambda);
     polyfun_data(c).degree_xy = min(deg_xy_matrix(possible_choices_lambda_best));
 

@@ -120,6 +120,7 @@ parameters_list = {
         'k0',...
         'findAndFitDisks_options',...
         'dispersion_fieldname',...
+        'fill_image',...
         'max_degree_xy_dispersion',...
         'max_degree_lambda',...
         'spline_smoothing_options',...
@@ -154,7 +155,7 @@ parameters_list = {
 %   processing irrelevant portions of images when calibrating models of
 %   dispersion. If no mask is found for an image, the entire image will be
 %   searched for disks for dispersion calibration.
-input_images_wildcard = '/home/graphicslab/Documents/llanos/Data/20190208_ComputarLens/dataset/exposure_blending/*disks*nm.mat';
+input_images_wildcard = 'C:\Users\GraphicsLab\Documents\llanos\Results\Copied elsewhere\20190208_ComputarLens\dataset\exposure_blending\*disks*nm.mat';
 input_images_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % Mask filename extension (without the '.')
@@ -209,6 +210,10 @@ findAndFitDisks_options.area_outlier_threshold = 3;
 % ## Dispersion model generation
 dispersion_fieldname = 'center';
 
+% Force the dispersion model to declare that it is valid over the entire
+% image?
+fill_image = true;
+
 % Parameters for polynomial model fitting
 max_degree_xy_dispersion = 12;
 max_degree_lambda = 12;
@@ -223,7 +228,7 @@ spline_smoothing_options = struct(...
 );
 
 % ## Output directory
-output_directory = '/home/graphicslab/Documents/llanos/Results/20190208_ComputarLens/dispersion/spectral';
+output_directory = 'C:\Users\GraphicsLab\Documents\llanos\Results\dispersion\spectral\polynomial_newCV';
 
 % ## Debugging Flags
 vignettingPolyfitVerbose = false;
@@ -391,11 +396,18 @@ disparity = statsToDisparity(...
 );
 
 % Indicate where in the image the model is usable
-centers_unpacked = permute(reshape([centers.(dispersion_fieldname)], 2, []), [2 1]);
-model_space.corners = [
-    min(centers_unpacked(:, 1)), min(centers_unpacked(:, 2));
-    max(centers_unpacked(:, 1)), max(centers_unpacked(:, 2))
-    ];
+if fill_image
+    model_space.corners = [
+        -Inf, -Inf;
+        Inf, Inf
+        ];
+else
+    centers_unpacked = permute(reshape([centers.(dispersion_fieldname)], 2, []), [2 1]);
+    model_space.corners = [
+        min(centers_unpacked(:, 1)), min(centers_unpacked(:, 2));
+        max(centers_unpacked(:, 1)), max(centers_unpacked(:, 2))
+        ];
+end
 model_space.corners = max(model_space.corners, 0.5);
 model_space.corners(model_space.corners(:, 1) > (image_size(2) - 0.5), 1) = (image_size(2) - 0.5);
 model_space.corners(model_space.corners(:, 2) > (image_size(1) - 0.5), 2) = (image_size(1) - 0.5);
