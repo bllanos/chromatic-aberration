@@ -1013,6 +1013,212 @@ elseif strcmp(name, '20190208_ComputarLens_rawCaptured_dispersion')
         )...
     );
 
+elseif strcmp(name, '20190421_ComputarLens_dHyper_dispersion')
+    dataset_params.raw_images_wildcard = [];
+    dataset_params.raw_images_variable = [];
+    dataset_params.rgb_images_wildcard = [];
+    dataset_params.rgb_images_variable = [];
+    dataset_params.spectral_images_wildcard = 'C:\Users\GraphicsLab\Documents\llanos\Results\channel_scaling\*_dHyper.mat';
+    dataset_params.spectral_images_variable = 'I_hyper';
+    dataset_params.spectral_reflectances = false;
+    dataset_params.dispersion_rgb_forward = 'C:\Users\GraphicsLab\Documents\llanos\Data\20190208_ComputarLens\dispersion\rgb\full_image\RAWDiskDispersionResults_RGB_polynomial_fromReference.mat';
+    dataset_params.dispersion_rgb_reverse = 'C:\Users\GraphicsLab\Documents\llanos\Data\20190208_ComputarLens\dispersion\rgb\full_image\RAWDiskDispersionResults_RGB_polynomial_fromNonReference.mat';
+    dataset_params.dispersion_spectral_reverse = 'C:\Users\GraphicsLab\Documents\llanos\Results\dispersion\spectral\polynomial_newCV\RAWDiskDispersionResults_spectral_polynomial_fromNonReference.mat';
+    dataset_params.is_aberrated = true;
+    dataset_params.color_map = 'C:\Users\GraphicsLab\Documents\llanos\Results\channel_scaling\sensor.mat';
+    dataset_params.wavelengths = 'C:\Users\GraphicsLab\Documents\llanos\Results\channel_scaling\sensor.mat';
+    dataset_params.patch_size = [128 128];
+    dataset_params.padding = 16;
+    dataset_params.params_patches = struct(...
+        'd1_colorChecker30cm', [146, 141],... % "colorchecker CLASSIC" text
+        'd1_disks32cmV1', [2164, 228],... % Dot near top right
+        'd1_disks32cmV2', [2176, 225],... % Dot near top right
+        'd2_book', [1180, 205],... % "Wiley"
+        'd2_colorChecker30cm', [336, 1470],... % "X" symbol beside "X-rite"
+        'd2_glass', [449, 883],... % Dot seen through the crystal ball
+        'd2_ship', [2234, 1132]... % Noise pattern
+    );
+    dataset_params.evaluation = struct(...
+        'global_rgb', struct('error_map', true),...
+        'custom_rgb', struct,...
+        'global_spectral', struct(...
+            'metric', 'mrae',...
+            'error_map', true,...
+            'mi_bands', [1, 7],...
+            'bands_diff', [1, 7]...
+            ),...
+        'custom_spectral', struct(...
+            'd1_colorChecker30cm', struct(... % The white square of the ColorChecker is overexposed, unfortunately
+                'radiance', [ % ColorChecker patches
+                    296, 344, 15, 15;
+                    641, 353, 15, 15;
+                    980, 362, 15, 15;
+                    1337, 371, 15, 15;
+                    1697, 356, 15, 15;
+                    2045, 365, 15, 15;
+                    332, 688, 15, 15;
+                    664, 691, 15, 15;
+                    989, 700, 15, 15;
+                    1341, 696, 15, 15;
+                    1679, 706, 15, 15;
+                    2027, 718, 15, 15;
+                    371, 1003, 15, 15;
+                    678, 1007, 15, 15;
+                    1004, 1015, 15, 15;
+                    1326, 1020, 15, 15;
+                    1660, 1020, 15, 15;
+                    1994, 1021, 15, 15;
+                    395, 1308, 15, 15;
+                    695, 1303, 15, 15; % Also the reference patch!
+                    1014, 1316, 15, 15;
+                    1325, 1320, 15, 15;
+                    1641, 1327, 15, 15;
+                    1970, 1330, 15, 15
+                ],...
+                'scanlines', [
+                    296, 344, 2045, 365; % ColorChecker rows
+                    332, 688, 2027, 718;
+                    371, 1003, 1994, 1021;
+                    395, 1308, 1970, 1330;
+                    1620, 1510, 1980, 1515 % Across the 'mm' ruler gradations
+                ]...
+            ),...
+            'd1_disks32cmV1', struct(...
+                'radiance', [
+                    1223, 989, 15, 15; % Also the reference patch!
+                    1185, 1024, 15, 15; % Dot near image centre
+                    2286, 112, 15, 15; % White near top right
+                    2327, 73, 15, 15; % Dot closer to the corner
+                    1817, 490, 15, 15; % White 1/2 way to top right
+                    1851, 528, 15, 15; % Dot nearby
+                    144, 175, 15, 15; % White near top left
+                    180, 212, 15, 15; % Dot closer to the centre
+                    577, 474, 15, 15; % White 1/2 way to top left
+                    616, 511, 15, 15; % Dot closer to the centre
+                    94, 1945, 15, 15; % White near bottom left
+                    124, 1915, 15, 15; % Dot closer to the centre
+                    603, 1517, 15, 15; % White 1/2 way to bottom left
+                    635, 1487, 15, 15; % Dot closer to the centre
+                    2286, 1944, 15, 15; % White near bottom right
+                    2318, 1979, 15, 15; % Dot closer to the corner
+                    1838, 1548, 15, 15; % White 1/2 way to bottom right
+                    1802, 1517, 15, 15 % Dot closer to the centre
+                ],...
+                'scanlines', [
+                    26, 56, 2406, 73; % Top left to top right
+                    26, 56, 125, 1912; % Top left to bottom left
+                    125, 1912, 2252, 1972; % Bottom left to bottom right
+                    2252, 1972, 2406, 73; % Bottom right to top right
+                    26, 56, 2252, 1972; % Top left to bottom right
+                    125, 1912, 2406, 73 % Bottom left to top right
+                ]...
+            ),...
+            'd1_disks32cmV2', struct(...
+                'radiance', [
+                    1229, 1049, 15, 15; % Also the reference patch!
+                    1193, 1016, 15, 15; % Dot near image centre
+                    2293, 188, 15, 15; % White near top right
+                    2259, 147, 15, 15; % Dot closer to the corner
+                    1821, 488, 15, 15; % White 1/2 way to top right
+                    1858, 526, 15, 15; % Dot nearby
+                    152, 171, 15, 15; % White near top left
+                    111, 131, 15, 15; % Dot closer to the corner
+                    590, 548, 15, 15; % White 1/2 way to top left
+                    628, 582, 15, 15; % Dot closer to the centre
+                    208, 1893, 15, 15; % White near bottom left
+                    237, 1865, 15, 15; % Dot closer to the centre
+                    627, 1492, 15, 15; % White 1/2 way to bottom left
+                    596, 1521, 15, 15; % Dot closer to the corner
+                    2329, 1910, 15, 15; % White near bottom right
+                    2361, 1942, 15, 15; % Dot closer to the corner
+                    1830, 1529, 15, 15; % White 1/2 way to bottom right
+                    1860, 1559, 15, 15 % Dot closer to the corner
+                ],...
+                'scanlines', [
+                    32, 51, 2426, 63; % Top left to top right
+                    32, 51, 180, 1920; % Top left to bottom left
+                    180, 1920, 2222, 1994; % Bottom left to bottom right
+                    2222, 1994, 2426, 63; % Bottom right to top right
+                    32, 51, 2222, 1994; % Top left to bottom right
+                    180, 1920, 2426, 63 % Bottom left to top right
+                ]...
+            ),...
+            'd2_book', struct(...
+                'radiance', [
+                    911, 107, 15, 15; % Orange on book near top of image
+                    398, 1108, 15, 15; % Blue around book title
+                    608, 1471, 15, 15; % Black above "Second Edition"
+                    1118, 1763, 15, 15; % Red on largest doll
+                    944, 1688, 7, 7; % Purple on second-largest doll
+                    2216, 1150, 75, 75 % Large patch of wood
+                ],...
+                'scanlines', [
+                    914, 1034, 946, 1034; % Going across the 'I' in "Image"
+                ]...
+            ),...
+            'd2_colorChecker30cm', struct(...
+                'radiance', [ % ColorChecker patches
+                    362, 338, 15, 15;
+                    703, 342, 15, 15;
+                    1043, 347, 15, 15;
+                    1396, 345, 15, 15;
+                    1751, 350, 15, 15;
+                    2108, 359, 15, 15;
+                    383, 676, 15, 15;
+                    716, 688, 15, 15;
+                    1046, 687, 15, 15;
+                    1398, 694, 15, 15;
+                    1734, 696, 15, 15;
+                    2072, 703, 15, 15;
+                    419, 994, 15, 15;
+                    735, 1004, 15, 15;
+                    1058, 1005, 15, 15;
+                    1387, 1017, 15, 15;
+                    1719, 1019, 15, 15;
+                    2052, 1023, 15, 15;
+                    446, 1297, 15, 15;
+                    749, 1306, 15, 15; % Also the reference patch!
+                    1061, 1315, 15, 15;
+                    1375, 1321, 15, 15;
+                    1704, 1324, 15, 15;
+                    2033, 1336, 15, 15
+                ],...
+                'scanlines', [ % ColorChecker rows
+                    362, 338, 2108, 359;
+                    383, 676, 2072, 703;
+                    419, 994, 2052, 1023;
+                    446, 1297, 2033, 1336;
+                    1673, 1512, 2034, 1515 % Across the 'mm' ruler gradations
+                ]...
+            ),...
+            'd2_glass', struct(...
+                'radiance', [
+                    488, 170, 15, 15; % Grey substrate
+                    1574, 1510, 15, 15; % White patch beside star
+                    1724, 1454, 15, 15; % White patch seen through star
+                    1786, 1585, 15, 15; % White patch seen through star, in deep shadow of star
+                    1857, 1585, 15, 15; % White patch seen through star, in light shadow of star
+                    2039, 1581, 15, 15; % White patch in light shadow of star
+                    2208, 1585, 15, 15; % White patch in deep shadow of star
+                ],...
+                'scanlines', [
+                    1281, 1234, 1398, 1328; % Line through a rainbow passing through a dot
+                    1902, 1582, 1942, 1655; % Line through a rainbow seen through the star
+                ]...
+            ),...
+            'd2_ship', struct(...
+                'radiance', [
+                    1818, 1869, 15, 15; % White background seen through laminate
+                    1810, 1985, 15, 15; % White background below laminate
+                ],...
+                'scanlines', [
+                    963, 1013, 1394, 1235; % Cut through dorsal fin of dolphin
+                    1312, 909, 1581, 324 % Cut through dolphin and rock above it in the image
+                ]...
+            )...
+        )...
+    );
+
 else
     error('Unrecognized dataset name.');
 end

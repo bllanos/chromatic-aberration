@@ -80,13 +80,15 @@ plot_bound = 6;
 % Models of dispersion
 forward_dispersion_model_filenames = {...
     'C:\Users\GraphicsLab\Documents\llanos\Data\20190208_ComputarLens\dispersion\spectral\RAWDiskDispersionResults_spectral_polynomial_fromReference.mat';
-    'C:\Users\GraphicsLab\Documents\llanos\Data\20190208_ComputarLens\dispersion\spectral\RAWDiskDispersionResults_spectral_spline_fromReference.mat'...
+    'C:\Users\GraphicsLab\Documents\llanos\Data\20190208_ComputarLens\dispersion\spectral\RAWDiskDispersionResults_spectral_spline_fromReference.mat';
+    'C:\Users\GraphicsLab\Documents\llanos\Results\dispersion\spectral\polynomial_newCV\RAWDiskDispersionResults_spectral_polynomial_fromReference.mat'
 };
 
 % Names for the models of dispersion
 names = {
-    'Polynomial, spatial deg. 4, spectral deg. 6';...
-    'Spline, smoothing parameter 1.1884'
+    'Polynomial, spatial deg. 4, spectral deg. 6 (old cross-validation)';
+    'Spline, smoothing parameter 1.1884';
+    'Polynomial, spatial deg. 3, spectral deg. 3 (new cross-validation)'
 };
 
 % Output directory for all figures and saved parameters
@@ -141,7 +143,7 @@ for k = 1:n_sampled_pixels
     
     for i = 1:n_models
         d = dispersionfuns{i}(px_lambda);
-        plot3(d(:, 1), d(:, 2), px_lambda(:, 3));
+        plot3(d(:, 1), d(:, 2), px_lambda(:, 3), 'LineWidth', 2);
     end
     hold off
     
