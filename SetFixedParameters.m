@@ -165,7 +165,10 @@ findSamplingOptions.bands_padding = 1000;
 findSamplingOptions.interpolant = @gaussian;
 
 % Interpolation function for other spectral data, such as sensor spectral
-% sensitivities or ground truth spectral radiances
+% sensitivities or ground truth spectral radiances. In contrast to
+% `findSamplingOptions.interpolant`, this interpolant is expected to produce an
+% identity mapping when the interpolation locations are the same as the sample
+% locations.
 findSamplingOptions.interpolant_ref = @triangle;
 
 % ### 'dispersionfunToMatrix()'

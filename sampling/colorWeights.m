@@ -89,6 +89,12 @@ if color_bands_spacing > bands_spacing
     color_map_upsampled = (upsampling_map * (color_map.')).';
     int_weights = integrationWeights(bands, options.int_method);
     color_weights = color_map_upsampled * diag(int_weights);
+    % Also resample the sampled spectra, because the interpolant may not produce
+    % an identity mapping
+    resampling_map = resamplingWeights(...
+        bands, bands, options.interpolant, options.bands_padding...
+    );
+    color_weights = color_weights * resampling_map;
 else
     % Upsample the sampled spectra
     upsampling_map = resamplingWeights(...

@@ -342,10 +342,10 @@ end
 if do_post_resampling
     color_weights_options = options;
     if do_pre_resampling
-        post_interpolant = options.interpolant;
-    else
         post_interpolant = options.interpolant_ref;
         color_weights_options.interpolant = options.interpolant_ref;
+    else
+        post_interpolant = options.interpolant;
     end
     if has_color_map
         post_map = colorWeights(...

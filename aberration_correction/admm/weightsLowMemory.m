@@ -371,6 +371,7 @@ if ~input_I_in
     end
     
     err_range = err_max - origin;
+    err_range(err_range == 0) = eps;
     
     if verbose
         fprintf('The origin is (%d', origin(1));

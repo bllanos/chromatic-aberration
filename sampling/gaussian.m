@@ -44,6 +44,10 @@ function w = gaussian(x)
 % instead of `findSamplingOptions.interpolant = @gaussian` in
 % 'SetFixedParameters.m').
 %
+% I truncate the Gaussian to 6 standard deviations, to avoid having a kernel
+% with infinite support, based on the discussion at
+% https://en.wikipedia.org/wiki/Scale_space_implementation#The_sampled_Gaussian_kernel
+%
 % See also resamplingWeights
 
 % Bernard Llanos
@@ -56,5 +60,7 @@ nargoutchk(1, 1);
 
 std_dev = norminv(0.975) / (sqrt(2) * pi);
 w = normpdf(x, 0, std_dev);
+% Truncate to 6 standard deviations
+w(abs(x) > 6 * std_dev) = 0;
     
 end

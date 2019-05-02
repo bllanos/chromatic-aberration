@@ -146,7 +146,7 @@ parameters_list = {
 
 %% Input data and parameters
 
-dataset_name = '20190208_ComputarLens_rawCaptured_dispersion';
+dataset_name = 'kaist-crop';
 
 % Describe algorithms to run
 run('SetAlgorithms.m')
@@ -155,7 +155,7 @@ run('SetAlgorithms.m')
 n_patches = 10;
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/Downloads/weights_selection_dispersion';
+output_directory = '/home/llanos/Downloads/weights_selection_kaist';
 
 % Produce console output to describe the processing in this script
 verbose = true;
@@ -441,10 +441,11 @@ for i = 1:n_images
                 for pc = 1:n_patches_i
                     solvePatchesColorOptions.patch_options.target_patch = corners_i(pc, :);
                     if cr == mse_index
+                        I_in.I = I_rgb_gt;
                         [...
                             ~, weights_images...
                         ] = solvePatchesColor(...
-                          I_rgb_gt, I_raw_gt, bayer_pattern, df_rgb_reverse,...
+                          I_in, I_raw_gt, bayer_pattern, df_rgb_reverse,...
                           admm_options_f, reg_options_f,...
                           solvePatchesColorOptions.patch_options,...
                           solvePatchesColorVerbose...
