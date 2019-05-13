@@ -44,6 +44,12 @@ function [ G_lambda ] = spectralGradient(image_sampling, replicate)
 % every colour channel, if `replicate` is `true`. Otherwise, the gradient
 % is only calculated for colour channels with a following colour channel.
 %
+% ## Notes
+% - This function assumes that the step size between adjacent image channels is
+%   constant when computing the gradient. Images with uneven sampling in the
+%   spectral domain would necessitate scaling the differences between pixels in
+%   adjacent channels by the spectral distance between the channels.
+%
 % See also spatialGradient
 
 % Bernard Llanos

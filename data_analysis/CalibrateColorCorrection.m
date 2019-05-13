@@ -53,6 +53,9 @@
 %   squares fitting (MATLAB's 'lsqnonneg' function).
 % - 'M_homog': Similar to 'C_ls', but computed using the colour homography
 %   technique of Finlayson, Gong, and Fisher 2019.
+% - 'wb_illum': The colour of a neutral patch in the scene, for use with
+%   MATLAB's built-in chromatic adaptation functionality, 'chromadapt()'. A
+%   3-element vector.
 % - 'reflectances_xyz': CIE XYZ colours of the measured spectral reflectances
 %   for the patches in the ColorChecker.
 % - 'patch_means_rgb': Vignetting-corrected camera RGB responses for the patches
@@ -70,6 +73,7 @@
 % - The whitepoint to use for XYZ to RGB conversion should be `[1, 1, 1]`,
 %   because an equal energy radiator is the illuminant used to convert the
 %   spectral reflectance data to XYZ.
+% - To apply colour corrections to images, see 'ColorCorrection.m'.
 %
 % ## References
 % - Finlayson, G., Gong, H., and Fisher, R.B. "Color Homography: Theory and
@@ -128,6 +132,9 @@ n_patches = 24;
 % The index of the white patch on the ColorChecker
 white_index = 19;
 
+% The index of the neutral patch used for chromatic adaptation (white balancing)
+neutral_index = 20; % Use the white patch, unless it is saturated
+
 % Odd-integer size of the regions to extract around the centroids of the
 % ColorChecker patches
 centroid_patch_width = 15;
@@ -140,6 +147,12 @@ run('SetFixedParameters.m')
 
 % ## Debugging Flags
 vignettingPolyfitVerbose = true;
+
+%% Parameter checking
+
+if ~patch_filter(neutral_index)
+    error('`neutral_index` should correspond to a usable patch.');
+end
 
 %% Calibrate vignetting
 
@@ -310,10 +323,14 @@ else
     M_homog = M_homog * M_homog_scale
 end
 
+%% Extract information for white balancing
+
+wb_illum = patch_means_rgb_nonuniform(neutral_index,:)
+
 %% Save parameters and results to a file
 save_variables_list = [ parameters_list, {
     'bands_measured', 'vignetting_data', 'vignetting_correction_factor',...
-    'M_ls', 'M_lsnonneg', 'M_homog',...
+    'M_ls', 'M_lsnonneg', 'M_homog', 'wb_illum',...
     'reflectances_xyz', 'patch_means_rgb', 'patch_means_rgb_nonuniform'...
 } ];
 save_data_filename = fullfile(output_directory, 'CalibrateColorCorrectionData.mat');
