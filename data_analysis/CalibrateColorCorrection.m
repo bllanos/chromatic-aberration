@@ -53,6 +53,14 @@
 %   squares fitting (MATLAB's 'lsqnonneg' function).
 % - 'M_homog': Similar to 'C_ls', but computed using the colour homography
 %   technique of Finlayson, Gong, and Fisher 2019.
+% - 'M_rp': A root polynomial regression colour correction structure,
+%   computed according to the method of Finlayson, Mackiewicz, and Hurlbert
+%   2015. 'M_rp' is the output of the third-party 'rpcal()' function.
+% - 'wb_scale': A scalar intensity by which the image will be divided
+%   before white balancing using MATLAB's built-in chromatic adaptation
+%   functionality, in order to produce an output image with suitable
+%   brightness. 'wb_scale' is the Green channel intensity of a designated
+%   white patch (whether or not the white patch is saturated).
 % - 'wb_illum': The colour of a neutral patch in the scene, for use with
 %   MATLAB's built-in chromatic adaptation functionality, 'chromadapt()'. A
 %   3-element vector.
@@ -80,6 +88,11 @@
 %   Applications." IEEE Transactions on Pattern Analysis and Machine
 %   Intelligence, vol. 41, no. 1, pp. 20-33, 2019.
 %   doi:10.1109/TPAMI.2017.2760833
+% - Finlayson, G.D., Mackiewicz, M. and Hurlbert, A. "Color correction
+%   using root-polynomial regression." IEEE Transactions on Image
+%   Processing, vol. 24, no. 5, pp.1460-1470, 2015.
+%   - I used the implementation by Han Gong provided in the code
+%     corresponding to Finlayson, Gong, and Fisher 2019.
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -104,17 +117,17 @@ parameters_list = {
 %% Input data and parameters
 
 % Label image (an image file, not a '.mat' file)
-color_label_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/colorChecker_preprocessed/unfiltered/d2_colorChecker30cm_unfiltered_background0_patches1to24_frame25.png';
+color_label_filename = 'C:\Users\GraphicsLab\Documents\llanos\Data\20190208_ComputarLens\d2_colorChecker30cm_unfiltered_background0_patches1to24_frame25.png';
 
 % Raw image of the ColorChecker ('.mat' or image files can be loaded)
-reference_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/exposure_blending/d2_colorChecker30cm_unfiltered.mat';
+reference_filename = 'C:\Users\GraphicsLab\Documents\llanos\Results\Copied elsewhere\20190208_ComputarLens\dataset\exposure_blending\d2_colorChecker30cm_unfiltered.mat';
 reference_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % CIE tristimulus functions
-xyzbar_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180614_ASTM_E308/Table1_CIE1931_2DegStandardObserver.csv';
+xyzbar_filename = 'C:\Users\GraphicsLab\Documents\llanos\Data\20180614_ASTM_E308\Table1_CIE1931_2DegStandardObserver.csv';
 
 % Sample spectral reflectances
-reflectances_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180626_SpectralCharacterizationOfSetup/spectra_averaged.csv';
+reflectances_filename = 'C:\Users\GraphicsLab\Documents\llanos\Data\20180626_SpectralCharacterizationOfSetup\spectra_averaged.csv';
 
 % Categorization of the samples in the file of reflectances
 reflectance_data_patch_columns = 13:36;
@@ -140,7 +153,7 @@ neutral_index = 20; % Use the white patch, unless it is saturated
 centroid_patch_width = 15;
 
 % Output directory
-output_directory = '/home/llanos/Downloads';
+output_directory = 'C:\Users\GraphicsLab\Documents\llanos\Results';
 
 % ## Parameters which do not usually need to be changed
 run('SetFixedParameters.m')
@@ -323,14 +336,21 @@ else
     M_homog = M_homog * M_homog_scale
 end
 
+% Root-polynomial regression
+M_rp = rpcal(...
+    patch_means_rgb_nonuniform(patch_filter, :),...
+    xyz_filtered...
+);
+
 %% Extract information for white balancing
 
 wb_illum = patch_means_rgb_nonuniform(neutral_index,:)
+wb_scale = patch_means_rgb_nonuniform(white_index, 2)
 
 %% Save parameters and results to a file
 save_variables_list = [ parameters_list, {
     'bands_measured', 'vignetting_data', 'vignetting_correction_factor',...
-    'M_ls', 'M_lsnonneg', 'M_homog', 'wb_illum',...
+    'M_ls', 'M_lsnonneg', 'M_homog', 'M_rp', 'wb_scale', 'wb_illum',...
     'reflectances_xyz', 'patch_means_rgb', 'patch_means_rgb_nonuniform'...
 } ];
 save_data_filename = fullfile(output_directory, 'CalibrateColorCorrectionData.mat');

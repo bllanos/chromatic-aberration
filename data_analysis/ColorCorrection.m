@@ -18,26 +18,26 @@
 % Path and filename of a '.mat' file containing the sampling information needed
 % to convert spectral bands to raw colour channels. Can be empty (`[]`) if there
 % are no spectral images to process.
-sampling_filename = 'C:\Users\GraphicsLab\Documents\llanos\Results\channel_scaling\sensor.mat';
+sampling_filename = 'C:\Users\GraphicsLab\Documents\llanos\Results\Copied elsewhere\20190421_ComputarLens\run_on_dataset_ignoreDispersion\RunOnDataset_20190208_ComputarLens_rawCaptured_ignoreDispersion.mat';
 
 % Path and filename of a '.mat' file containing the colour space conversion
 % data needed to convert spectral bands to raw colour channels. Can be
 % empty (`[]`) if there are no spectral images to process.
-color_map_filename = 'C:\Users\GraphicsLab\Documents\llanos\Results\channel_scaling\sensor.mat';
+color_map_filename = 'C:\Users\GraphicsLab\Documents\llanos\Results\Copied elsewhere\20190208_ComputarLens\dataset\SonyColorMapData.mat';
 
-% Whether to use white balancing (`true`), or a 3 x 3 colour conversion matrix
-% (`false`)
-use_chromadapt = true;
+% Whether to use white balancing (`true`), or a more advanced colour
+% conversion method (`false`)
+use_chromadapt = false;
 
 if use_chromadapt
     % Path and filename of a '.mat' file containing the illuminant colour
     % estimated from a neutral patch, as the variable 'wb_illum'
-    wb_filename = 'C:\Users\GraphicsLab\Documents\llanos\Results\CalibrateColorCorrectionData_filtered.mat';
+    wb_filename = 'C:\Users\GraphicsLab\Documents\llanos\Results\CalibrateColorCorrectionData.mat';
 else
-    % Path and filename of a '.mat' file containing the conversion matrix for
-    % raw colour channels to XYZ
-    xyz_weights_filename = 'C:\Users\GraphicsLab\Documents\llanos\Results\CalibrateColorCorrectionData_filtered.mat';
-    xyz_weights_variable = 'M_homog'; % Variable name in the above file
+    % Path and filename of a '.mat' file containing the conversion data
+    % structure for raw colour channels to XYZ
+    xyz_weights_filename = 'C:\Users\GraphicsLab\Documents\llanos\Results\CalibrateColorCorrectionData.mat';
+    xyz_weights_variable = 'M_rp'; % Variable name in the above file
     
     % Whitepoint to use for XYZ to sRGB conversion
     whitepoint = [1, 1, 1];
@@ -45,16 +45,16 @@ end
 
 % Wildcard for 'ls()' to find the spectral images to process (can be empty (`[]`)).
 % '.mat' or image files can be loaded
-spectral_wildcard = 'C:\Users\GraphicsLab\Documents\llanos\Results\channel_scaling\*_dHyper.mat';
-spectral_variable_name = 'I_hyper'; % Used only when loading '.mat' files
+spectral_wildcard = 'C:\Users\GraphicsLab\Documents\llanos\Results\Copied elsewhere\20190421_ComputarLens\run_on_dataset_ignoreDispersion\*_latent.mat';
+spectral_variable_name = 'I_latent'; % Used only when loading '.mat' files
 
 % Wildcard for 'ls()' to find the colour images to process (can be empty (`[]`)).
 % '.mat' or image files can be loaded
-color_wildcard = 'C:\Users\GraphicsLab\Documents\llanos\Results\bandpassFiltered_warpCorrected\*_unwarped.mat';
+color_wildcard = []; %'C:\Users\GraphicsLab\Documents\llanos\Results\Copied elsewhere\20190421_ComputarLens\run_on_dataset_ignoreDispersion\*_rgb.mat';
 color_variable_name = 'I_rgb'; % Used only when loading '.mat' files
 
 % Output directory
-output_directory = 'C:\Users\GraphicsLab\Documents\llanos\Results\bandpassFiltered_warpCorrected_correctedRGB';
+output_directory = 'C:\Users\GraphicsLab\Documents\llanos\Results\correctedRGB_wb';
 
 %% Process the images
 
@@ -93,22 +93,19 @@ end
 
 if n_images ~= 0
     if use_chromadapt
-        wb_illum_variable = 'wb_illum';
-        load(wb_filename, wb_illum_variable);
-        if exist(wb_illum_variable, 'var')
-            wb_illum = eval(wb_illum_variable);
+        variables_required = {'wb_illum', 'wb_scale'};
+        load(wb_filename, variables_required{:});
+        if ~all(ismember(variables_required, who))
+            error('One or more of the required white balancing variables is not loaded.')
         end
-        if ~exist(wb_illum_variable, 'var') || isempty(wb_illum)
-            error('No estimated illumination colour vector loaded.')
-        end
-        postfix = ['_' wb_illum_variable];
+        postfix = '_wb';
     else
         load(xyz_weights_filename, xyz_weights_variable);
         if exist(xyz_weights_variable, 'var')
             xyz_weights = eval(xyz_weights_variable);
         end
         if ~exist(xyz_weights_variable, 'var') || isempty(xyz_weights)
-            error('No raw colour to XYZ conversion matrix loaded.')
+            error('No raw colour to XYZ conversion data loaded.')
         end
         postfix = ['_' xyz_weights_variable];
     end
@@ -125,10 +122,17 @@ for i = 1:n_images
     end
     
     if use_chromadapt
+        I = I ./ wb_scale;
         I = chromadapt(I, wb_illum, 'ColorSpace','linear-rgb');
         I = lin2rgb(I, 'OutputType', 'uint8');
     else
-        I = channelConversion(I, xyz_weights);
+        if strcmp(xyz_weights_variable, 'M_rp')
+            sz = size(I);
+            I = reshape(I, [], sz(3));
+            I = reshape(xyz_weights.cfun(I, xyz_weights.matrix, xyz_weights.terms), sz);
+        else
+            I = channelConversion(I, xyz_weights);
+        end
         I = xyz2rgb(I, 'ColorSpace', 'srgb', 'WhitePoint', whitepoint, 'OutputType', 'uint8');
     end
     saveImages(...
