@@ -30,6 +30,12 @@ function [I, name, ext] = loadImage(filename, varargin)
 % I -- Image
 %   The result of loading, depending on the type of file referred to by `filename`,
 %   - The variable 'variable_name' from a '.mat' file
+%     - An error will be thrown if `variable_name` is not a numeric
+%       variable.
+%     - Integer variables will be converted to double precision using
+%       'im2double()'.
+%     - 'single' variables will be converted to double precision using
+%       'double()'.
 %   - The result of calling 'imread()' on an image file.
 %     Images loaded with 'imread()' are converted to double precision using
 %     'im2double()'.
@@ -76,6 +82,16 @@ if strcmp(ext, mat_ext)
     load(filename, variable_name);
     if exist(variable_name, 'var')
         I = eval(variable_name);
+        if ~isnumeric(I)
+            error(...
+                'The input image variable `%s` in %s does not have a numeric class.',...
+                variable_name, filename...
+            );
+        elseif isinteger(I)
+            I = im2double(I);
+        elseif issingle(I)
+            I = double(I);
+        end
     else
         error(...
             'The input image variable %s was not loaded from %s.',...
