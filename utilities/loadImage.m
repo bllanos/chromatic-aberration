@@ -89,7 +89,7 @@ if strcmp(ext, mat_ext)
             );
         elseif isinteger(I)
             I = im2double(I);
-        elseif issingle(I)
+        elseif isa(I, 'single')
             I = double(I);
         end
     else
