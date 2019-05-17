@@ -145,9 +145,13 @@ end
 %% Load dispersion models
 
 has_dispersion_rgb = ~isempty(dp.dispersion_rgb_forward) && ~isempty(dp.dispersion_rgb_reverse);
-has_dispersion_spectral = ~isempty(dp.dispersion_spectral_reverse);
+has_dispersion_spectral = ~isempty(dp.dispersion_spectral_forward) && ~isempty(dp.dispersion_spectral_reverse);
 evaluate_aberrated_rgb = (has_dispersion_rgb || has_dispersion_spectral) && dp.is_aberrated;
 evaluate_aberrated_spectral = has_dispersion_spectral && dp.is_aberrated;
+
+% For regularization weight selection
+use_warped_rgb = criteria(mse_index) && has_rgb && has_dispersion_rgb && dp.is_aberrated;
+use_warped_spectral = criteria(mse_index) && has_spectral && has_dispersion_spectral && dp.is_aberrated;
 
 if has_dispersion_rgb
     [...
@@ -167,12 +171,20 @@ if has_dispersion_rgb
 end
 if has_dispersion_spectral
     [...
-        dd_spectral_reverse, ~, td_spectral_reverse...
+        dd_spectral_forward, bands_dispersionfun, td_spectral_forward...
+    ] = loadDispersionModel(dp.dispersion_spectral_forward, true);
+    if channel_mode && ...
+       ((length(bands_color) ~= length(bands_dispersionfun)) ||...
+       any(bands_color(:) ~= bands_dispersionfun(:)))
+        error('When estimating colour images, the same colour channels must be used by the forward model of dispersion.');
+    end
+    [...
+        dd_spectral_reverse, bands_dispersionfun, td_spectral_reverse...
     ] = loadDispersionModel(dp.dispersion_spectral_reverse, false);
     if channel_mode && ...
        ((length(bands_color) ~= length(bands_dispersionfun)) ||...
        any(bands_color(:) ~= bands_dispersionfun(:)))
-        error('When estimating colour images, the same colour channels must be used by the model of dispersion.');
+        error('When estimating colour images, the same colour channels must be used by the reverse model of dispersion.');
     end
 end
 

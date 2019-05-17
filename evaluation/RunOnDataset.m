@@ -152,7 +152,9 @@
 % models of dispersion for use during image estimation, versions of the
 % above files are saved for evaluations performed on versions of the
 % estimated images subject to dispersion. The resulting files are given
-% names ending in '_ab'.
+% names ending in '_ab'. These evaluations are more relevant than
+% evaluations of images estimated with correction of dispersion against
+% images affected by dispersion.
 %
 % ## Notes
 % - This script uses 'patch_size' and 'padding' defined in the dataset
@@ -436,6 +438,22 @@ for i = 1:n_images
     end
     
     % Run own algorithms
+    if use_warped_spectral
+        dispersion_options = struct('bands_in', bands_spectral);
+        I_spectral_gt_unwarped = dispersionfunToMatrix(...
+            df_spectral_forward, dispersion_options, I_spectral_gt, false...
+            );
+    elseif has_spectral
+        I_spectral_gt_unwarped = I_spectral_gt;
+    end
+    if use_warped_rgb
+        dispersion_options = struct('bands_in', bands_rgb);
+        I_rgb_gt_unwarped = dispersionfunToMatrix(...
+            df_rgb_forward, dispersion_options, I_rgb_gt, false...
+            );
+    elseif has_rgb
+        I_rgb_gt_unwarped = I_rgb_gt;
+    end
     
     % ADMM
     color_ind = 1;
@@ -509,7 +527,7 @@ for i = 1:n_images
             time_start = tic;
             if algorithm.spectral                
                 if cr == mse_index && use_automatic_weights
-                    I_in.I = I_spectral_gt;
+                    I_in.I = I_spectral_gt_unwarped;
                     I_in.spectral_bands = bands_spectral;
                     [...
                         bands_all,...
@@ -721,7 +739,7 @@ for i = 1:n_images
                 ];
             
                 if cr == mse_index && use_automatic_weights
-                    I_in.I = I_rgb_gt;
+                    I_in.I = I_rgb_gt_unwarped;
                     [...
                         I_rgb,...
                         weights_images,...
@@ -811,7 +829,7 @@ for i = 1:n_images
     end
     
     % Free space
-    clear I_latent I_spectral_gt I_spectral_gt_warped extra_images
+    clear I_latent I_spectral_gt I_spectral_gt_warped I_spectral_gt_unwarped extra_images
     
     % Demosaicking and RGB-based chromatic aberration correction
     for f = 1:n_demosaic_algorithms

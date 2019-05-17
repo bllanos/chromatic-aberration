@@ -12,9 +12,9 @@ if has_dispersion_rgb
     td_image = mergeDispersionModelROI(td_rgb_reverse, td_rgb_forward);
 end
 if has_dispersion_spectral && has_dispersion_rgb
-    td_image = mergeDispersionModelROI(td_spectral_reverse, td_image);
+    td_image = mergeDispersionModelROI(td_spectral_reverse, td_spectral_forward, td_image);
 elseif has_dispersion_spectral
-    td_image = td_spectral_reverse;
+    td_image = mergeDispersionModelROI(td_spectral_reverse, td_spectral_forward);
 end
 
 if has_spectral
@@ -30,14 +30,20 @@ if has_spectral
         [df_spectral_reverse, I_spectral_gt] = makeDispersionForImage(...
             dd_spectral_reverse, I_spectral_gt, td_image, true...
         );
+        df_spectral_forward = makeDispersionForImage(...
+            dd_spectral_forward, I_spectral_gt, td_image, true...
+        );
     else
         df_spectral_reverse = [];
+        df_spectral_forward = [];
     end
     image_sampling = [size(I_spectral_gt, 1), size(I_spectral_gt, 2)];
 elseif has_color_map && has_dispersion_spectral
     df_spectral_reverse = makeDispersionForImage(dd_spectral_reverse);
+    df_spectral_forward = makeDispersionForImage(dd_spectral_forward);
 elseif has_color_map
     df_spectral_reverse = [];
+    df_spectral_forward = [];
 end
 
 if has_spectral && has_color_map

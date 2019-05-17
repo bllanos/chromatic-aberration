@@ -56,12 +56,17 @@ function [dataset_params] = describeDataset(name)
 %   - 'dispersion_rgb_reverse': Similar to 'dispersion_rgb_forward', but
 %     the dispersion model is a function of coordinates in the given
 %     channel, not the reference channel.
-%   - 'dispersion_spectral_reverse': The filename and path of the model of
+%   - 'dispersion_spectral_forward': The filename and path of the model of
 %     dispersion of wavelength bands relative to the reference band, stored
 %     in a '.mat' file. The dispersion model is a function of coordinates
-%     in the given band. If empty, any correction of lateral chromatic
-%     aberration in the spectral domain will be based on priors only, not
-%     on calibration data.
+%     in the reference band. 'dispersion_spectral_forward' is presently
+%     used only for selecting regularization weights based on an
+%     approximate ground truth dispersion-corrected spectral image.
+%   - 'dispersion_spectral_reverse': Similar to
+%     'dispersion_spectral_forward', but the dispersion model is a function
+%     of coordinates in the given band, not the reference band. If empty,
+%     any correction of lateral chromatic aberration in the spectral domain
+%     will be based on priors only, not on calibration data.
 %   - 'is_aberrated': A logical scalar indicating if the images in the
 %     dataset are affected by dispersion. If `true`, the models of
 %     dispersion will not be used when generating "ground truth" RGB and/or
@@ -209,6 +214,7 @@ if strcmp(name, 'kodak')
     dataset_params.spectral_images_variable = [];
     dataset_params.dispersion_rgb_forward = [];
     dataset_params.dispersion_rgb_reverse = [];
+    dataset_params.dispersion_spectral_forward = [];
     dataset_params.dispersion_spectral_reverse = [];
     dataset_params.is_aberrated = true;
     dataset_params.color_map = [];
@@ -231,6 +237,7 @@ elseif strcmp(name, 'kaist-crop')
     dataset_params.spectral_reflectances = true;
     dataset_params.dispersion_rgb_forward = [];
     dataset_params.dispersion_rgb_reverse = [];
+    dataset_params.dispersion_spectral_forward = [];
     dataset_params.dispersion_spectral_reverse = [];
     dataset_params.is_aberrated = true;
     dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/NikonD5100ColorMapData.mat';
@@ -344,6 +351,7 @@ elseif strcmp(name, '20180817_TestSpectralDataset')
     dataset_params.spectral_reflectances = false;
     dataset_params.dispersion_rgb_forward = [];
     dataset_params.dispersion_rgb_reverse = [];
+    dataset_params.dispersion_spectral_forward = [];
     dataset_params.dispersion_spectral_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/BimaterialImagesData.mat';
     dataset_params.is_aberrated = false;
     dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Results/20180817_TestSpectralDataset/dataset/NikonD5100ColorMapData.mat';
@@ -385,6 +393,7 @@ elseif strcmp(name, 'kaist-crop-2')
     dataset_params.spectral_reflectances = false;
     dataset_params.dispersion_rgb_forward = [];
     dataset_params.dispersion_rgb_reverse = [];
+    dataset_params.dispersion_spectral_forward = [];
     dataset_params.dispersion_spectral_reverse = [];
     dataset_params.is_aberrated = true;
     dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/NikonD5100ColorMapData.mat';
@@ -442,6 +451,7 @@ elseif strcmp(name, 'choi-test')
     dataset_params.spectral_reflectances = false;
     dataset_params.dispersion_rgb_forward = [];
     dataset_params.dispersion_rgb_reverse = [];
+    dataset_params.dispersion_spectral_forward = [];
     dataset_params.dispersion_spectral_reverse = [];
     dataset_params.is_aberrated = true;
     dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/NikonD5100ColorMapData.mat';
@@ -501,6 +511,7 @@ elseif strcmp(name, '20190107_DiskPattern_rawFromSpectral')
     dataset_params.spectral_reflectances = false;
     dataset_params.dispersion_rgb_forward = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/dispersion/RAWDiskDispersionResults_RGB_spline_fromReference.mat';
     dataset_params.dispersion_rgb_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/dispersion/RAWDiskDispersionResults_RGB_spline_fromNonReference.mat';
+    dataset_params.dispersion_spectral_forward = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/dispersion/RAWDiskDispersionResults_spectral_spline_fromReference.mat';
     dataset_params.dispersion_spectral_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/dispersion/RAWDiskDispersionResults_spectral_spline_fromNonReference.mat';
     dataset_params.is_aberrated = true;
     dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/channel_scaling/sensor.mat';
@@ -549,6 +560,7 @@ elseif strcmp(name, '20190107_DiskPattern_rawCaptured')
     dataset_params.spectral_reflectances = false;
     dataset_params.dispersion_rgb_forward = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/dispersion/RAWDiskDispersionResults_RGB_spline_fromReference.mat';
     dataset_params.dispersion_rgb_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/dispersion/RAWDiskDispersionResults_RGB_spline_fromNonReference.mat';
+    dataset_params.dispersion_spectral_forward = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/dispersion/RAWDiskDispersionResults_spectral_spline_fromReference.mat';
     dataset_params.dispersion_spectral_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/dispersion/RAWDiskDispersionResults_spectral_spline_fromNonReference.mat';
     dataset_params.is_aberrated = true;
     dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/SonyColorMapData.mat';
@@ -597,6 +609,7 @@ elseif strcmp(name, '20190208_ComputarLens_rawCaptured_ignoreDispersion')
     dataset_params.spectral_reflectances = false;
     dataset_params.dispersion_rgb_forward = [];
     dataset_params.dispersion_rgb_reverse = [];
+    dataset_params.dispersion_spectral_forward = [];
     dataset_params.dispersion_spectral_reverse = [];
     dataset_params.is_aberrated = true;
     dataset_params.color_map = 'C:\Users\GraphicsLab\Documents\llanos\Results\20190208_ComputarLens\dataset\SonyColorMapData.mat';
@@ -810,6 +823,7 @@ elseif strcmp(name, '20190208_ComputarLens_rawCaptured_dispersion')
     dataset_params.spectral_reflectances = false;
     dataset_params.dispersion_rgb_forward = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dispersion/rgb/full_image/RAWDiskDispersionResults_RGB_polynomial_fromReference.mat';
     dataset_params.dispersion_rgb_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dispersion/rgb/full_image/RAWDiskDispersionResults_RGB_polynomial_fromNonReference.mat';
+    dataset_params.dispersion_spectral_forward = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dispersion/spectral/full_image/RAWDiskDispersionResults_spectral_polynomial_fromReference.mat';
     dataset_params.dispersion_spectral_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dispersion/spectral/full_image/RAWDiskDispersionResults_spectral_polynomial_fromNonReference.mat';
     dataset_params.is_aberrated = true;
     dataset_params.color_map = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/SonyColorMapData.mat';
@@ -1023,7 +1037,8 @@ elseif strcmp(name, '20190421_ComputarLens_dHyper_dispersion')
     dataset_params.spectral_reflectances = false;
     dataset_params.dispersion_rgb_forward = 'C:\Users\GraphicsLab\Documents\llanos\Data\20190208_ComputarLens\dispersion\rgb\full_image\RAWDiskDispersionResults_RGB_polynomial_fromReference.mat';
     dataset_params.dispersion_rgb_reverse = 'C:\Users\GraphicsLab\Documents\llanos\Data\20190208_ComputarLens\dispersion\rgb\full_image\RAWDiskDispersionResults_RGB_polynomial_fromNonReference.mat';
-    dataset_params.dispersion_spectral_reverse = 'C:\Users\GraphicsLab\Documents\llanos\Results\dispersion\spectral\polynomial_newCV\RAWDiskDispersionResults_spectral_polynomial_fromNonReference.mat';
+    dataset_params.dispersion_spectral_forward = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dispersion/spectral/full_image/RAWDiskDispersionResults_spectral_polynomial_fromReference.mat';
+    dataset_params.dispersion_spectral_reverse = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dispersion/spectral/full_image/RAWDiskDispersionResults_spectral_polynomial_fromNonReference.mat';
     dataset_params.is_aberrated = true;
     dataset_params.color_map = 'C:\Users\GraphicsLab\Documents\llanos\Results\channel_scaling\sensor.mat';
     dataset_params.wavelengths = 'C:\Users\GraphicsLab\Documents\llanos\Results\channel_scaling\sensor.mat';

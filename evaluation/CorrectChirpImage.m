@@ -421,6 +421,7 @@ dataset_params.spectral_images_variable = 'I_latent';
 dataset_params.spectral_reflectances = false;
 dataset_params.dispersion_rgb_forward = []; % Presently, datasets cannot have per-image dispersion
 dataset_params.dispersion_rgb_reverse = []; % Presently, datasets cannot have per-image dispersion
+dataset_params.dispersion_spectral_forward = []; % Presently, datasets cannot have per-image dispersion
 dataset_params.dispersion_spectral_reverse = []; % Presently, datasets cannot have per-image dispersion
 dataset_params.color_map = color_map_filename;
 save_data_filename = fullfile(output_directory, 'CorrectChirpImage.mat'); 

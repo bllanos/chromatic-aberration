@@ -121,6 +121,15 @@
 %   'full_GLambda' field of the 'solvePatchesColorOptions.admm_options'
 %   structure defined in 'SetFixedParameters.m', rather than according to
 %   per-algorithm options.
+% - If the true images are affected by dispersion, but image estimation
+%   will involve dispersion correction, then the 'MSE' regularization
+%   weight selection criterion defined in 'SetFixedParameters.m' is
+%   evaluated against versions of the true images which have been
+%   approximately corrected by dispersion using image warping.
+%   Consequently, the images used to select regularization weights are no
+%   longer ground truth images, but it is still better than evaluating the
+%   criterion on images which are incomparable because of differences in
+%   dispersion.
 %
 % ## References
 %
@@ -355,6 +364,23 @@ for i = 1:n_images
     end
 
     % Run the algorithms
+    if use_warped_spectral
+        dispersion_options = struct('bands_in', bands_spectral);
+        I_spectral_gt_unwarped = dispersionfunToMatrix(...
+            df_spectral_forward, dispersion_options, I_spectral_gt, false...
+        );
+    elseif has_spectral
+        I_spectral_gt_unwarped = I_spectral_gt;
+    end
+    if use_warped_rgb
+        dispersion_options = struct('bands_in', bands_rgb);
+        I_rgb_gt_unwarped = dispersionfunToMatrix(...
+            df_rgb_forward, dispersion_options, I_rgb_gt, false...
+        );
+    elseif has_rgb
+        I_rgb_gt_unwarped = I_rgb_gt;
+    end
+    
     for f = 1:n_admm_algorithms
         algorithm = admm_algorithms.(admm_algorithm_fields{f});
         if ~algorithm.enabled || (algorithm.spectral && ~has_color_map) ||...
@@ -399,7 +425,7 @@ for i = 1:n_images
                 for pc = 1:n_patches_i
                     solvePatchesSpectralOptions.patch_options.target_patch = corners_i(pc, :);
                     if cr == mse_index
-                        I_in.I = I_spectral_gt;
+                        I_in.I = I_spectral_gt_unwarped;
                         I_in.spectral_bands = bands_spectral;
                         [...
                             bands_all, ~, ~, weights_images...
@@ -441,7 +467,7 @@ for i = 1:n_images
                 for pc = 1:n_patches_i
                     solvePatchesColorOptions.patch_options.target_patch = corners_i(pc, :);
                     if cr == mse_index
-                        I_in.I = I_rgb_gt;
+                        I_in.I = I_rgb_gt_unwarped;
                         [...
                             ~, weights_images...
                         ] = solvePatchesColor(...
