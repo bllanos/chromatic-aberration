@@ -155,7 +155,7 @@ parameters_list = {
 
 %% Input data and parameters
 
-dataset_name = 'kaist-crop';
+dataset_name = '20190421_ComputarLens_dHyper_dispersion';
 
 % Describe algorithms to run
 run('SetAlgorithms.m')
@@ -164,7 +164,7 @@ run('SetAlgorithms.m')
 n_patches = 10;
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/Downloads/weights_selection_kaist';
+output_directory = 'C:\Users\GraphicsLab\Documents\llanos\Results\weights_selection_dHyper_spectral_MSEBugFixed';
 
 % Produce console output to describe the processing in this script
 verbose = true;
@@ -376,6 +376,11 @@ for i = 1:n_images
         dispersion_options = struct('bands_in', bands_rgb);
         I_rgb_gt_unwarped = dispersionfunToMatrix(...
             df_rgb_forward, dispersion_options, I_rgb_gt, false...
+        );
+    elseif use_warped_spectral
+        I_rgb_gt_unwarped = imageFormation(...
+            I_spectral_gt_unwarped, bands_spectral, sensor_map, bands_color,...
+            imageFormationSamplingOptions, imageFormationPatchOptions...
         );
     elseif has_rgb
         I_rgb_gt_unwarped = I_rgb_gt;
