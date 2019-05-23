@@ -13,7 +13,7 @@
 
 %% Parameters
 
-directory = 'C:\Users\GraphicsLab\Documents\llanos\temp';
+directory = '/home/llanos/GoogleDrive';
 
 %% Processing
 
@@ -30,7 +30,7 @@ for f = 1:length(filepaths)
         var = vars(v);
         name = var.name;
         bytes1 = var.bytes;
-        if strcmp(var.class, 'double') && bytes1 > min_size
+        if strcmp(var.class, 'double') && ~var.sparse && bytes1 > min_size
             file.(name) = single(file.(name));
             fprintf('\tUpdated variable "%s"\n', name);
         end

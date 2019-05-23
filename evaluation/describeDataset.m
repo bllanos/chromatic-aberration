@@ -1041,6 +1041,7 @@ elseif strcmp(name, '20190421_ComputarLens_dHyper_dispersion')
     dataset_params.dispersion_spectral_reverse = 'C:\Users\GraphicsLab\Documents\llanos\Data\20190208_ComputarLens\dispersion\spectral\full_image\RAWDiskDispersionResults_spectral_polynomial_fromNonReference.mat';
     dataset_params.is_aberrated = true;
     dataset_params.color_map = 'C:\Users\GraphicsLab\Documents\llanos\Results\Copied elsewhere\20190421_ComputarLens\channel_scaling\sensor.mat';
+    dataset_params.fix_bands = true;
     dataset_params.wavelengths = 'C:\Users\GraphicsLab\Documents\llanos\Results\Copied elsewhere\20190421_ComputarLens\channel_scaling\sensor.mat';
     dataset_params.patch_size = [128 128];
     dataset_params.padding = 16;
