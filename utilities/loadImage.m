@@ -17,7 +17,7 @@ function [I, name, ext] = loadImage(filename, varargin)
 %
 % ## Input Arguments
 %
-% filename -- Dispersion model filename
+% filename -- Image filename
 %   A character vector containing the filename and path of the '.mat' or
 %   image format file containing the image, including the file extension.
 %
@@ -59,7 +59,7 @@ function [I, name, ext] = loadImage(filename, varargin)
 %     ACM Transactions on Graphics (Proc. SIGGRAPH Asia 2017), 36(6),
 %     218:1–13. doi:10.1145/3130800.3130810
 %
-% See also saveImages, imread, load, im2double
+% See also saveImages, imread, loadVariables, im2double
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -79,24 +79,16 @@ if strcmp(ext, mat_ext)
     else
         variable_name = varargin{1};
     end
-    load(filename, variable_name);
-    if exist(variable_name, 'var')
-        I = eval(variable_name);
-        if ~isnumeric(I)
-            error(...
-                'The input image variable `%s` in %s does not have a numeric class.',...
-                variable_name, filename...
-            );
-        elseif isinteger(I)
-            I = im2double(I);
-        elseif isa(I, 'single')
-            I = double(I);
-        end
-    else
+    I = loadVariables(filename, variable_name);
+    if ~isnumeric(I)
         error(...
-            'The input image variable %s was not loaded from %s.',...
+            'The input image variable `%s` in "%s" does not have a numeric class.',...
             variable_name, filename...
-            );
+        );
+    elseif isinteger(I)
+        I = im2double(I);
+    elseif isa(I, 'single')
+        I = double(I);
     end
 elseif strcmp(ext, exr_ext)
     disp('Loading an OpenEXR image...');

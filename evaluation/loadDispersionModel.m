@@ -82,21 +82,11 @@ if ~isempty(varargin)
     bands_req = varargin{1};
 end
 
-dispersion_data = [];
-model_from_reference = [];
-bands = [];
-model_space = [];
-fill = [];
-
-model_variables = { 'dispersion_data', 'model_from_reference', 'bands' };
-variables_transform = { 'model_space', 'fill' };
-load(filename, model_variables{:}, variables_transform{:});
-if isempty(dispersion_data) || isempty(model_from_reference)
-    error('One or more of the dispersion model variables is not loaded.')
-end
-if bands_req && isempty(bands)
-    error('The `bands` variable is empty or is not loaded.')
-end
+varnames = { 'dispersion_data', 'model_from_reference', 'model_space', 'fill', 'bands' };
+not_required = [false(1, 2), true(1, 2), bands_req];
+[...
+    dispersion_data, model_from_reference, model_space, fill, bands...
+] = loadVariables(filename, varnames, not_required, not_required);
 if mfr_expected ~= model_from_reference
     error('Dispersion model is in the wrong frame of reference.')
 end

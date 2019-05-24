@@ -36,11 +36,9 @@ output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190130_KAI
 
 %% Load conversion data
 
-variables_required = { 'spectral_weights_output', 'color_weights' };
-load(conversion_filename, variables_required{:});
-if ~all(ismember(variables_required, who))
-    error('One or more of the required colour/spectral space conversion variables is not loaded.')
-end
+[spectral_weights_output, color_weights] = loadVariables(...
+    conversion_filename, {'spectral_weights_output', 'color_weights'}...
+);
 
 %% Output images
 

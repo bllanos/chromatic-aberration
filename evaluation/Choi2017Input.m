@@ -78,34 +78,12 @@ run('SetFixedParameters.m')
 
 %% Load wavelengths
 
-load(bands_filename, bands_variable);
-if exist(bands_variable, 'var')
-    bands_spectral = eval(bands_variable);
-end
-if ~exist(bands_variable, 'var') || isempty(bands_spectral)
-    error('No wavelength band information loaded.')
-end
-
-load(desired_bands_filename, desired_bands_variable);
-if exist(desired_bands_variable, 'var')
-    desired_bands_spectral = eval(desired_bands_variable);
-end
-if ~exist(desired_bands_variable, 'var') || isempty(desired_bands_spectral)
-    error('No desired wavelength band information loaded.')
-end
+bands_spectral = loadVariables(bands_filename, bands_variable);
+desired_bands_spectral = loadVariables(desired_bands_filename, desired_bands_variable);
 
 %% Load sensor data
 
-model_variables_required = { 'sensor_map', 'channel_mode', 'bands' };
-load(color_map_filename, model_variables_required{:});
-if ~all(ismember(model_variables_required, who))
-    error('One or more of the required colour space conversion variables is not loaded.')
-end
-if channel_mode
-    error('The input space of the colour conversion data must be a spectral space, not a space of colour channels.')
-end
-
-bands_color = bands;
+[sensor_map, ~, bands_color] = loadColorMap(color_map_filename, false);
 
 %% Load the illuminant
 

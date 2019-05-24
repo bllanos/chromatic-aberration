@@ -232,14 +232,7 @@ if has_dispersion
     ] = loadDispersionModel(reverse_dispersion_model_filename, false);
 end
 
-model_variables_required = { 'sensor_map', 'channel_mode', 'bands' };
-load(color_map_filename, model_variables_required{:});
-if ~all(ismember(model_variables_required, who))
-    error('One or more of the required colour space conversion variables is not loaded.')
-end
-
-bands_color = bands;
-
+[sensor_map, channel_mode, bands_color] = loadColorMap(color_map_filename);
 if channel_mode
     if has_dispersion && ...
        ((length(bands_color) ~= length(bands_dispersionfun)) ||...

@@ -34,14 +34,7 @@ n_points = 500;
 
 % Find the wavelengths bounding the high-sensitivity regions of the camera's
 % colour channels
-model_variables_required = { 'sensor_map', 'channel_mode', 'bands' };
-load(color_map_filename, model_variables_required{:});
-if ~all(ismember(model_variables_required, who))
-    error('One or more of the required camera sensitivity variables is not loaded.')
-end
-if channel_mode
-    error('The input space of the camera sensitivity data must be a spectral space, not a space of colour channels.')
-end
+[sensor_map, ~, bands] = loadColorMap(color_map_filename, false);
 
 cutoff_wavelength_sensitivites = max(sensor_map, [], 2);
 sensor_map_relative = sensor_map ./ repmat(cutoff_wavelength_sensitivites, 1, size(sensor_map, 2));

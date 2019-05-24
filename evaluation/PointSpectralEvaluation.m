@@ -296,24 +296,12 @@ end
     
 bands_cell = cell(n_all, 1);
 for i = 1:n_images
-    load(bands_filenames_rep{i}, bands_variable);
-    if exist(bands_variable, 'var')
-        bands_cell{i + n_measurement_sets} = eval(bands_variable);
-    end
-    if ~exist(bands_variable, 'var') || isempty(bands_cell{i + n_measurement_sets})
-        error('No wavelengths loaded from file "%s".', bands_filenames_rep{i})
-    end
+    bands_cell{i + n_measurement_sets} = loadVariables(bands_filenames_rep{i}, bands_variable);
 end
 bands = bands_cell;
 
 if has_images
-    load(location_filename, location_variable);
-    if exist(location_variable, 'var')
-        patch_centers = eval(location_variable);
-    end
-    if ~exist(location_variable, 'var') || isempty(patch_centers)
-        error('No image patch center locations loaded from file "%s".', location_filename)
-    end
+    patch_centers = loadVariables(location_filename, location_variable);
 end
 
 %% Load all spectral measurements and spectral images

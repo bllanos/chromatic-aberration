@@ -52,7 +52,7 @@
 % 'SonyColorMap.m', for example. The following variables are required:
 % - 'sensor_map': A 2D array, where `sensor_map(i, j)` is the sensitivity
 %   of the i-th colour channel of the output sensor response images to the
-%   j-th spectral band of the spectral images.
+%   j-th element of 'bands' (below).
 % - 'channel_mode': A Boolean value indicating whether the input colour
 %   space is a set of colour channels (true) or a set of spectral bands
 %   (false). A value of `false` is required.
@@ -294,33 +294,13 @@ bands_estimated = [];
 bands_qhyper = [];
 color_weights = [];
 if has_spectral
-    load(bands_filename, bands_variable);
-    if exist(bands_variable, 'var')
-        bands_estimated = eval(bands_variable);
-    end
-    if ~exist(bands_variable, 'var') || isempty(bands_estimated)
-        error('No wavelengths loaded.')
-    end
+    bands_estimated = loadVariables(bands_filename, bands_variable);
     n_bands_estimated = length(bands_estimated);
 
-    load(qhyper_bands_filename, qhyper_bands_variable);
-    if exist(qhyper_bands_variable, 'var')
-        bands_qhyper = eval(qhyper_bands_variable);
-    end
-    if ~exist(qhyper_bands_variable, 'var') || isempty(bands_qhyper)
-        error('No wavelengths loaded.')
-    end
+    bands_qhyper = loadVariables(qhyper_bands_filename, qhyper_bands_variable);
     n_bands_qhyper = length(bands_qhyper);
 
-    model_variables_required = { 'sensor_map', 'channel_mode', 'bands' };
-    load(color_map_filename, model_variables_required{:});
-    if ~all(ismember(model_variables_required, who))
-        error('One or more of the required colour space conversion variables is not loaded.')
-    end
-    if channel_mode
-        error('The input space of the colour conversion data must be a spectral space, not a space of colour channels.')
-    end
-    bands_color = bands;
+    [sensor_map, ~, bands_color] = loadColorMap(color_map_filename, false);
     color_weights = colorWeights(...
         sensor_map, bands_color, bands_estimated, findSamplingOptions...
     );

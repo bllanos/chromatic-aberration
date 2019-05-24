@@ -151,13 +151,7 @@ image_prefixes = fieldnames(images);
 n_images = length(image_prefixes);
 n_groups = length(algorithm_groups);
 
-load(xyz_weights_filename, xyz_weights_variable);
-if exist(xyz_weights_variable, 'var')
-    xyz_weights = eval(xyz_weights_variable);
-end
-if ~exist(xyz_weights_variable, 'var') || isempty(xyz_weights)
-    error('No raw colour to XYZ conversion matrix loaded.')
-end
+xyz_weights = loadVariables(xyz_weights_filename, xyz_weights_variable);
 
 % Find the class of the image data
 I_filename = fullfile(input_directory, sprintf('%s%s%s', image_prefixes{1}, algorithm_groups{1}{1}, input_postfix));

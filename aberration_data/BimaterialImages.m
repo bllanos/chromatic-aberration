@@ -57,7 +57,7 @@
 % 'SonyColorMap.m', for example. The following variables are required:
 % - 'sensor_map': A 2D array, where `sensor_map(i, j)` is the sensitivity
 %   of the i-th colour channel of the output sensor response images to the
-%   j-th spectral band of the synthetic hyperspectral images.
+%   j-th element of 'bands' (below).
 % - 'channel_mode': A Boolean value indicating whether the input colour
 %   space is a set of colour channels (true) or a set of spectral bands
 %   (false). A value of `false` is required.
@@ -271,7 +271,8 @@ run('SetFixedParameters.m')
 % ColorChecker spectral reflectances
 colorChecker_table = readtable(reflectances_filename);
 variable_names = colorChecker_table.Properties.VariableNames;
-lambda_colorChecker = colorChecker_table.(variable_names{1});
+bands = colorChecker_table.(variable_names{1});
+n_bands = length(bands);
 reflectances = colorChecker_table{:, 2:end};
 n_patches = length(variable_names) - 1;
 
@@ -284,7 +285,7 @@ if use_cie_illuminant
         illuminant_temperature, lambda_illuminant, S_illuminant, lambda_illuminant...
     );
 else
-    lambda_illuminant = lambda_colorChecker;
+    lambda_illuminant = bands;
     spd_illuminant = feval(illuminant_function_name, lambda_illuminant);
 end
 
@@ -295,7 +296,7 @@ xyzbar = xyzbar_table{:, 2:end};
 
 colorChecker_rgb = reflectanceToColor(...
     lambda_illuminant, spd_illuminant,...
-    lambda_colorChecker, reflectances,...
+    bands, reflectances,...
     lambda_xyzbar, xyzbar, findSamplingOptions.int_method...
     );
 
@@ -318,24 +319,13 @@ end
 
 %% Load colour space conversion data
 
-model_variables_required = { 'sensor_map', 'channel_mode', 'bands' };
-load(color_map_filename, model_variables_required{:});
-if ~all(ismember(model_variables_required, who))
-    error('One or more of the required colour space conversion variables is not loaded.')
-end
-if channel_mode
-    error('The input space of the colour conversion data must be a spectral space, not a space of colour channels.')
-end
-
-bands_color = bands;
-bands = lambda_colorChecker;
-n_bands = length(bands);
+[sensor_map, ~, bands_color] = loadColorMap(color_map_filename, false);
 
 %% Calculate spectral radiances
 
 [lambda_Rad, ~, Rad_normalized] = reflectanceToRadiance(...
     lambda_illuminant, spd_illuminant,...
-    lambda_colorChecker, reflectances,...
+    bands, reflectances,...
     bands_color, sensor_map.',...
     normalization_channel, findSamplingOptions.int_method...
 );

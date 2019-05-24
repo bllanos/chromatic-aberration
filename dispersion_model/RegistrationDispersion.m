@@ -216,13 +216,7 @@ plot_model = true;
 %% Load calibration data
 
 if ~rgb_mode
-    load(bands_filename, bands_variable);
-    if exist(bands_variable, 'var')
-        bands = eval(bands_variable);
-    end
-    if ~exist(bands_variable, 'var') || isempty(bands)
-        error('No wavelengths loaded.')
-    end
+    bands = loadVariables(bands_filename, bands_variable);
     n_bands = length(bands);
     
     [~, reference_index] = min(abs(bands - reference_wavelength));

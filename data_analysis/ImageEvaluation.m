@@ -79,13 +79,7 @@ if ~is_rgb && n_images ~= length(spectral_weights_filenames)
 end
 
 if ~is_rgb
-    load(bands_filename, bands_variable);
-    if exist(bands_variable, 'var')
-        bands = eval(bands_variable);
-    end
-    if ~exist(bands_variable, 'var') || isempty(bands)
-        error('No wavelength band or colour channel index information loaded.')
-    end
+    bands = loadVariables(bands_filename, bands_variable);
 end
 
 if is_rgb
@@ -124,14 +118,7 @@ for i = 1:n_images
         if isempty(spectral_weights_filenames{i})
             spectral_weights = eye(length(bands));
         else
-            spectral_weights = [];
-            load(spectral_weights_filenames{i}, spectral_weights_variables{i});
-            if exist(spectral_weights_variables{i}, 'var')
-                spectral_weights = eval(spectral_weights_variables{i});
-            end
-            if ~exist(spectral_weights_variables{i}, 'var') || isempty(spectral_weights)
-                error('No colour space conversion information loaded for image %d.', i)
-            end
+            spectral_weights = loadVariables(spectral_weights_filenames{i}, spectral_weights_variables{i});
         end
         
         dp.evaluation.global_spectral.plot_color =...

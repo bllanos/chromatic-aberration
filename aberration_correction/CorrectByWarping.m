@@ -169,30 +169,14 @@ n_images = length(image_filenames);
     dispersion_data, bands_dispersionfun, transform_data...
 ] = loadDispersionModel(forward_dispersion_model_filename, true, true);
 
-model_variables_required = { 'sensor_map', 'channel_mode', 'bands' };
-load(color_map_filename, model_variables_required{:});
-if ~all(ismember(model_variables_required, who))
-    error('One or more of the required colour space conversion variables is not loaded.')
-end
-
-bands_color = bands;
-
+[sensor_map, channel_mode, bands_color] = loadColorMap(color_map_filename);
 if channel_mode
     if ((length(bands) ~= length(bands_dispersionfun)) ||...
        any(bands(:) ~= bands_dispersionfun(:)))
         error('When warping colour images, the same colour channels must be used by the model of dispersion.');
     end
 else
-    findSamplingOptions = [];
-    bands = [];
-    variables_required = { 'findSamplingOptions', 'bands' };
-    load(sampling_filename, variables_required{:});
-    if isempty(bands)
-        error('`bands` was not loaded from "%s".', sampling_filename)
-    end
-    if isempty(findSamplingOptions)
-        error('`findSamplingOptions` was not loaded from "%s".', sampling_filename)
-    end
+    [findSamplingOptions, bands] = loadVariables(sampling_filename, {'findSamplingOptions', 'bands'});
     if disable_interpolation
         color_weights = colorWeights(...
             sensor_map, bands_color, bands, findSamplingOptions...

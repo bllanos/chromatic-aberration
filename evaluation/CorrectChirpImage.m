@@ -318,15 +318,7 @@ verbose_progress = true;
 
 %% Load calibration data
 
-model_variables_required = { 'sensor_map', 'channel_mode', 'bands' };
-load(color_map_filename, model_variables_required{:});
-if ~all(ismember(model_variables_required, who))
-    error('One or more of the required colour space conversion variables is not loaded.')
-end
-if channel_mode
-    error('The input space of the colour conversion data must be a spectral space, not a space of colour channels.')
-end
-bands_color = bands;
+[sensor_map, ~, bands_color] = loadColorMap(color_map_filename, false);
 n_channels = size(sensor_map, 1);
 
 % Normalize spectral sensitivities to avoid out-of-range colour values.

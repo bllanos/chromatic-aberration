@@ -73,19 +73,8 @@ end
 n_images = n_spectral + n_color;
 
 if n_spectral ~= 0
-    variables_required = { 'sensor_map', 'bands' };
-    load(color_map_filename, variables_required{:});
-    if ~all(ismember(variables_required, who))
-        error('One or more of the required colour space conversion variables is not loaded.')
-    end
-    bands_color = bands;
-    clear bands
-
-    variables_required = { 'findSamplingOptions', 'bands' };
-    load(sampling_filename, variables_required{:});
-    if ~all(ismember(variables_required, who))
-        error('One or more of the required sampling variables is not loaded.')
-    end
+    [sensor_map, ~, bands_color] = loadColorMap(color_map_filename);
+    [findSamplingOptions, bands] = loadVariables(sampling_filename, {'findSamplingOptions', 'bands'});
     color_weights = colorWeights(...
         sensor_map, bands_color, bands, findSamplingOptions...
     );
@@ -93,20 +82,10 @@ end
 
 if n_images ~= 0
     if use_chromadapt
-        variables_required = {'wb_illum', 'wb_scale'};
-        load(wb_filename, variables_required{:});
-        if ~all(ismember(variables_required, who))
-            error('One or more of the required white balancing variables is not loaded.')
-        end
+        [wb_illum, wb_scale] = loadVariables(wb_filename, {'wb_illum', 'wb_scale'});
         postfix = '_wb';
     else
-        load(xyz_weights_filename, xyz_weights_variable);
-        if exist(xyz_weights_variable, 'var')
-            xyz_weights = eval(xyz_weights_variable);
-        end
-        if ~exist(xyz_weights_variable, 'var') || isempty(xyz_weights)
-            error('No raw colour to XYZ conversion data loaded.')
-        end
+        xyz_weights = loadVariables(xyz_weights_filename, xyz_weights_variable);
         postfix = ['_' xyz_weights_variable];
     end
 end

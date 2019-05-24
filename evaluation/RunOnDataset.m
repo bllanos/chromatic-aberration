@@ -256,7 +256,7 @@ run('PreprocessDataset.m')
 %% Finalize the set of algorithms to run
 
 if ~use_automatic_weights
-    load(admm_algorithms_filename, 'admm_algorithms');
+    admm_algorithms = loadVariables(admm_algorithms_filename, 'admm_algorithms');
 end
 admm_algorithm_fields = fieldnames(admm_algorithms);
 n_admm_algorithms = length(admm_algorithm_fields);

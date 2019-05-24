@@ -48,19 +48,13 @@ if has_spectral && ~has_color_map
     error('Spectral images are provided, but not the camera''s spectral sensitivity data.');
 end
 
-bands = [];
-bands_variable = 'bands';
 if has_spectral
     spectral_filenames = listFiles(dp.spectral_images_wildcard);
     n_images_spectral = length(spectral_filenames);
     n_images = n_images_spectral;
     names = trimCommon(spectral_filenames, [false, true]);
     
-    load(dp.wavelengths, bands_variable);
-    if isempty(bands)
-        error('No wavelength band information is associated with the spectral images.')
-    end
-    bands_spectral = bands;
+    bands_spectral = loadVariables(dp.wavelengths, 'bands');
 end
 if has_rgb
     rgb_filenames = listFiles(dp.rgb_images_wildcard);
@@ -98,19 +92,9 @@ if has_raw
     end
 end
 
-bands = [];
 if has_color_map
     % Load colour conversion data
-    
-    model_variables_required = { 'sensor_map', 'channel_mode' };
-    load(dp.color_map, model_variables_required{:}, bands_variable);
-    if ~all(ismember(model_variables_required, who))
-        error('One or more of the required colour space conversion variables is not loaded.')
-    end
-    if isempty(bands)
-        error('No wavelength band information is associated with the colour conversion data.')
-    end
-    bands_color = bands;
+    [sensor_map, channel_mode, bands_color] = loadColorMap(dp.color_map);
     
     if channel_mode
         if (length(bands_spectral) ~= length(bands_color)) ||...
