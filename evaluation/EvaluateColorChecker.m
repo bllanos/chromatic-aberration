@@ -264,9 +264,10 @@ spectral_wildcard = []; %'/home/llanos/GoogleDrive/ThesisResearch/Results/201902
 spectral_variable_name = 'I_latent'; % Used only when loading '.mat' files
 
 % Path and filename of a '.mat' file containing the wavelengths corresponding to
-% the estimated spectral images
-bands_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_dispersion/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
-bands_variable = 'bands'; % Variable name in the above file
+% the estimated spectral images (`bands`), as well as the spectral resampling
+% parameters governing their conversion to other spectral sampling spaces
+% (`findSamplingOptions`).
+sampling_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_dispersion/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
 
 % Colour space conversion data
 color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/NikonD5100ColorMapData.mat';
@@ -285,16 +286,15 @@ run('SetFixedParameters.m')
 % ## Debugging Flags
 vignettingPolyfitVerbose = true;
 
-%% Load wavelengths and spectral to colour conversion information first, to avoid accidentally overwriting a variable
+%% Load wavelengths and spectral to colour conversion information
 
 has_spectral = ~isempty(spectral_wildcard);
 has_color = ~isempty(color_wildcard);
 
 bands_estimated = [];
 bands_qhyper = [];
-color_weights = [];
 if has_spectral
-    bands_estimated = loadVariables(bands_filename, bands_variable);
+    [findSamplingOptions, bands_estimated] = loadVariables(sampling_filename, {'findSamplingOptions', 'bands'});
     n_bands_estimated = length(bands_estimated);
 
     bands_qhyper = loadVariables(qhyper_bands_filename, qhyper_bands_variable);

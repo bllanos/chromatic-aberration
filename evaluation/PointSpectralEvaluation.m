@@ -104,6 +104,9 @@
 %
 % ## Notes
 % - This script can correct spectral images for vignetting, if desired.
+% - Presently, the estimated images spectral images to be evaluated are assumed
+%   to be compatible with the sampling options (e.g. `findSamplingOptions`) set
+%   in 'SetFixedParameters.m'.
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
