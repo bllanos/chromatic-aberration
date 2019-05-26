@@ -18,26 +18,26 @@
 % Path and filename of a '.mat' file containing the sampling information needed
 % to convert spectral bands to raw colour channels. Can be empty (`[]`) if there
 % are no spectral images to process.
-sampling_filename = 'C:\Users\GraphicsLab\Documents\llanos\Results\Copied elsewhere\20190421_ComputarLens\run_on_dataset_ignoreDispersion\RunOnDataset_20190208_ComputarLens_rawCaptured_ignoreDispersion.mat';
+sampling_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
 
 % Path and filename of a '.mat' file containing the colour space conversion
 % data needed to convert spectral bands to raw colour channels. Can be
 % empty (`[]`) if there are no spectral images to process.
-color_map_filename = 'C:\Users\GraphicsLab\Documents\llanos\Results\Copied elsewhere\20190208_ComputarLens\dataset\SonyColorMapData.mat';
+color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/SonyColorMapData.mat';
 
 % Whether to use white balancing (`true`), or a more advanced colour
 % conversion method (`false`)
-use_chromadapt = false;
+use_chromadapt = true;
 
 if use_chromadapt
     % Path and filename of a '.mat' file containing the illuminant colour
     % estimated from a neutral patch, as the variable 'wb_illum'
-    wb_filename = 'C:\Users\GraphicsLab\Documents\llanos\Results\CalibrateColorCorrectionData.mat';
+    wb_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/CalibrateColorCorrectionData_unfiltered.mat';
 else
     % Path and filename of a '.mat' file containing the conversion data
     % structure for raw colour channels to XYZ
-    xyz_weights_filename = 'C:\Users\GraphicsLab\Documents\llanos\Results\CalibrateColorCorrectionData.mat';
-    xyz_weights_variable = 'M_rp'; % Variable name in the above file
+    xyz_weights_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/CalibrateColorCorrectionData_unfiltered.mat';
+    xyz_weights_variable = 'M_homog'; % Variable name in the above file
     
     % Whitepoint to use for XYZ to sRGB conversion
     whitepoint = [1, 1, 1];
@@ -45,16 +45,16 @@ end
 
 % Wildcard for 'ls()' to find the spectral images to process (can be empty (`[]`)).
 % '.mat' or image files can be loaded
-spectral_wildcard = 'C:\Users\GraphicsLab\Documents\llanos\Results\Copied elsewhere\20190421_ComputarLens\run_on_dataset_ignoreDispersion\*_latent.mat';
+spectral_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/*_latent*.mat';
 spectral_variable_name = 'I_latent'; % Used only when loading '.mat' files
 
 % Wildcard for 'ls()' to find the colour images to process (can be empty (`[]`)).
 % '.mat' or image files can be loaded
-color_wildcard = []; %'C:\Users\GraphicsLab\Documents\llanos\Results\Copied elsewhere\20190421_ComputarLens\run_on_dataset_ignoreDispersion\*_rgb.mat';
+color_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/*_rgb*.mat';
 color_variable_name = 'I_rgb'; % Used only when loading '.mat' files
 
 % Output directory
-output_directory = 'C:\Users\GraphicsLab\Documents\llanos\Results\correctedRGB_wb';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/correctedRGB';
 
 %% Process the images
 
