@@ -18,12 +18,12 @@ function [rmse, mrae, gof_or_psnr, global_rmse] = metrics(I, R, dim, peak, filte
 %   images
 %
 % [rmse, mrae, gof] = metrics(I, R, dim, 0, filter)
-%   Additionally returns either the per-pixel spectral goodness-of-fit,
-%   between the two images.
+%   Additionally returns the per-pixel spectral goodness-of-fit, between the two
+%   images.
 %
 % [rmse, mrae, psnr] = metrics(I, R, dim, peak, filter)
-%   Additionally returns either the global peak signal-to-noise ratio
-%   between the two images.
+%   Additionally returns the global peak signal-to-noise ratio between the two
+%   images.
 %
 % [____, global_rmse] = metrics(I, R, dim, [0 | peak], filter)
 %   Additionally returns the global root mean squared error.
@@ -46,12 +46,12 @@ function [rmse, mrae, gof_or_psnr, global_rmse] = metrics(I, R, dim, peak, filte
 %   The peak value to use when computing peak signal-to-noise ratio.
 %
 % filter -- Filter out NaN and Inf values
-%   Remove non-finite values from the per-pixel output arguments (using
-%   MATLAB's 'isfinite()' function. Note that doing so destroys the spatial
-%   structure of the output arguments, resulting in vectors being returned,
-%   instead of arrays with dimensions based on the dimensions of `I`.
-%   Per-pixel output arguments are `rmse`, `mrae`, and `gof`. `rmse` will
-%   actually never contain non-finite values.
+%   Remove non-finite values from the input arguments, and the output arguments
+%   (using MATLAB's 'isfinite()' function). Doing so destroys the spatial
+%   structure of the per-pixel output arguments, resulting in vectors being
+%   returned, instead of arrays with dimensions based on the dimensions of `I`.
+%   Per-pixel output arguments are `rmse`, `mrae`, and `gof`. `rmse` will never
+%   contain non-finite values unless they are present in the input arguments.
 %
 % ## Output Arguments
 %
@@ -107,6 +107,9 @@ nargoutchk(1, 4);
 
 diffIR = abs(I - R);
 mse = dot(diffIR, diffIR, dim) ./ size(diffIR, dim);
+if filter
+    mse = mse(isfinite(mse));
+end
 rmse = sqrt(mse);
 if nargout > 1
     mrae = mean(diffIR ./ R, dim);

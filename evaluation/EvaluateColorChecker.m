@@ -196,8 +196,7 @@ parameters_list = {
     'smoothing_span',...
     'true_image_name',...
     'true_image_filename',...
-    'bands_filename',...
-    'bands_variable',...
+    'sampling_filename',...
     'color_map_filename'...
     };
 
@@ -259,21 +258,21 @@ true_image_filename = 'colorChecker'; % Name used in filenames. Must not contain
 
 % Wildcard for 'ls()' to find the estimated spectral images to process (can be
 % empty). '.mat' or image files can be loaded.
-spectral_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/d2_colorChecker30cm_*_latent.mat';
+spectral_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_ignoreDispersion/d2_colorChecker30cm_*_latent.mat';
 spectral_variable_name = 'I_latent'; % Used only when loading '.mat' files
 
 % Path and filename of a '.mat' file containing the wavelengths corresponding to
 % the estimated spectral images (`bands`), as well as the spectral resampling
 % parameters governing their conversion to other spectral sampling spaces
 % (`findSamplingOptions`).
-sampling_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
+sampling_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_ignoreDispersion/RunOnDataset_20190208_ComputarLens_rawCaptured_ignoreDispersion.mat';
 
 % Colour space conversion data
 color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/SonyColorMapData.mat';
 
 % Wildcard for 'ls()' to find the estimated colour images to process (can be
 % empty). '.mat' or image files can be loaded.
-color_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/d2_colorChecker30cm_*_rgb.mat';
+color_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_ignoreDispersion/d2_colorChecker30cm_*_rgb.mat';
 color_variable_name = 'I_rgb'; % Used only when loading '.mat' files
 
 % Output directory
@@ -416,86 +415,85 @@ patch_means_rgb = zeros(n_patches, n_channels_rgb);
 %% Spectral registration calibration of the reference and estimated images
 
 if has_spectral
-    % Load all patches
+    % Pre-compute patch information
+    patch_masks = cell(n_patches, 1);
     patch_weights = zeros(n_patches, 1);
     patch_weights_perChannel = zeros(n_patches, n_channels_rgb);
-    pixels_reference = cell(n_patches, 1);
-    pixels_reference_perChannel = cell(n_patches, n_channels_rgb);
-    pixels_qhyper = cell(n_patches, n_channels_rgb);
-    pixels_estimated = cell(n_patches, n_spectral_algorithms);
+    factors = cell(n_patches, 1);
+    factors_perChannel = cell(n_patches, n_channels_rgb);
     for pc = 1:n_patches
-        patch_mask = imopen(I_spectral_label == pc, se_clean);
+        patch_masks{pc} = find(imopen(I_spectral_label == pc, se_clean));
         patch_xy = [
-            reshape(X(patch_mask), [], 1),...
-            reshape(Y(patch_mask), [], 1)
+            reshape(X(patch_masks{pc}), [], 1),...
+            reshape(Y(patch_masks{pc}), [], 1)
         ];
-        n_px_patch = size(patch_xy, 1);
-        patch_weights(pc) = n_px_patch;
-        factors = vignettingfun(patch_xy) / vignetting_correction_factor;
+        patch_weights(pc) = size(patch_xy, 1);
+        factors{pc} = vignettingfun(patch_xy) / vignetting_correction_factor;
 
-        % Reference measurements
-        patch_mean = reflectances(:, pc).';
-        I_patch = repmat(patch_mean, n_px_patch, 1);
-        I_patch = I_patch .* repmat(factors, 1, n_bands_measured);
-        pixels_reference{pc} = I_patch;
-
-        % Captured spectral image - Account for the Bayer pattern
-        I = loadImage(qhyper_filename, qhyper_variable_name);
         for c = 1:n_channels_rgb
             mask_c = channel_mask(:, :, c);
-            filter_c = mask_c(patch_mask);
-            n_px_patch_c = sum(filter_c);
-            patch_weights_perChannel(pc, c) = n_px_patch_c;
-            I_patch = zeros(n_px_patch_c, n_bands_qhyper);
+            filter_c = mask_c(patch_masks{pc});
+            patch_weights_perChannel(pc, c) = sum(filter_c);
+            factors_perChannel{pc, c} = factors{pc}(filter_c);
+        end
+    end
+    factors = cell2mat(factors);
+    n_px_all = sum(patch_weights);
+    n_px_all_perChannel = sum(patch_weights_perChannel, 1);
+    ind_end = cumsum(patch_weights);
+    ind_start = [1; ind_end(1:(end - 1)) + 1];
+    
+    % Compute scaling factors for the captured spectral image
+    radiance_ratios_qhyper = zeros(n_channels_rgb, 1, n_bands_measured);
+    I = loadImage(qhyper_filename, qhyper_variable_name);
+    for c = 1:n_channels_rgb
+        mask_c = channel_mask(:, :, c);
+        ind_end_c = cumsum(patch_weights_perChannel(:, c));
+        ind_start_c = [1; ind_end_c(1:(end - 1)) + 1];
+        px = zeros(n_px_all_perChannel(c), n_bands_qhyper);
+        
+        % Load patches from the image
+        for pc = 1:n_patches
+            filter_c = mask_c(patch_masks{pc});
             for b = 1:n_bands_qhyper
                 I_b = I(:, :, b);
-                I_b = I_b(patch_mask);
-                I_patch(:, b) = I_b(filter_c);
+                I_b = I_b(patch_masks{pc});
+                px(ind_start_c(pc):ind_end_c(pc), b) = I_b(filter_c);
             end
-            I_patch = channelConversion(I_patch, spectral_weights_qhyper, 2);
-            pixels_qhyper{pc, c} = I_patch;
-
-            I_patch = repmat(patch_mean, n_px_patch_c, 1);
-            I_patch = I_patch .* repmat(factors(filter_c), 1, n_bands_measured);
-            pixels_reference_perChannel{pc, c} = I_patch;
         end
-
-        % Estimated spectral images
-        for i = 1:n_spectral_algorithms
-            I = loadImage(algorithm_filenames.spectral{i}, spectral_variable_name);
-            I_patch = zeros(n_px_patch, n_bands_estimated);
-            for c = 1:n_bands_estimated
-                I_c = I(:, :, c);
-                I_patch(:, c) = I_c(patch_mask);
-            end
-            I_patch = channelConversion(I_patch, spectral_weights, 2);
-            pixels_estimated{pc, i} = I_patch;
+        
+        weights = repelem(1 ./ patch_weights_perChannel(:, c), patch_weights_perChannel(:, c), 1);
+        factors_c = cell2mat(factors_perChannel(:, c));
+        for b = 1:n_bands_measured
+            px_reference = factors_c .* repelem(reflectances(b, :).', patch_weights_perChannel(:, c), 1);
+            px_b = channelConversion(px, spectral_weights_qhyper(b, :), 2);
+            weighted_px = weights .* px_b;
+            radiance_ratios_qhyper(c, 1, b) = dot(weighted_px, px_reference) ./ ...
+                    dot(weighted_px, px_b, 1);
         end
     end
 
-    % Compute scaling factors
-    radiance_ratios_qhyper = zeros(n_channels_rgb, 1, n_bands_measured);
-    for c = 1:n_channels_rgb
-        weights = repelem(patch_weights_perChannel(:, c), patch_weights_perChannel(:, c), 1);
-        px = cell2mat(pixels_qhyper(:, c));
-        weighted_px = repmat(weights, 1, n_bands_measured) .* px;
-        radiance_ratios_qhyper(c, 1, :) = reshape(...
-            dot(weighted_px, cell2mat(pixels_reference_perChannel(:, c)), 1) ./ ...
-                dot(weighted_px, px, 1),...
-            1, 1, []...
-        );
-    end
-
+    % Compute scaling factors for the estimated spectral images
     radiance_ratios = zeros(n_spectral_algorithms, 1, n_bands_measured);
-    weights = repelem(patch_weights, patch_weights, 1);
-    px_reference = cell2mat(pixels_reference);
+    weights = repelem(1 ./ patch_weights, patch_weights, 1);
     for i = 1:n_spectral_algorithms
-        px = cell2mat(pixels_estimated(:, i));
-        weighted_px = repmat(weights, 1, n_bands_measured) .* px;
-        radiance_ratios(i, 1, :) = reshape(...
-            dot(weighted_px, px_reference, 1) ./ dot(weighted_px, px, 1),...
-            1, 1, []...
-        );
+        I = loadImage(algorithm_filenames.spectral{i}, spectral_variable_name);
+        % Load patches from the image
+        px = zeros(n_px_all, n_bands_qhyper);
+        for pc = 1:n_patches
+            for b = 1:n_bands_estimated
+                I_b = I(:, :, b);
+                px(ind_start(pc):ind_end(pc), b) = I_b(patch_masks{pc});
+            end
+        end
+
+        for b = 1:n_bands_measured
+            px_reference = factors .* repelem(reflectances(b, :).', patch_weights, 1);
+            px_b = channelConversion(px, spectral_weights(b, :), 2);
+            weighted_px = weights .* px_b;
+            radiance_ratios(i, 1, b) = dot(weighted_px, px_reference) ./ ...
+                    dot(weighted_px, px_b, 1);
+        end
     end
 end
 
