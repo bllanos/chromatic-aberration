@@ -19,7 +19,7 @@
 %
 % ### Model fitting results
 %
-% Four '.mat' files, each containing the following variables:
+% Up to four '.mat' files, each containing the following variables:
 %
 % - 'image_filenames': A cell vector of input image filenames retrieved
 %   based on the wildcard provided in the parameters section of the script.
@@ -66,10 +66,10 @@
 %   'xylambdaSplinefit()', whereas polynomial models of dispersion are
 %   generated using 'xylambdaPolyfit()'.
 %
-% One '.mat' file is generated for each possible combination of of
-% 'model_from_reference' and 'model_type'. Therefore, only the model of
-% dispersion differs between the files. The '.mat' files will be named
-% based on the models of dispersion that they contain.
+% One '.mat' file is generated for each possible combination of
+% 'model_from_reference' and 'model_type' specified in the script parameters.
+% Therefore, only the model of dispersion differs between the files. The '.mat'
+% files will be named based on the models of dispersion that they contain.
 %
 % Additionally, the files contain the values of all parameters in the first
 % section of the script below, for reference. (Specifically, those listed
@@ -118,7 +118,9 @@ parameters_list = {
         'fill_image',...
         'max_degree_xy_dispersion',...
         'max_degree_lambda',...
-        'spline_smoothing_options'...
+        'spline_smoothing_options',...
+        'model_type_choices',...
+        'model_from_reference_choices'...
     };
 
 %% Input data and parameters
@@ -131,12 +133,12 @@ parameters_list = {
 % Images can either be spectral images, or demosaiced colour images,
 % although the latter type of images may not give good results because of
 % demosaicing artifacts.
-input_images_wildcard = '/home/graphicslab/Documents/llanos/Data/20190208_ComputarLens/dataset/channel_scaling/*disks32cm*_dHyper.mat';
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/channel_scaling/*disks32cm*_dHyper.mat';
 input_images_variable_name = 'I_hyper'; % Used only when loading '.mat' files
 
 % Model of dispersion to use as an initial guess
 % Can be empty
-forward_dispersion_model_filename = '/home/graphicslab/Documents/llanos/Results/Copied elsewhere/20190208_ComputarLens/dispersion/spectral/full_image/RAWDiskDispersionResults_spectral_spline_fromReference.mat';
+forward_dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/dispersion/spectral/polynomial_newCV/RAWDiskDispersionResults_spectral_polynomial_fromReference.mat';
 
 % ## Spectral information
 
@@ -155,7 +157,7 @@ if rgb_mode
 else
     % Path and filename of a '.mat' file containing the wavelengths corresponding to
     % the spectral image.
-    bands_filename = '/home/graphicslab/Documents/llanos/Data/20190208_ComputarLens/dataset/channel_scaling/sensor.mat';
+    bands_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/channel_scaling/sensor.mat';
     bands_variable = 'bands'; % Variable name in the above file
     reference_wavelength = 587.6;
 end
@@ -198,8 +200,12 @@ spline_smoothing_options = struct(...
     'tol', 1e-6 ...
 );
 
+% Which models of dispersion to generate?
+model_type_choices = {'spline', 'polynomial'};
+model_from_reference_choices = [true, false];
+
 % ## Output directory
-output_directory = '/home/graphicslab/Documents/llanos/Results/dispersion_registration';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/dispersion/spectral/registration_polynomial_newCV';
 
 % ## Debugging Flags
 registerPatchesVerbose = true;
@@ -324,14 +330,14 @@ save_variables_list = [ parameters_list, {...
     'model_type'...
 } ];
 
-for model_from_reference = [true, false]
+for model_from_reference = model_from_reference_choices
     if model_from_reference
         centers_for_fitting = repmat(centers(:, reference_index), 1, n_bands);
     else
         centers_for_fitting = centers;
     end
 
-    for model_type_cell = {'spline', 'polynomial'}
+    for model_type_cell = model_type_choices
         model_type = model_type_cell{1};
         if strcmp(model_type, 'polynomial')
             if rgb_mode

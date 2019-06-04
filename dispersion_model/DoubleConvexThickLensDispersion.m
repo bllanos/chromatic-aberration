@@ -18,7 +18,7 @@
 %
 % ### Polynomial fitting results
 %
-% Eight '.mat' files, each containing the following variables:
+% Up to eight '.mat' files, each containing the following variables:
 %
 % - 'centers': The independent variables data used for fitting the model of
 %   dispersion. `centers` is a structure array, with one field containing
@@ -83,8 +83,9 @@
 %   wavelength, with respect to which dispersion is calculated.
 %
 % One '.mat' file is generated for each possible combination of of
-% 'model_from_reference', 'model_type', and 'rgb_mode'. The '.mat' files
-% will be named based on the models of dispersion that they contain.
+% 'model_from_reference', 'model_type', and 'rgb_mode' specified in the script
+% parameters. The '.mat' files will be named based on the models of dispersion
+% that they contain.
 %
 % Additionally, the files contain the values of all parameters in the first
 % section of the script below, for reference. (Specifically, those listed
@@ -125,7 +126,10 @@ parameters_list = {
         'intensity_threshold',...
         'max_degree_xy',...
         'max_degree_lambda',...
-        'spline_smoothing_options'...
+        'spline_smoothing_options',...
+        'model_type_choices',...
+        'model_from_reference_choices',...
+        'rgb_mode_choices'...
     };
 
 %% Input data and parameters
@@ -239,6 +243,11 @@ spline_smoothing_options = struct(...
     'tol', 1e-6 ...
 );
 
+% Which models of dispersion to generate?
+model_type_choices = {'spline', 'polynomial'};
+model_from_reference_choices = [true, false];
+rgb_mode_choices = [true, false];
+
 % ## Output directory
 output_directory = '/home/llanos/Downloads';
 
@@ -332,7 +341,7 @@ save_variables_list = [ parameters_list, {...
     'reference_index'...
 } ];
 
-for rgb_mode = [true, false]
+for rgb_mode = rgb_mode_choices
     spectral_mode = ~rgb_mode || (rgb_mode && ~can_average_to_rgb);
     if spectral_mode
         centers = centers_spectral;
@@ -354,14 +363,14 @@ for rgb_mode = [true, false]
         disparity = disparity_rgb;
     end
     
-    for model_from_reference = [true, false]
+    for model_from_reference = model_from_reference_choices
         if model_from_reference
             centers_for_fitting = repmat(centers(:, reference_index), 1, rep_factor);
         else
             centers_for_fitting = centers;
         end
 
-        for model_type_cell = {'spline', 'polynomial'}
+        for model_type_cell = model_type_choices
             model_type = model_type_cell{1};
             if strcmp(model_type, 'polynomial')
                 if spectral_mode

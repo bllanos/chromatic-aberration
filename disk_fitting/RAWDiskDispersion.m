@@ -27,7 +27,7 @@
 %
 % ### Model fitting results
 %
-% Four '.mat' files, each containing the following variables:
+% Up to four '.mat' files, each containing the following variables:
 %
 % - 'grouped_filenames': A cell vector of cell vectors of input image
 %   filenames retrieved based on the wildcard provided in the parameters
@@ -78,10 +78,10 @@
 %   'xylambdaSplinefit()', whereas polynomial models of dispersion are
 %   generated using 'xylambdaPolyfit()'.
 %
-% One '.mat' file is generated for each possible combination of of
-% 'model_from_reference' and 'model_type'. Therefore, only the model of
-% dispersion differs between the files. The '.mat' files will be named
-% based on the models of dispersion that they contain.
+% One '.mat' file is generated for each possible combination of
+% 'model_from_reference' and 'model_type' specified in the script parameters.
+% Therefore, only the model of dispersion differs between the files. The '.mat'
+% files will be named based on the models of dispersion that they contain.
 %
 % Additionally, the files contain the values of all parameters in the first
 % section of the script below, for reference. (Specifically, those listed
@@ -125,7 +125,9 @@ parameters_list = {
         'max_degree_lambda',...
         'spline_smoothing_options',...
         'max_degree_xy_vignetting',...
-        'quantiles'...
+        'quantiles',...
+        'model_type_choices',...
+        'model_from_reference_choices'...
     };
 
 %% Input data and parameters
@@ -155,7 +157,7 @@ parameters_list = {
 %   processing irrelevant portions of images when calibrating models of
 %   dispersion. If no mask is found for an image, the entire image will be
 %   searched for disks for dispersion calibration.
-input_images_wildcard = 'C:\Users\GraphicsLab\Documents\llanos\Results\Copied elsewhere\20190208_ComputarLens\dataset\exposure_blending\*disks*nm.mat';
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190125_DiskPattern_fluorescent/preprocessed/exposure_blended/*disks*fluorescentNoLid.mat';
 input_images_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % Mask filename extension (without the '.')
@@ -171,7 +173,7 @@ bayer_pattern = 'gbrg'; % Colour-filter pattern
 
 % Find dispersion between colour channels, as opposed to between images
 % taken under different spectral bands
-rgb_mode = false;
+rgb_mode = true;
 
 if rgb_mode
     bands_regex = []; % Not used
@@ -227,13 +229,17 @@ spline_smoothing_options = struct(...
     'tol', 1e-6 ...
 );
 
+% Which models of dispersion to generate?
+model_type_choices = {'spline', 'polynomial'};
+model_from_reference_choices = [true, false];
+
 % ## Output directory
-output_directory = 'C:\Users\GraphicsLab\Documents\llanos\Results\dispersion\spectral\polynomial_newCV';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190125_DiskPattern_fluorescent/dispersion_lidOff_newCV/bothDistances';
 
 % ## Debugging Flags
 vignettingPolyfitVerbose = false;
 
-findAndFitDisksVerbose.verbose_disk_search = true;
+findAndFitDisksVerbose.verbose_disk_search = false;
 findAndFitDisksVerbose.verbose_disk_refinement = false;
 findAndFitDisksVerbose.display_final_centers = true;
 
@@ -424,14 +430,14 @@ save_variables_list = [ parameters_list, {...
     'model_type'...
 } ];
 
-for model_from_reference = [true, false]
+for model_from_reference = model_from_reference_choices
     if model_from_reference
         centers_for_fitting = repmat(centers(:, reference_index), 1, n_bands);
     else
         centers_for_fitting = centers;
     end
 
-    for model_type_cell = {'spline', 'polynomial'}
+    for model_type_cell = model_type_choices
         model_type = model_type_cell{1};
         if strcmp(model_type, 'polynomial')
             if rgb_mode
