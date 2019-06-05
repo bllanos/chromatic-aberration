@@ -177,8 +177,8 @@ for k = 1:n_plot
         'k', 'LineWidth', 0.5 ...
     );
     hold off
-    xlabel('Image x-coordinate')
-    ylabel('Image y-coordinate')
+    xlabel('X')
+    ylabel('Y')
     axis image
     if spatial_domain(4) > spatial_domain(2)
         axis ij;

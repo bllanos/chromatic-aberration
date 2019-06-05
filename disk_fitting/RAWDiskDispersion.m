@@ -157,7 +157,7 @@ parameters_list = {
 %   processing irrelevant portions of images when calibrating models of
 %   dispersion. If no mask is found for an image, the entire image will be
 %   searched for disks for dispersion calibration.
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190125_DiskPattern_fluorescent/preprocessed/exposure_blended/*disks*fluorescentNoLid.mat';
+input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/preprocessed_images/exposure_blended/*disks*nm.mat';
 input_images_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % Mask filename extension (without the '.')
@@ -173,7 +173,7 @@ bayer_pattern = 'gbrg'; % Colour-filter pattern
 
 % Find dispersion between colour channels, as opposed to between images
 % taken under different spectral bands
-rgb_mode = true;
+rgb_mode = false;
 
 if rgb_mode
     bands_regex = []; % Not used
@@ -234,7 +234,7 @@ model_type_choices = {'spline', 'polynomial'};
 model_from_reference_choices = [true, false];
 
 % ## Output directory
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190125_DiskPattern_fluorescent/dispersion_lidOff_newCV/bothDistances';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/dispersion_newCV_vignettingCorrected/spline';
 
 % ## Debugging Flags
 vignettingPolyfitVerbose = false;

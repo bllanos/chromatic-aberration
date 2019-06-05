@@ -72,27 +72,25 @@ lambda = linspace(350, 750, 250).';
 
 % Number of pixels to sample along a half-diagonal starting from the top
 % left of the image to the image centre
-n_sampled_pixels = 10;
+n_sampled_pixels = 4;
 
 % Bound on dispersion to use for plot axes limits
 plot_bound = 6;
 
 % Models of dispersion
 forward_dispersion_model_filenames = {...
-    'C:\Users\GraphicsLab\Documents\llanos\Data\20190208_ComputarLens\dispersion\spectral\RAWDiskDispersionResults_spectral_polynomial_fromReference.mat';
-    'C:\Users\GraphicsLab\Documents\llanos\Data\20190208_ComputarLens\dispersion\spectral\RAWDiskDispersionResults_spectral_spline_fromReference.mat';
-    'C:\Users\GraphicsLab\Documents\llanos\Results\dispersion\spectral\polynomial_newCV\RAWDiskDispersionResults_spectral_polynomial_fromReference.mat'
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/dispersion/spectral/polynomial_newCV/RAWDiskDispersionResults_spectral_polynomial_fromReference.mat',...
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dispersion/spectral/RAWDiskDispersionResults_spectral_spline_fromReference.mat'
 };
 
 % Names for the models of dispersion
 names = {
-    'Polynomial, spatial deg. 4, spectral deg. 6 (old cross-validation)';
-    'Spline, smoothing parameter 1.1884';
-    'Polynomial, spatial deg. 3, spectral deg. 3 (new cross-validation)'
+    'Polynomial';
+    'Spline'
 };
 
 % Output directory for all figures and saved parameters
-output_directory = 'C:\Users\GraphicsLab\Documents\llanos\Results\dispersion_plots';
+output_directory = '/home/llanos/Downloads';
 
 %% Load dispersion models
 
@@ -130,23 +128,43 @@ x_limits = sqrt(plot_bound ^2 / 2);
 x_limits = [-x_limits, x_limits];
 y_limits = x_limits;
 
+center = fliplr(image_sampling / 2);
+
 for k = 1:n_sampled_pixels
     px = sampled_pixels(k, :);
+    radial_vector = px - center;
+    radial_vector = radial_vector ./ norm(radial_vector);
     
-    fg = figure;
+    fg_3D = figure;
     hold on
     px_lambda = [repmat(px, n_bands, 1), bands];
-    d = dispersionfuns{1}(px_lambda);
-    plot3(d(:, 1), d(:, 2), px_lambda(:, 3), 'ko');
+    d_3D = dispersionfuns{1}(px_lambda);
+    plot3(d_3D(:, 1), d_3D(:, 2), px_lambda(:, 3), 'ko');
+    hold off
+    
+    fg_2D = figure;
+    hold on
+    d_2D = dot(d_3D, repmat(radial_vector, size(d_3D, 1), 1), 2);
+    plot(d_2D(:, 1), px_lambda(:, 3), 'ko');
+    hold off
     
     px_lambda = [repmat(px, size(lambda, 1), 1), lambda];
     
     for i = 1:n_models
-        d = dispersionfuns{i}(px_lambda);
-        plot3(d(:, 1), d(:, 2), px_lambda(:, 3), 'LineWidth', 2);
+        d_3D = dispersionfuns{i}(px_lambda);
+        figure(fg_3D)
+        hold on
+        plot3(d_3D(:, 1), d_3D(:, 2), px_lambda(:, 3), 'LineWidth', 2);
+        hold off
+        
+        figure(fg_2D)
+        hold on
+        d_2D = dot(d_3D, repmat(radial_vector, size(d_3D, 1), 1), 2);
+        plot(d_2D(:, 1), px_lambda(:, 3), 'LineWidth', 2);
+        hold off
     end
-    hold off
     
+    figure(fg_3D)
     grid on
     legend(legend_str{:});
     title(sprintf('Spectral dispersion at pixel (%g, %g)', px(1), px(2)));
@@ -157,11 +175,26 @@ for k = 1:n_sampled_pixels
     ylim(y_limits);
     
     savefig(...
-        fg, fullfile(output_directory, sprintf(...
+        fg_3D, fullfile(output_directory, sprintf(...
                 'dispersionAtX%dY%d.fig', floor(px(1)), floor(px(2))...
         )), 'compact'...
     );
-    close(fg)
+    close(fg_3D)
+    
+    figure(fg_2D)
+    grid on
+    legend(legend_str{:});
+    title(sprintf('Spectral dispersion at pixel (%g, %g)', px(1), px(2)));
+    xlabel('Dispersion radial component');
+    ylabel('\lambda');
+    xlim(x_limits);
+    
+    savefig(...
+        fg_2D, fullfile(output_directory, sprintf(...
+                'dispersionAtX%dY%d_radial.fig', floor(px(1)), floor(px(2))...
+        )), 'compact'...
+    );
+    close(fg_2D)
 end
 
 %% Save parameters to a file

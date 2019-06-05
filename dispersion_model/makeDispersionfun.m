@@ -45,6 +45,10 @@ function [ dispersionfun ] = makeDispersionfun(data, varargin)
 %   dimension of `X`, the input argument of 'xylambdaSplinefit()' or
 %   'xylambdaPolyfit()').
 %
+% ## Notes
+% - If this function consumes too much memory, adjust the `batch_size_max_*`
+%   parameters below.
+%
 % ## References
 %
 % Part of this code was ported from the 3D thin plate splines code in the
@@ -88,6 +92,11 @@ function [ dispersionfun ] = makeDispersionfun(data, varargin)
 nargoutchk(1, 1);
 narginchk(1, 2);
 
+% Limits on the number of points processed simultaneously to avoid running out of
+% memory
+batch_size_max_spline = 1000;
+batch_size_max_polynomial = 10000;
+
 n_spatial_dim = 2;
 n_models = length(data);
 channel_mode = isfield(data, 'reference_channel');
@@ -126,22 +135,29 @@ end
         end
 
         disparity_normalized = ones(n_d, n_spatial_dim + 1);
-        for dim = 1:n_spatial_dim
-            disparity_normalized(:, dim) = repmat(data_d.coeff_affine(1, dim), n_d, 1) +...
-                dot(repmat(data_d.coeff_affine(2:end, dim).', n_d, 1), xylambda_normalized, 2);
-            distances = repmat(...
-                xylambda_normalized, size(data_d.coeff_basis, 1), 1 ...
-            ) - repelem(...
-                data_d.xylambda_training, n_d, 1 ...
-            );
-            distances = sqrt(dot(distances, distances, 2));
-            if channel_mode
-                G = splineKernel2D(distances);
-            else
-                G = splineKernel3D(distances);
+        batch_size = min(n_d, batch_size_max_spline);
+        n_batches = ceil(n_d / batch_size);
+        for b = 1:n_batches
+            start_ind = (b - 1) * batch_size + 1;
+            end_ind = min(n_d, b * batch_size);
+            sz_b = end_ind - start_ind + 1;
+            for dim = 1:n_spatial_dim
+                disparity_normalized(start_ind:end_ind, dim) = repmat(data_d.coeff_affine(1, dim), sz_b, 1) +...
+                    dot(repmat(data_d.coeff_affine(2:end, dim).', sz_b, 1), xylambda_normalized(start_ind:end_ind, :), 2);
+                distances = repmat(...
+                    xylambda_normalized(start_ind:end_ind, :), size(data_d.coeff_basis, 1), 1 ...
+                ) - repelem(...
+                    data_d.xylambda_training, sz_b, 1 ...
+                );
+                distances = sqrt(dot(distances, distances, 2));
+                if channel_mode
+                    G = splineKernel2D(distances);
+                else
+                    G = splineKernel3D(distances);
+                end
+                disparity_normalized(start_ind:end_ind, dim) = disparity_normalized(start_ind:end_ind, dim)  +...
+                    sum(reshape(repelem(data_d.coeff_basis(:, dim), sz_b, 1) .* G, sz_b, []), 2);
             end
-            disparity_normalized(:, dim) = disparity_normalized(:, dim)  +...
-                sum(reshape(repelem(data_d.coeff_basis(:, dim), n_d, 1) .* G, n_d, []), 2);
         end
     end
 
@@ -155,12 +171,19 @@ end
         xylambda_normalized_3d = permute(xylambda_normalized, [1 3 2]);
         
         disparity_normalized = ones(n_d, n_spatial_dim + 1);
-        vandermonde_matrix = prod(...
-            repmat(xylambda_normalized_3d, 1, data_d.n_powers, 1)...
-            .^ repmat(data_d.powers, n_d, 1, 1), 3 ...
-        );
-        disparity_normalized(:, 1) = vandermonde_matrix * data_d.coeff_x;
-        disparity_normalized(:, 2) = vandermonde_matrix * data_d.coeff_y;
+        batch_size = min(n_d, batch_size_max_polynomial);
+        n_batches = ceil(n_d / batch_size);
+        for b = 1:n_batches
+            start_ind = (b - 1) * batch_size + 1;
+            end_ind = min(n_d, b * batch_size);
+            sz_b = end_ind - start_ind + 1;
+            vandermonde_matrix = prod(...
+                repmat(xylambda_normalized_3d(start_ind:end_ind, :, :), 1, data_d.n_powers, 1)...
+                .^ repmat(data_d.powers, sz_b, 1, 1), 3 ...
+            );
+            disparity_normalized(start_ind:end_ind, 1) = vandermonde_matrix * data_d.coeff_x;
+            disparity_normalized(start_ind:end_ind, 2) = vandermonde_matrix * data_d.coeff_y;
+        end
     end
 
     function disparity = modelfun(xylambda)
