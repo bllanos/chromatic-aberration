@@ -91,18 +91,21 @@ images = struct(...
 deconv_suffix = '_krishnan';
 algorithm_groups = {...
     {...
-        %'MATLABdemosaic_rgb', 'MATLABdemosaic_cct_rgb', 'MATLABdemosaic_rgb_krishnan', 'MATLABdemosaic_channelWarp_rgb';
-        'ARI_rgb', 'ARI_cct_rgb', 'ARI_rgb_krishnan', 'ARI_channelWarp_rgb', 'bands6_L2NonNeg_DMfw_latent';
-        'bilinear_rgb', 'bilinear_cct_rgb', 'bilinear_rgb_krishnan', 'bilinear_channelWarp_rgb', 'bands6_L1NonNeg_DMfw_latent';    
-        %'bands6_L2L2NonNeg_DMfw_latent', 'bands6_L1L1NonNeg_DMfw_latent', 'bands6_L2NonNeg_DMfw_latent', 'bands6_L1NonNeg_DMfw_latent'
+        'bands6_L2NonNeg_DMfw_latent', 'bands8_L2NonNeg_DMfw_latent';
+        'bands6_L1NonNeg_DMfw_latent', 'bands8_L1NonNeg_DMfw_latent'
     };
     {...
-        'bands6_L2NonNeg_DMfw_ignoreDispersion_latent', 'RGB_L2NonNeg_DMfw_rgb', 'bands6_L2NonNeg_DMfw_latent', 'bands6_L2NonNeg_DM3fw_latent', 'ARI_cct_rgb';
-        'bands6_L1NonNeg_DMfw_ignoreDispersion_latent', 'RGB_L1NonNeg_DMfw_rgb', 'bands6_L1NonNeg_DMfw_latent', 'bands6_L1NonNeg_DM3fw_latent', 'ARI_channelWarp_rgb';
-    };...
-%     {...
-%         'bilinear_rgb', 'bilinear_channelWarp_rgb', 'bands6_L1NonNeg_DMfw_latent'
-%     }...
+        'bilinear_rgb', 'bilinear_cct_rgb', 'bilinear_rgb_krishnan', 'bilinear_channelWarp_rgb', 'bands8_Lap2NonNeg_DMfw_latent';
+        'ARI_rgb', 'ARI_cct_rgb', 'ARI_rgb_krishnan', 'ARI_channelWarp_rgb', 'bands8_L1NonNeg_DMfw_latent'
+    };
+    {...
+        'RGB_L1SpatialLap2NonNeg_DMfw_rgb', 'RGB_Lap1NonNeg_DMfw_rgb', 'RGB_Lap2NonNeg_DMfw_rgb', 'RGB_L2NonNeg_DMfw_rgb', 'RGB_L1NonNeg_DMfw_rgb';
+        'bands8_L1SpatialLap2NonNeg_DMfw_latent', 'bands8_Lap1NonNeg_DMfw_latent', 'bands8_Lap2NonNeg_DMfw_latent', 'bands8_L2NonNeg_DMfw_latent', 'bands8_L1NonNeg_DMfw_latent'
+    };
+    {...
+        'RGB_L1NonNeg_DMfw_rgb_unwarped', 'RGB_Lap2NonNeg_DMfw_rgb_unwarped',  'bands8_Lap2NonNeg_DMfw_latent_unwarped', 'bands8_L1NonNeg_DMfw_latent_unwarped', ;
+        'RGB_L1NonNeg_DMfw_rgb', 'RGB_Lap2NonNeg_DMfw_rgb', 'bands8_Lap2NonNeg_DMfw_latent', 'bands8_L1NonNeg_DMfw_latent';
+    }
 };
 
 % Padding to add for the methods of Krishnan et al. 2011 and Sun et al. 2017.,
@@ -110,12 +113,12 @@ algorithm_groups = {...
 padding = 16;
 
 % Filename input postfix
-input_postfix = '_correctedRGB.tif';
+input_postfix = '.tif';
 
 n_channels_rgb = 3;
 
 % Directory containing the input images
-input_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_correctedRGB';
+input_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190610_ThesisResults_CopiedImages/images_MHomogCorrectedRGB';
 
 % Directory containing the linear, uncorrected images, for patch-specific
 % processing with Krishnan et al. 2011 and Sun et al. 2017.
@@ -125,7 +128,7 @@ input_postfix_uncorrected = '.mat';
 
 % Path and filename of a '.mat' file containing the conversion matrix for
 % raw colour channels to XYZ
-xyz_weights_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_correctedRGB/CalibrateColorCorrectionData.mat';
+xyz_weights_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/CalibrateColorCorrectionData_unfiltered.mat';
 xyz_weights_variable = 'M_homog'; % Variable name in the above file
 % Whitepoint to use for XYZ to sRGB conversion
 whitepoint = [1, 1, 1];
@@ -140,7 +143,7 @@ output_width = 9.5;
 output_margin = [0.25, 0.25];
 
 % Output directory
-output_directory = '/home/llanos/Downloads/montage';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190610_ThesisResults_CopiedImages/montage';
 
 % ## Parameters for Krishnan et al. 2011 and Sun et al. 2017
 run('SetFixedParameters.m')

@@ -141,21 +141,17 @@ parameters_list = {
 % '.mat' or image files can be loaded
 images_filenames = {
     '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/channel_scaling/d2_colorChecker30cm_dHyper.mat';
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_MATFiles/d2_colorChecker30cm_bands6_L2NonNeg_DMfw_latent.mat';...
     '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_MATFiles/d2_colorChecker30cm_bands6_L1NonNeg_DMfw_latent.mat';...
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/d2_colorChecker30cm_unfiltered_patch128x128_pad16_weightsTarget1405And271_step1_latent.mat';...
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/d2_colorChecker30cm_unfiltered_patch128x128_pad16_weightsTarget1405And271_step2_latent.mat';...
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/d2_colorChecker30cm_unfiltered_patch128x128_pad16_weightsTarget1405And271_step3_latent.mat';...
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/d2_colorChecker30cm_unfiltered_patch128x128_pad16_weightsTarget1405And271_step4_latent.mat';...
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/d2_colorChecker30cm_unfiltered_patch128x128_pad16_weightsTarget1405And271_step5_latent.mat';...
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/d2_colorChecker30cm_unfiltered_patch128x128_pad16_weightsTarget1405And271_step6_latent.mat';...
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/d2_colorChecker30cm_unfiltered_patch128x128_pad16_weightsTarget1405And271_step7_latent.mat';...
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/d2_colorChecker30cm_unfiltered_patch128x128_pad16_weightsTarget1405And271_step8_latent.mat'...
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/d2_colorChecker30cm_bands8_L2NonNeg_DMfw_latent.mat';...
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/d2_colorChecker30cm_bands8_L1NonNeg_DMfw_latent.mat';...
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/d2_colorChecker30cm_bands8_Lap2NonNeg_DMfw_latent.mat';...
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/d2_colorChecker30cm_bands8_L1SpatialLap2NonNeg_DMfw_latent.mat';...
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/d2_colorChecker30cm_bands8_Lap1NonNeg_DMfw_latent.mat';...
 };
 % Variables used only when loading '.mat' files
 images_variables = {
     'I_hyper';
-    'I_latent';
-    'I_latent';
     'I_latent';
     'I_latent';
     'I_latent';
@@ -171,14 +167,12 @@ images_variables = {
 bands_filenames = {
     '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/channel_scaling/sensor.mat';
     '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_dispersion/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/CorrectByHyperspectralADMM_bandsStep1.mat';
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/CorrectByHyperspectralADMM_bandsStep2.mat';
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/CorrectByHyperspectralADMM_bandsStep3.mat';
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/CorrectByHyperspectralADMM_bandsStep4.mat';
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/CorrectByHyperspectralADMM_bandsStep5.mat';
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/CorrectByHyperspectralADMM_bandsStep6.mat';
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/CorrectByHyperspectralADMM_bandsStep7.mat';
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190411_ComputarLens_bandsNumberSelection/colorChecker_sequential/CorrectByHyperspectralADMM_bandsStep8.mat'
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_dispersion/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
+    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
 };
 bands_variable = 'bands'; % Variable name in the above files
 
@@ -186,8 +180,6 @@ bands_variable = 'bands'; % Variable name in the above files
 % different spectral resolutions.
 images_interpolants = {
     @triangle;
-    @gaussian;
-    @gaussian;
     @gaussian;
     @gaussian;
     @gaussian;
@@ -222,19 +214,15 @@ vignetting_calibration_bands = [
     3;
     2;
     2;
-    3;
-    3;
     4;
     4;
-    5;
-    5
+    4;
+    4
 ];
 
 % Measured spectra CSV files, with the reference set's filename given first
 spectra_filenames = {
     '/home/llanos/GoogleDrive/ThesisResearch/Data/20180626_SpectralCharacterizationOfSetup/spectra_averaged.csv';
-    '/home/llanos/GoogleDrive/ThesisResearch/Data/20190407_ColorChecker_GoSpectro_afternoonOutdoors/goSpectro_colorChecker_afternoonSun.csv';
-    '/home/llanos/GoogleDrive/ThesisResearch/Data/20190409_ColorChecker_morningOutdoors_bookScene_GoSpectro/goSpectro_colorChecker_morningSun.csv';
     '/home/llanos/GoogleDrive/ThesisResearch/Data/20190411_ColorChecker_GoSpectro_Indoors/goSpectro_colorChecker_workLamps1.csv';
     '/home/llanos/GoogleDrive/ThesisResearch/Data/20190411_ColorChecker_GoSpectro_Indoors/goSpectro_colorChecker_workLamps2.csv'
 };
@@ -242,8 +230,6 @@ spectra_filenames = {
 % Indices of the columns of interest in the CSV files
 spectra_data_columns = {
     13:36;
-    2:25;
-    2:25;
     2:25;
     2:25
 };
@@ -266,7 +252,7 @@ patch_side_length = 15;
 output_filename = 'colorChecker';
 
 % Output directory
-output_directory = '/home/llanos/Downloads/global_vignettingCorrection';
+output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190610_ThesisResults_CopiedImages/point_spectral_evaluation';
 
 % ## Parameters which do not usually need to be changed
 run('SetFixedParameters.m')

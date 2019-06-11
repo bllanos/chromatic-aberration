@@ -243,7 +243,7 @@ n_patches = 24;
 centroid_patch_width = 15;
 
 % Width of the edge region to extract inside, and outside, the patch boundaries
-edge_width = 10;
+edge_width = 12;
 
 % Method to use for smoothing curves of error around edges (Refer to the
 % documentation of the Curve Fitting Toolbox's 'smooth' function)
@@ -258,7 +258,7 @@ true_image_filename = 'colorChecker'; % Name used in filenames. Must not contain
 
 % Wildcard for 'ls()' to find the estimated spectral images to process (can be
 % empty). '.mat' or image files can be loaded.
-spectral_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_ignoreDispersion/d2_colorChecker30cm_*_latent.mat';
+spectral_wildcard = '/home/llanos/Downloads/ColorCheckerEvaluation/Input/d2_colorChecker30cm_*_latent.mat';
 spectral_variable_name = 'I_latent'; % Used only when loading '.mat' files
 
 % Path and filename of a '.mat' file containing the wavelengths corresponding to
@@ -272,11 +272,11 @@ color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_C
 
 % Wildcard for 'ls()' to find the estimated colour images to process (can be
 % empty). '.mat' or image files can be loaded.
-color_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_ignoreDispersion/d2_colorChecker30cm_*_rgb.mat';
+color_wildcard = '/home/llanos/Downloads/ColorCheckerEvaluation/Input/d2_colorChecker30cm_*_rgb.mat';
 color_variable_name = 'I_rgb'; % Used only when loading '.mat' files
 
 % Output directory
-output_directory = '/home/llanos/Downloads/colorCheckerEvaluation';
+output_directory = '/home/llanos/Downloads/ColorCheckerEvaluation/results_except_dHyper';
 
 % ## Parameters which do not usually need to be changed
 run('SetFixedParameters.m')
