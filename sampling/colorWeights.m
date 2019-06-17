@@ -49,7 +49,7 @@ function color_weights = colorWeights(...
 %
 % ## Output Arguments
 %
-% color_map -- Colour conversion matrix
+% color_weights -- Colour conversion matrix
 %   A matrix of dimensions `size(color_map, 1)` by `length(bands)` which
 %   computes the colours, in the colour space of `color_map`, of spectra sampled
 %   according to `bands`.

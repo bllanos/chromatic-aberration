@@ -203,7 +203,7 @@ function [ I_3D, varargout ] = solvePatchesColor(...
 %     be made smaller to fit within the image's borders.
 %   - 'padding': A scalar containing the pixel width of the border
 %     surrounding each image patch. The image patches actually estimated
-%     are of size `patch_size + padding`, but a border of width 'padding'
+%     are of size `patch_size + 2 * padding`, but a border of width 'padding'
 %     is stripped when combining patches to form the output image. Note
 %     that patches along the edges of the image are not padded to extend
 %     outside the image's borders, and so will only have padding towards

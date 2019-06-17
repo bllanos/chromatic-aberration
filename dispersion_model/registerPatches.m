@@ -52,7 +52,7 @@ function [ centers ] = registerPatches(...
 %     compute registration transformations.
 %   - 'padding': A scalar containing the pixel width of the border
 %     surrounding each image region. The image patches actually registered
-%     are of size `patch_size + padding`. Note that patches along the edges
+%     are of size `patch_size + 2 * padding`. Note that patches along the edges
 %     of the image are not padded to extend outside the image's borders,
 %     and so will only have padding towards the interior of the image.
 %   - 'target_patch': An optional field. If it exists, 'target_patch' is a
