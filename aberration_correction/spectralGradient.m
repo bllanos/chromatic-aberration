@@ -1,11 +1,11 @@
-function [ G_lambda ] = spectralGradient(image_sampling, replicate)
+function [ G_lambda ] = spectralGradient(image_sampling, replicate, lambda)
 % SPECTRALGRADIENT  Create a sparse matrix acting as an image spectral gradient operator
 %
 % ## Syntax
-% G_lambda = spectralGradient(image_sampling, replicate)
+% G_lambda = spectralGradient(image_sampling, replicate [, lambda])
 %
 % ## Description
-% G_lambda = spectralGradient(image_sampling, replicate)
+% G_lambda = spectralGradient(image_sampling, replicate [, lambda])
 %   Returns a matrix representing the spectral gradient operator.
 %
 % ## Input Arguments
@@ -19,6 +19,13 @@ function [ G_lambda ] = spectralGradient(image_sampling, replicate)
 %   wavelength band) of the image. If `true`, the last colour channel will
 %   be replicated prior to taking the gradient. Otherwise, the gradient
 %   will not be calculated for the last colour channel.
+%
+% lambda -- Wavelengths
+%   A vector with a length equal to `image_sampling(3)` containing the
+%   wavelengths at which the spectral image is sampled. If `lambda` is not
+%   passed, the spectral image is assumed to be sampled at equally-spaced
+%   wavelengths. `lambda` should not be passed when the image consists of
+%   colour channels.
 %
 % ## Output Arguments
 %
@@ -44,12 +51,6 @@ function [ G_lambda ] = spectralGradient(image_sampling, replicate)
 % every colour channel, if `replicate` is `true`. Otherwise, the gradient
 % is only calculated for colour channels with a following colour channel.
 %
-% ## Notes
-% - This function assumes that the step size between adjacent image channels is
-%   constant when computing the gradient. Images with uneven sampling in the
-%   spectral domain would necessitate scaling the differences between pixels in
-%   adjacent channels by the spectral distance between the channels.
-%
 % See also spatialGradient
 
 % Bernard Llanos
@@ -58,13 +59,20 @@ function [ G_lambda ] = spectralGradient(image_sampling, replicate)
 % File created May 24, 2018
 
 nargoutchk(1, 1);
-narginchk(2, 2);
+narginchk(2, 3);
 
 if length(image_sampling) ~= 3
     error('The `image_sampling` input argument must contain the image height, width, and number of channels/bands');
 end
-
 c = image_sampling(3);
+if nargin < 3
+    lambda = (1:c).';
+elseif c ~= length(lambda)
+    error('The last element of `image_sampling` must be equal to the length of `lambda`.');
+end
+weights = reshape(1 ./ diff(lambda), [], 1);
+weights(~isfinite(weights)) = 1;
+
 c_nonzero = c - 1;
 n_px = prod(image_sampling(1:2));
 n_px_c = prod(image_sampling);
@@ -93,7 +101,7 @@ columns = repmat(repelem((1:n_px).', n_offsets, 1), c_nonzero, 1) +...
     (channel_indices - 1) * n_px;
 
 % Matrix values
-elements = repmat([-1; 1], n_px_c_nonzero, 1);
+elements = repmat([-1; 1], n_px_c_nonzero, 1) .* repelem(weights, n_offsets * n_px, 1);
 
 % Assemble the sparse matrix
 if replicate
