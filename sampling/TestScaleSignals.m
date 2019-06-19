@@ -10,9 +10,7 @@
 bands = (200:1200).';
 signals = sonyQuantumEfficiency(bands).';
 
-scale = scaleSignals(signals);
-
-signals_scaled = repmat(scale, size(signals, 1), 1) .* signals;
+[scale, signals_scaled] = scaleSignals(signals, 0.05, [1, 2, 1]);
 
 %% Visualization
 
