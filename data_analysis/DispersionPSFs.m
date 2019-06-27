@@ -24,7 +24,7 @@ parameters_list = {};
 %% Input data and parameters
 
 % Model of spectral dispersion
-spectral_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dispersion/spectral/full_image/RAWDiskDispersionResults_spectral_polynomial_fromNonReference.mat';
+spectral_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/dispersion/spectral/polynomial_newCV/RAWDiskDispersionResults_spectral_polynomial_fromNonReference.mat';
 
 % Model of colour dispersion
 color_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dispersion/rgb/full_image/RAWDiskDispersionResults_RGB_polynomial_fromNonReference.mat';
@@ -34,10 +34,10 @@ color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_C
 
 % Upper bound on the image position shift caused by dispersion. This will become
 % the patch half-side length (rounded down to the nearest integer).
-dispersion_size = 10; % pixels
+dispersion_size = 5; % pixels
 
 % Magnification factor at which to save the results
-magnification = 4;
+magnification = 8;
 
 % (row, column) pixel indices in the image at which to evaluate dispersion
 location = [1526, 1963];
@@ -193,8 +193,8 @@ bands_rgb = (1:n_channels_rgb).';
 
 %% Image patch montage creation
 
-I_montage = zeros([n_rows * patch_size(2), n_cols * patch_size(1), n_channels_rgb]);
-I_montage_normalized = zeros(size(I_montage));
+I_montage_rgb = zeros([n_rows * patch_size(2), n_cols * patch_size(1), n_channels_rgb]);
+I_montage_normalized = zeros([size(I_montage_rgb), n_channels_rgb]);
 
 for col = 1:n_cols
     patch_spectral = zeros([patch_size, n_bands_radiance]);
@@ -204,6 +204,11 @@ for col = 1:n_cols
     patch_color = channelConversion(patch_spectral, color_weights);
     
     inset = repmat(patch_color(dispersion_size + 1, dispersion_size + 1, :), [inset_size 1]);
+    inset_corrected = channelConversion(inset, M_homog);
+    inset_corrected = xyz2rgb(...
+        inset_corrected, 'ColorSpace', 'srgb',...
+        'WhitePoint', whitepoint...
+    );
     
     for row = 1:n_rows
         roi_montage = [
@@ -232,29 +237,38 @@ for col = 1:n_cols
         );
         if row == 2 && col == 1
             disp('Wavelengths at which dispersion is being sampled:');
-            disp(bands_dispersion)
+            disp(reshape(bands_dispersion, [], 1))
         end
     
+        patch_warped_normalized = patch_warped;
         for c = 1:n_channels_rgb
-            I_montage_normalized(roi_montage(1):roi_montage(2), roi_montage(3):roi_montage(4), c) = ...
-                patch_warped(:, :, c) ./ max(max(patch_warped(:, :, c)));
+            patch_warped_normalized(:, :, c) = patch_warped(:, :, c) ./ max(max(patch_warped(:, :, c)));
         end
-
-        patch_warped(roi_inset(1):roi_inset(2), roi_inset(3):roi_inset(4), :) = inset;
-
-        I_montage(roi_montage(1):roi_montage(2), roi_montage(3):roi_montage(4), :) = patch_warped;
+        
+        patch_warped_rgb = patch_warped;
+        patch_warped_rgb(roi_inset(1):roi_inset(2), roi_inset(3):roi_inset(4), :) = inset;
+        I_montage_rgb(roi_montage(1):roi_montage(2), roi_montage(3):roi_montage(4), :) = patch_warped_rgb;
+        
+        for c = 1:n_channels_rgb
+            patch_warped_c = repmat(patch_warped_normalized(:, :, c), 1, 1, n_channels_rgb);
+            patch_warped_c(roi_inset(1):roi_inset(2), roi_inset(3):roi_inset(4), :) = inset_corrected;
+            I_montage_normalized(roi_montage(1):roi_montage(2), roi_montage(3):roi_montage(4), :, c) = patch_warped_c;
+        end
     end
 end
 
-I_montage = channelConversion(I_montage, M_homog);
-I_montage = xyz2rgb(...
-    I_montage, 'ColorSpace', 'srgb',...
+I_montage_rgb = channelConversion(I_montage_rgb, M_homog);
+I_montage_rgb = xyz2rgb(...
+    I_montage_rgb, 'ColorSpace', 'srgb',...
     'WhitePoint', whitepoint,...
     'OutputType', class_images...
 );
 
-I_montage = imresize(I_montage, magnification, 'nearest');
-I_montage_normalized = imresize(I_montage_normalized, magnification, 'nearest');
+I_montage_rgb = imresize(I_montage_rgb, magnification, 'nearest');
+I_montage_normalized_mag = cell(n_channels_rgb, 1);
+for c = 1:n_channels_rgb
+    I_montage_normalized_mag{c} = imresize(I_montage_normalized(:, :, :, c), magnification, 'nearest');
+end
 
 %% Show and save results
 
@@ -286,30 +300,21 @@ for col = 1:n_cols
     end
 end
 
-% Create a figure for all channels, and two for each channel
-for i = 1:(n_channels_rgb * 2 + 1)
+% Create a figure for all channels, and one for each channel
+for i = 1:(n_channels_rgb + 1)
     fg = figure;
     if i == 1
         output_filename_prefix_i = output_filename_prefix;
-        imshow(I_montage);
+        imshow(I_montage_rgb);
     else
-        c = ceil((i - 1) / 2);
-        if mod(i, 2)
-            imagesc(I_montage_normalized(:, :, c));
-            output_filename_prefix_i = sprintf('%s_channel%d_normalized', output_filename_prefix, c);
-        else
-            imagesc(I_montage(:, :, c));
-            output_filename_prefix_i = sprintf('%s_channel%d', output_filename_prefix, c);
-        end
-        colormap gray
-        colorbar;
+        c = (i - 1);
+        imshow(I_montage_normalized_mag{c});
+        output_filename_prefix_i = sprintf('%s_channel%d_normalized', output_filename_prefix, c);
     end
-    axis off
-    axis image
 
     set(fg, 'PaperUnits', 'inches');
     set(fg, 'PaperSize', output_size_page);
-    output_height = output_width * size(I_montage, 1) / size(I_montage, 2);
+    output_height = output_width * size(I_montage_rgb, 1) / size(I_montage_rgb, 2);
     set(fg, 'PaperPosition', [output_margin(1) output_margin(2) output_width, output_height]);
     print(...
         fg, sprintf('%s%s', output_filename_prefix_i, output_postfix),...
