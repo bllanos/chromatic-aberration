@@ -33,7 +33,7 @@ function [ div ] = censusDivergence( I_1, I_2, weights )
 % ## References
 % - J. Mustaniemi, J. Kannala, and J. Heikkila, Parallax correction via
 %   disparity estimation in a multi-aperture camera," Machine Vision and
-%   Applications, vol. 27, pp. 1313–1323, 2016. doi: 10.1007/s00138-016-0773-7.
+%   Applications, vol. 27, pp. 1313-1323, 2016. doi: 10.1007/s00138-016-0773-7.
 %
 % See also divergenceMap
 

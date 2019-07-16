@@ -166,13 +166,6 @@ function in = baek2017Algorithm2LowMemory(weights, options, in, varargin)
 %     International Conference on Computer Vision (ICCV).
 %     doi:10.1109/ICCV.2007.4409090
 %
-% The initialization method is based on Equation 6 of:
-%
-%   Sun, T., Peng, Y., & Heidrich, W. (2017). "Revisiting cross-channel
-%     information transfer for chromatic aberration correction." In 2017
-%     IEEE International Conference on Computer Vision (ICCV) (pp.
-%     3268–3276). doi:10.1109/ICCV.2017.352
-%
 % For more information on ADMM (Alternating Direction Method of
 % Multipliers), read:
 %

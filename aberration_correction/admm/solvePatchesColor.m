@@ -320,13 +320,11 @@ function [ I_3D, varargout ] = solvePatchesColor(...
 %     International Conference on Computer Vision (ICCV).
 %     doi:10.1109/ICCV.2007.4409090
 %
-% The method for initializing the latent image is based on Equation 6 of
-% the following article. Note that this article also briefly discusses
-% methods for combining overlapping image patches, for future reference.
-% This function simply discards the overlapping regions of image patches,
-% which may lead to visible boundaries between patches, but which prevents
-% any poor behaviour of the image estimation algorithm near the edges of
-% patches from affecting the result.
+% The following article briefly discusses methods for combining overlapping
+% image patches, for future reference. This function simply discards the
+% overlapping regions of image patches, which may lead to visible boundaries
+% between patches, but which prevents any poor behaviour of the image estimation
+% algorithm near the edges of patches from affecting the result.
 %
 %   Sun, T., Peng, Y., & Heidrich, W. (2017). "Revisiting cross-channel
 %     information transfer for chromatic aberration correction." In 2017

@@ -95,11 +95,10 @@ function [ imageFn, f_out, f_prime_out, U_out, U_prime_out, P ] = opticsFromLens
 %     the optical axis, assuming the front of the lens is convex.
 %
 % ## References
-% - M. Born and E. Wolf, Principles of Optics. Cambridge, U.K.;
-%   New York: Cambridge University Press, 1999.
-%   - Technically, I used section 4.4.3 in the 1970 edition of the book,
-%     which covers the thick lens, and section 4.3.1, which covers
-%     Newton's equation.
+% - M. Born and E. Wolf, Principles of optics, 4. ed. Oxford: Pergamon Press,
+%   1970, isbn: 9780080139876.
+%   - I used section 4.4.3, which covers the thick lens, and section 4.3.1,
+%     which covers Newton's equation.
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang

@@ -110,17 +110,12 @@ function [out, weights] = initBaek2017Algorithm2LowMemory(varargin)
 %   - 'nonneg': A Boolean scalar specifying whether or not to enable a
 %     non-negativity constraint on the estimated image. If `true`, 'rho'
 %     must have four elements.
-%   - 'maxit': A two-element vector. The first element contains the maximum
-%     number of iterations to use with MATLAB's 'pcg()' function during
-%     image initialization. The second element of `maxit` is not used by
-%     this function.
 %   - 'tol': A two-element vector containing convergence tolerances. The
 %     first element is the tolerance value to use with MATLAB's 'pcg()'
 %     function, such as when solving the I-minimization step of the ADMM
 %     algorithm. The second element is the relative tolerance value for the ADMM
 %     algorithm, as explained in Section 3.3.1 of Boyd et al. 2011. This
-%     function will use the first element when initializing the latent image
-%     `out.I`, and will use the second element to compute an absolute tolerance
+%     function will use the second element to compute an absolute tolerance
 %     for the ADMM algorithm (`out.absolute_tol`).
 %
 % out -- Preallocated arrays and intermediate data
