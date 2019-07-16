@@ -27,7 +27,7 @@ color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_C
 
 % Whether to use white balancing (`true`), or a more advanced colour
 % conversion method (`false`)
-use_chromadapt = true;
+use_chromadapt = false;
 
 if use_chromadapt
     % Path and filename of a '.mat' file containing the illuminant colour

@@ -200,6 +200,9 @@ end
             end
             dataset_d = xylambda(filter_d, :);
             n_d = size(dataset_d, 1);
+            if n_d == 0
+                continue;
+            end
             data_d = data(d);
 
             if strcmp(data_d.type, 'polynomial')

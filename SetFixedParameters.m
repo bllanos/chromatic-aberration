@@ -149,7 +149,7 @@ findSamplingOptions.power_threshold = 0.95;
 % As an alternative to automatically determining the number of spectral
 % bands, according to `findSamplingOptions.power_threshold`, set it
 % explicitly (if the following option is an integer greater than zero).
-findSamplingOptions.n_bands = 0;
+findSamplingOptions.n_bands = 8;
 
 findSamplingOptions.support_threshold = 0.05;
 
