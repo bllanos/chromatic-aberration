@@ -65,7 +65,7 @@ parameters_list = {
 %% Input data and parameters
 
 % Image dimensions (number of rows, number of columns)
-image_sampling = [2048, 2448];
+image_sampling = [342, 408];
 
 % Spectral sampling
 lambda = linspace(350, 750, 250).';
@@ -79,18 +79,16 @@ plot_bound = 6;
 
 % Models of dispersion
 forward_dispersion_model_filenames = {...
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/dispersion/spectral/polynomial_newCV/RAWDiskDispersionResults_spectral_polynomial_fromReference.mat',...
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dispersion/spectral/RAWDiskDispersionResults_spectral_spline_fromReference.mat'
+    fullfile('.', 'demo_data', 'dispersion_models', 'registration', 'RegistrationDispersionResults_spectral_polynomial_fromReference.mat'),...
 };
 
 % Names for the models of dispersion
 names = {
     'Polynomial';
-    'Spline'
 };
 
 % Output directory for all figures and saved parameters
-output_directory = '/home/llanos/Downloads';
+output_directory = '${DIRPATH}';
 
 %% Load dispersion models
 

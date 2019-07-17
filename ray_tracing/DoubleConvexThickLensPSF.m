@@ -26,7 +26,7 @@
 
 % ### Lens parameters
 % Based on
-% '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180226_SmallFLLenses_EdmundOptics/3mmDiameter4dot5mmFLUncoatedDoubleConvexLens_prnt_32022.pdf'
+% '20180226_SmallFLLenses_EdmundOptics/3mmDiameter4dot5mmFLUncoatedDoubleConvexLens_prnt_32022.pdf'
 lens_params.lens_radius = 3 / 2;
 lens_params.axial_thickness = 2;
 lens_params.radius_front = 4.29;
@@ -60,7 +60,7 @@ lens_params.ior_lens = sellmeierDispersion(lens_params.wavelengths, sellmeierCon
 lens_params.ior_lens_reference_index = 2; % Use the green channel
 
 % Obtained using the quantum efficiencies presented in
-% '/home/llanos/GoogleDrive/ThesisResearch/Equipment/FLEA3/20170508_FL3_GE_EMVA_Imaging Performance Specification.pdf'
+% '20170508_FL3_GE_EMVA_Imaging Performance Specification.pdf'
 % Image sensor: Sony ICX655, 2/3", Color (page 19)
 lens_params.wavelengths_to_rgb = sonyQuantumEfficiency(lens_params.wavelengths);
 

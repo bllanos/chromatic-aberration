@@ -26,13 +26,13 @@ parameters_list = {
 
 % Wildcard for 'ls()' to find the input *reflectance* images
 % '.mat' or image files can be loaded
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190130_KAIST_crop/ChoiEtAl2017/*recon.mat';
+input_images_wildcard = '${FILEPATH}';
 
 % Conversion information created by 'Choi2017Input.m'
-conversion_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/preprocessed/Choi2017Input.mat';
+conversion_filename = '${FILEPATH}';
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190130_KAIST_crop/ChoiEtAl2017';
+output_directory = '${DIRPATH}';
 
 %% Load conversion data
 

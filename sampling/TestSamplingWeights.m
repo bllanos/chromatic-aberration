@@ -380,5 +380,5 @@ options.n_bands = 5;
 if length(bands_fixed) ~= options.n_bands
     error('Incorrect number of bands for `options.n_bands = %g`', options.n_bands);
 end
-fprintf('Maximum different between sampling points and their correct values for %g bands:\n', options.n_bands);
+fprintf('Maximum difference between sampling points and their correct values for %g bands:\n', options.n_bands);
 disp(max(abs(bands_fixed - linspace(color_bands(1), color_bands(end), options.n_bands))));

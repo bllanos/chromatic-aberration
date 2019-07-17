@@ -16,10 +16,10 @@
 %% Input data and parameters
 
 % Spectral model of dispersion
-spectral_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/dispersion/RAWDiskDispersionResults_spectral_spline_fromReference.mat';
+spectral_model_filename = fullfile('.', 'demo_data', 'dispersion_models', 'registration', 'RegistrationDispersionResults_spectral_polynomial_fromReference.mat');
 
 % Camera spectral sensitivity data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/dataset/SonyColorMapData.mat';
+color_map_filename = fullfile('.', 'demo_data', 'multispectral_images', 'sensor.mat');
 
 % Threshold in relative sensitivty within a colour channel at which to mark
 % the "edges" of the colour channel in the spectrum
@@ -43,12 +43,12 @@ n_channels = size(sensor_map, 1);
 cutoff_wavelengths = zeros(n_channels, 2);
 for c = 1:n_channels
     channel_thresholded = sensor_map_relative(c, :) > channel_threshold;
-    index = find(channel_thresholded, 1);
+    index = max(find(channel_thresholded, 1), 2);
     cutoff_wavelengths(c, 1) = (cutoff_wavelength_sensitivites(c) - sensor_map(c, index - 1))...
         * (bands(index) - bands(index - 1))...
         / (sensor_map(c, index) - sensor_map(c, index - 1))...
         + bands(index - 1);
-    index = find(channel_thresholded, 1, 'last') + 1;
+    index = min(find(channel_thresholded, 1, 'last') + 1, length(bands));
     cutoff_wavelengths(c, 2) = (cutoff_wavelength_sensitivites(c) - sensor_map(c, index - 1))...
         * (bands(index) - bands(index - 1))...
         / (sensor_map(c, index) - sensor_map(c, index - 1))...

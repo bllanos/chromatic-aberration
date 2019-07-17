@@ -7,12 +7,9 @@
 %
 % ## Input
 %
-% The image file 'FL3_GE_50S5C_quantumEfficiencyData.png' was copied from
-% the FLIR FLEA3 GigE Vision Imaging Performance Specification document
-% (saved as
-% '/home/llanos/GoogleDrive/ThesisResearch/Equipment/FLEA3/20170508_FL3_GE_EMVA_Imaging
-% Performance Specification.pdf', and downloaded from
-% https://www.ptgrey.com/). The image contains quantum efficiency data for
+% The image file 'FL3_GE_50S5C_quantumEfficiencyData.png' was copied from the
+% FLIR FLEA3 GigE Vision Imaging Performance Specification document (downloaded
+% from https://www.ptgrey.com/). The image contains quantum efficiency data for
 % the Sony ICX655, 2/3" sensor used in FL3-GE-50S5C-C cameras.
 %
 % FLIR was unwilling to provide numerical data to supplement the graph, and

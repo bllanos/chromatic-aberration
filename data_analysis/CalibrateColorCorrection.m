@@ -117,17 +117,17 @@ parameters_list = {
 %% Input data and parameters
 
 % Label image (an image file, not a '.mat' file)
-color_label_filename = 'C:\Users\GraphicsLab\Documents\llanos\Data\20190208_ComputarLens\d2_colorChecker30cm_unfiltered_background0_patches1to24_frame25.png';
+color_label_filename = fullfile('.', 'demo_data', 'colorChecker_labels', 'd2_colorChecker30cm_d3_green_labels.png');
 
 % Raw image of the ColorChecker ('.mat' or image files can be loaded)
-reference_filename = 'C:\Users\GraphicsLab\Documents\llanos\Results\Copied elsewhere\20190208_ComputarLens\dataset\exposure_blending\d2_colorChecker30cm_unfiltered.mat';
+reference_filename = fullfile('.', 'demo_data', 'multispectral_images', 'd2_colorChecker30cm_raw.mat');
 reference_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % CIE tristimulus functions
-xyzbar_filename = 'C:\Users\GraphicsLab\Documents\llanos\Data\20180614_ASTM_E308\Table1_CIE1931_2DegStandardObserver.csv';
+xyzbar_filename = '${FILEPATH}';
 
 % Sample spectral reflectances
-reflectances_filename = 'C:\Users\GraphicsLab\Documents\llanos\Data\20180626_SpectralCharacterizationOfSetup\spectra_averaged.csv';
+reflectances_filename = fullfile('.', 'demo_data', 'spectral_data', 'spectra_averaged.csv');
 
 % Categorization of the samples in the file of reflectances
 reflectance_data_patch_columns = 13:36;
@@ -153,13 +153,13 @@ neutral_index = 20; % Use the white patch, unless it is saturated
 centroid_patch_width = 15;
 
 % Output directory
-output_directory = 'C:\Users\GraphicsLab\Documents\llanos\Results';
+output_directory = fullfile('.', 'demo_data', 'color_correction');
 
 % ## Parameters which do not usually need to be changed
 run('SetFixedParameters.m')
 
 % ## Debugging Flags
-vignettingPolyfitVerbose = true;
+vignettingPolyfitVerbose = false;
 
 %% Parameter checking
 

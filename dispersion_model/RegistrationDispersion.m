@@ -133,12 +133,12 @@ parameters_list = {
 % Images can either be spectral images, or demosaiced colour images,
 % although the latter type of images may not give good results because of
 % demosaicing artifacts.
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/channel_scaling/*disks32cm*_dHyper.mat';
+input_images_wildcard = fullfile('.', 'demo_data', 'multispectral_images', '*colorChecker30cm*_dHyper.mat');
 input_images_variable_name = 'I_hyper'; % Used only when loading '.mat' files
 
 % Model of dispersion to use as an initial guess
 % Can be empty
-forward_dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/dispersion/spectral/polynomial_newCV/RAWDiskDispersionResults_spectral_polynomial_fromReference.mat';
+forward_dispersion_model_filename = [];
 
 % ## Spectral information
 
@@ -157,15 +157,15 @@ if rgb_mode
 else
     % Path and filename of a '.mat' file containing the wavelengths corresponding to
     % the spectral image.
-    bands_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/channel_scaling/sensor.mat';
+    bands_filename = fullfile('.', 'demo_data', 'multispectral_images', 'sensor.mat');
     bands_variable = 'bands'; % Variable name in the above file
-    reference_wavelength = 587.6;
+    reference_wavelength = 550;
 end
 
 % ## Patch-wise image registration
 % (Options for 'registerPatches()')
 
-reg_patch_options = struct('patch_size', [64, 64], 'padding', 16);
+reg_patch_options = struct('patch_size', [64, 64], 'padding', 32);
 % Useful for debugging
 % reg_patch_options.target_patch = [1405, 271];
 
@@ -188,8 +188,8 @@ dispersion_fieldname = 'center';
 fill_image = true;
 
 % Parameters for polynomial model fitting
-max_degree_xy_dispersion = 12;
-max_degree_lambda = 12;
+max_degree_xy_dispersion = 6;
+max_degree_lambda = 6;
 
 % Parameters for spline model fitting
 spline_smoothing_options = struct(...
@@ -201,17 +201,17 @@ spline_smoothing_options = struct(...
 );
 
 % Which models of dispersion to generate?
-model_type_choices = {'spline', 'polynomial'};
+model_type_choices = {'polynomial'}; %{'spline', 'polynomial'};
 model_from_reference_choices = [true, false];
 
 % ## Output directory
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/dispersion/spectral/registration_polynomial_newCV';
+output_directory = fullfile('.', 'demo_data', 'dispersion_models', 'registration');
 
 % ## Debugging Flags
 registerPatchesVerbose = true;
 
-statsToDisparityVerbose.display_raw_values = true;
-statsToDisparityVerbose.display_raw_disparity = true;
+statsToDisparityVerbose.display_raw_values = false;
+statsToDisparityVerbose.display_raw_disparity = false;
 statsToDisparityVerbose.filter = struct(...
     dispersion_fieldname, true...
 );
@@ -233,7 +233,7 @@ if ~rgb_mode
     
     % `bands_to_rgb` is used for visualization purposes only, and so does
     % not need to be accurate
-    bands_to_rgb = sonyQuantumEfficiency(bands);
+    bands_to_rgb = jet(n_bands); %sonyQuantumEfficiency(bands);
     % Normalize, for improved colour saturation
     bands_to_rgb = bands_to_rgb ./ max(max(bands_to_rgb));
 end
@@ -263,8 +263,8 @@ for g = 1:n_images
 
     I = loadImage(image_filenames{g}, input_images_variable_name);
     if isempty(image_size)
-        image_size = size(I);
-    elseif any(image_size ~= size(I))
+        image_size = [size(I, 1), size(I, 2)];
+    elseif any(image_size ~= [size(I, 1), size(I, 2)])
         error('Not all images have the same dimensions.');
     end
     

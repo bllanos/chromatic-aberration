@@ -167,12 +167,12 @@ parameters_list = {
 
 % Wildcard for 'ls()' to find the images to process. All images are
 % expected to be in one directory.
-input_images_wildcard = 'C:\Users\GraphicsLab\Documents\llanos\Results\Copied elsewhere\20190208_ComputarLens\dataset\exposure_blending\*nm.mat';
+input_images_wildcard = fullfile('.', 'demo_data', 'hdr_averaged_images', '*nm.mat');
 input_images_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % Wildcard for 'ls()' to find the images used to calibrate the relative spectral
 % sensitivity. All images are expected to be in one directory.
-reference_images_wildcard = 'C:\Users\GraphicsLab\Documents\llanos\Results\Copied elsewhere\20190208_ComputarLens\dataset\exposure_blending\*nm.mat';
+reference_images_wildcard = fullfile('.', 'demo_data', 'hdr_averaged_images', '*nm.mat');
 reference_images_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % Wavelengths will be expected within filenames, extracted using this
@@ -189,7 +189,7 @@ range = [0, 0.95];
 use_bias = false;
 
 % ## Output directory
-output_directory = 'C:\Users\GraphicsLab\Documents\llanos\Results\channel_scaling';
+output_directory = fullfile('.', 'demo_data', 'multispectral_images');
 
 % ## Colour conversion parameters
 run('SetFixedParameters.m')

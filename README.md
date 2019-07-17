@@ -22,6 +22,12 @@
   on image datasets
 - Scripts for visualizing and analyzing the results
 
+## Citation
+- If you use this work, you may cite the following thesis, available at
+  https://era.library.ualberta.ca/
+
+B. Llanos. "Chromatic Aberration Correction and Spectral Reconstruction from Colour Images." M.Sc. thesis, University of Alberta, Canada, 2019.
+
 ## Environment
 - MATLAB R2018b was used for development, but other MATLAB releases will likely
   work.
@@ -46,7 +52,7 @@
 - A full list of dependencies for individual files can be determined as
   described at https://www.mathworks.com/help/matlab/matlab_prog/identify-dependencies.html
 
-### Third-party dependencies
+### Third-party code dependencies
 - All third-party dependencies are either optional, or are easily ommitted
   through minor modifications to the codebase.
 - Third-party dependencies should be added to the MATLAB path, after being
@@ -100,15 +106,57 @@
 - Optional dependency, used by [evaluation/RunOnDataset.m]() only when enabled
   in [evaluation/SetAlgorithms.m](). Also used by [data_analysis/TuneSunEtAl2017.m]().
 
+### Third-party data dependencies
+- All demos in [demo_data/README.md]() do not require third-party data.
+
+#### CIE 1931 Standard (2-degree) Observer spectral tristimulus functions
+- These functions were retrieved from Table 1 of the ASTM E308 standard
+  (cited below) and saved as a CSV file.
+- In the CSV file, the first column contained wavelength values, and the
+  following three columns contained the values of the 'x-bar', 'y-bar',
+  and 'z-bar' functions, respectively.
+- The data is loaded into the `xyzbar` variable in many scripts.
+
+#### Spectral Power Distribution of a CIE D-Illuminant
+- Data used for synthesizing the spectral radiance of a CIE D-illuminant
+  for an arbitrary correlated colour temperature was retrieved from Bruce Lindbloom's
+  website (cited below).
+- The original spreadsheet file published by Bruce Lindbloom was converted
+  to a CSV file, where the first column contained wavelength values, and the
+  following three columns contained the values of the 'S0', 'S1', and 'S2'
+  functions, respectively.
+- The data is loaded by several scripts as input for the [aberration_data/ciedIlluminant.m]()
+  function.
+
+#### ColorChecker spectral reflectances
+- Spectral reflectance measurements of the patches of the average X-Rite ColorChecker
+  chart from Danny Pascale's website (cited below) were used before in-house
+  spectral reflectance measurements were available
+  (saved as [demo_data/spectral_data/spectra_averaged.csv]()).
+- The reflectance data was stored in a CSV file, where the first column contained
+  wavelength values, and the following 24 columns contained the spectral reflectances
+  of the 24 ColorChecker CLASSIC patches.
+- It would be easy to create an equivalent file from
+  [demo_data/spectral_data/spectra_averaged.csv]() to use instead in most places.
+- Presently, only [aberration_data/BimaterialImages.m](),
+  [data_analysis/ColorCheckerClassicPreNov2014.m](), and
+  [data_analysis/SpectralDataJune262018.m]() rely on this data.
+
 ## Setup
 - Add all folders and subfolders to the MATLAB path, excluding [.git/]() and [deprecated/]().
 
 ## Basic usage instructions
-- Files starting with capital letters are MATLAB scripts, which can be used
-  as described in their documentation comments.
+- To run predefined demos, see [demo_data/README.md]().
+- Files with names starting with capital letters are MATLAB scripts, and can
+  be used as described in their documentation comments.
 - Remaining files are MATLAB functions called by the scripts.
   There are a few MATLAB functions used for ad-hoc analysis for which no scripts
   have yet been created to call them.
+- The tokens `${DIRPATH}` and `${FILEPATH}` that appear in character vector
+  literals need to be replaced with directory paths and file paths, respectively,
+  that are specific to your data file locations. Some directory and file paths
+  are presently set to point to the demo data in [./demo_data/](), but can be
+  changed to point to your data.
 
 ## Tips
 - Raw colour-filter array images as used in this codebase are truly raw. No gamma
@@ -119,6 +167,11 @@
 - Running more parallel workers will increase memory consumption, but not
   excessively. The code has been designed to avoid having MATLAB send
   redundant data to parallel workers.
+- If you want to run the code on your own dataset of images, adjust parameters
+  in [SetFixedParameters.m](). The following parameters are most relevant:
+  - `bayer_pattern`
+  - `findSamplingOptions`
+  - `dispersionfunToMatrixOptions.resolution`
 
 ### Troubleshooting
 
@@ -228,6 +281,8 @@
     of the output of other code in the repository. In particular, there are
     scripts for creating colour-corrected images. There are also scripts created
     for tangential or one-time experiments.
+  - 'demo_data': Sample data for testing the codebase, and sample results on the
+    demo data.
   - 'deprecated': Unmaintained code, that is no longer called by the programs
     in other folders. Code in this folder is present for archival purposes only.
   - 'disk_fitting': Disk keypoint-based calibration of lateral chromatic aberration,
@@ -327,6 +382,10 @@ G. Finlayson, H. Gong, and R. B. Fisher, “Color homography: Theory
 and applications,” IEEE Transactions on Pattern Analysis and Ma-
 chine Intelligence, vol. 41, no. 1, pp. 20–33, 2019.
 doi: 10.1109/TPAMI.2017.2760833.
+
+FLIR. (Jan. 27, 2017). FLIR FLEA3 GigE Vision Imaging Performance
+Specification. version 1.1, [Online]. Available:
+https://www.ptgrey.com/support/downloads/10109 (visited on 05/08/2017).
 
 D.H. Foster. (2018). Tutorial on Transforming Hyperspectral Images to
 RGB Colour Images, [Online].

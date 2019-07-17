@@ -132,16 +132,16 @@ parameters_list = {
 
 % Wildcard for 'ls()' to find the images to process.
 % '.mat' or image files can be loaded
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/channel_scaling/*_dHyper.mat';
-input_images_variable_name = 'I_hyper'; % Used only when loading '.mat' files
+input_images_wildcard = fullfile('.', 'demo_data', 'multispectral_images', 'd1_disks32cmV2_d3.mat');
+input_images_variable_name = 'I_3'; % Used only when loading '.mat' files
 
 % Whether the input images are spectral images or colour images
-is_spectral = true;
+is_spectral = false;
 
 % Colour space conversion data
 convert_to_color = false; % Whether or not to convert images to a different colour space
 if convert_to_color
-    color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/channel_scaling/sensor.mat';
+    color_map_filename = '${FILEPATH}';
 else
     color_map_filename = []; % Unused
 end
@@ -153,7 +153,7 @@ if is_spectral
     % The file must contain a vector, `bands`, of wavelengths corresponding to the
     % spectral bands of the spectral images. It must also contain a variable,
     % `findSamplingOptions`, such as defined in 'SetFixedParameters.m'.
-    sampling_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dHyper_dispersion/RunOnDataset_20190421_ComputarLens_dHyper_dispersion.mat';
+    sampling_filename = fullfile('.', 'demo_data', 'multispectral_images', 'sensor.mat');
     
     % Whether or not to prevent spectral resampling and interpolation during
     % warping. When `disable_interpolation` is `true`, the `options` input
@@ -167,10 +167,10 @@ else
 end
 
 % Model of dispersion
-forward_dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dispersion/spectral/full_image/RAWDiskDispersionResults_spectral_polynomial_fromReference.mat';
+forward_dispersion_model_filename = fullfile('.', 'demo_data', 'dispersion_models', 'disk_fitting', 'RAWDiskDispersionResults_RGB_polynomial_fromReference.mat');
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/warping_filtered_images/bandpassFiltered_warpCorrected_asSpectralImages';
+output_directory = fullfile('.', 'demo_data', 'aberration_correction');
 
 % Parameters which do not usually need to be changed. Some of these
 % parameters will be overridden by the input data.
@@ -234,8 +234,12 @@ elseif is_spectral && ~disable_interpolation
         'interpolant_ref', findSamplingOptions.interpolant_ref,...
         'bands_in', bands...
     );
-else
+elseif is_spectral
     dispersion_options = struct('bands_in', bands);
+else
+    n_channels_rgb = 3;
+    bands_rgb = 1:n_channels_rgb;
+    dispersion_options = struct('bands_in', bands_rgb);
 end
 
 %% Process the images

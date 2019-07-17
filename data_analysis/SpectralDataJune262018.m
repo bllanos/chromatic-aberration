@@ -63,18 +63,18 @@
 %% Input data and parameters
 
 % CIE D-illuminant
-illuminant_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180604_Spectral power distributions_BruceLindbloom/DIlluminants.csv';
+illuminant_filename = '${FILEPATH}';
 illuminant_temperature = 5003; % From https://en.wikipedia.org/wiki/Standard_illuminant#Illuminant_series_D
 
 % CIE tristimulus functions
-xyzbar_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180614_ASTM_E308/Table1_CIE1931_2DegStandardObserver.csv';
+xyzbar_filename = '${FILEPATH}';
 
 % Sample spectral reflectances
-reflectances_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180626_SpectralCharacterizationOfSetup/spectra_named.csv';
+reflectances_filename = '${FILEPATH}';
 
 % Comparison data, collected prior to November 2014, by Danny Pascale
 % (cited above)
-reference_reflectances_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180604_ColorCheckerSpectralData_BabelColor/ColorChecker_spectra_reformatted_llanos.csv';
+reference_reflectances_filename = '${FILEPATH}';
 
 % Categorization of the samples
 indices.bandpass_filters = 2:9;

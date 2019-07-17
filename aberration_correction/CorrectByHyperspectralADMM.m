@@ -183,18 +183,18 @@ parameters_list = {
 
 % Wildcard for 'ls()' to find the images to process.
 % '.mat' or image files can be loaded
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/exposure_blending/d2_colorChecker30cm_unfiltered.mat';
+input_images_wildcard = fullfile('.', 'demo_data', 'multispectral_images', 'd1_disks32cmV2_raw.mat');
 input_images_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % Model of dispersion
 % Can be empty
-reverse_dispersion_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dispersion/spectral/full_image/RAWDiskDispersionResults_spectral_polynomial_fromNonReference.mat';
+reverse_dispersion_model_filename = fullfile('.', 'demo_data', 'dispersion_models', 'disk_fitting', 'RAWDiskDispersionResults_spectral_polynomial_fromNonReference.mat');
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/SonyColorMapData.mat';
+color_map_filename = fullfile('.', 'demo_data', 'multispectral_images', 'sensor.mat');
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/Downloads';
+output_directory = fullfile('.', 'demo_data', 'aberration_correction');
 
 % ## Options for patch-wise image estimation
 
@@ -202,14 +202,14 @@ output_directory = '/home/llanos/Downloads';
 % column) location. If empty (`[]`), the entire image will be estimated. The
 % patch corner indices must be odd integers to avoid creating a patch with a
 % different colour filter array pattern from the whole image.
-target_patch = [1405, 271];
+target_patch = [];
 
 % Only select regularization weights for a single patch, with its top-left
 % corner at the given (row, column) location. If empty (`[]`), regularization
 % weights will be selected for each patch separately. (THIS IS SLOW) Again, the
 % patch corner indices must be odd integers to avoid creating a patch with a
 % different colour filter array pattern from the whole image.
-target_patch_weights = [1405, 271];
+target_patch_weights = [99, 99];
 
 % Also compare with (or only run) whole image estimation, meaning that the image
 % is treated as a single patch. Only enable this for small images.

@@ -13,7 +13,7 @@
 
 %% Parameters
 
-directory = '/home/llanos/GoogleDrive';
+directory = '.';
 
 %% Processing
 

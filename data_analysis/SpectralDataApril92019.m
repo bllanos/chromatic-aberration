@@ -10,10 +10,10 @@
 
 % Sample spectra
 radiance_filenames = {
-    '/home/llanos/GoogleDrive/ThesisResearch/Data/20190407_ColorChecker_GoSpectro/goSpectro_colorChecker.csv';
-    '/home/llanos/GoogleDrive/ThesisResearch/Data/20190409_ColorChecker_bookScene_GoSpectro/goSpectro_colorChecker.csv';
-    '/home/llanos/GoogleDrive/ThesisResearch/Data/20190409_ColorChecker_bookScene_GoSpectro/goSpectro_bookScene.csv';
-    '/home/llanos/GoogleDrive/ThesisResearch/Data/20190409_ColorChecker_bookScene_GoSpectro/goSpectro_projector.csv'
+    '${FILEPATH}';
+    '${FILEPATH}';
+    '${FILEPATH}';
+    '${FILEPATH}'
 };
 
 % Names for plots

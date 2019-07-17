@@ -153,7 +153,7 @@ narginchk(4, 5);
 is_raw = false;
 verbose = false;
 if ~isempty(varargin)
-    is_raw = (isStringScalar(varargin{1}) || ~ischar(varargin{1}));
+    is_raw = (isStringScalar(varargin{1}) || ischar(varargin{1}));
     if is_raw
         align = varargin{1};
         if length(varargin) > 1

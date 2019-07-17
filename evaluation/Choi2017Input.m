@@ -41,37 +41,37 @@ parameters_list = {
 
 % Wildcard for 'ls()' to find the input *reflectance* images
 % '.mat' or image files can be loaded
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/cropped/*reflectance.mat';
+input_images_wildcard = '${FILEPATH}';
 input_images_variable_name = 'I_hyper'; % Used only when loading '.mat' files
 
 % A crop box for the images (leave empty for no cropping)
 crop = []; % [top-left x, top-left y, width, height]
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/NikonD5100ColorMapData.mat';
+color_map_filename = '${FILEPATH}';
 
 % Path and filename of a '.mat' file containing the wavelengths or colour
 % channel indices corresponding to the images
-bands_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/wavelengths.mat';
+bands_filename = '${FILEPATH}';
 bands_variable = 'bands'; % Variable name in the above file
 
 % Path and filename of a '.mat' file containing the wavelengths or colour
 % channel indices corresponding to the images that will be estimated by the
 % code from Choi et al. 2017
-desired_bands_filename = '/home/llanos/GoogleDrive/ThesisResearch/OthersCode/2017_Choi_et_al_highQualityHyperspectralReconstructionUsingASpectralPrior_ACMTransGraphics/inputs/synthetic/KAIST/scene01.mat';
+desired_bands_filename = '${FILEPATH}';
 desired_bands_variable = 'wvls2b'; % Variable name in the above file
 
 % ## Parameters for creating radiance images
 
 % CIE D-illuminant
-illuminant_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180604_Spectral power distributions_BruceLindbloom/DIlluminants.csv';
+illuminant_filename = '${FILEPATH}';
 illuminant_temperature = 6504; % From https://en.wikipedia.org/wiki/Standard_illuminant#Illuminant_series_D
 
 % Colour channel to use for radiance normalization
 normalization_channel = 2;
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_highQualityHyperspectralReconstructionUsingASpectralPrior_LCTFSystem/preprocessed';
+output_directory = '${DIRPATH}';
 
 % Set the Bayer pattern code, and spectral resampling options
 run('SetFixedParameters.m')

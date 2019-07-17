@@ -58,12 +58,11 @@ win_sz = logspace(log10(0.0016), log10(0.2), 20);
 % ## Testing parameters
 
 % Wildcard for 'ls()' to find the label image (an image file, not a '.mat' file)
-label_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/exposure_blending/d2_colorChecker30cm_unfiltered_background0_patches1to24_frame25.png';
+label_wildcard = fullfile('.', 'demo_data', 'colorChecker_labels', 'd2_colorChecker30cm_d3_green_labels.png');
 
 % Wildcard for 'ls()' to find the input image to process.
 % '.mat' or image files can be loaded
-input_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/colorChecker_preprocessed/d2_colorChecker30cm_unfiltered_vc.mat';
-%input_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/exposure_blending/d2_colorChecker30cm_unfiltered.mat';
+input_wildcard = fullfile('.', 'demo_data', 'multispectral_images', 'd2_colorChecker30cm_raw.mat');
 input_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % Width of the evaluation region in pixels
@@ -77,7 +76,7 @@ quantiles = [0.01, 0.99];
 split_image = true;
 
 % Output directory
-output_directory = '/home/llanos/Downloads/sun2017_parameter_matrix';
+output_directory = '${DIRPATH}';
 
 % ## Parameters which do not usually need to be changed
 run('SetFixedParameters.m')
@@ -151,7 +150,7 @@ saveImages(...
 
 %% Test all combinations of parameters for Krishnan et al. 2011
 
-n_kernel_sz = length(krishnan2011Options.kernel_sz);
+n_kernel_sz = length(krishnan2011Options.kernel_size);
 n_min_lambda = length(min_lambda);
 error_krishnan = zeros(n_kernel_sz, n_min_lambda);
 
@@ -161,7 +160,7 @@ krishnan_opts.blur = I_rgb(:, :, sun2017Options.reference_channel_index);
 min_error = Inf;
 
 for i = 1:n_kernel_sz
-    kernel_sz_i = krishnan2011Options.kernel_sz;
+    kernel_sz_i = krishnan2011Options.kernel_size;
     krishnan_opts.kernel_size = kernel_sz_i;
     
     for j = 1:n_min_lambda
@@ -189,12 +188,12 @@ for i = 1:n_kernel_sz
         I_out_remapped = clipAndRemap(I_deblur_ij, 'uint8', 'quantiles', quantiles);
         saveImages(...
             'image', output_directory, I_out_filename,...
-            I_out_remapped, sprintf('_kernel%g_minLambda%g', krishnan2011Options.kernel_sz, min_lambda(j)), []...
+            I_out_remapped, sprintf('_kernel%g_minLambda%g', krishnan2011Options.kernel_size, min_lambda(j)), []...
         );
     end
 end
 
-[kernel_sz_grid, min_lambda_grid] = ndgrid(krishnan2011Options.kernel_sz, min_lambda);
+[kernel_sz_grid, min_lambda_grid] = ndgrid(krishnan2011Options.kernel_size, min_lambda);
 
 fg = figure;
 hold on

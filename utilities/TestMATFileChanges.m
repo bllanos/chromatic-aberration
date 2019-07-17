@@ -19,8 +19,8 @@
 clc;
 clear;
 
-dir_1 = '/home/llanos/Downloads/old';
-dir_2 = '/home/llanos/Downloads/new';
+dir_1 = '${DIRPATH}';
+dir_2 = '${DIRPATH}';
 
 %% Test for identical filenames
 

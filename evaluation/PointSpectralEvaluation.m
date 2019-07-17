@@ -140,24 +140,10 @@ parameters_list = {
 % A list of filenames of spectral images to evaluate.
 % '.mat' or image files can be loaded
 images_filenames = {
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/channel_scaling/d2_colorChecker30cm_dHyper.mat';
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_MATFiles/d2_colorChecker30cm_bands6_L2NonNeg_DMfw_latent.mat';...
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_MATFiles/d2_colorChecker30cm_bands6_L1NonNeg_DMfw_latent.mat';...
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/d2_colorChecker30cm_bands8_L2NonNeg_DMfw_latent.mat';...
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/d2_colorChecker30cm_bands8_L1NonNeg_DMfw_latent.mat';...
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/d2_colorChecker30cm_bands8_Lap2NonNeg_DMfw_latent.mat';...
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/d2_colorChecker30cm_bands8_L1SpatialLap2NonNeg_DMfw_latent.mat';...
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/d2_colorChecker30cm_bands8_Lap1NonNeg_DMfw_latent.mat';...
+    '${FILEPATH}'...
 };
 % Variables used only when loading '.mat' files
 images_variables = {
-    'I_hyper';
-    'I_latent';
-    'I_latent';
-    'I_latent';
-    'I_latent';
-    'I_latent';
-    'I_latent';
     'I_latent'
 };
 
@@ -165,38 +151,24 @@ images_variables = {
 % bands in the spectral images. Either one file can be given, or one file per
 % image.
 bands_filenames = {
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/channel_scaling/sensor.mat';
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_dispersion/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_dispersion/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
-    '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dispersion_ignoreDispersionWeights/RunOnDataset_20190208_ComputarLens_rawCaptured_dispersion.mat';
+    '${FILEPATH}'
 };
 bands_variable = 'bands'; % Variable name in the above files
 
 % Interpolation functions to use when resampling the spectral images to
 % different spectral resolutions.
 images_interpolants = {
-    @triangle;
-    @gaussian;
-    @gaussian;
-    @gaussian;
-    @gaussian;
-    @gaussian;
-    @gaussian;
-    @gaussian
+    @triangle
 };
 
 % Filename of a '.mat' file containing the image locations corresponding to the
 % measured spectra
-location_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/colorChecker_preprocessed/d2_colorChecker30cm_patchCenters.mat';
+location_filename = '${FILEPATH}';
 location_variable = 'patch_centers'; % Variable name in the file
 
 % Label image for vignetting calibration (an image file, not a '.mat' file).
 % Can be empty (`[]`), in which case vignetting correction will not be used.
-vignetting_mask_filename = []; %'/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/colorChecker_preprocessed/unfiltered/d2_colorChecker30cm_unfiltered_background0_patches1to24_frame25.png';
+vignetting_mask_filename = [];
 vignetting_mask_label = 25; % The value of pixels which are to be used to calibrate vignetting
 
 % Maximum degree of the polynomial model of vignetting
@@ -210,28 +182,17 @@ vignetting_erosion_radius = 3;
 % calibrate vignetting. Zero elements are interpreted to mean that vignetting
 % correction should be calibrated separately for each band.
 vignetting_calibration_bands = [
-    0;
-    3;
-    2;
-    2;
-    4;
-    4;
-    4;
-    4
+    0
 ];
 
 % Measured spectra CSV files, with the reference set's filename given first
 spectra_filenames = {
-    '/home/llanos/GoogleDrive/ThesisResearch/Data/20180626_SpectralCharacterizationOfSetup/spectra_averaged.csv';
-    '/home/llanos/GoogleDrive/ThesisResearch/Data/20190411_ColorChecker_GoSpectro_Indoors/goSpectro_colorChecker_workLamps1.csv';
-    '/home/llanos/GoogleDrive/ThesisResearch/Data/20190411_ColorChecker_GoSpectro_Indoors/goSpectro_colorChecker_workLamps2.csv'
+    fullfile('.', 'demo_data', 'spectral_data', 'spectra_averaged.csv')
 };
 
 % Indices of the columns of interest in the CSV files
 spectra_data_columns = {
-    13:36;
-    2:25;
-    2:25
+    13:36
 };
 
 % Wavelength range to truncate spectral measurements to
@@ -252,7 +213,7 @@ patch_side_length = 15;
 output_filename = 'colorChecker';
 
 % Output directory
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190610_ThesisResults_CopiedImages/point_spectral_evaluation';
+output_directory = '${DIRPATH}';
 
 % ## Parameters which do not usually need to be changed
 run('SetFixedParameters.m')

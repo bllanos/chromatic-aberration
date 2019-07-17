@@ -155,6 +155,7 @@ for k = 1:n_plot
     quiver3(dataset(:, 1), dataset(:, 2), disparity_points_mag, disparity_points(:, 1), disparity_points(:, 2), zeros(size(disparity_points_mag)), 'r');
     quiver3(dataset(:, 1), dataset(:, 2), disparity_points_mag_dataset, dataset(:, 4), dataset(:, 5), zeros(size(disparity_points_mag_dataset)), 'g');
     hold off
+    axis ij;
     xlabel('Image x-coordinate')
     ylabel('Image y-coordinate')
     if channel_mode
@@ -179,6 +180,7 @@ for k = 1:n_plot
     quiver(dataset(:, 1), dataset(:, 2), disparity_points(:, 1), disparity_points(:, 2), 'r');
     quiver(dataset(:, 1), dataset(:, 2), dataset(:, 4), dataset(:, 5), 'g');
     hold off
+    axis ij;
     xlabel('Image x-coordinate')
     ylabel('Image y-coordinate')
     legend('Model', 'Model', 'Measured dispersion');
@@ -210,6 +212,7 @@ hold on
 quiver3(dataset(:, 1), dataset(:, 2), dataset(:, 3), disparity_points(:, 1), disparity_points(:, 2), zeros(size(disparity_points, 1), 1), 'r');
 quiver3(dataset(:, 1), dataset(:, 2), dataset(:, 3), dataset(:, 4), dataset(:, 5), zeros(size(disparity_points, 1), 1), 'g');
 hold off
+axis ij;
 xlabel('Image x-coordinate')
 ylabel('Image y-coordinate')
 if channel_mode

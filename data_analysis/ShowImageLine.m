@@ -132,7 +132,7 @@ parameters_list = {
 % Wildcard for 'ls()' to find the reference spectral images. At least one image
 % must be found, unless there are no spectral images to evaluate (in which case
 % the wildcard can be replaced with `[]`). '.mat' or image files can be loaded.
-reference_spectral_wildcard = '/home/llanos/Downloads/testing/reference/spectral/*.mat';
+reference_spectral_wildcard = '${FILEPATH}';
 reference_spectral_variable_name = 'I_hyper'; % Used only when loading '.mat' files
 
 % Names for the reference spectral images, used in figures
@@ -140,7 +140,7 @@ names_spectral = {'Captured', 'Unwarped'};
 
 % Wildcard for 'ls()' to find the reference colour images. At least one image
 % must be found. '.mat' or image files can be loaded.
-reference_color_wildcard = '/home/llanos/Downloads/testing/reference/rgb/*.mat';
+reference_color_wildcard = '${FILEPATH}';
 reference_color_variable_name = 'I_rgb'; % Used only when loading '.mat' files
 
 % Names for the reference colour images, used in figures
@@ -148,34 +148,34 @@ names_color = {'Captured', 'RGB unwarped', 'Spectral unwarped'};
 
 % Path and filename of a '.mat' file containing the wavelengths corresponding to
 % the reference spectral images
-bands_filename_reference = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/channel_scaling/sensor.mat';
+bands_filename_reference = '${FILEPATH}';
 bands_variable_reference = 'bands'; % Variable name in the above file
 
 % Path and filename of a colour-corrected image to be used to produce a figure
 % annotated with the line segment. ('.mat' or image files can be loaded)
-annotation_image_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/warping_filtered_images/bandpassFiltered_correctedRGB/d2_book_dHyper_correctedRGB.tif';
+annotation_image_filename = '${FILEPATH}';
 annotation_image_variable_name = []; % Used only when loading '.mat' files
 
 % Path and filename of a '.mat' file containing the wavelengths corresponding to
 % the estimated spectral images
-sampling_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_dHyper_dispersion/RunOnDataset_20190421_ComputarLens_dHyper_dispersion.mat';
+sampling_filename = '${FILEPATH}';
 
 % Path and filename of a '.mat' file containing the wavelengths to be used for
 % plotting
-bands_filename_plot = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/channel_scaling/sensor.mat';
+bands_filename_plot = '${FILEPATH}';
 bands_variable_plot = 'bands'; % Variable name in the above file
 
 % Wildcard for 'ls()' to find the estimated spectral images to process (can be
 % empty). '.mat' or image files can be loaded.
-spectral_wildcard = '/home/llanos/Downloads/testing/estimated/spectral/*.mat';
+spectral_wildcard = '${FILEPATH}';
 spectral_variable_name = 'I_latent'; % Used only when loading '.mat' files
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/channel_scaling/sensor.mat';
+color_map_filename = '${FILEPATH}';
 
 % Wildcard for 'ls()' to find the estimated colour images to process (can be
 % empty). '.mat' or image files can be loaded.
-color_wildcard = '/home/llanos/Downloads/testing/estimated/rgb/*.mat';
+color_wildcard = '${FILEPATH}';
 color_variable_name = 'I_rgb'; % Used only when loading '.mat' files
 
 % The image line segment to analyze (start pixel column, start pixel row, end
@@ -197,7 +197,7 @@ output_width = 9.5;
 output_margin = [0.25, 0.25];
 
 % Output directory
-output_directory = '/home/llanos/Downloads/testing';
+output_directory = '${DIRPATH}';
 
 %% Load wavelengths and spectral to colour conversion information
 

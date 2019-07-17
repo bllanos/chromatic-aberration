@@ -24,13 +24,13 @@ parameters_list = {};
 %% Input data and parameters
 
 % Model of spectral dispersion
-spectral_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/dispersion/spectral/polynomial_newCV/RAWDiskDispersionResults_spectral_polynomial_fromNonReference.mat';
+spectral_model_filename = fullfile('.', 'demo_data', 'dispersion_models', 'disk_fitting', 'RAWDiskDispersionResults_spectral_polynomial_fromNonReference.mat');
 
 % Model of colour dispersion
-color_model_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dispersion/rgb/full_image/RAWDiskDispersionResults_RGB_polynomial_fromNonReference.mat';
+color_model_filename = fullfile('.', 'demo_data', 'dispersion_models', 'disk_fitting', 'RAWDiskDispersionResults_RGB_polynomial_fromNonReference.mat');
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/SonyColorMapData.mat';
+color_map_filename = fullfile('.', 'demo_data', 'multispectral_images', 'sensor.mat');
 
 % Upper bound on the image position shift caused by dispersion. This will become
 % the patch half-side length (rounded down to the nearest integer).
@@ -40,13 +40,13 @@ dispersion_size = 5; % pixels
 magnification = 8;
 
 % (row, column) pixel indices in the image at which to evaluate dispersion
-location = [1526, 1963];
+location = [99, 99];
 
 % The size of the whole image (height, width)
-image_sampling = [2048, 2448];
+image_sampling = [344, 408];
 
 % Sample spectral reflectances
-reflectances_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180626_SpectralCharacterizationOfSetup/spectra_averaged.csv';
+reflectances_filename = fullfile('.', 'demo_data', 'spectral_data', 'spectra_averaged.csv');
 
 % Which samples to use from the file of reflectances
 reflectance_columns = 13:36; % All samples, used for colour calibration
@@ -54,7 +54,7 @@ reflectance_columns = 13:36; % All samples, used for colour calibration
 selected_reflectance_indices = [10, 13, 14, 15, 16, 19];
 
 % CIE D-illuminant
-illuminant_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180604_Spectral power distributions_BruceLindbloom/DIlluminants.csv';
+illuminant_filename = '${FILEPATH}';
 illuminant_temperature = 6504; % From https://en.wikipedia.org/wiki/Standard_illuminant#Illuminant_series_D
 
 % The index of the white patch on the ColorChecker
@@ -64,7 +64,7 @@ white_index = 19;
 whitepoint = [1, 1, 1];
 
 % CIE tristimulus functions
-xyzbar_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180614_ASTM_E308/Table1_CIE1931_2DegStandardObserver.csv';
+xyzbar_filename = '${FILEPATH}';
 
 % ## Output parameters
 
@@ -84,7 +84,7 @@ output_width = 9.5;
 output_margin = [0.25, 0.25];
 
 % Output directory
-output_directory = '/home/llanos/Downloads';
+output_directory = '${DIRPATH}';
 
 % Parameters which do not usually need to be changed
 run('SetFixedParameters.m')

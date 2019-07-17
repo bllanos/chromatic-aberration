@@ -18,7 +18,7 @@ function [ files ] = listFilesRecursive(regex, directory)
 % ## Input Arguments
 %
 % regex -- Input filename regular expression
-%   A regular expression to be matched with filenames.
+%   A regular expression to be matched with filenames (and not with their paths).
 %
 % directory -- Starting directory path
 %   A character vector or string scalar containing the path of the root

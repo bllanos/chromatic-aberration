@@ -1,0 +1,161 @@
+Data: Spectral Measurements of Calibration Targets and Light Sources
+Bernard Llanos
+June 26, 2018
+
+## About
+- Data was collected by Jilu Feng (jfeng@ualberta.ca), Research Associate in the
+  Faculty of Science - Earth & Atmospheric Sciences Admin.
+- Jilu Feng is associated with Dr. Benoit Rivard (benoit.rivard@ualberta.ca),
+  a professor in Earth and Atmospheric Sciences.
+- They operate a lab containing hyperspectral imaging equipment
+  (CCIS 2-066, http://coresensing.net/), in which the data was collected.
+
+### Equipment used, and general procedure
+- An Analytical Spectral Devices point spectrometer with a bare fiber probe was
+  used to collect spectral signals.
+  - Each spectral data series output be the device is the average of 40 measurements.
+  - Specifications for the instrument can be found on the Analytical Spectral
+    Devices website, according to Jilu Feng, but I don't think this website still
+    exists.
+- A Spectralon standard white tile was used as the white reflectance standard.
+  It has a reflectance above 98% for wavelengths from 250 nm to 4 micrometres.
+- To be clear, the "white standard" is the spectral power distribution of light
+  reflected from the white tile, and is therefore illumination-dependent. Sample
+  reflectances output by the spectrometer are normalized by the white standard.
+- The white standard was set in the spectrometer's software each time the
+  illuminant was changed. It is always constant within each set of spectra
+  described below, but differs between sets.
+
+## Data Files
+
+### spectra_original.txt
+- The data file provided by Jilu Feng. It is a text file created by converting
+  the custom-formatted data files, output by the spectrometer, to something more
+  like a CSV file.
+  - The first column stores wavelength values, whereas the remaining columns
+    store the spectral signatures, expressed relative to a white standard.
+  - The white standard is not the same for each measurement, as
+    described below.
+
+### spectra_named.csv
+- A version of 'spectra_original.txt' in CSV format, with columns given more
+  meaningful names.
+
+### spectra_averaged.csv
+- A version of 'spectra_named.csv' where useless data has been removed,
+  and repeated data has been averaged together.
+- Specifically, the two spectra for the 550 nm bandpass filter, and for each
+  type of square in each chequerboard have been averaged.
+
+### spectra.ods
+- A LibreOffice Calc spreadsheet containing the data used to generate the CSV
+  files in this folder.
+- The second sheet in the file contains the mapping from the original series names
+  to meaningful column names.
+
+## Data Sets
+
+### Optical bandpass filters (filter.000 to filter.007)
+- Relative spectral power distributions obtained by placing each of the 7 optical
+  bandpass filters (VIS (400-700nm) OD 4 10nm Bandpass Filter Kit, 50mm Dia
+  filters from Edmund Optics) in front of the Optoma EP739 projector's lens.
+  - The filters are in order of center wavelength: 400, 442, 500, 550, 600, 647, 700 nm
+- Filters were simply held against the projector lens by hand.
+- The spectrum was measured from the bright patch created on a white tile placed
+  about 41 cm in front of the projector.
+- The white standard is the unfiltered light from the projector illuminating
+  the white tile.
+- See below for information about the projector.
+
+### Large chequerboard (lc.000 to lc.003)
+- 259.5 mm for 12 squares: 2.1625 mm square side length
+- Laminated paper
+- Page dimensions: 33.8 cm x 32.0 cm
+- Two white squares (000 and 001) and two black squares (002 and 003) were
+  measured.
+- The white standard is the white tile under the same illuminant (a quartz
+  halogen lamp).
+
+### Laser printer paper (paper.000 to paper.001)
+- Series 000 is a blank piece of paper used in the CSC printer room's
+  Xerox WorkCentre 5755 printer.
+- Series 001 is a black printout from the printer.
+- The white standard is the white tile under the same illuminant (a quartz
+  halogen lamp).
+
+### ColorChecker Classic (pat-new.000 to pat-new.023)
+- The reflectances of the patches of an 8.25 x 11 inch ColorChecker Classic colour
+  calibration chart (https://www.xrite.com/categories/calibration-profiling/colorchecker-classic)
+- The patches are in order from left to right, top to bottom.
+- The white standard is the white tile under the same illuminant (a quartz
+  halogen lamp).
+
+### Small chequerboard (sc.000 to sc.003)
+- 202.8 mm for 12 squares: 16.9 mm square side length
+- Laminated paper taped to a plastic stand
+- Page dimensions: 25.6 cm x 23.3 cm
+- Two white squares (000 and 001) and two black squares (002 and 003) were
+  measured.
+- The white standard is the white tile under the same illuminant (a quartz
+  halogen lamp).
+
+### Light from an Optoma EP739 DLP projector (proj.000 to proj.001)
+- The projector is to be used for spectral imaging experiments in CSC 2-65.
+- I wanted to know if it had a sufficiently broad spectrum.
+- We discovered that it was an unstable light source in the infrared range.
+  Perhaps this is because of the additional electrical components emitting heat
+  besides the projector's lamp.
+- More information about the projector is here:
+  '/home/llanos/GoogleDrive/ThesisResearch/Equipment/Projector'
+  - The projector was configured to project a white test pattern, using its
+    service menu.
+- Data was obtained from the bright patch created on a white tile placed
+  about 41 cm in front of the projector.
+- Series 000 was taken about a minute and a half after resetting the white standard
+  of the spectrometer.
+- Series 001 was taken right after resetting the white standard
+  of the spectrometer a second time.
+- The two series illustrate that the spectral power distribution changes over time.
+  If it was stationary, the two spectra would be equal to unity at all wavelengths.
+
+### First attempts at bandpass filter measurements (proj.000 and proj.001)
+- Series 000 was obtained by placing the 400 nm filter in a wooden holder, to
+  block stray light, in front of the projector's lens.
+- Series 001 was obtained by holding the 442 nm filter in front of the lens
+  with a hand.
+- We decided to measure the spectra transmitted by all filters by holding the filters
+  in place with a hand, and so restarted data collection to obtain the 'filter.###'
+  data series.
+  - Unfortunately, I did not keep track of whether I was holding each filter such
+    that the projector's light was shining against the direction of the arrow on the
+    filter's outer ring (which is the proper direction, according to an
+    Edmund Optics support representative).
+  
+## Data analysis
+- Code for plotting the data in 'spectra_averaged.csv' and 'spectra_named.csv'
+  is in '/home/llanos/GoogleDrive/ThesisResearch/MATLAB/aberration_data/SpectralDataJune262018Averaged.m'
+  and '/home/llanos/GoogleDrive/ThesisResearch/MATLAB/aberration_data/SpectralDataJune262018.m', respectively.
+
+## Remarks
+- The spectra of the two chequerboard patterns are not the same.
+- The chequerboards have a darker black than the LaserJet printer toner.
+- There is good agreement between the spectra measured from the colour chart,
+  and the data provided by Babel Color (Danny Pascale), saved in
+  '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180604_ColorCheckerSpectralData_BabelColor/'
+  - Most of the spectra of the colour chart have higher reflectances than the
+    results from Babel Color.
+  - 'purple' and 'blue flower' are the most different from the Babel Color data.
+  - Note that the formulations of some chart patches have changed since the data
+    from Babel Color was collected (prior to November 2014).
+- The bandpass filters seem to have their center wavelengths shifted to smaller
+  wavelengths relative to their stated center wavelengths.
+- The 442 nm filter unfortunately has a second peak partially overlapping the
+  400 nm filter. As this was observed on both attempts at filter measurements,
+  it is likely not a measurement error.
+  - This feature is not present in the curves provided by Edmund Optics
+    ('/home/llanos/GoogleDrive/ThesisResearch/Equipment/Edmund Optics Color Filters/20180627_Optical bandpass filter kit_50 mm diameter_10 nm FWHM_curves.pdf').
+  - It may be because the light from the projector is not collimated.
+    (Bandpass filters are sensitive to the angle of light, as mentioned at
+    https://www.edmundoptics.com/optics/optical-filters/bandpass-filters/)
+  - Or it may be that I had oriented the filter in the wrong direction relative
+    to the light.

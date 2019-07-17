@@ -20,7 +20,7 @@ parameters_list = {
 
 % Wildcard for 'ls()' to find the images to process. All images are
 % expected to be in one directory.
-images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/preprocessed/blended_averaged/pos1_1mmDots_400nm.mat';
+images_wildcard = fullfile('.', 'demo_data', 'multispectral_images', '*_raw.mat');
 images_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % Range of pixel values to consider
@@ -36,7 +36,7 @@ filter_gradient = true;
 bayer_pattern = 'gbrg';
 
 % ## Output directory
-output_directory = '/home/llanos/Downloads';
+output_directory = '${DIRPATH}';
 
 %% Find and process the images
 

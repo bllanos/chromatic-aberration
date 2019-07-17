@@ -20,7 +20,7 @@ parameters_list = [parameters_list, {
 % ## Parameters for creating radiance images
 
 % CIE D-illuminant
-illuminant_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180604_Spectral power distributions_BruceLindbloom/DIlluminants.csv';
+illuminant_filename = '${FILEPATH}';
 illuminant_temperature = 6504; % From https://en.wikipedia.org/wiki/Standard_illuminant#Illuminant_series_D
 
 % Colour channel to use for radiance normalization

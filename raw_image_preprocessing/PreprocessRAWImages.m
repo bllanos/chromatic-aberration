@@ -71,7 +71,7 @@ parameters_list = {
         'blendExposures_regex',...
         'range',...
         'radius',...
-        'align'...
+        'bayer_pattern'...
     };
 
 %% Input data and parameters
@@ -79,29 +79,29 @@ parameters_list = {
 % ## Input arguments for 'darkSubtract()'
 
 % Directories in which to store dark-subtracted images
-darkSubtract_dir.out_averaged = '/home/llanos/Downloads/dark_subtracted'; % Averaged images
-%darkSubtract_dir.out_single = '/home/llanos/Downloads/data/dark_subtracted_original'; % Non-averaged images
+darkSubtract_dir.out_averaged = fullfile('.', 'demo_data', 'averaged_images'); % Averaged images
+%darkSubtract_dir.out_single = '${DIRPATH}'; % Non-averaged images
 
-% Image variable name
+% Image variable name to use
 var_name = 'I_raw';
 
 % Wildcards for 'ls()' to find the RAW images to process
 % Data images
-wildcards.in = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/data/filtered/d*_disks*.tif';
+wildcards.in = fullfile('.', 'demo_data', 'captured_images', 'images_filtered_light', 'disks', '*.tif');
 % Dark frame images
-wildcards.dark = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/data/dark/*.tif';
+wildcards.dark = fullfile('.', 'demo_data', 'captured_images', 'dark_frames', '*.tif');
 
 % Regular expression for removing the portion of a filename that differs
 % between replicates of an image
 darkSubtract_regex.dedup = '_\d{4}-\d{2}-\d{2}-\d{6}-\d{4}';
 % Regular expression for extracting the portion of a filename that must
 % match between an image and the corresponding dark frame
-darkSubtract_regex.dark_match = 'd(\d).*(_[\d.]+ms)';
+darkSubtract_regex.dark_match = 'd(\d).+(_[\d.]+ms)';
 
 % ## Input arguments for 'blendExposures()'
 
 % Directories in which to store final images
-blendExposures_dir.out_reference = '/home/llanos/Downloads/exposure_blended'; % Averaged images
+blendExposures_dir.out_reference = fullfile('.', 'demo_data', 'hdr_averaged_images'); % Averaged images
 % Non-averaged images would need to have identical filenames other than the
 % exposures in order, to be processed correctly by 'blendExposures()'
 % (otherwise they are identified as from different "scenes"). This would
@@ -109,8 +109,9 @@ blendExposures_dir.out_reference = '/home/llanos/Downloads/exposure_blended'; % 
 % conflicts after removing the timestamps and sequence numbers from
 % filenames. But, in any case, merging images across exposures changes
 % image noise characteristics, whereas the point of having non-averaged
-% images is to preserve noise characteristics.
-%blendExposures_dir.other_paths = '/home/llanos/Downloads/data/blended_original';
+% images is to preserve noise characteristics. Therefore, there is no reason to
+% process the non-averaged images.
+%blendExposures_dir.other_paths = '${DIRPATH}';
 
 % Regular expressions identifying exposure settings. Each cell vector is a
 % group of exposures that can be blended together. Within each group, the
@@ -130,13 +131,13 @@ range = [0.02, 0.95];
 radius = 1;
 
 % Colour-filter pattern code
-align = 'gbrg';
+bayer_pattern = 'gbrg';
 
 % ## Other parameters
 
 % Directory in which to save the final output '.mat' file containing
 % parameters and saved variables
-output_directory = '/home/llanos/Downloads/preprocessed';
+output_directory = fullfile('.', 'demo_data', 'hdr_averaged_images');
 
 % ## Debugging Flags
 
@@ -152,7 +153,7 @@ darkSubtract_output_files = darkSubtract(...
     blendExposures_dir, var_name,...
     darkSubtract_output_files.out_averaged,...
     {},... %darkSubtract_output_files.out_single,...
-    blendExposures_regex, range, radius, align, blendExposuresVerbose...
+    blendExposures_regex, range, radius, bayer_pattern, blendExposuresVerbose...
 );
 
 %% Save parameters and additional data to a file

@@ -31,7 +31,7 @@ if full_color
     ops.demosaic = true;
     ops.convertColor = true;
     ops.wb = true;
-    align = 'gbrg'; % Colour-filter pattern
+    bayer_pattern = 'gbrg'; % Colour-filter pattern
     wb = [1 1 1]; % White-balance multipliers
 else
     ops.demosaic = false;
@@ -42,10 +42,10 @@ end
 verbose = false;
 
 % Directory containing the input images
-in_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/images_withProjector';
+in_directory = '${DIRPATH}';
 
 % Directory in which to save the output images
-out_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181130_LightBox/averaged_images';
+out_directory = '${DIRPATH}';
 
 % Output filename extension (no dot)
 ext = 'tif';
@@ -59,7 +59,7 @@ regex = '_\d{4}-\d{2}-\d{2}-\d{6}-\d{4}';
 %% Process the images
 if full_color
     output_files = dirreadRAW(...
-        in_directory, out_directory, ext, wildcard, regex, ops, align, wb, verbose...
+        in_directory, out_directory, ext, wildcard, regex, ops, bayer_pattern, wb, verbose...
         );
 else
     output_files = dirreadRAW(...

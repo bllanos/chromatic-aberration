@@ -212,7 +212,7 @@ parameters_list = {
 %% Input data and parameters
 
 % Wildcard for 'ls()' to find the chromaticity maps.
-input_chromaticity_maps_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_ColorCheckerReflectanceImages/colorIDs.png';
+input_chromaticity_maps_wildcard = fullfile('.', 'demo_data', 'hdr_averaged_images', 'd1_disks32cmV2_550nm_rgb01.tif');
 
 % Threshold for assuming that an RGB image is actually a greyscale image
 grey_difference_threshold = 1;
@@ -220,48 +220,48 @@ grey_difference_threshold = 1;
 % Treat greyscale images as colour class IDs rather than pictures. An error
 % will be thrown if the images are not greyscale, and this option is
 % `true`.
-is_classes = true;
+is_classes = false;
 
 % Wildcard for 'ls()' to find the shading maps.
 % Set to an empty array to use constant shading
-input_shading_maps_wildcard = [];
+input_shading_maps_wildcard = fullfile('.', 'demo_data', 'hdr_averaged_images', 'd1_disks32cmV2_550nm_rgb01.tif');
 
 % Model of dispersion (can be empty, for no dispersion)
-reverse_dispersion_model_filename = []; %'/home/llanos/GoogleDrive/ThesisResearch/Results/20181020_DoubleConvexThickLensDispersion_Final/Models/DoubleConvexThickLensDispersionResults_spectral_spline_fromNonReference.mat';
+reverse_dispersion_model_filename = fullfile('.', 'demo_data', 'dispersion_models', 'disk_fitting', 'RAWDiskDispersionResults_spectral_polynomial_fromNonReference.mat');
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/NikonD5100ColorMapData.mat';
+color_map_filename = fullfile('.', 'demo_data', 'multispectral_images', 'sensor.mat');
 % Colour channel to use for radiance normalization
 normalization_channel = 2;
 
 use_cie_illuminant = true;
 if use_cie_illuminant
     % CIE D-illuminant
-    illuminant_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180604_Spectral power distributions_BruceLindbloom/DIlluminants.csv';
+    illuminant_filename = '${FILEPATH}';
     illuminant_temperature = 6504; % From https://en.wikipedia.org/wiki/Standard_illuminant#Illuminant_series_D
     illuminant_function_name = []; % Unused
 else
     % Arbitrary illuminant function
-    illuminant_function_name = 'one';
+    illuminant_function_name = [];
     illuminant_filename = []; % Unused
     illuminant_temperature = []; % Unused
 end
 
 % CIE tristimulus functions
-xyzbar_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180614_ASTM_E308/Table1_CIE1931_2DegStandardObserver.csv';
+xyzbar_filename = '${FILEPATH}';
 
 % ColorChecker spectral reflectances
-reflectances_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180604_ColorCheckerSpectralData_BabelColor/ColorChecker_spectra_reformatted_llanos.csv';
+reflectances_filename = '${FILEPATH}';
 
 % Number of colours to blend in each output image (overridden by the actual
 % number of colour classes in the image, if `is_classes` is `true`)
 n_colors = 2;
 
 % Output directory for all images and saved data
-output_directory = '/home/llanos/Downloads';
+output_directory = '${DIRPATH}';
 
 % ## Debugging Flags
-segmentColorsVerbose = false;
+segmentColorsVerbose = true;
 
 % Parameters which do not usually need to be changed
 run('SetFixedParameters.m')

@@ -31,7 +31,7 @@ disk_radius = 2;
 disk_separation = 8;
 
 % Output Directory
-output_directory = '/home/llanos/Downloads';
+output_directory = '${DIRPATH}';
 
 % ## Printing parameters
 

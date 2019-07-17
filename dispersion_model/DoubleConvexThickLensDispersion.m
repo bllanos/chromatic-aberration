@@ -139,7 +139,7 @@ parameters_list = {
 
 % ### Lens parameters
 % Based on
-% '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180226_SmallFLLenses_EdmundOptics/3mmDiameter4dot5mmFLUncoatedDoubleConvexLens_prnt_32022.pdf'
+% '20180226_SmallFLLenses_EdmundOptics/3mmDiameter4dot5mmFLUncoatedDoubleConvexLens_prnt_32022.pdf'
 lens_params.lens_radius = 3 / 2;
 lens_params.axial_thickness = 2;
 lens_params.radius_front = 4.29;
@@ -176,7 +176,7 @@ lens_params.ior_lens = sellmeierDispersion(lens_params.wavelengths, sellmeierCon
 % when producing colour channel models of dispersion.
 %
 % Obtained using the quantum efficiencies presented in
-% '/home/llanos/GoogleDrive/ThesisResearch/Equipment/FLEA3/20170508_FL3_GE_EMVA_Imaging Performance Specification.pdf'
+% '20170508_FL3_GE_EMVA_Imaging Performance Specification.pdf'
 % Image sensor: Sony ICX655, 2/3", Color (page 19)
 wavelengths_to_rgb = sonyQuantumEfficiency(lens_params.wavelengths);
 
@@ -249,7 +249,7 @@ model_from_reference_choices = [true, false];
 rgb_mode_choices = [true, false];
 
 % ## Output directory
-output_directory = '/home/llanos/Downloads';
+output_directory = '${DIRPATH}';
 
 % ## Debugging Flags
 plot_light_positions = true;

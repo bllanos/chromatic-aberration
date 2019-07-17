@@ -118,17 +118,17 @@ input_postfix = '.tif';
 n_channels_rgb = 3;
 
 % Directory containing the input images
-input_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190610_ThesisResults_CopiedImages/images_MHomogCorrectedRGB';
+input_directory = '${DIRPATH}';
 
 % Directory containing the linear, uncorrected images, for patch-specific
 % processing with Krishnan et al. 2011 and Sun et al. 2017.
-input_directory_uncorrected = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/run_on_dataset_allEstimatedImages_MATFiles';
+input_directory_uncorrected = '${DIRPATH}';
 input_variable_uncorrected = 'I_rgb'; % Used only when loading '.mat' files 
 input_postfix_uncorrected = '.mat';
 
 % Path and filename of a '.mat' file containing the conversion matrix for
 % raw colour channels to XYZ
-xyz_weights_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/CalibrateColorCorrectionData_unfiltered.mat';
+xyz_weights_filename = '${FILEPATH}';
 xyz_weights_variable = 'M_homog'; % Variable name in the above file
 % Whitepoint to use for XYZ to sRGB conversion
 whitepoint = [1, 1, 1];
@@ -143,7 +143,7 @@ output_width = 9.5;
 output_margin = [0.25, 0.25];
 
 % Output directory
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190610_ThesisResults_CopiedImages/montage';
+output_directory = '${DIRPATH}';
 
 % ## Parameters for Krishnan et al. 2011 and Sun et al. 2017
 run('SetFixedParameters.m')

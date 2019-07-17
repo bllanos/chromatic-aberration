@@ -96,15 +96,15 @@ parameters_list = {
 %% Input data and parameters
 
 % Wildcard for 'ls()' to find the reference image
-reference_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/exposure_blending/d2_colorChecker30cm_unfiltered.mat';
+reference_wildcard = fullfile('.', 'demo_data', 'hdr_averaged_images', 'd1_disks32cmV2_550nm.mat');
 reference_variable_name = 'I_raw'; % Used for input and output '.mat' file
 
 % Wildcard for 'ls()' to find the mask
-mask_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/exposure_blending/d2_colorChecker30cm_unfiltered_vignettingMask.png';
+mask_wildcard = fullfile('.', 'demo_data', 'hdr_averaged_images', 'd1_disks32cmV2_maskVignetting.png');
 mask_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
-% Wildcard for 'ls()' to find the other images
-other_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/exposure_blending/d1_colorChecker30cm_unfiltered.mat';
+% Wildcard for 'ls()' to find the other images (can be empty)
+other_wildcard = [];
 other_variable_name = 'I_raw'; % Used for input and output '.mat' files
 
 % Threshold used to binarize the mask image, if it is not already a binary
@@ -126,7 +126,7 @@ max_degree = 5;
 quantiles = [0.01, 0.99];
 
 % Output directory
-output_directory = '/home/llanos/Downloads';
+output_directory = '${DIRPATH}';
 
 % ## Debugging Flags
 vignettingPolyfitVerbose = true;

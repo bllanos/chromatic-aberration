@@ -12,30 +12,26 @@
 
 % Wildcard for 'ls()' to find the true image.
 % '.mat' or image files can be loaded
-true_image_wildcard = 'dispersion0.000000e+00_latent.mat';
+true_image_wildcard = '${FILEPATH}';
 true_image_variable_name = 'I_latent'; % Used only when loading '.mat' files
 
 % Wildcard for 'ls()' to find the baseline estimated image.
 % '.mat' or image files can be loaded
-base_image_wildcard = 'noise0.000000e+00_dispersion0.000000e+00_patch24x24_pad16_mdc_latent.mat';
+base_image_wildcard = '${FILEPATH}';
 base_image_variable_name = 'I_latent'; % Used only when loading '.mat' files
 
 % Wildcards for 'ls()' to find the comparison images. Use one wildcard per
 % image.
 % '.mat' or image files can be loaded
 other_images_wildcard = {
-    'noise0.000000e+00_dispersion1.000000e-01_patch24x24_pad16_mdc_latent.mat',...
-    'noise0.000000e+00_dispersion3.000000e-01_patch24x24_pad16_mdc_latent.mat',...
-    'noise0.000000e+00_dispersion1.000000e+00_patch24x24_pad16_mdc_latent.mat',...
-    'noise0.000000e+00_dispersion2.000000e+00_patch24x24_pad16_mdc_latent.mat',...
-    'noise0.000000e+00_dispersion3.000000e+00_patch24x24_pad16_mdc_latent.mat'...
+    '${FILEPATH}'...
     };
 % The same variable name is used as for the base image.
 
 % Names for the images
 true_image_name = 'Ground truth';
 base_image_name = '0';
-other_images_names = { '0.1', '0.3', '1', '2', '3' };
+other_images_names = { '0.1' };
 
 % Number of horizontal lines along which to plot error
 n_lines_x = 5;
@@ -52,7 +48,7 @@ n_lines_y = 5;
 metric_ind = 1;
 
 % Output directory for all figures
-output_directory = '/home/llanos/Downloads';
+output_directory = '${DIRPATH}';
 
 %% Compute goodness-of-fit
 

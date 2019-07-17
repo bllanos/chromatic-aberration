@@ -238,7 +238,7 @@ parameters_list = {
 %% Input data and parameters
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20181127_TestingChoiEtAl2017/NikonD5100ColorMapData.mat';
+color_map_filename = '${FILEPATH}';
 
 % Whether or not to normalize spectral sensitivity functions, assuming an
 % illuminant which has a uniform spectral power distribution. The
@@ -308,7 +308,7 @@ n_eval_patches_y = 4;
 eval_patch_size = 5;
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/Downloads';
+output_directory = '${DIRPATH}';
 
 % ## Parameters which do not usually need to be changed
 run('SetFixedParameters.m')

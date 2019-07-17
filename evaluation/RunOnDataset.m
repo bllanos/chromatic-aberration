@@ -214,7 +214,7 @@ parameters_list = {
 
 %% Input data and parameters
 
-dataset_name = 'kaist-crop';
+dataset_name = '';
 
 % Describe algorithms to run
 run('SetAlgorithms.m')
@@ -222,10 +222,10 @@ run('SetAlgorithms.m')
 % Optionally override the list of ADMM-family algorithms to run, and the
 % regularization weights to run them with, from the output file of
 % 'SelectWeightsForDataset.m'. (Leave empty otherwise)
-admm_algorithms_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190130_KAIST_crop/weights_selection_gaussian/SelectWeightsForDataset_kaist-crop.mat';
+admm_algorithms_filename = '${FILEPATH}';
 
 % Output directory for all images and saved parameters
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190130_KAIST_crop/run_on_dataset';
+output_directory = '${DIRPATH}';
 
 % Produce console output to describe the processing in this script
 verbose = true;

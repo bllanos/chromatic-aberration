@@ -157,7 +157,7 @@ parameters_list = {
 %   processing irrelevant portions of images when calibrating models of
 %   dispersion. If no mask is found for an image, the entire image will be
 %   searched for disks for dispersion calibration.
-input_images_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/preprocessed_images/exposure_blended/*disks*nm.mat';
+input_images_wildcard = fullfile('.', 'demo_data', 'hdr_averaged_images', '*disks*nm.mat');
 input_images_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % Mask filename extension (without the '.')
@@ -186,7 +186,7 @@ else
     % Wavelengths will be expected within filenames, extracted using this
     % regular expression
     bands_regex = '_(\d+)nm';
-    reference_wavelength = 587.6;
+    reference_wavelength = 550;
 end
 % Threshold number of standard deviations of distance used to reject matches
 % between disks
@@ -195,7 +195,7 @@ distance_outlier_threshold = 3;
 % ## Vignetting correction
 
 % Parameters for polynomial model fitting
-max_degree_xy_vignetting = 5;
+max_degree_xy_vignetting = 3;
 
 % Quantiles used for clipping to produce nice output images (for display,
 % not for calculation)
@@ -217,8 +217,8 @@ dispersion_fieldname = 'center';
 fill_image = true;
 
 % Parameters for polynomial model fitting
-max_degree_xy_dispersion = 12;
-max_degree_lambda = 12;
+max_degree_xy_dispersion = 6;
+max_degree_lambda = 6;
 
 % Parameters for spline model fitting
 spline_smoothing_options = struct(...
@@ -230,26 +230,26 @@ spline_smoothing_options = struct(...
 );
 
 % Which models of dispersion to generate?
-model_type_choices = {'spline', 'polynomial'};
+model_type_choices = {'polynomial'}; %{'spline', 'polynomial'};
 model_from_reference_choices = [true, false];
 
 % ## Output directory
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190107_DiskPattern_real/dispersion_newCV_vignettingCorrected/spline';
+output_directory = fullfile('.', 'demo_data', 'dispersion_models', 'disk_fitting');
 
 % ## Debugging Flags
 vignettingPolyfitVerbose = false;
 
 findAndFitDisksVerbose.verbose_disk_search = false;
 findAndFitDisksVerbose.verbose_disk_refinement = false;
-findAndFitDisksVerbose.display_final_centers = true;
+findAndFitDisksVerbose.display_final_centers = false;
 
-statsToDisparityVerbose.display_raw_values = true;
-statsToDisparityVerbose.display_raw_disparity = true;
+statsToDisparityVerbose.display_raw_values = false;
+statsToDisparityVerbose.display_raw_disparity = false;
 statsToDisparityVerbose.filter = struct(...
     dispersion_fieldname, true...
 );
 
-save_corrected_images = true; % Images corrected for vignetting
+save_corrected_images = false; % Images corrected for vignetting
 xylambdaFitVerbose = true;
 plot_model = true;
 
@@ -269,7 +269,7 @@ else
 
     % `bands_to_rgb` is used for visualization purposes only, and so does
     % not need to be accurate
-    bands_to_rgb = sonyQuantumEfficiency(bands);
+    bands_to_rgb = jet(length(bands)); %sonyQuantumEfficiency(bands);
     % Normalize, for improved colour saturation
     bands_to_rgb = bands_to_rgb ./ max(max(bands_to_rgb));
 
@@ -317,8 +317,8 @@ for g = 1:n_groups
 
     I = loadImage(grouped_filenames{g}{1}, input_images_variable_name);
     if isempty(image_size)
-        image_size = size(I);
-    elseif any(image_size ~= size(I))
+        image_size = [size(I, 1), size(I, 2)];
+    elseif any(image_size ~= [size(I, 1), size(I, 2)])
         error('Not all images have the same dimensions.');
     end
     
@@ -352,7 +352,7 @@ for g = 1:n_groups
 
         for i = 2:n_bands
             I = loadImage(grouped_filenames{g}{i}, input_images_variable_name);
-            if any(image_size ~= size(I))
+            if any(image_size ~= [size(I, 1), size(I, 2)])
                 error('Not all images have the same dimensions.');
             end
             

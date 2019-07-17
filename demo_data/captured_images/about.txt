@@ -1,0 +1,129 @@
+Images for spectral reconstruction and calibration of chromatic aberration
+Bernard Llanos
+Supervised by Dr. Y.H. Yang
+University of Alberta, Department of Computing Science
+February 8, 2019, and subsequent days as noted
+
+==============================================================
+
+- The general procedure followed is described in 'ImageCollectionProcedure.pdf'.
+
+Camera Identification
+---------------------
+- BlackFly Flea3 FL3-GE-50S5C, serial number 14447582
+- Computar Lens (8 mm 1:1.4 2/3") labelled "07I"
+
+Fixed Camera Settings
+---------------
+
+## Lens Adjustments
+- Focus distance: Focused on a large printed dot pattern,
+  about 32 cm away from the front of the lens, under unfiltered light from the projector.
+- Aperture: 4 (adjusted as a compromise between filtered and unfiltered light)
+
+## Camera Settings tab in FlyCapture2
+Brightness: 0.000 %
+Exposure: around 1.47 EV (Off)
+Sharpness: 1024
+Hue: 0.000 deg
+Saturation: 100.000 %
+Gamma: 1.250 (Off)
+Shutter: See below
+Gain: 0.000 dB
+FrameRate: Off
+WB (Red): Off
+WB (Blue): Off
+Temperature: 47.85 degrees Celsius
+
+## Custom Video Modes tab in FlyCapture2
+- Raw 12 pixel format
+- Full image size and resolution (2448 x 2048)
+
+## Camera information tab in FlyCapture2
+Serial Number: 14447582
+Vendor: Point Grey Research
+Model: Flea3 FL3-GE-50S5C
+Sensor: Sony ICX655AQ (2/3" 2456x2056 CCD)
+Resolution: 2448x2048
+Interface: GigE
+Bus Speed: S1600
+PCIe Bus Speed Unknown PCIe bus speed
+IIDC Version: 1.32
+Firmware Version: 1.19.3.0
+Firmware Build Time: Tue Jan 10 00:55:17 2012
+Driver: GigE Filter Driver (PGRGigE.sys) - 2.7.3.5
+
+
+GigE Version: 1.2
+User Defined Name: 
+MAC Address: 00:B0:9D:DC:73:DE
+IP Address: 192.168.0.16
+Subnet Mask: 255.255.0.0
+Default Gateway: 0.0.0.0
+IP Assignment: 
+LLA:: Enabled
+DHCP:: Disabled
+Persistent IP:: Enabled
+
+## Advanced Camera Settings tab in FlyCapture2
+- Raw Bayer output is checked, but this presumably only affects Y8 and Y16 modes.
+- Y16 Endianness: Little endian
+
+## Look Up Table tab in FlyCapture2
+- Disabled
+
+FlyCapture2 Image Capture Settings
+---------------
+- 15 TIFF images were saved per capture under unfiltered light.
+- 5 TIFF images were saved per capture under filtered light.
+- In all cases, saving the raw Bayer tile image.
+- The frames were consecutive frames.
+- TIFF images did not use compression.
+
+Shutter Times
+-------------
+- Note: All exposures were calibrated on a disk pattern (black disks printed on white paper)
+
+## Filtered light
+400 nm: 3916 ms
+450 nm: 2000 ms (Red), 250 ms (Green), 50 ms (Blue)
+500 nm: 250 ms (Blue), 3915 ms (Red), 100 ms (Green)
+550 nm: 25 ms (Green), 500 ms (Red, Blue)
+600 nm: 250 ms (Green), 100 ms (Red), 3916 ms (Blue)
+650 nm: 3916 ms (Blue), 2000 ms (Green), 100 ms (Red)
+700 nm: 3916 ms (Blue, Green), 500 ms (Red)
+
+Summary: 25, 50, 100, 250, 500, 2000, 3916 ms
+
+## No filter
+3, 6, 12 ms
+
+Data Collected
+--------------
+
+February 8, 2019
+- Large printed dot pattern, about 32 cm away from the front of the lens
+- Repeat with the dot pattern shifted slightly.
+- ColorChecker chart placed just in front of the dot pattern.
+  - X-Rite Large ColorChecker CLASSIC, August 2016 Edition.
+
+February 18, 2019
+- Captured a fresh set of dark frames.
+- ColorChecker chart placed just in front of the dot pattern, shifted and angled
+  slightly from its position on February 8, 2019.
+- A variety of transparent objects 13-30 cm from the lens.
+- Ghost ship and dolphin (15-30 cm from lens), with binary noise pattern
+  in the background (32 cm from lens).
+- Book, CD, glass flask, nested dolls, about 40 cm from the lens.
+
+Data Preprocessing
+------------------
+- For space constraints, only some of the images are included in this repository.
+- The images that are included are only for the filtered illumination conditions,
+  for the first capture of the dot pattern scene, and for the second capture
+  of the ColorChecker chart scene.
+- The images of the dot pattern scene were cropped to reduce space consumption,
+  but preserve the image resolution.
+- The images of the ColorChecker scene were downsampled to reduce space consumption,
+  but preserve the entire field of view.
+- Image preprocessing was performed using 'DemoDataPreprocessing.m'.

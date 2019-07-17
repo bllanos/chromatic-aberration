@@ -36,6 +36,11 @@ function [ names ] = listFiles(wildcard)
 nargoutchk(1,1)
 narginchk(1,1)
 
+if isempty(wildcard)
+    names = {};
+    return;
+end
+
 if ispc
     filepath = fileparts(wildcard);
     raw_names = ls(wildcard);

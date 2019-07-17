@@ -51,7 +51,7 @@ parameters_list = {
 
 %% Input data and parameters
 
-data_source = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180802_referenceDataSetForCameraSpectralSensitivityEstimation/nikon.csv';
+data_source = '${FILEPATH}';
 % Data represents spectral sensitivities, not colour channel mappings
 channel_mode = false;
 

@@ -8,8 +8,7 @@
 % ## Input
 %
 % The CIE 1931 Standard (2°) Observer spectral tristimulus functions were
-% retrieved from Table 1 of the ASTM E308 standard and saved as
-% '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180614_ASTM_E308/Table1_CIE1931_2DegStandardObserver.csv'.
+% retrieved from Table 1 of the ASTM E308 standard and saved as a CSV file.
 %
 % ## Output
 %
@@ -46,7 +45,7 @@ parameters_list = {
 
 %% Input data and parameters
 
-data_source = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180614_ASTM_E308/Table1_CIE1931_2DegStandardObserver.csv';
+data_source = '${FILEPATH}';
 % Data represents spectral sensitivities, not colour channel mappings
 channel_mode = false;
 

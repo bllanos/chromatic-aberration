@@ -100,6 +100,7 @@ if size(coeff, 1) ~= n_dims
     error('`coeff` should have the same number of rows as there are columns in `x`.');
 end
 origin = zeros(1, 3);
+visible_filter = true(n_coeff, 1);
 for i = 1:n_coeff
     coeff_i = coeff_rows(i, :);
     [...
@@ -109,18 +110,21 @@ for i = 1:n_coeff
         points_xlim, points_ylim, points_zlim...
     );
     intersections = intersections(box_filter, :);
-    if n_dims == 2
-        line(...
-            intersections(:, 1), intersections(:, 2),...
-            'LineWidth', 2, 'Color', line_colors{i}, 'LineStyle', '--'...
-        )
-    elseif n_dims == 3
-        line(...
-            intersections(:, 1), intersections(:, 2), intersections(:, 3),...
-            'LineWidth', 2, 'Color', line_colors{i}, 'LineStyle', '--'...
-        )
-    else
-        error('Unexpected value of `n_dims`, %d.', n_dims);
+    visible_filter(i) = ~isempty(intersections);
+    if visible_filter(i)
+        if n_dims == 2
+            line(...
+                intersections(:, 1), intersections(:, 2),...
+                'LineWidth', 2, 'Color', line_colors{i}, 'LineStyle', '--'...
+            )
+        elseif n_dims == 3
+            line(...
+                intersections(:, 1), intersections(:, 2), intersections(:, 3),...
+                'LineWidth', 2, 'Color', line_colors{i}, 'LineStyle', '--'...
+            )
+        else
+            error('Unexpected value of `n_dims`, %d.', n_dims);
+        end
     end
 end
 
@@ -167,10 +171,11 @@ if nargin > 3
 end
 
 if nargin > 4
+    legend_str_visible = reshape(legend_str([true; visible_filter]), 1, []);
     if mu_passed
-        legend_str = [legend_str(1), repmat(reshape(legend_str(2:end), 1, []), 1, 2)];
+        legend_str_visible = [legend_str_visible, reshape(legend_str(2:end), 1, [])];
     end
-    legend(legend_str);
+    legend(legend_str_visible);
 end
 
 if nargin > 5

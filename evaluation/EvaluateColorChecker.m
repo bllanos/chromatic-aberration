@@ -204,27 +204,27 @@ parameters_list = {
 
 % Label image for colour-based dispersion correction and for vignetting
 % calibration (an image file, not a '.mat' file)
-color_label_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/colorChecker_preprocessed/unfiltered/d2_colorChecker30cm_unfiltered_background0_patches1to24_frame25.png';
+color_label_filename = fullfile('.', 'demo_data', 'colorChecker_labels', 'd2_colorChecker30cm_d3_green_labels.png');
 
 % Label image for spectral dispersion correction
-spectral_label_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/colorChecker_preprocessed/600nm/d2_colorChecker30cm_600nm_background0_patches1to24_frame25.png';
+spectral_label_filename = fullfile('.', 'demo_data', 'colorChecker_labels', 'd2_colorChecker30cm_550nm_labels.png');
 
 % Raw image of the ColorChecker taken under unfiltered light ('.mat' or image
 % files can be loaded)
-reference_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/exposure_blending/d2_colorChecker30cm_unfiltered.mat';
+reference_filename = '${FILEPATH}';
 reference_variable_name = 'I_raw'; % Used only when loading '.mat' files
 
 % Image of the ColorChecker taken under bandpass-filtered light
-qhyper_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/channel_scaling/d2_colorChecker30cm_qHyper.mat';
+qhyper_filename = '${FILEPATH}';
 qhyper_variable_name = 'I_hyper'; % Used only when loading '.mat' files
 
 % Path and filename of a '.mat' file containing the wavelengths corresponding to
 % the bandpass-filtered image
-qhyper_bands_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/channel_scaling/sensor.mat';
+qhyper_bands_filename = '${FILEPATH}';
 qhyper_bands_variable = 'bands'; % Variable name in the above file
 
 % Sample spectral reflectances
-reflectances_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180626_SpectralCharacterizationOfSetup/spectra_averaged.csv';
+reflectances_filename = fullfile('.', 'demo_data', 'spectral_data', 'spectra_averaged.csv');
 
 % Categorization of the samples in the file of reflectances
 reflectance_data_patch_columns = 13:36;
@@ -258,25 +258,25 @@ true_image_filename = 'colorChecker'; % Name used in filenames. Must not contain
 
 % Wildcard for 'ls()' to find the estimated spectral images to process (can be
 % empty). '.mat' or image files can be loaded.
-spectral_wildcard = '/home/llanos/Downloads/ColorCheckerEvaluation/Input/d2_colorChecker30cm_*_latent.mat';
+spectral_wildcard = '${FILEPATH}';
 spectral_variable_name = 'I_latent'; % Used only when loading '.mat' files
 
 % Path and filename of a '.mat' file containing the wavelengths corresponding to
 % the estimated spectral images (`bands`), as well as the spectral resampling
 % parameters governing their conversion to other spectral sampling spaces
 % (`findSamplingOptions`).
-sampling_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190421_ComputarLens_revisedAlgorithms/run_on_dataset_ignoreDispersion/RunOnDataset_20190208_ComputarLens_rawCaptured_ignoreDispersion.mat';
+sampling_filename = '${FILEPATH}';
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/SonyColorMapData.mat';
+color_map_filename = '${FILEPATH}';
 
 % Wildcard for 'ls()' to find the estimated colour images to process (can be
 % empty). '.mat' or image files can be loaded.
-color_wildcard = '/home/llanos/Downloads/ColorCheckerEvaluation/Input/d2_colorChecker30cm_*_rgb.mat';
+color_wildcard = '${FILEPATH}';
 color_variable_name = 'I_rgb'; % Used only when loading '.mat' files
 
 % Output directory
-output_directory = '/home/llanos/Downloads/ColorCheckerEvaluation/results_except_dHyper';
+output_directory = '${DIRPATH}';
 
 % ## Parameters which do not usually need to be changed
 run('SetFixedParameters.m')

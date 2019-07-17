@@ -155,7 +155,7 @@ parameters_list = {
 
 %% Input data and parameters
 
-dataset_name = '20190421_ComputarLens_dHyper_dispersion';
+dataset_name = '';
 
 % Describe algorithms to run
 run('SetAlgorithms.m')
@@ -164,7 +164,7 @@ run('SetAlgorithms.m')
 n_patches = 10;
 
 % Output directory for all images and saved parameters
-output_directory = 'C:\Users\GraphicsLab\Documents\llanos\Results\weights_selection_dHyper_spectral_MSEBugFixed';
+output_directory = '${DIRPATH}';
 
 % Produce console output to describe the processing in this script
 verbose = true;

@@ -1,5 +1,5 @@
 %% Set Fixed Parameters
-% Set values of parameters for image correction that seldomly need to be
+% Set values of parameters, common to multiple scripts, that seldomly need to be
 % changed.
 %
 % ## Usage
@@ -144,13 +144,13 @@ bayer_pattern = 'gbrg';
 % 'findSampling()' should not even be called.)
 findSamplingOptions.int_method = 'trap';
 
-findSamplingOptions.power_threshold = 0.95;
+findSamplingOptions.power_threshold = 1;
 % As an alternative to automatically determining the number of spectral
 % bands, according to `findSamplingOptions.power_threshold`, set it
 % explicitly (if the following option is an integer greater than zero).
-findSamplingOptions.n_bands = 8;
+findSamplingOptions.n_bands = 0;
 
-findSamplingOptions.support_threshold = 0.05;
+findSamplingOptions.support_threshold = 0;
 
 findSamplingOptions.bands_padding = 1000;
 
@@ -161,7 +161,7 @@ findSamplingOptions.bands_padding = 1000;
 % between samples in the sequence of samples being interpolated. The
 % interpolation function `f(x)` returns the weight for a sample at location
 % `x` relative to the current  interpolation location.
-findSamplingOptions.interpolant = @gaussian;
+findSamplingOptions.interpolant = @triangle;
 
 % Interpolation function for other spectral data, such as sensor spectral
 % sensitivities or ground truth spectral radiances. In contrast to
@@ -176,7 +176,7 @@ findSamplingOptions.interpolant_ref = @triangle;
 % details.
 
 % Resolution at which to sample spectral dispersion
-dispersionfunToMatrixOptions.resolution = 0.1; % pixels
+dispersionfunToMatrixOptions.resolution = 0; % pixels
 
 dispersionfunToMatrixOptions.int_method = findSamplingOptions.int_method;
 dispersionfunToMatrixOptions.support_threshold = findSamplingOptions.support_threshold;
@@ -265,9 +265,9 @@ solvePatchesSpectralOptions.admm_options = solvePatchesColorOptions.admm_options
 % Only use even integers for the patch and padding sizes, to ensure that patches
 % are valid colour filter array images.
 patch_sizes = [ % Each row contains a (number of rows, number of columns) pair
-   128, 128;
+   64, 64;
 ]; 
-paddings = 16;
+paddings = 8;
 
 solvePatchesColorOptions.patch_options = struct;
 solvePatchesColorOptions.patch_options.patch_size = patch_sizes(1, :);

@@ -11,23 +11,23 @@
 
 % Wildcard for 'ls()' to find the true image (reference image).
 % '.mat' or image files can be loaded
-true_image_wildcard = '/home/llanos/GoogleDrive/ThesisResearch/OthersCode/2017_Choi_et_al_highQualityHyperspectralReconstructionUsingASpectralPrior_ACMTransGraphics/inputs/synthetic/KAIST/scene01_oneNinth.mat';
-true_image_variable_name = 'img_hs'; % Used only when loading '.mat' files
+true_image_wildcard = fullfile('.', 'demo_data', 'multispectral_images', 'd1_disks32cmV2_dHyper.mat');
+true_image_variable_name = 'I_hyper'; % Used only when loading '.mat' files
 
 % Wildcards for 'ls()' to find the comparison images. Use one wildcard per
 % image.
 % '.mat' or image files can be loaded
 images_wildcards = {
-    '/home/llanos/GoogleDrive/ThesisResearch/OthersCode/2017_Choi_et_al_highQualityHyperspectralReconstructionUsingASpectralPrior_ACMTransGraphics/outputs/recon_synthetic/scene01_oneNinth_recon.mat'...
+    fullfile('.', 'demo_data', 'aberration_correction', 'd1_disks32cmV2_raw*.mat')...
     };
 % Corresponding variable names to use when loading '.mat' files. Elements
 % corresponding to files other than '.mat' files can be empty.
-images_variable_names = { 'x_recon' };
+images_variable_names = { 'I_latent' };
 
 % Names for the images
 true_image_name = 'GT'; % Name used in figures. Must not contain spaces.
-true_image_filename = 'scene01_oneNinth'; % Name used in filenames. Must not contain spaces.
-images_names = { 'Choi et al. 2017' };
+true_image_filename = 'disks32cmV2'; % Name used in filenames. Must not contain spaces.
+images_names = { 'Estimated' };
 
 % `true` for RGB image evaluation, `false` for multispectral or
 % hyperspectral image evaluation.
@@ -36,8 +36,8 @@ is_rgb = false;
 if ~is_rgb
     % Path and filename of a '.mat' file containing the wavelengths
     % or colour channel indices corresponding to the true image
-    bands_filename = '/home/llanos/GoogleDrive/ThesisResearch/OthersCode/2017_Choi_et_al_highQualityHyperspectralReconstructionUsingASpectralPrior_ACMTransGraphics/inputs/synthetic/KAIST/scene01_oneNinth.mat';
-    bands_variable = 'wvls2b'; % Variable name in the above file
+    bands_filename = fullfile('.', 'demo_data', 'multispectral_images', 'sensor.mat');
+    bands_variable = 'bands'; % Variable name in the above file
 
     % Paths and filenames of '.mat' files containing the matrices for
     % converting the images to the colour space of the true image. An
@@ -56,17 +56,17 @@ else
     evaluation_options = struct(...
         'metric', 'mrae',...
         'error_map', true,...
-        'mi_bands', [4, 24],...
-        'bands_diff', [4, 24],...
+        'mi_bands', [1, 7],...
+        'bands_diff', [1, 7],...
         'radiance', [...
-            218, 179, 31, 31;
-            321, 179, 31, 31
+            195, 157, 11, 11;
+            165, 195, 11, 11
         ]...
     );
 end
 
 % Output directory
-output_directory = '/home/llanos/Downloads';
+output_directory = '${DIRPATH}';
 
 %% Perform the evaluations
 

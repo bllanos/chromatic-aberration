@@ -22,6 +22,16 @@ function [qe] = sonyQuantumEfficiency(lambda)
 %   quantum efficiencies for the wavelength `lambda(i)`. The data is drawn
 %   from the plot of quantum efficiency curves for the Sony ICX655, 2/3"
 %   sensor saved in 'FL3_GE_50S5C_quantumEfficiencyData.png'.
+%
+% ## Data Source
+%
+% FLIR. (Jan. 27, 2017). FLIR FLEA3 GigE Vision Imaging Performance
+%   Specification. version 1.1, [Online]. Available:
+%   https://www.ptgrey.com/support/downloads/10109 (visited on 05/08/2017).
+%
+% ## Notes
+% - Out of concern for possible copyright implications, the image
+%   'FL3_GE_50S5C_quantumEfficiencyData.png' is not part of the repository.
 
 % Bernard Llanos
 % Supervised by Dr. Y.H. Yang
@@ -31,7 +41,7 @@ function [qe] = sonyQuantumEfficiency(lambda)
 nargoutchk(1, 1);
 narginchk(1, 1);
 
-I = imread('./sensor/FL3_GE_50S5C_quantumEfficiencyData.png');
+I = imread('FL3_GE_50S5C_quantumEfficiencyData.png');
 
 % Pixel coordinates of the plot axes
 x_axis_lim = [99, 931];

@@ -13,10 +13,10 @@ parameters_list = {};
 %% Input data and parameters
 
 % Colour space conversion data
-color_map_filename = '/home/llanos/GoogleDrive/ThesisResearch/Results/20190208_ComputarLens/dataset/SonyColorMapData.mat';
+color_map_filename = fullfile('.', 'demo_data', 'multispectral_images', 'sensor.mat');
 
 % Sample spectral reflectances
-reflectances_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180626_SpectralCharacterizationOfSetup/spectra_averaged.csv';
+reflectances_filename = fullfile('.', 'demo_data', 'spectral_data', 'spectra_averaged.csv');
 
 % Which samples to use from the file of reflectances
 reflectance_columns = 13:36; % All possible samples
@@ -24,7 +24,7 @@ reflectance_columns = 13:36; % All possible samples
 selected_reflectance_index = 16;
 
 % CIE D-illuminant
-illuminant_filename = '/home/llanos/GoogleDrive/ThesisResearch/Data/20180604_Spectral power distributions_BruceLindbloom/DIlluminants.csv';
+illuminant_filename = '${FILEPATH}';
 illuminant_temperature = 6504; % From https://en.wikipedia.org/wiki/Standard_illuminant#Illuminant_series_D
 
 % Spectral smoothness weight

@@ -63,7 +63,7 @@ parameters_list = {
 
 % ### Lens parameters
 % Based on
-% '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180226_SmallFLLenses_EdmundOptics/3mmDiameter4dot5mmFLUncoatedDoubleConvexLens_prnt_32022.pdf'
+% '20180226_SmallFLLenses_EdmundOptics/3mmDiameter4dot5mmFLUncoatedDoubleConvexLens_prnt_32022.pdf'
 lens_params.lens_radius = 3 / 2;
 lens_params.axial_thickness = 2;
 lens_params.radius_front = 4.29;
@@ -95,7 +95,7 @@ lens_params.ior_lens = sellmeierDispersion(lens_params.wavelengths, sellmeierCon
 [~, ior_lens_reference_index] = min(abs(lens_params.wavelengths - 587.6));
 
 % Obtained using the quantum efficiencies presented in
-% '/home/llanos/GoogleDrive/ThesisResearch/Equipment/FLEA3/20170508_FL3_GE_EMVA_Imaging Performance Specification.pdf'
+% '20170508_FL3_GE_EMVA_Imaging Performance Specification.pdf'
 % Image sensor: Sony ICX655, 2/3", Color (page 19)
 lens_params.wavelengths_to_rgb = sonyQuantumEfficiency(lens_params.wavelengths);
 
@@ -139,7 +139,7 @@ reference_channel_index = 2;
 
 % Output directory for all images and saved parameters and data
 % If empty (`[]`), output will be disabled.
-output_directory = '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180523_TestingImageWarping/ray_tracing';
+output_directory = '${DIRPATH}';
 
 % Colour-filter pattern for RAW image output
 bayer_pattern = 'gbrg';
