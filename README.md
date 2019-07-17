@@ -116,6 +116,103 @@
   I have seen the input raw images simulated from full-colour RGB images that
   have already been gamma/colour-corrected, where the simulation process does
   not account for the gamma/colour correction.
+- Running more parallel workers will increase memory consumption, but not
+  excessively. The code has been designed to avoid having MATLAB send
+  redundant data to parallel workers.
+
+### Troubleshooting
+
+#### Poor performance and out of memory errors
+- Image reconstruction
+  - Decrease the patch size (`patch_sizes` and `paddings` in [SetFixedParameters.m]()).
+  - Decrease regularization weights, and use fewer regularization terms
+    (`weights` in [SetFixedParameters.m]()).
+  - Decrease the number of spectral bands being estimated (`findSamplingOptions.power_threshold` 
+    or `findSamplingOptions.n_bands` in [SetFixedParameters.m]()).
+  - Sample spectral dispersion at a coarser resolution (increase
+    `dispersionfunToMatrixOptions.resolution` in [SetFixedParameters.m]()).
+  - Skip automatic regularization weight selection: `use_fixed_weights` in
+    [SetFixedParameters.m]().
+  - Use a lower limit on possible regularization weights:
+    `solvePatchesColorOptions.reg_options.maximum_weights` in [SetFixedParameters.m]().
+  - Lower the number of iterations
+    - For image reconstruction: `solvePatchesColorOptions.admm_options.maxit`
+      in [SetFixedParameters.m]().
+    - For regularization weight selection: increase `desired_weights_relative_error`
+      in [SetFixedParameters.m]().
+- Models of dispersion ([disk_fitting/RAWDiskDispersion.m](),
+  [dispersion_model/RegistrationDispersion.m](),
+  and [dispersion_model/DoubleConvexThickLensDispersion.m]()))
+  - Use polynomial models instead of spline models (`model_type_choices`)
+  - Lower the polynomial degrees tested during cross-validation
+    for dispersion modelling (`max_degree_xy_dispersion` and
+    `max_degree_lambda`), or vignetting correction (`max_degree_xy_vignetting`
+    only in [disk_fitting/RAWDiskDispersion.m]()).
+  - Lower the number of iterations for spline fitting generalized cross-
+    validation (`spline_smoothing_options` structure `n_iter` field).
+- Raytracing ([dispersion_model/DoubleConvexThickLensDispersion.m](),
+  [ray_tracing/DoubleConvexThickLensPSF.m](), and [ray_tracing/DoubleConvexThickLensPSF2.m]())
+  - Lower the number of rays (`ray_params.n_incident_rays`) or pixels
+    (`image_params.image_sampling`) to reduce memory consumption.
+  - Ensure `request_spline_smoothing` (an argument of
+    [ray_tracing/doubleSphericalLensPSF]()) is `false`.
+  - To reduce execution time, lower the number of wavelengths
+    (`lens_params.wavelengths`), lights (`scene_params.n_lights`),
+    and depths (`scene_params.light_distance_factor_larger`
+    and `scene_params.light_distance_factor_smaller`).
+
+#### Noisy or inaccurate models of dispersion
+- Create masks to guide disk keypoint fitting (files with names ending in '_maskDisks',
+  as documented in [disk_fitting/RAWDiskDispersion.m]()).
+- Enable vignetting correction if there is severe vignetting (add files with
+  names ending in '_maskVignetting', as documented in [disk_fitting/RAWDiskDispersion.m]()).
+- Use a larger patch size for registration-based dispersion calibration
+  (`reg_patch_options` in [dispersion_model/RegistrationDispersion.m]()).
+
+#### Visible seams between patches in output images
+- Decrease regularization weights (`weights` in [SetFixedParameters.m]()),
+  if using fixed regularization weights (`use_fixed_weights` in
+  [SetFixedParameters.m]()).
+- If using automatic regularization weight selection, avoid using the
+  minimum distance criterion to select regularization weights,
+  as it tends to set high weights. Set `solvePatchesColorOptions.reg_options.demosaic`
+  to `true` in [SetFixedParameters.m](), and set the first element of `criteria`
+  to `false` in [SetFixedParameters.m]().
+- Use a different image patch to select regularization weights:
+  `target_patch_weights` in [aberration_correction/CorrectByHyperspectralADMM.m]()
+  or `params_patches` in [evaluation/describeDataset.m]().
+- Use more patches to select regularization weights:
+  `params_patches` in [evaluation/describeDataset.m](), or
+  `n_patches` in [evaluation/SelectWeightsForDataset.m]()
+
+#### Visible colour-filter array patterns in output images
+- Increase regularization weights (`weights` in [SetFixedParameters.m]()),
+  if using fixed regularization weights (`use_fixed_weights` in
+  [SetFixedParameters.m]()).
+- If using automatic regularization weight selection based on a demosaicing
+  result (`solvePatchesColorOptions.reg_options.demosaic = true`
+  in [SetFixedParameters.m](), or the last element of `criteria`
+  is `true` in [SetFixedParameters.m]()), enforce similarity with all colour
+  channels by setting
+  `solvePatchesColorOptions.reg_options.demosaic_channels = [true, true, true]`
+  in [SetFixedParameters.m]().
+- If using automatic regularization weight selection, try it in the absence
+  of a model of dispersion.
+- Use a different image patch to select regularization weights:
+  `target_patch_weights` in [aberration_correction/CorrectByHyperspectralADMM.m]()
+  or `params_patches` in [evaluation/describeDataset.m]().
+- Use more patches to select regularization weights:
+  `params_patches` in [evaluation/describeDataset.m](), or
+  `n_patches` in [evaluation/SelectWeightsForDataset.m]()
+
+#### Other undesirable results or suspected bugs
+- Try to identify the function which isn't working as expected. Make sure it is
+  being called with a "verbose" option, if it accepts one.
+- Replace `parfor` with `for` to facilitate finding errors in parallel code by
+  temporarily disabling parallel execution. (Note: By design, there are no
+  race conditions. The iterations of parallel for-loops are strictly independent.)
+- Make sure that the colour-filter array pattern code is correct (the `bayer_pattern`
+  parameter in [SetFixedParameters.m](), and other scripts).
 
 ## Detailed description of the codebase
 - Use the MATLAB `help` command to view the 'Contents.m' files describing the codebase,
@@ -167,8 +264,7 @@
 - The following is a list of the references corresponding to sources of
   code or ideas. This list is the union of the more specific lists of
   references provided in individual code files in this repository.
-  It is not a full list of all of the works examined during research
-  project.
+  It is not a full list of all works examined during research project.
 
 ### References list
 

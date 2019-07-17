@@ -123,10 +123,9 @@ criteria_colors = eye(3);
 % - '*_reestimated.tif' and '*_reestimated.mat'
 save_all_images = false;
 
-% Not all scripts follow the above guidelines. In particular, image
-% generation scripts may output all possible images regardless of this
-% flag, especially if it will save time later during image estimation and
-% evaluation.
+% Not all scripts follow the above guidelines. In particular, image generation
+% scripts may output all possible images regardless of this flag, especially if
+% it will save time later, during image estimation and evaluation.
 
 %% Image parameters
 
@@ -260,7 +259,8 @@ solvePatchesSpectralOptions.admm_options = solvePatchesColorOptions.admm_options
 
 % Every combination of rows of `patch_sizes` and elements of `paddings`
 % will be tested by some image estimation pipelines, and if `patch_sizes`
-% is empty only whole image estimation may be performed.
+% is empty, only whole image estimation may be performed. Most of the codebase
+% only uses the first row of `patch_sizes`, and the first element of `paddings`.
 %
 % Only use even integers for the patch and padding sizes, to ensure that patches
 % are valid colour filter array images.
@@ -310,7 +310,8 @@ end
 % iterations:
 desired_weights_relative_error = 0.05;
 % At each iteration, after the first, the relative error is reduced to this
-% fraction of its previous value
+% fraction of its previous value. (This value is based on the current
+% implementation, and is not a parameter to be adjusted.)
 weights_iter_reduction = 2/3;
 log10_distance = max(log10(solvePatchesColorOptions.reg_options.maximum_weights) -...
     log10(solvePatchesColorOptions.reg_options.minimum_weights));
