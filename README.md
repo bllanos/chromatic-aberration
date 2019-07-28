@@ -64,32 +64,32 @@ B. Llanos. "Chromatic Aberration Correction and Spectral Reconstruction from Col
 - Provides: Colour homography and root-polynomial colour correction algorithms,
   corresponding to several publications
 - Required by:
-  - [data_analysis/CalibrateColorCorrection.m]()
-  - [data_analysis/ColorCorrection.m]()
+  - [data_analysis/CalibrateColorCorrection.m](data_analysis/CalibrateColorCorrection.m)
+  - [data_analysis/ColorCorrection.m](data_analysis/ColorCorrection.m)
 
 #### Revisiting Cross-channel Information Transfer for Chromatic Aberration Correction (ICCV 2017)
 - Authors: Tiancheng Sun, Yifan Peng, and Wolfgang Heidrich
 - Location: https://github.com/evanypeng/ICCV2017_RevisitCCIT_code
 - Provides: An uncalibrated method for correcting chromatic aberration
-- Optional dependency, used by [evaluation/RunOnDataset.m]() only when enabled
-  in [evaluation/SetAlgorithms.m]()
-  - Parameters for the method were tuned using [data_analysis/TuneSunEtAl2017.m]().
+- Optional dependency, used by [evaluation/RunOnDataset.m](evaluation/RunOnDataset.m) only when enabled
+  in [evaluation/SetAlgorithms.m](evaluation/SetAlgorithms.m)
+  - Parameters for the method were tuned using [data_analysis/TuneSunEtAl2017.m](data_analysis/TuneSunEtAl2017.m).
 
 #### Blind Deconvolution Using a Normalized Sparsity Measure (CVPR 2011)
 - Authors: Dilip Krishnan, Terence Tay, and Rob Fergus
 - Location: https://dilipkay.wordpress.com/blind-deconvolution
 - Provides: An uncalibrated method for image deblurring
-- Optional dependency, used by [data_analysis/ShowPatches.m](), when directed
-  - Parameters for the method were tuned using [data_analysis/TuneSunEtAl2017.m]().
+- Optional dependency, used by [data_analysis/ShowPatches.m](data_analysis/ShowPatches.m), when directed
+  - Parameters for the method were tuned using [data_analysis/TuneSunEtAl2017.m](data_analysis/TuneSunEtAl2017.m).
 
 #### Very fast Mutual Information between two images
 - Authors: Giangregorio Generoso
 - Location: https://www.mathworks.com/matlabcentral/fileexchange/36538-very-fast-mutual-information-betweentwo-images
 - Provides: A function to calculate mutual information
 - Required by:
-  - [data_analysis/TuneSunEtAl2017.m]()
-  - [evaluation/evaluateRGB.m]()
-  - [evaluation/evaluateSpectral.m]()
+  - [data_analysis/TuneSunEtAl2017.m](data_analysis/TuneSunEtAl2017.m)
+  - [evaluation/evaluateRGB.m](evaluation/evaluateRGB.m)
+  - [evaluation/evaluateSpectral.m](evaluation/evaluateSpectral.m)
 - Easily omitted if necessary
 
 #### OpenEXR-Bindings for MATLAB
@@ -97,17 +97,17 @@ B. Llanos. "Chromatic Aberration Correction and Spectral Reconstruction from Col
 - Location: https://github.com/skycaptain/openexr-matlab (actually retrieved
   from a fork: https://github.com/KAIST-VCLAB/openexr-matlab)
 - Provides: Functions for reading and writing OpenEXR files
-- Required by [utilities/loadImage.m](), only when working with OpenEXR files.
+- Required by [utilities/loadImage.m](utilities/loadImage.m), only when working with OpenEXR files.
 
 #### Adaptive Residual Interpolation for Color and Multispectral Image Demosaicking (Sensors 2017)
 - Authors: Yusuke Monno, Daisuke Kiku, Masayuki Tanaka and Masatoshi Okutomi
 - Location: http://www.ok.sc.e.titech.ac.jp/res/DM/RI.html
 - Provides: An RGB image demosaicing method
-- Optional dependency, used by [evaluation/RunOnDataset.m]() only when enabled
-  in [evaluation/SetAlgorithms.m](). Also used by [data_analysis/TuneSunEtAl2017.m]().
+- Optional dependency, used by [evaluation/RunOnDataset.m](evaluation/RunOnDataset.m) only when enabled
+  in [evaluation/SetAlgorithms.m](evaluation/SetAlgorithms.m). Also used by [data_analysis/TuneSunEtAl2017.m](data_analysis/TuneSunEtAl2017.m).
 
 ### Third-party data dependencies
-- All demos in [demo_data/README.md]() do not require third-party data.
+- All demos in [demo_data/README.md](demo_data/README.md) do not require third-party data.
 
 #### CIE 1931 Standard (2-degree) Observer spectral tristimulus functions
 - These functions were retrieved from Table 1 of the ASTM E308 standard
@@ -125,28 +125,28 @@ B. Llanos. "Chromatic Aberration Correction and Spectral Reconstruction from Col
   to a CSV file, where the first column contained wavelength values, and the
   following three columns contained the values of the 'S0', 'S1', and 'S2'
   functions, respectively.
-- The data is loaded by several scripts as input for the [aberration_data/ciedIlluminant.m]()
+- The data is loaded by several scripts as input for the [aberration_data/ciedIlluminant.m](aberration_data/ciedIlluminant.m)
   function.
 
 #### ColorChecker spectral reflectances
 - Spectral reflectance measurements of the patches of the average X-Rite ColorChecker
   chart from Danny Pascale's website (cited below) were used before in-house
   spectral reflectance measurements were available
-  (saved as [demo_data/spectral_data/spectra_averaged.csv]()).
+  (saved as [demo_data/spectral_data/spectra_averaged.csv](demo_data/spectral_data/spectra_averaged.csv)).
 - The reflectance data was stored in a CSV file, where the first column contained
   wavelength values, and the following 24 columns contained the spectral reflectances
   of the 24 ColorChecker CLASSIC patches.
 - It would be easy to create an equivalent file from
-  [demo_data/spectral_data/spectra_averaged.csv]() to use instead in most places.
-- Presently, only [aberration_data/BimaterialImages.m](),
-  [data_analysis/ColorCheckerClassicPreNov2014.m](), and
-  [data_analysis/SpectralDataJune262018.m]() rely on this data.
+  [demo_data/spectral_data/spectra_averaged.csv](demo_data/spectral_data/spectra_averaged.csv) to use instead in most places.
+- Presently, only [aberration_data/BimaterialImages.m](aberration_data/BimaterialImages.m),
+  [data_analysis/ColorCheckerClassicPreNov2014.m](data_analysis/ColorCheckerClassicPreNov2014.m), and
+  [data_analysis/SpectralDataJune262018.m](data_analysis/SpectralDataJune262018.m) rely on this data.
 
 ## Setup
-- Add all folders and subfolders to the MATLAB path, excluding [.git/]() and [deprecated/]().
+- Add all folders and subfolders to the MATLAB path, excluding [.git/](.git/) and [deprecated/](deprecated/).
 
 ## Basic usage instructions
-- To run predefined demos, see [demo_data/README.md]().
+- To run predefined demos, see [demo_data/README.md](demo_data/README.md).
 - Files with names starting with capital letters are MATLAB scripts, and can
   be used as described in their documentation comments.
 - Remaining files are MATLAB functions called by the scripts.
@@ -155,7 +155,7 @@ B. Llanos. "Chromatic Aberration Correction and Spectral Reconstruction from Col
 - The tokens `${DIRPATH}` and `${FILEPATH}` that appear in character vector
   literals need to be replaced with directory paths and file paths, respectively,
   that are specific to your data file locations. Some directory and file paths
-  are presently set to point to the demo data in [./demo_data/](), but can be
+  are presently set to point to the demo data in [./demo_data/](./demo_data/), but can be
   changed to point to your data.
 
 ## Tips
@@ -168,7 +168,7 @@ B. Llanos. "Chromatic Aberration Correction and Spectral Reconstruction from Col
   excessively. The code has been designed to avoid having MATLAB send
   redundant data to parallel workers.
 - If you want to run the code on your own dataset of images, adjust parameters
-  in [SetFixedParameters.m](). The following parameters are most relevant:
+  in [SetFixedParameters.m](SetFixedParameters.m). The following parameters are most relevant:
   - `bayer_pattern`
   - `findSamplingOptions`
   - `dispersionfunToMatrixOptions.resolution`
@@ -177,38 +177,38 @@ B. Llanos. "Chromatic Aberration Correction and Spectral Reconstruction from Col
 
 #### Poor performance and out of memory errors
 - Image reconstruction
-  - Decrease the patch size (`patch_sizes` and `paddings` in [SetFixedParameters.m]()).
+  - Decrease the patch size (`patch_sizes` and `paddings` in [SetFixedParameters.m](SetFixedParameters.m)).
   - Decrease regularization weights, and use fewer regularization terms
-    (`weights` in [SetFixedParameters.m]()).
+    (`weights` in [SetFixedParameters.m](SetFixedParameters.m)).
   - Decrease the number of spectral bands being estimated (`findSamplingOptions.power_threshold` 
-    or `findSamplingOptions.n_bands` in [SetFixedParameters.m]()).
+    or `findSamplingOptions.n_bands` in [SetFixedParameters.m](SetFixedParameters.m)).
   - Sample spectral dispersion at a coarser resolution (increase
-    `dispersionfunToMatrixOptions.resolution` in [SetFixedParameters.m]()).
+    `dispersionfunToMatrixOptions.resolution` in [SetFixedParameters.m](SetFixedParameters.m)).
   - Skip automatic regularization weight selection: `use_fixed_weights` in
-    [SetFixedParameters.m]().
+    [SetFixedParameters.m](SetFixedParameters.m).
   - Use a lower limit on possible regularization weights:
-    `solvePatchesColorOptions.reg_options.maximum_weights` in [SetFixedParameters.m]().
+    `solvePatchesColorOptions.reg_options.maximum_weights` in [SetFixedParameters.m](SetFixedParameters.m).
   - Lower the number of iterations
     - For image reconstruction: `solvePatchesColorOptions.admm_options.maxit`
-      in [SetFixedParameters.m]().
+      in [SetFixedParameters.m](SetFixedParameters.m).
     - For regularization weight selection: increase `desired_weights_relative_error`
-      in [SetFixedParameters.m]().
-- Models of dispersion ([disk_fitting/RAWDiskDispersion.m](),
-  [dispersion_model/RegistrationDispersion.m](),
-  and [dispersion_model/DoubleConvexThickLensDispersion.m]()))
+      in [SetFixedParameters.m](SetFixedParameters.m).
+- Models of dispersion ([disk_fitting/RAWDiskDispersion.m](disk_fitting/RAWDiskDispersion.m),
+  [dispersion_model/RegistrationDispersion.m](dispersion_model/RegistrationDispersion.m),
+  and [dispersion_model/DoubleConvexThickLensDispersion.m](dispersion_model/DoubleConvexThickLensDispersion.m)))
   - Use polynomial models instead of spline models (`model_type_choices`)
   - Lower the polynomial degrees tested during cross-validation
     for dispersion modelling (`max_degree_xy_dispersion` and
     `max_degree_lambda`), or vignetting correction (`max_degree_xy_vignetting`
-    only in [disk_fitting/RAWDiskDispersion.m]()).
+    only in [disk_fitting/RAWDiskDispersion.m](disk_fitting/RAWDiskDispersion.m)).
   - Lower the number of iterations for spline fitting generalized cross-
     validation (`spline_smoothing_options` structure `n_iter` field).
-- Raytracing ([dispersion_model/DoubleConvexThickLensDispersion.m](),
-  [ray_tracing/DoubleConvexThickLensPSF.m](), and [ray_tracing/DoubleConvexThickLensPSF2.m]())
+- Raytracing ([dispersion_model/DoubleConvexThickLensDispersion.m](dispersion_model/DoubleConvexThickLensDispersion.m),
+  [ray_tracing/DoubleConvexThickLensPSF.m](ray_tracing/DoubleConvexThickLensPSF.m), and [ray_tracing/DoubleConvexThickLensPSF2.m](ray_tracing/DoubleConvexThickLensPSF2.m))
   - Lower the number of rays (`ray_params.n_incident_rays`) or pixels
     (`image_params.image_sampling`) to reduce memory consumption.
   - Ensure `request_spline_smoothing` (an argument of
-    [ray_tracing/doubleSphericalLensPSF]()) is `false`.
+    [ray_tracing/doubleSphericalLensPSF.m](ray_tracing/doubleSphericalLensPSF.m)) is `false`.
   - To reduce execution time, lower the number of wavelengths
     (`lens_params.wavelengths`), lights (`scene_params.n_lights`),
     and depths (`scene_params.light_distance_factor_larger`
@@ -216,47 +216,47 @@ B. Llanos. "Chromatic Aberration Correction and Spectral Reconstruction from Col
 
 #### Noisy or inaccurate models of dispersion
 - Create masks to guide disk keypoint fitting (files with names ending in '_maskDisks',
-  as documented in [disk_fitting/RAWDiskDispersion.m]()).
+  as documented in [disk_fitting/RAWDiskDispersion.m](disk_fitting/RAWDiskDispersion.m)).
 - Enable vignetting correction if there is severe vignetting (add files with
-  names ending in '_maskVignetting', as documented in [disk_fitting/RAWDiskDispersion.m]()).
+  names ending in '_maskVignetting', as documented in [disk_fitting/RAWDiskDispersion.m](disk_fitting/RAWDiskDispersion.m)).
 - Use a larger patch size for registration-based dispersion calibration
-  (`reg_patch_options` in [dispersion_model/RegistrationDispersion.m]()).
+  (`reg_patch_options` in [dispersion_model/RegistrationDispersion.m](dispersion_model/RegistrationDispersion.m)).
 
 #### Visible seams between patches in output images
-- Decrease regularization weights (`weights` in [SetFixedParameters.m]()),
+- Decrease regularization weights (`weights` in [SetFixedParameters.m](SetFixedParameters.m)),
   if using fixed regularization weights (`use_fixed_weights` in
-  [SetFixedParameters.m]()).
+  [SetFixedParameters.m](SetFixedParameters.m)).
 - If using automatic regularization weight selection, avoid using the
   minimum distance criterion to select regularization weights,
   as it tends to set high weights. Set `solvePatchesColorOptions.reg_options.demosaic`
-  to `true` in [SetFixedParameters.m](), and set the first element of `criteria`
-  to `false` in [SetFixedParameters.m]().
+  to `true` in [SetFixedParameters.m](SetFixedParameters.m), and set the first element of `criteria`
+  to `false` in [SetFixedParameters.m](SetFixedParameters.m).
 - Use a different image patch to select regularization weights:
-  `target_patch_weights` in [aberration_correction/CorrectByHyperspectralADMM.m]()
-  or `params_patches` in [evaluation/describeDataset.m]().
+  `target_patch_weights` in [aberration_correction/CorrectByHyperspectralADMM.m](aberration_correction/CorrectByHyperspectralADMM.m)
+  or `params_patches` in [evaluation/describeDataset.m](evaluation/describeDataset.m).
 - Use more patches to select regularization weights:
-  `params_patches` in [evaluation/describeDataset.m](), or
-  `n_patches` in [evaluation/SelectWeightsForDataset.m]()
+  `params_patches` in [evaluation/describeDataset.m](evaluation/describeDataset.m), or
+  `n_patches` in [evaluation/SelectWeightsForDataset.m](evaluation/SelectWeightsForDataset.m)
 
 #### Visible colour-filter array patterns in output images
-- Increase regularization weights (`weights` in [SetFixedParameters.m]()),
+- Increase regularization weights (`weights` in [SetFixedParameters.m](SetFixedParameters.m)),
   if using fixed regularization weights (`use_fixed_weights` in
-  [SetFixedParameters.m]()).
+  [SetFixedParameters.m](SetFixedParameters.m)).
 - If using automatic regularization weight selection based on a demosaicing
   result (`solvePatchesColorOptions.reg_options.demosaic = true`
-  in [SetFixedParameters.m](), or the last element of `criteria`
-  is `true` in [SetFixedParameters.m]()), enforce similarity with all colour
+  in [SetFixedParameters.m](SetFixedParameters.m), or the last element of `criteria`
+  is `true` in [SetFixedParameters.m](SetFixedParameters.m)), enforce similarity with all colour
   channels by setting
   `solvePatchesColorOptions.reg_options.demosaic_channels = [true, true, true]`
-  in [SetFixedParameters.m]().
+  in [SetFixedParameters.m](SetFixedParameters.m).
 - If using automatic regularization weight selection, try it in the absence
   of a model of dispersion.
 - Use a different image patch to select regularization weights:
-  `target_patch_weights` in [aberration_correction/CorrectByHyperspectralADMM.m]()
-  or `params_patches` in [evaluation/describeDataset.m]().
+  `target_patch_weights` in [aberration_correction/CorrectByHyperspectralADMM.m](aberration_correction/CorrectByHyperspectralADMM.m)
+  or `params_patches` in [evaluation/describeDataset.m](evaluation/describeDataset.m).
 - Use more patches to select regularization weights:
-  `params_patches` in [evaluation/describeDataset.m](), or
-  `n_patches` in [evaluation/SelectWeightsForDataset.m]()
+  `params_patches` in [evaluation/describeDataset.m](evaluation/describeDataset.m), or
+  `n_patches` in [evaluation/SelectWeightsForDataset.m](evaluation/SelectWeightsForDataset.m)
 
 #### Other undesirable results or suspected bugs
 - Try to identify the function which isn't working as expected. Make sure it is
@@ -265,7 +265,7 @@ B. Llanos. "Chromatic Aberration Correction and Spectral Reconstruction from Col
   temporarily disabling parallel execution. (Note: By design, there are no
   race conditions. The iterations of parallel for-loops are strictly independent.)
 - Make sure that the colour-filter array pattern code is correct (the `bayer_pattern`
-  parameter in [SetFixedParameters.m](), and other scripts).
+  parameter in [SetFixedParameters.m](SetFixedParameters.m), and other scripts).
 
 ## Detailed description of the codebase
 - Use the MATLAB `help` command to view the 'Contents.m' files describing the codebase,
