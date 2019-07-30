@@ -194,6 +194,6 @@ recovering a multispectral image corresponding to the input image.
    The first image will have some false colours from regularization.
    The severity of the false colours depends on the camera spectral sensitivity,
    and on the spectral characteristics of the scene, as described in
-   the thesis associated with this codebase. (See Figure 5.17, Section 5.5.2,
+   the thesis associated with this codebase. (See Figure 5.12, Section 5.5.2,
    and Section 6.3 in the thesis.) In natural images, as opposed to images
    synthesized from images taken under filtered light, results may improve.
