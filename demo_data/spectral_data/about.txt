@@ -105,10 +105,8 @@ June 26, 2018
 - We discovered that it was an unstable light source in the infrared range.
   Perhaps this is because of the additional electrical components emitting heat
   besides the projector's lamp.
-- More information about the projector is here:
-  '/home/llanos/GoogleDrive/ThesisResearch/Equipment/Projector'
-  - The projector was configured to project a white test pattern, using its
-    service menu.
+- The projector was configured to project a white test pattern, using its
+  service menu.
 - Data was obtained from the bright patch created on a white tile placed
   about 41 cm in front of the projector.
 - Series 000 was taken about a minute and a half after resetting the white standard
@@ -133,15 +131,15 @@ June 26, 2018
   
 ## Data analysis
 - Code for plotting the data in 'spectra_averaged.csv' and 'spectra_named.csv'
-  is in '/home/llanos/GoogleDrive/ThesisResearch/MATLAB/aberration_data/SpectralDataJune262018Averaged.m'
-  and '/home/llanos/GoogleDrive/ThesisResearch/MATLAB/aberration_data/SpectralDataJune262018.m', respectively.
+  is in '../../aberration_data/SpectralDataJune262018Averaged.m'
+  and '../../aberration_data/SpectralDataJune262018.m', respectively.
 
 ## Remarks
 - The spectra of the two chequerboard patterns are not the same.
 - The chequerboards have a darker black than the LaserJet printer toner.
 - There is good agreement between the spectra measured from the colour chart,
-  and the data provided by Babel Color (Danny Pascale), saved in
-  '/home/llanos/GoogleDrive/ThesisResearch/Data and Results/20180604_ColorCheckerSpectralData_BabelColor/'
+  and the data provided by Babel Color (Danny Pascale) at
+  http://www.babelcolor.com/colorchecker.htm
   - Most of the spectra of the colour chart have higher reflectances than the
     results from Babel Color.
   - 'purple' and 'blue flower' are the most different from the Babel Color data.
@@ -152,8 +150,7 @@ June 26, 2018
 - The 442 nm filter unfortunately has a second peak partially overlapping the
   400 nm filter. As this was observed on both attempts at filter measurements,
   it is likely not a measurement error.
-  - This feature is not present in the curves provided by Edmund Optics
-    ('/home/llanos/GoogleDrive/ThesisResearch/Equipment/Edmund Optics Color Filters/20180627_Optical bandpass filter kit_50 mm diameter_10 nm FWHM_curves.pdf').
+  - This feature is not present in the curves provided by Edmund Optics.
   - It may be because the light from the projector is not collimated.
     (Bandpass filters are sensitive to the angle of light, as mentioned at
     https://www.edmundoptics.com/optics/optical-filters/bandpass-filters/)
