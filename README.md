@@ -22,11 +22,23 @@
   on image datasets
 - Scripts for visualizing and analyzing the results
 
-## Citation
+## Citation and Publications
 - If you use this work, you may cite the following thesis, available at
-  https://era.library.ualberta.ca/
+  https://era.library.ualberta.ca/items/ee1dcb1a-7e50-493a-b81d-de3e079ec319
+  (https://doi.org/10.7939/r3-bg6t-ar97)
 
 B. Llanos. "Chromatic Aberration Correction and Spectral Reconstruction from Colour Images." M.Sc. thesis, University of Alberta, Canada, 2019.
+
+- The project was also presented as a conference paper, where it is described
+  in a shorter format, but in less depth (https://doi.org/10.1109/CRV50864.2020.00011)
+
+B. Llanos and Y.-H. Yang, "Simultaneous Demosaicing and Chromatic Aberration Correction through Spectral Reconstruction,"
+in 2020 17th Conference on Computer and Robot Vision (CRV), 2020, pp. 17-24.
+DOI 10.1109/CRV50864.2020.00011
+
+- For brief overviews of the work, the conference paper has an associated
+  - Video: https://www.youtube.com/watch?v=gxVc8nMfaQc
+  - Poster: https://www.computerrobotvision.org/posters/paper_3.pdf
 
 ## Environment
 - MATLAB R2018b was used for development, but other MATLAB releases will likely
@@ -319,7 +331,7 @@ B. Llanos. "Chromatic Aberration Correction and Spectral Reconstruction from Col
 - The following is a list of the references corresponding to sources of
   code or ideas. This list is the union of the more specific lists of
   references provided in individual code files in this repository.
-  It is not a full list of all works examined during research project.
+  It is not a full list of all works examined during the research project.
 
 ### References list
 
